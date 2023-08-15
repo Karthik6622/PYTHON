@@ -1,0 +1,10 @@
+\begin{tabular}{lrll}
+\toprule
+   Name &  Age &         Role & Degree \\
+\midrule
+Karthik &   23 &    Developer &    MCA \\
+   Raja &   24 & TestEngineer &    BSC \\
+   Mani &   25 &          IAS &  Btech \\
+  Muthu &   26 &          IPS &  Mtech \\
+\bottomrule
+\end{tabular}
