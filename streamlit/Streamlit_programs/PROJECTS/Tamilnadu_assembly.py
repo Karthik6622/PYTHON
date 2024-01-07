@@ -30,7 +30,7 @@ with st.sidebar:
        default_index=0,
    )
 #reding the Tamilnadu assembly election data through the csv file
-dd=pd.read_csv("Tamil_Nadu_AE.csv")
+dd=pd.read_csv("streamlit/Streamlit_programs/PROJECTS/Tamil_Nadu_AE.csv")
 #st.write(dd)
 #extract the Pa
 d=dd['Party'].value_counts().reset_index()
@@ -1943,7 +1943,7 @@ else:
         with st.container():
             with c1:
                 with st.container():
-                    st.image("tamilnadu_logo.jpg",use_column_width=True)
+                    st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_column_width=True)
             with c2:
                 st.markdown(
                     """
