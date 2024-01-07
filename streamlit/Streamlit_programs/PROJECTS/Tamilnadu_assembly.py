@@ -850,7 +850,7 @@ elif see=='GeoMap':
     
     elif k=='TotalVote' and sele=='District':
         m = folium.Map(location=((11.12712250, 78.65689420)), zoom_start=7, name="map", attri="My tamilnadu")
-        json_data = json.load(open("TAMIL NADU_DISTRICTS.geojson", 'r'))
+        json_data = json.load(open("streamlit/Streamlit_programs/PROJECTS/TAMIL NADU_DISTRICTS.geojson", 'r'))
 
         with st.sidebar:
             ss = st.selectbox("Select the options", options=['Valid_Votes', 'Electors', 'Turnout_Percentage'])
@@ -923,7 +923,7 @@ elif see=='GeoMap':
 
     elif k=='Party' and sele=='District':
         m = folium.Map(location=(11.12712250, 78.65689420), zoom_start=7, name="tamilnadu", attri="MY Tamilnadu")
-        j = json.load(open("E:/streamlit/Streamlit_programs/PROJECTS/TAMIL NADU_DISTRICTS.geojson",'r'))
+        j = json.load(open("streamlit/Streamlit_programs/PROJECTS/TAMIL NADU_DISTRICTS.geojson",'r'))
         with st.sidebar:
            select_option1=st.selectbox("Select the options",options=['Votes','Vote_Share_Percentage','Margin','Margin_Percentage'])
            party_select=st.selectbox("Select the party",options=dd['Party'].unique())
