@@ -2209,7 +2209,7 @@ else:
                 The "Tamil Nadu Assembly Election EDA & Prediction" project aims to analyze historical data related to Tamil Nadu assembly elections and build predictive models for upcoming elections. Through this project, we seek to gain insights into voting patterns, understand the impact of various factors on election outcomes, and ultimately predict the results of future elections.
                 </p>
                 </div>
-                """
+                """,use_container_width=True
             )
         com.html(
             """
