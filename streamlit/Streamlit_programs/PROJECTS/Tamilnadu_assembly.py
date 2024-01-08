@@ -2334,7 +2334,7 @@ else:
                )
                fig=go.Figure(data=[trace],layout=layout)
                st.plotly_chart(fig,use_container_width=True)
-               st.markdown("---")
+               #st.markdown("---")
             with coo2:
                count=wd4['count'].sum()
                trace=go.Pie(
@@ -2357,7 +2357,7 @@ else:
                )
                fig=go.Figure(data=[trace],layout=layout)
                st.plotly_chart(fig,use_container_width=True)
-               st.markdown("---")
+            st.markdown("---")
     elif sa=='ContactUs':
         c1,c2=st.columns([4,4])
         with st.container():
