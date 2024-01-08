@@ -66,6 +66,7 @@ if see=='Barplot':
                default_value=True if ii in [2021,2011] else False
                if checkbox_all or st.checkbox(str(ii),value=default_value):
                    selected_checkbox.append(ii)
+        c1,c2=st.columns(2)
         if region=='ALL':
             data=[]
             for se in selected_checkbox:
@@ -97,13 +98,12 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            #bargap=0.3
+            bargap=0.3
                 )
             
             fig=go.Figure(data=data,layout=layout1)
-            
-            
-            st.plotly_chart(fig,use_container_width=True)
+            with c1:
+                st.plotly_chart(fig,use_container_width=True)
             #creating the bar chart for each year vo
             data=[]
             for se in selected_checkbox:
@@ -133,11 +133,12 @@ if see=='Barplot':
            #height=400,
            # width=600,
             barmode='group',
-            #bargap=0.3
+            bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            st.plotly_chart(fig1,use_container_width=True)
+            with c2:
+                st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -167,11 +168,12 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            #bargap=0.3
+            bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            st.plotly_chart(fig1,use_container_width=True)
+            with c1:
+                st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -201,11 +203,13 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            #bargap=0.3
+            bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            st.plotly_chart(fig1,use_container_width=True)
+            with c2:
+                st.plotly_chart(fig1,use_container_width=True)
+        
         else:
             #Constituency_Name'
             data=[]
@@ -247,8 +251,8 @@ if see=='Barplot':
                 )
             
             fig=go.Figure(data=data,layout=layout1)
-            #with col1:
-            st.plotly_chart(fig,use_column_width=True)
+            with c1:
+               st.plotly_chart(fig,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -286,8 +290,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            #with col2:
-            st.plotly_chart(fig1,use_column_width=True)    
+            with c2:
+               st.plotly_chart(fig1,use_container_width=True)    
             
 
             data=[]
@@ -325,8 +329,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            #with col1:
-            st.plotly_chart(fig1,use_container_width=True)
+            with c1:
+               st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -363,8 +367,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            #with col2:
-            st.plotly_chart(fig1,use_container_width=True)
+            with c2:
+               st.plotly_chart(fig1,use_container_width=True)
     elif sa=='Total':
         with st.sidebar:
             region=st.selectbox("Select the region",options=['ALL','Constituency_Name','District_Name','Sub_Region'],index=1)
@@ -387,6 +391,7 @@ if see=='Barplot':
                default_value=True if ii in [2021,2011] else False
                if checkbox_all or st.checkbox(str(ii),value=default_value):
                    selected_checkbox.append(ii)
+        col1,col2=st.columns(2)
         if region=='ALL':
             data=[]
             for se in selected_checkbox:
@@ -528,7 +533,7 @@ if see=='Barplot':
             
             fig=go.Figure(data=data,layout=layout1)
             with col1:
-                st.plotly_chart(fig,use_column_width=True)
+                st.plotly_chart(fig,use_container_width=True)
 
             
 
@@ -566,7 +571,7 @@ if see=='Barplot':
             
             fig=go.Figure(data=data,layout=layout1)
             with col2:
-                st.plotly_chart(fig,use_column_width=True)   
+                st.plotly_chart(fig,use_container_width=True)   
             
 
             data=[]
@@ -613,7 +618,7 @@ if see=='Barplot':
             
             fig=go.Figure(data=data,layout=layout1)
             with col1:
-                st.plotly_chart(fig,use_column_width=True)   
+                st.plotly_chart(fig,use_container_width=True)   
 elif see=='Lineplot':
     with st.sidebar:
        multi_select=st.multiselect("Select the party",options=d['Party'],default=['ADMK','DMK'])
