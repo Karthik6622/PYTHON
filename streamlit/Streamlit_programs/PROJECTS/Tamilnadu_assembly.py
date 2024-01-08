@@ -50,8 +50,6 @@ if see=='Barplot':
             multi_selet=st.multiselect("Select the party:",options=d['Party'].unique(),default=['ADMK','BJP'])
             region=st.selectbox("Select the region",options=['ALL','Constituency_Name','District_Name','Sub_Region'],index=1)
             options=ye.tolist()
-            
-        col1,col2=st.columns(2)
         if region=='Constituency_Name':
             with st.sidebar:
                 con_multi=st.multiselect("Sleect your constituency",options=dd['Constituency_Name'].unique(),default=dd['Constituency_Name'].unique()[1])
@@ -103,8 +101,9 @@ if see=='Barplot':
                 )
             
             fig=go.Figure(data=data,layout=layout1)
-            with col1:
-                st.plotly_chart(fig,use_column_width=True)
+            
+            
+            st.plotly_chart(fig,use_container_width=True)
             #creating the bar chart for each year vo
             data=[]
             for se in selected_checkbox:
@@ -138,8 +137,7 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col2:
-                st.plotly_chart(fig1,use_column_width=True)
+            st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -173,8 +171,7 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col1:
-               st.plotly_chart(fig1,use_column_width=True)
+            st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -208,8 +205,7 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col2:
-                st.plotly_chart(fig1,use_column_width=True)
+            st.plotly_chart(fig1,use_container_width=True)
         else:
             #Constituency_Name'
             data=[]
@@ -251,8 +247,8 @@ if see=='Barplot':
                 )
             
             fig=go.Figure(data=data,layout=layout1)
-            with col1:
-                st.plotly_chart(fig,use_column_width=True)
+            #with col1:
+            st.plotly_chart(fig,use_column_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -290,8 +286,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col2:
-                st.plotly_chart(fig1,use_column_width=True)    
+            #with col2:
+            st.plotly_chart(fig1,use_column_width=True)    
             
 
             data=[]
@@ -329,8 +325,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col1:
-               st.plotly_chart(fig1,use_container_width=True)
+            #with col1:
+            st.plotly_chart(fig1,use_container_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -367,8 +363,8 @@ if see=='Barplot':
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
-            with col2:
-                st.plotly_chart(fig1,use_container_width=True)
+            #with col2:
+            st.plotly_chart(fig1,use_container_width=True)
     elif sa=='Total':
         with st.sidebar:
             region=st.selectbox("Select the region",options=['ALL','Constituency_Name','District_Name','Sub_Region'],index=1)
@@ -1634,6 +1630,15 @@ elif see=='Predictions':
         if not pred_cons:
             st.warning("⚠️ Please select at least one constituency.")
         else:
+            st.markdown(
+            """
+            <style>
+            table{
+            background-color: #333030;
+            font-color:white;
+            }
+            </style>
+            """,unsafe_allow_html=True)
             with st.container():
                 for pp in pred_cons:
                     #getting only user given constituency encoded values
@@ -1661,12 +1666,14 @@ elif see=='Predictions':
                 #st.write(pred_cons)
                 #st.write(kkk)
                 dddd=pd.DataFrame(data=dad,columns=['Valid_Votes','Turnout_Percentage','Electors'],index=[pred_cons])
-                st.markdown("## Predicted Valid Votes,Turnout_Percentage,Electors")
+                st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Predicted Valid Votes,Turnout_Percentage,Electors</h2><br>",unsafe_allow_html=True)
+                al=rfr.score(X,y)*100
+                st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{al}</p>""",unsafe_allow_html=True)
                 st.table(dddd)
                 dddd1=pd.DataFrame(data=[kj for kj in kkk ],columns=['Valid_Votes','Turnout_Percentage','Electors'],index=[pred_cons])
-                st.markdown("## Actual Valid votes")
+                st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Actual Valid Votes,Turnout_Percentage,Electors</h2><br>",unsafe_allow_html=True)
                 st.table(dddd1)
-                st.write(rfr.score(X,y)*100)    
+    
     elif ff=="TotalWise" and fu=='Future':
         from sklearn.linear_model import LinearRegression
         from sklearn.model_selection import train_test_split
@@ -1693,6 +1700,37 @@ elif see=='Predictions':
             pred_date=int(pred_date)
             pred_cons=st.multiselect("Select the constiunency",options=dd['Constituency_Name'].unique(),default=['TIRUCHENDUR','THOOTHUKKUDI','TIRUNELVELI'])
         dadd=[]
+        for ps in pred_cons:
+                p_=encode_cons[ps].tolist()
+                p_.insert(0,pred_date)
+                p_=np.array([p_]).reshape(1,-1)
+                #predecit the vaild_votes for user given values
+                li=list(log1.predict(p_))
+                dadd.append(li[0])
+        dddd=pd.DataFrame(data=[f for f in dadd],columns=['Valid_Votes','Turnout_Percentage','Electors'],index=[pred_cons])
+        st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Prediction of future(ValidVotes,Turnout_Percentage,Electors)</h2><br>",unsafe_allow_html=True)
+        al=log1.score(X,y)*100
+        st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{al}</p>""",unsafe_allow_html=True)
+        st.markdown(
+            """
+            <style>
+            table{
+            background-color: #333030;
+            font-color:white;
+            }
+            td{
+            border: 2px solid white;
+            font-color:white;
+            }
+            th{
+            border: 2px solid white;
+            background-color: #03C5FF;
+            font-color:white;
+            }
+            </style>
+            """,unsafe_allow_html=True
+        )
+        st.table(dddd)
         columns = st.columns(len(pred_cons))
         with st.container():
             for w,ps in enumerate(pred_cons):
@@ -1712,12 +1750,8 @@ elif see=='Predictions':
                 ddss1['Turnout_Percentage']=ddss1['Turnout_Percentage'].str[0]
                 ddss1['Electors']=ddss1['Electors'].str[0]
                 with columns[w]:
-                    st.markdown(f"Actual Vaild vote of {ps} every year")
-                    st.write(ddss1)
-            dddd=pd.DataFrame(data=[f for f in dadd],columns=['Valid_Votes','Turnout_Percentage','Electors'],index=[pred_cons])
-            st.markdown("## Predicted Valid Votes,Turnout_Percentage,Electors")
-            st.table(dddd)
-            st.write(log1.score(X,y)*100)
+                    st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>Actual Vaildvote,Turnout_percentage,Electors of {ps} every year</h6>",unsafe_allow_html=True)        
+                    st.table(ddss1)
             
     elif ff=="PartyWise" and fu=='Dataset':
         with st.sidebar:
@@ -1942,15 +1976,39 @@ elif see=='Predictions':
         enn1_filter=enn1.loc[(enn1 !=0).any(axis=1)]
         with st.sidebar:
             cons_multi=st.multiselect("Select the constituency",options=hgg2['Constituency_Name'].unique())
-        for co in cons_multi:
-            st.markdown(f"#### {party_multi} {co} {see_year} Position predection")
-            ll=enn[co].tolist()
-            ll1=enn1_filter[party_multi].tolist()
-            ll2=ll+ll1
-            ll2.insert(0,see_year)
-            ll3=np.array(ll2).reshape(1,-1)
-            prdict=rfr3.predict(ll3)
-            st.write(prdict)
+        if not cons_multi:
+            st.warning("⚠️ Please select atleast one Constituency Name!!!")
+        else:
+            st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Position Prediction For Future(Partywise)</h2><br>",unsafe_allow_html=True)
+            for co in cons_multi:
+                st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{party_multi} {co} {see_year}</h6>",unsafe_allow_html=True)
+                ll=enn[co].tolist()
+                ll1=enn1_filter[party_multi].tolist()
+                ll2=ll+ll1
+                ll2.insert(0,see_year)
+                ll3=np.array(ll2).reshape(1,-1)
+                prdict=list(rfr3.predict(ll3))
+                st.markdown(f"""
+                            <style>
+                      table{{
+                          width:100%;
+                          text-align:center;
+                          background-color: #333030; /* Set background color */
+                          border: 2px solid white;
+                          
+                      }}
+                      tr{{
+                      border:2px solid white;
+                      }}
+                      
+                      </style>
+                <table>
+                     <tr>
+                     <th>Position Prediction</th>       
+                     <td>{prdict[0]}</td>       
+                     </tr>        
+                </table><br>
+                """,unsafe_allow_html=True) 
     elif ff=='PartywiseGender' and fu=='Future':
         ddd=dd[['Year','Constituency_Name','Party','Sex']]
         with st.sidebar:
@@ -1958,38 +2016,65 @@ elif see=='Predictions':
             us_party=st.selectbox("Select the party",options=ddd['Party'].unique())
             ddd1=ddd[ddd['Party']==us_party]
             us_con=st.multiselect("Select the Constituency",options=ddd1['Constituency_Name'].unique())
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.model_selection import train_test_split
-        dec={'M':0,'MALE':1,'F':2,'FEMALE':3,'O':4}
-        ddd1['Sex']=ddd1['Sex'].replace(dec)
-        ddd1['Sex']=ddd1['Sex'].fillna(round(ddd1['Sex'].mean()))
-        #st.write(ddd1)
-        hg1=pd.get_dummies(ddd1,columns=['Constituency_Name','Party'])
-        hhx=hg1.drop('Sex',axis=1)
-        #xc_train,xc_text,yc_train,yc_test=train_test_split(hhx,ddd['Sex'],test_size=0.01,random_state=89)
-        lolo1=RandomForestClassifier(n_estimators=10,random_state=76)
-        lolo1.fit(hhx,ddd1['Sex'])
-        st.write(lolo1.score(hhx,ddd1['Sex'])*100)
-        enn=pd.get_dummies(ddd1['Constituency_Name'].unique())
-        enn1=pd.get_dummies(ddd1['Party'].unique())
-        enn1_filter=enn1.loc[(enn1 !=0).any(axis=1)]
-        for us in us_con:
-            dx1=enn[us].tolist()
-            #st.write(dx1)
-            dx2=enn1_filter[us_party].tolist()
-            dx3=dx1+dx2
-            dx3.insert(0,int(us_year))
-            #st.write(dx3)
-            k3_=np.array(dx3).reshape(1,-1)
-            li=lolo1.predict(k3_)
-            st.write(us,us_party,str(us_year))
-            k=li[0]
-            if k==0 or k==1:
-                st.write("Male")
-            elif k==2 or k==3:
-                st.write("Female")
-            else:
-                st.write("Others") 
+        if not us_con:
+           st.warning("⚠️ Please select atleast one Constituency Name!!!")
+        else:
+            st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Gender Prediction For Future(Partywise)</h2><br>",unsafe_allow_html=True)
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.model_selection import train_test_split
+            dec={'M':0,'MALE':1,'F':2,'FEMALE':3,'O':4}
+            ddd1['Sex']=ddd1['Sex'].replace(dec)
+            ddd1['Sex']=ddd1['Sex'].fillna(round(ddd1['Sex'].mean()))
+            #st.write(ddd1)
+            hg1=pd.get_dummies(ddd1,columns=['Constituency_Name','Party'])
+            hhx=hg1.drop('Sex',axis=1)
+            #xc_train,xc_text,yc_train,yc_test=train_test_split(hhx,ddd['Sex'],test_size=0.01,random_state=89)
+            lolo1=RandomForestClassifier(n_estimators=10,random_state=76)
+            lolo1.fit(hhx,ddd1['Sex'])
+            a1=lolo1.score(hhx,ddd1['Sex'])*100
+            st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{a1}</p>""",unsafe_allow_html=True)
+            enn=pd.get_dummies(ddd1['Constituency_Name'].unique())
+            enn1=pd.get_dummies(ddd1['Party'].unique())
+            enn1_filter=enn1.loc[(enn1 !=0).any(axis=1)]
+            for us in us_con:
+                dx1=enn[us].tolist()
+                #st.write(dx1)
+                dx2=enn1_filter[us_party].tolist()
+                dx3=dx1+dx2
+                dx3.insert(0,int(us_year))
+                #st.write(dx3)
+                k3_=np.array(dx3).reshape(1,-1)
+                li=lolo1.predict(k3_)
+                #st.write(us,us_party,str(us_year))
+                st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{us} {us_party} {str(us_year)}</h6>",unsafe_allow_html=True)
+                k=li[0]
+                if k==0 or k==1:
+                    k1="Male"
+                elif k==2 or k==3:
+                    k1="Female"
+                else:
+                    k1="Others" 
+                st.markdown(f"""
+                            <style>
+                      table{{
+                          width:100%;
+                          text-align:center;
+                          background-color: #333030; /* Set background color */
+                          border: 2px solid white;
+                          
+                      }}
+                      tr{{
+                      border:2px solid white;
+                      }}
+                      
+                      </style>
+                <table>
+                     <tr>
+                     <th>Gender Prediction</th>       
+                     <td>{k1}</td>       
+                     </tr>        
+                </table><br>
+                """,unsafe_allow_html=True)  
 
     elif ff=='Partywiseposition' and fu=='Future':
         ddd=dd[['Year','Constituency_Name','Party','Position']]
@@ -1998,29 +2083,55 @@ elif see=='Predictions':
             us_party=st.selectbox("Select the party",options=ddd['Party'].unique())
             ddd1=ddd[ddd['Party']==us_party]
             us_con=st.multiselect("Select the Constituency",options=ddd1['Constituency_Name'].unique())
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.model_selection import train_test_split
-        #st.write(ddd1)
-        hg1=pd.get_dummies(ddd1,columns=['Constituency_Name','Party'])
-        hhx=hg1.drop('Position',axis=1)
-        #xc_train,xc_text,yc_train,yc_test=train_test_split(hhx,ddd['Sex'],test_size=0.01,random_state=89)
-        lolo1=RandomForestClassifier(n_estimators=10,random_state=76)
-        lolo1.fit(hhx,ddd1['Position'])
-        st.write(lolo1.score(hhx,ddd1['Position'])*100)
-        enn=pd.get_dummies(ddd1['Constituency_Name'].unique())
-        enn1=pd.get_dummies(ddd1['Party'].unique())
-        enn1_filter=enn1.loc[(enn1 !=0).any(axis=1)]
-        for us in us_con:
-            dx1=enn[us].tolist()
-            #st.write(dx1)
-            dx2=enn1_filter[us_party].tolist()
-            dx3=dx1+dx2
-            dx3.insert(0,int(us_year))
-            #st.write(dx3)
-            k3_=np.array(dx3).reshape(1,-1)
-            li=lolo1.predict(k3_)
-            st.write(us,us_party,str(us_year))
-            st.write(li)
+        if not us_con:
+           st.warning("⚠️ Please select atleast one Constituency Name!!!")
+        else:
+            st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Gender Prediction For Future(Partywise)</h2><br>",unsafe_allow_html=True)
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.model_selection import train_test_split
+            #st.write(ddd1)
+            hg1=pd.get_dummies(ddd1,columns=['Constituency_Name','Party'])
+            hhx=hg1.drop('Position',axis=1)
+            #xc_train,xc_text,yc_train,yc_test=train_test_split(hhx,ddd['Sex'],test_size=0.01,random_state=89)
+            lolo1=RandomForestClassifier(n_estimators=10,random_state=76)
+            lolo1.fit(hhx,ddd1['Position'])
+            a1=lolo1.score(hhx,ddd1['Position'])*100
+            st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{a1}</p>""",unsafe_allow_html=True)
+            enn=pd.get_dummies(ddd1['Constituency_Name'].unique())
+            enn1=pd.get_dummies(ddd1['Party'].unique())
+            enn1_filter=enn1.loc[(enn1 !=0).any(axis=1)]
+            for us in us_con:
+                dx1=enn[us].tolist()
+                #st.write(dx1)
+                dx2=enn1_filter[us_party].tolist()
+                dx3=dx1+dx2
+                dx3.insert(0,int(us_year))
+                #st.write(dx3)
+                k3_=np.array(dx3).reshape(1,-1)
+                li=list(lolo1.predict(k3_))
+                #st.write(us,us_party,str(us_year))
+                st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{us} {us_party} {str(us_year)}</h6>",unsafe_allow_html=True)
+                st.markdown(f"""
+                                <style>
+                        table{{
+                            width:100%;
+                            text-align:center;
+                            background-color: #333030; /* Set background color */
+                            border: 2px solid white;
+                            
+                        }}
+                        tr{{
+                        border:2px solid white;
+                        }}
+                        
+                        </style>
+                    <table>
+                        <tr>
+                        <th>Position Prediction</th>       
+                        <td>{li[0]}</td>       
+                        </tr>        
+                    </table><br>
+                    """,unsafe_allow_html=True) 
 else:
     with st.sidebar:
         sa=option_menu(
