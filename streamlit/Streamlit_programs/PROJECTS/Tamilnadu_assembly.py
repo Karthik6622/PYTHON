@@ -2150,45 +2150,44 @@ else:
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'> Tamil Nadu Legislative Assembly election</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
         c1,c2=st.columns(2)
-        with st.container():
-            with c1:
-                st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_container_width=True)
-            with c2:
-                st.markdown(
-                    """
-                    <style>
-                    .custom-height {
-                        background-color:#333030;
-                        font-size:15px;
-                    
-                    }
-                    .kkk{
+        with c1:
+            st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_container_width=True)
+        with c2:
+            st.markdown(
+                """
+                <style>
+                .custom-height {
                     background-color:#333030;
-                    }
-                    .kkk p{
-                    font-size:19px;
-        
-                    }
-                    h2{
-                    text-align:center;
-                    background-color:#59E137;
-                    }
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                    font-size:15px;
                 
-                st.markdown("""<h2>Overview</h2>""",unsafe_allow_html=True)
-                st.markdown(
-                    """
-                    <div class="custom-height">
-                        The state of Tamil Nadu is divided into 234 assembly constituencies, each of which elects a member (called an MLA) to represent it at the state's unicameral legislative assembly, as per Article 168 of the Constitution of India. The Tamil Nadu Legislative Assembly convenes at Fort St. George, Chennai. The member that manages to receive the support of the majority of the members of the assembly (that is the Chief Ministerial candidate of the party that secures more than 50% of the seats), which is a minimum of 118 members, is appointed as the Chief Minister of Tamil Nadu, who is the executive head of the Government of Tamil Nadu. The Governor of Tamil Nadu, the state's ceremonial head, will invite the Chief-Minister-elect and his Council of Ministers to be sworn in, to lead the state government for a term of the next five years.
-                        The Chief Election Commissioner of India, Sunil Arora, holding a press conference in New Delhi on February 26, 2021, to announce the schedule for Legislative Assembly election of Tamil Nadu along with those of Assam, Kerala, West Bengal, and Puducherry.[4]
-                        Tamil Nadu's partisan politics have been dominated by its two regional Dravidian parties, Dravida Munnetra Kazhagam (DMK) and All India Anna Dravida Munnetra Kazhagam (AIADMK), for the last 50 years (since 1967). Each recognized party in India is given a polling symbol by the Election Commission of India, an independent and neutral body of officers that conducts and regulates all the elections in the country. The DMK contests with the Rising Sun symbol, while the AIADMK contests with the Two Leaves.
-                        The legislative assembly of Tamil Nadu goes to polls alongside the legislative assemblies of three other Indian states, namely Assam, Kerala, and West Bengal, and that of the union territory of Puducherry.
-                    </div>
-                    """,
-                    unsafe_allow_html=True)
+                }
+                .kkk{
+                background-color:#333030;
+                }
+                .kkk p{
+                font-size:19px;
+    
+                }
+                h2{
+                text-align:center;
+                background-color:#59E137;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            
+            st.markdown("""<h2>Overview</h2>""",unsafe_allow_html=True)
+            st.markdown(
+                """
+                <div class="custom-height">
+                    The state of Tamil Nadu is divided into 234 assembly constituencies, each of which elects a member (called an MLA) to represent it at the state's unicameral legislative assembly, as per Article 168 of the Constitution of India. The Tamil Nadu Legislative Assembly convenes at Fort St. George, Chennai. The member that manages to receive the support of the majority of the members of the assembly (that is the Chief Ministerial candidate of the party that secures more than 50% of the seats), which is a minimum of 118 members, is appointed as the Chief Minister of Tamil Nadu, who is the executive head of the Government of Tamil Nadu. The Governor of Tamil Nadu, the state's ceremonial head, will invite the Chief-Minister-elect and his Council of Ministers to be sworn in, to lead the state government for a term of the next five years.
+                    The Chief Election Commissioner of India, Sunil Arora, holding a press conference in New Delhi on February 26, 2021, to announce the schedule for Legislative Assembly election of Tamil Nadu along with those of Assam, Kerala, West Bengal, and Puducherry.[4]
+                    Tamil Nadu's partisan politics have been dominated by its two regional Dravidian parties, Dravida Munnetra Kazhagam (DMK) and All India Anna Dravida Munnetra Kazhagam (AIADMK), for the last 50 years (since 1967). Each recognized party in India is given a polling symbol by the Election Commission of India, an independent and neutral body of officers that conducts and regulates all the elections in the country. The DMK contests with the Rising Sun symbol, while the AIADMK contests with the Two Leaves.
+                    The legislative assembly of Tamil Nadu goes to polls alongside the legislative assemblies of three other Indian states, namely Assam, Kerala, and West Bengal, and that of the union territory of Puducherry.
+                </div>
+                """,
+                unsafe_allow_html=True)
         st.markdown("""<h2>Elections in Tamil Nadu</h2>""",unsafe_allow_html=True)
         st.markdown(
             """
