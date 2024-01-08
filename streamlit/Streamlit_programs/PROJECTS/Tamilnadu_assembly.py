@@ -2191,39 +2191,39 @@ else:
     elif sa=="Project Overview":
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'>Project Overview: Tamil Nadu Assembly Election EDA & Prediction</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
-        co=st.columns(1)
-        co.com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
-             }
+            }
             </style>
             <div class="intro">
-            <h3>Introduction</h3>
+            <h3><u>Introduction</u></h3>
             <p>
             The "Tamil Nadu Assembly Election EDA & Prediction" project aims to analyze historical data related to Tamil Nadu assembly elections and build predictive models for upcoming elections. Through this project, we seek to gain insights into voting patterns, understand the impact of various factors on election outcomes, and ultimately predict the results of future elections.
             </p>
             </div>
-            """
+            """,unsafe_allow_html=True
         )
-        com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
+            margin-top:5px;
              }
             </style>
             <div class="intro">
-            <h2>Objectives</h2>
+            <h2><u>Objectives</u></h2>
             <h3>Exploratory Data Analysis (EDA):</h3>
             <p>
             Conduct a thorough analysis of historical data, exploring trends, patterns, and relationships among different variables related to Tamil Nadu assembly elections.
@@ -2237,21 +2237,22 @@ else:
             <h3>Stakeholder Engagement:</h3>
             <p>Engage with stakeholders, political analysts, and the public to discuss and validate the insights derived from the analysis and predictions.</p>
             </div>
-            """,width=1200,height=1035
+            """,unsafe_allow_html=True
         )
-        com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
+            margin-top:5px;
              }
             </style>
             <div class="intro">
-            <h2>Methodology</h2>
+            <h2><u>Methodology</u></h2>
             <h3>Data Collection:</h3>
             <p>
             Gather comprehensive data sets on Tamil Nadu assembly elections, including information on constituencies, candidates, voter demographics, and election results.
@@ -2277,21 +2278,22 @@ else:
              Evaluate model performance, fine-tune parameters, and validate predictions using historical election results.
             </p>
             </div>
-            """,width=1200,height=1180
+            """,unsafe_allow_html=True
         )
-        com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
+            margin-top:5px;
              }
             </style>
             <div class="intro">
-            <h2>Deliverables</h2>
+            <h2><u>Deliverables</u></h2>
             <h3>Interactive Data Visualizations:</h3>
             <p>
             Share interactive visualizations showcasing key insights and trends derived from the EDA.
@@ -2309,21 +2311,22 @@ else:
             Conduct presentations and engage with the public through online platforms to share insights and predictions, fostering a data-driven understanding of elections.
             </p>
             </div>
-            """,width=1200,height=785
+            """,unsafe_allow_html=True
         )
-        com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
+            margin-top:5px;
              }
             </style>
             <div class="intro">
-            <h2>Timeline</h2>
+            <h2><u>Timeline</u></h2>
             <h3>The project will be conducted over [insert duration], with key milestones and deliverables scheduled as follows:</h3>
             <p>
             Data Collection and Cleaning: [Start Date - End Date]<br>
@@ -2333,26 +2336,27 @@ else:
             Visualization and Reporting: [Start Date - End Date]
             </p>
             </div>
-            """,width=1200,height=460
+            """,unsafe_allow_html=True
         )
-        com.html(
+        st.markdown(
             """
             <style>
             .intro{
-            border:1px solid black;
+            border:1px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
             text-align:center;
+            margin-top:5px;
              }
             </style>
             <div class="intro">
-            <h2>Conclusion</h2>
+            <h2><u>Conclusion</u></h2>
             <h3></h3>
             <p>
             The "Tamil Nadu Assembly Election EDA & Prediction" project aims to provide valuable insights into the dynamics of Tamil Nadu assembly elections. Through a combination of exploratory data analysis, predictive modeling, and stakeholder engagement, we aim to contribute to a better understanding of electoral processes and outcomes.
             </p>
             </div>
-            """,width=1200,height=310
+            """,unsafe_allow_html=True
         )
     
