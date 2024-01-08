@@ -2191,7 +2191,8 @@ else:
     elif sa=="Project Overview":
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'>Project Overview: Tamil Nadu Assembly Election EDA & Prediction</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
-        com.html(
+        co=st.columns(1)
+        co.com.html(
             """
             <style>
             .intro{
