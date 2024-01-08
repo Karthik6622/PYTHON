@@ -1731,7 +1731,7 @@ elif see=='Predictions':
         else:
             from sklearn.ensemble import RandomForestClassifier
             co1,co2=st.columns(2)
-            st.write("## Predicted valid Votes")
+            st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Predicted valid Votes(Partywise)</h2><br>",unsafe_allow_html=True)
             for ps in party_select:
                 for ps1 in con_select:     
                     x=dd.groupby(['Constituency_Name','Party','Year'])['Votes'].unique().reset_index()
@@ -1747,11 +1747,42 @@ elif see=='Predictions':
                     k2_ = en_code[ps1].tolist()
                     k2_.insert(0,year_select)
                     k3_=np.array(k2_).reshape(1,-1)
-                    li=rfr2.predict(k3_)
-                    st.write(ps1,ps)          
-                    st.write(li)
-                    
-                    st.write(rfr2.score(xx,yy))
+                    li=list(rfr2.predict(k3_)) 
+                    st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{ps1} {ps}</h6>",unsafe_allow_html=True)        
+                    #das=pd.DataFrame(data=[int(li[0])],columns=['Votes'],index=[year_select])
+                    #das=das.rename_axis("Year")
+                    #st.dataframe(das,use_container_width=True)
+                    al=rfr2.score(xx,yy)*100
+                    st.markdown(
+                        f"""
+                      <style>
+                      table{{
+                          width:100%;
+                          text-align:center;
+                          background-color: #333030; /* Set background color */
+                          border: 2px solid white;
+                          
+                      }}
+                      tr{{
+                      border:2px solid white;
+                      }}
+                      
+                      </style>
+                      <table> 
+                      <tr>
+                      <th>Year</th>
+                      <th>Votes</th>
+                      </tr>
+                      <tr>
+                      <td>{year_select}</td>
+                      <td>{li[0]}</td>
+                      </tr>
+                
+
+                        """,unsafe_allow_html=True
+                    )
+                    st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{al}</p>""",unsafe_allow_html=True)
+                
 
     elif ff=="PartyWise" and fu=='Future':
         
@@ -1761,6 +1792,7 @@ elif see=='Predictions':
             con_select=st.multiselect("Select the Constiuency",options=dd['Constituency_Name'].unique(),default=['TIRUCHENDUR','AVADI'])
         
             #st.write(year_select,party_select,con_select)
+        st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Predicted valid Votes for Future(Partywise)</h2><br>",unsafe_allow_html=True)
         from sklearn.model_selection import train_test_split
         from sklearn.linear_model import LinearRegression
         x=dd.groupby(['Constituency_Name','Party','Year'])['Votes'].unique().reset_index()
@@ -1772,7 +1804,8 @@ elif see=='Predictions':
         #xx_train,xx_test,yy_train,yy_test=train_test_split(x1,y1,test_size=0.1,random_state=5)
         lii=LinearRegression()
         lii.fit(x1,y1)
-        st.write(lii.score(x1,y1)*100)
+        a1=lii.score(x1,y1)*100
+        st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{a1}</p>""",unsafe_allow_html=True)
         g1=pd.get_dummies(x['Constituency_Name'].unique())
         g2=pd.get_dummies(x['Party'].unique())
         for mm in party_select:
@@ -1784,11 +1817,36 @@ elif see=='Predictions':
                 #st.write(dx3)
                 k3_=np.array(dx3).reshape(1,-1)
                 li=list(lii.predict(k3_))
-                st.markdown(f"<h2 style='text-align:center';>{mm} {nn}</h2>",unsafe_allow_html=True)
+                st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{mm} {nn}</h6>",unsafe_allow_html=True)
                 #st.write(type(k))
-                das=pd.DataFrame(data=[int(li[0])],columns=['Votes'],index=[year_select])
-                das=das.rename_axis("Year")
-                st.dataframe(das,use_container_width=True)
+                st.markdown(
+                        f"""
+                      <style>
+                      table{{
+                          width:100%;
+                          text-align:center;
+                          background-color: #333030; /* Set background color */
+                          border: 2px solid white;
+                          
+                      }}
+                      tr{{
+                      border:2px solid white;
+                      }}
+                      
+                      </style>
+                      <table> 
+                      <tr>
+                      <th>Year</th>
+                      <th>Votes</th>
+                      </tr>
+                      <tr>
+                      <td>{year_select}</td>
+                      <td>{int(li[0])}</td>
+                      </tr>
+
+                        """,unsafe_allow_html=True
+                    )
+                st.markdown("<br>",unsafe_allow_html=True)
     elif ff=='PartywiseGender' and fu=='Dataset':
         with st.sidebar:
             en_year=st.selectbox("Enter the Year to Predict",options=dd['Year'].unique())
@@ -1796,44 +1854,71 @@ elif see=='Predictions':
             paa=st.selectbox("Select the Constituency",options=fg['Party'].unique())
             ddd=fg[fg['Party']==paa]
             coon=st.multiselect("Select the Constituency",options=ddd['Constituency_Name'].unique())
-        
-        #st.write(ddd)
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.model_selection import train_test_split
-        ddd.fillna("M",inplace=True)
-        dec={'M':0,'MALE':1,'F':2,'FEMALE':3,'O':4}
-        ddd['Sex']=ddd['Sex'].replace(dec)
-        #hg2=pd.get_dummies(hg['Sex'])
-        #st.write(hg)
-        ddd=ddd[['Year','Constituency_Name','Party','Sex']]
-        hg1=pd.get_dummies(ddd,columns=['Constituency_Name','Party'])
-        hhx=hg1.drop('Sex',axis=1)
-        #xs_train,xs_test,ys_train,ys_test=train_test_split(hhx,hg['Sex'],test_size=0.001,random_state=45)
-        lolo=RandomForestClassifier(n_estimators=20,random_state=45)
-        lolo.fit(hhx,ddd['Sex'])
-        st.write(lolo.score(hhx,ddd['Sex']))
-        encode_cons=pd.get_dummies(ddd['Constituency_Name'].unique())
-        #st.write(encode_cons.shape)
-        en_pa=pd.get_dummies(ddd['Party'].unique())
-        #st.write(en_pa.shape)
-        for c in coon:
-            dx1=encode_cons[c].tolist()
-            #st.write(dx1)
-            dx2=en_pa[paa].tolist()
-            dx3=dx1+dx2
-            dx3.insert(0,int(en_year))
-            #st.write(dx3)
-            k3_=np.array(dx3).reshape(1,-1)
-            li=lolo.predict(k3_)
-            st.write(paa,c,str(en_year))
-            k=li[0]
-            if k==0 or k==1:
-                st.write("Male")
-            elif k==2 or k==3:
-                st.write("Female")
-            else:
-                st.write("Others")           
-               
+        if not coon:
+            st.warning("⚠️ Please select atleast one Constituency Name!!!")
+        else:
+            #st.write(ddd)
+            st.markdown("<h2 style='text-align:center;background-color:#59E137;color:white;'>Gender Prediction(Partywise)</h2><br>",unsafe_allow_html=True)
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.model_selection import train_test_split
+            ddd.fillna("M",inplace=True)
+            dec={'M':0,'MALE':1,'F':2,'FEMALE':3,'O':4}
+            ddd['Sex']=ddd['Sex'].replace(dec)
+            #hg2=pd.get_dummies(hg['Sex'])
+            #st.write(hg)
+            ddd=ddd[['Year','Constituency_Name','Party','Sex']]
+            hg1=pd.get_dummies(ddd,columns=['Constituency_Name','Party'])
+            hhx=hg1.drop('Sex',axis=1)
+            #xs_train,xs_test,ys_train,ys_test=train_test_split(hhx,hg['Sex'],test_size=0.001,random_state=45)
+            lolo=RandomForestClassifier(n_estimators=20,random_state=45)
+            lolo.fit(hhx,ddd['Sex'])
+            a1=lolo.score(hhx,ddd['Sex'])
+            st.markdown(f"""<p style='color:#46FF03;text-align:right'>Algorithm Accuracy:{a1}</p>""",unsafe_allow_html=True)
+            encode_cons=pd.get_dummies(ddd['Constituency_Name'].unique())
+            #st.write(encode_cons.shape)
+            en_pa=pd.get_dummies(ddd['Party'].unique())
+            #st.write(en_pa.shape)
+            for c in coon:
+                dx1=encode_cons[c].tolist()
+                #st.write(dx1)
+                dx2=en_pa[paa].tolist()
+                dx3=dx1+dx2
+                dx3.insert(0,int(en_year))
+                #st.write(dx3)
+                k3_=np.array(dx3).reshape(1,-1)
+                li=lolo.predict(k3_)
+                #st.markdown("""<br>""",unsafe_allow_html=True)
+                st.markdown(f"<h6 style='text-align:center;background-color:#FA1313;padding-top:10px;border:2px solid white;'>{paa} {c} {str(en_year)}</h6>",unsafe_allow_html=True)
+                #st.wrpaa,c,)
+                k=li[0]
+                if k==0 or k==1:
+                    k1="Male"
+                elif k==2 or k==3:
+                    k1="Female"
+                else:
+                    k1="Others"
+                st.markdown(f"""
+                            <style>
+                      table{{
+                          width:100%;
+                          text-align:center;
+                          background-color: #333030; /* Set background color */
+                          border: 2px solid white;
+                          
+                      }}
+                      tr{{
+                      border:2px solid white;
+                      }}
+                      
+                      </style>
+                <table>
+                     <tr>
+                     <th>Gender Prediction</th>       
+                     <td>{k1}</td>       
+                     </tr>        
+                </table><br>
+                """,unsafe_allow_html=True)        
+                
 
         
     elif ff=='Partywiseposition' and fu=='Dataset':
