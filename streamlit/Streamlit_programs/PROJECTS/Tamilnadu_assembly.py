@@ -97,7 +97,7 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            bargap=0.3
+            #bargap=0.3
                 )
             
             fig=go.Figure(data=data,layout=layout1)
@@ -133,7 +133,7 @@ if see=='Barplot':
            #height=400,
            # width=600,
             barmode='group',
-            bargap=0.3
+            #bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
@@ -167,7 +167,7 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            bargap=0.3
+            #bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
@@ -201,7 +201,7 @@ if see=='Barplot':
             #height=400,
             #width=600,
             barmode='group',
-            bargap=0.3
+            #bargap=0.3
                 )
 
             fig1=go.Figure(data=data,layout=layout1)
