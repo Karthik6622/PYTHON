@@ -2175,7 +2175,7 @@ else:
                     }
                     </style>
                     """,
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,use_column_width=True
                 )
                 
                 st.markdown("""<h2>Overview</h2>""",unsafe_allow_html=True)
