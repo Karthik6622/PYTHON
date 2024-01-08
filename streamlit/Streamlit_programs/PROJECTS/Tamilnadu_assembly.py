@@ -1585,6 +1585,7 @@ elif see=='Predictions':
         options=["TotalWise","PartyWise","PartywiseGender","Partywiseposition"],
         orientation="horizontal",
     )
+    
     with st.sidebar:
         fu=option_menu(
             menu_title="",
@@ -1725,31 +1726,35 @@ elif see=='Predictions':
             ds1=ds.sort_values(by="Party",key=lambda x:x.map(ds['Party'].value_counts()),ascending=False)
             party_select=st.multiselect("Select the Party",options=ds1['Party'].unique())
             con_select=st.multiselect("Select the Constiuency",options=ds1['Constituency_Name'].unique())
-        from sklearn.ensemble import RandomForestClassifier
-        co1,co2=st.columns(2)
-        st.write("## Predicted valid Votes")
-        for ps in party_select:
-            for ps1 in con_select:     
-                x=dd.groupby(['Constituency_Name','Party','Year'])['Votes'].unique().reset_index()
-                x['Votes']=x['Votes'].str[0]
-                px=x[x['Party']==ps]
-                px.drop('Party',axis=1,inplace=True)
-                X=pd.get_dummies(px,columns=['Constituency_Name'])
-                xx=X.drop('Votes',axis=1)
-                yy=X['Votes']
-                rfr2=RandomForestClassifier(n_estimators=10,random_state=0)
-                rfr2.fit(xx,yy)
-                en_code=pd.get_dummies(px['Constituency_Name'].unique())
-                k2_ = en_code[ps1].tolist()
-                k2_.insert(0,year_select)
-                k3_=np.array(k2_).reshape(1,-1)
-                li=rfr2.predict(k3_)
-                st.write(ps1,ps)          
-                st.write(li)
-                
-                st.write(rfr2.score(xx,yy))
+        if not party_select and not con_select:
+            st.warning("🚨 Please select atleast one Party and constituency name")
+        else:
+            from sklearn.ensemble import RandomForestClassifier
+            co1,co2=st.columns(2)
+            st.write("## Predicted valid Votes")
+            for ps in party_select:
+                for ps1 in con_select:     
+                    x=dd.groupby(['Constituency_Name','Party','Year'])['Votes'].unique().reset_index()
+                    x['Votes']=x['Votes'].str[0]
+                    px=x[x['Party']==ps]
+                    px.drop('Party',axis=1,inplace=True)
+                    X=pd.get_dummies(px,columns=['Constituency_Name'])
+                    xx=X.drop('Votes',axis=1)
+                    yy=X['Votes']
+                    rfr2=RandomForestClassifier(n_estimators=10,random_state=0)
+                    rfr2.fit(xx,yy)
+                    en_code=pd.get_dummies(px['Constituency_Name'].unique())
+                    k2_ = en_code[ps1].tolist()
+                    k2_.insert(0,year_select)
+                    k3_=np.array(k2_).reshape(1,-1)
+                    li=rfr2.predict(k3_)
+                    st.write(ps1,ps)          
+                    st.write(li)
+                    
+                    st.write(rfr2.score(xx,yy))
 
     elif ff=="PartyWise" and fu=='Future':
+        
         with st.sidebar:
             year_select=st.text_input("Enter the Year",value=2025)
             party_select=st.multiselect("Select the Party",options=dd['Party'].unique(),default=['ADMK',"NTK"])
@@ -1767,7 +1772,7 @@ elif see=='Predictions':
         #xx_train,xx_test,yy_train,yy_test=train_test_split(x1,y1,test_size=0.1,random_state=5)
         lii=LinearRegression()
         lii.fit(x1,y1)
-        st.write(lii.score(x1,y1))
+        st.write(lii.score(x1,y1)*100)
         g1=pd.get_dummies(x['Constituency_Name'].unique())
         g2=pd.get_dummies(x['Party'].unique())
         for mm in party_select:
@@ -1778,9 +1783,12 @@ elif see=='Predictions':
                 dx3.insert(0,int(year_select))
                 #st.write(dx3)
                 k3_=np.array(dx3).reshape(1,-1)
-                li=lii.predict(k3_)
-                st.write(mm,nn)
-                st.write(li)
+                li=list(lii.predict(k3_))
+                st.markdown(f"<h2 style='text-align:center';>{mm} {nn}</h2>",unsafe_allow_html=True)
+                #st.write(type(k))
+                das=pd.DataFrame(data=[int(li[0])],columns=['Votes'],index=[year_select])
+                das=das.rename_axis("Year")
+                st.dataframe(das,use_container_width=True)
     elif ff=='PartywiseGender' and fu=='Dataset':
         with st.sidebar:
             en_year=st.selectbox("Enter the Year to Predict",options=dd['Year'].unique())
