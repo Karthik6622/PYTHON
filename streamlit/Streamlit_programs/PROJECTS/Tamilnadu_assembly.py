@@ -2195,7 +2195,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
@@ -2214,7 +2214,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
@@ -2243,7 +2243,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
@@ -2284,7 +2284,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
@@ -2317,7 +2317,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
@@ -2342,7 +2342,7 @@ else:
             """
             <style>
             .intro{
-            border:1px solid white;
+            border:5px solid white;
             font-size:30px;
             background-color: #333030;
             color:white;
