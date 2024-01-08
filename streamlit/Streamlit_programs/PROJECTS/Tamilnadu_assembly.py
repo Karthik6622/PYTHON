@@ -1028,6 +1028,7 @@ elif see=='Histogram':
             menu_title='',
             options=['ALL','Constituency_Name','District_Name','Sub_Region'],
             icons=['snow2','stack','star-half','suit-club-fill'],
+            default_index=1
         )
     col1,col2=st.columns([1,3])
     with col1:
