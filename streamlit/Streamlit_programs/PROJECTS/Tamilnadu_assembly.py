@@ -2152,7 +2152,7 @@ else:
         c1,c2=st.columns(2)
         with st.container():
             with c1:
-                st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_column_width=True)
+                st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_container_width=True)
             with c2:
                 st.markdown(
                     """
@@ -2175,7 +2175,7 @@ else:
                     }
                     </style>
                     """,
-                    unsafe_allow_html=True,use_column_width=True
+                    unsafe_allow_html=True,
                 )
                 
                 st.markdown("""<h2>Overview</h2>""",unsafe_allow_html=True)
