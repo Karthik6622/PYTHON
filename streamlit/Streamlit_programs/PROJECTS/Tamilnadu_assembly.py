@@ -2191,26 +2191,25 @@ else:
     elif sa=="Project Overview":
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'>Project Overview: Tamil Nadu Assembly Election EDA & Prediction</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
-        with st.container():
-            com.html(
-                """
-                <style>
-                .intro{
-                border:1px solid black;
-                font-size:30px;
-                background-color: #333030;
-                color:white;
-                text-align:center;
-                 }
-                </style>
-                <div class="intro">
-                <h3>Introduction</h3>
-                <p>
-                The "Tamil Nadu Assembly Election EDA & Prediction" project aims to analyze historical data related to Tamil Nadu assembly elections and build predictive models for upcoming elections. Through this project, we seek to gain insights into voting patterns, understand the impact of various factors on election outcomes, and ultimately predict the results of future elections.
-                </p>
-                </div>
-                """
-            )
+        com.html(
+            """
+            <style>
+            .intro{
+            border:1px solid black;
+            font-size:30px;
+            background-color: #333030;
+            color:white;
+            text-align:center;
+             }
+            </style>
+            <div class="intro">
+            <h3>Introduction</h3>
+            <p>
+            The "Tamil Nadu Assembly Election EDA & Prediction" project aims to analyze historical data related to Tamil Nadu assembly elections and build predictive models for upcoming elections. Through this project, we seek to gain insights into voting patterns, understand the impact of various factors on election outcomes, and ultimately predict the results of future elections.
+            </p>
+            </div>
+            """
+        )
         com.html(
             """
             <style>
