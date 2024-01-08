@@ -104,7 +104,7 @@ if see=='Barplot':
             
             fig=go.Figure(data=data,layout=layout1)
             with col1:
-                st.plotly_chart(fig,use_container_width=True)
+                st.plotly_chart(fig,use_column_width=True)
             #creating the bar chart for each year vo
             data=[]
             for se in selected_checkbox:
@@ -139,7 +139,7 @@ if see=='Barplot':
 
             fig1=go.Figure(data=data,layout=layout1)
             with col2:
-                st.plotly_chart(fig1,use_container_width=True)
+                st.plotly_chart(fig1,use_column_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -174,7 +174,7 @@ if see=='Barplot':
 
             fig1=go.Figure(data=data,layout=layout1)
             with col1:
-               st.plotly_chart(fig1,use_container_width=True)
+               st.plotly_chart(fig1,use_column_width=True)
 
             data=[]
             for se in selected_checkbox:
@@ -209,7 +209,7 @@ if see=='Barplot':
 
             fig1=go.Figure(data=data,layout=layout1)
             with col2:
-                st.plotly_chart(fig1,use_container_width=True)
+                st.plotly_chart(fig1,use_column_width=True)
         else:
             #Constituency_Name'
             data=[]
@@ -1942,8 +1942,7 @@ else:
         c1,c2=st.columns(2)
         with st.container():
             with c1:
-                with st.container():
-                    st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_column_width=True)
+                st.image("streamlit//Streamlit_programs//PROJECTS//tamilnadu_logo.jpg",use_column_width=True)
             with c2:
                 st.markdown(
                     """
