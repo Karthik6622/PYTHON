@@ -2142,7 +2142,7 @@ else:
     with st.sidebar:
         sa=option_menu(
             menu_title="",
-            options=['Project Overview','Winners','History','ContactUs'],
+            options=['Project Overview','Winners','History','ContactUs/Sourcecode'],
             icons=['ticket-detailed-fill','trophy-fill','clock-history','person-lines-fill']
             
         )
