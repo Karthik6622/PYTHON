@@ -2414,7 +2414,7 @@ else:
             st.markdown("[https://github.com/Karthik6622/PYTHON/tree/main/streamlit/Streamlit_programs/PROJECTS](https://github.com/Karthik6622/PYTHON/tree/main/streamlit/Streamlit_programs/PROJECTS)",unsafe_allow_html=True)
         st.markdown("---")
     elif sa=="Project Overview":
-
+    
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'>Project Overview: Tamil Nadu Assembly Election EDA & Prediction</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
         st.markdown(
@@ -2585,4 +2585,13 @@ else:
             </div>
             """,unsafe_allow_html=True
         )
-    
+st.markdown(
+    """
+    <script>
+        window.onload = function() {
+            window.scrollTo(0, 0);
+        }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
