@@ -10,7 +10,13 @@ from plotly.subplots import make_subplots
 import math
 #setting the page cofig for wide web page (we can avoid unnessery space between sidebar and main page)
 st.set_page_config(layout='wide')
-
+st.markdown("""
+<style>
+#MainMenu{
+    visibility: hidden;
+}
+</style>
+""",unsafe_allow_html=True)
 #pip install stremlit-option-menu
 #optionmenu is used to create attractive side bar with options
 #creating the side bar and inside the side we giving plot option to user select
