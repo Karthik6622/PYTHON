@@ -2364,43 +2364,57 @@ else:
             st.markdown("---")
     elif sa=='ContactUs':
         c1,c2=st.columns([4,4])
-        with st.container():
-            with c1:
-                st.markdown("<h1>Created BY</h1>",unsafe_allow_html=True)
-                st.markdown("<br>",unsafe_allow_html=True) 
-                st.markdown("---")     
-            with c2:
-                st.markdown("<h2>Karthik R</h2>",unsafe_allow_html=True)
-                # Create a Gmail contact link
-                gmail_address="karthikmca6622@gmail.com"
-                gmail_link = f"mailto:{gmail_address}"
-                st.markdown(f"[karthikmca6622@gmail.com]({gmail_link})")
-                st.markdown("---")
-        with st.container():
-            with c1:
-                st.markdown("<h1>Download The Dataset</h1>",unsafe_allow_html=True)
-                st.markdown("<br>",unsafe_allow_html=True)
-                st.markdown("<br>",unsafe_allow_html=True)
-                st.markdown("---")
-            with c2:
-                file_select=st.selectbox("Please select the format to download the Dataset",options=['CSV','EXCEL','HTML','TEXT','PDF'])
-                if file_select=='CSV':
-                    da=dd.to_csv(index=False)
-                    # Encode CSV string as bytes
-                    csv_byte=da.encode("utf-8")
-                    st.download_button("Download CSV",data=csv_byte,file_name="TN_ASSEMBLY_Election_data.csv")
-                elif file_select=='EXCEL':
-                    da=dd.to_excel('details2.xlsx')
-                    file_path='details2.xlsx'
-                    st.download_button("Download Excel Format",data=file_path,file_name="TN_ASSEMBLY_Election_data.xlsx")
-                elif file_select=='HTML':
-                    da=dd.to_html(index=False)
-                    st.download_button("Download HTML Format",data=da,file_name="TN_ASSEMBLY_Election_data.html")
-                elif file_select=='TEXT':
-                    da=dd.to_csv(index=False)
-                    st.download_button("Download text Format",data=da,file_name="TN_ASSEMBLY_Election_data.txt")
-                st.markdown("---")
+        with c1:
+            st.markdown("<h2>Created BY</h2>",unsafe_allow_html=True)
+            st.markdown("<br>",unsafe_allow_html=True)      
+        with c2:
+            st.markdown("<h3>Karthik R</h3>",unsafe_allow_html=True)
+            st.markdown("<h4>(DataScientist & ML Engineer)</h4>",unsafe_allow_html=True)
+            # Create a Gmail contact link
+            gmail_address="karthikmca6622@gmail.com"
+            gmail_link = f"mailto:{gmail_address}"
+            st.markdown(f"[karthikmca6622@gmail.com]({gmail_link})")
+            phone_number="9944194787"
+            phone_link = f"tel:{gmail_address}"
+            st.markdown(f"[9944194787]({phone_link})")
+        st.markdown("---")
+        c11,c22=st.columns([4,4])
+        with c11:
+            st.markdown("<h2>Download The Dataset</h2>",unsafe_allow_html=True)
+            st.markdown("<br>",unsafe_allow_html=True)
+            st.markdown("<br>",unsafe_allow_html=True)
+        with c22:
+            file_select=st.selectbox("Please select the format to download the Dataset",options=['CSV','EXCEL','HTML','TEXT','PDF'])
+            if file_select=='CSV':
+                da=dd.to_csv(index=False)
+                # Encode CSV string as bytes
+                csv_byte=da.encode("utf-8")
+                st.download_button("Download CSV",data=csv_byte,file_name="TN_ASSEMBLY_Election_data.csv")
+            elif file_select=='EXCEL':
+                da=dd.to_excel('details2.xlsx')
+                file_path='details2.xlsx'
+                st.download_button("Download Excel Format",data=file_path,file_name="TN_ASSEMBLY_Election_data.xlsx")
+            elif file_select=='HTML':
+                da=dd.to_html(index=False)
+                st.download_button("Download HTML Format",data=da,file_name="TN_ASSEMBLY_Election_data.html")
+            elif file_select=='TEXT':
+                da=dd.to_csv(index=False)
+                st.download_button("Download text Format",data=da,file_name="TN_ASSEMBLY_Election_data.txt")
+        st.markdown("---")
+        c1,c2=st.columns([4,4])
+        with c1:
+            st.markdown("<h2>Source Code Of Projects</h2>",unsafe_allow_html=True)
+        with c2:
+            st.markdown("[https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS/Tamilnadu_assembly.py](https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS/Tamilnadu_assembly.py)",unsafe_allow_html=True)
+        st.markdown("---")
+        c,c0=st.columns([4,4])
+        with c:
+            st.markdown("<h2>Source files Of Projects(Dataset,Json)</h2>",unsafe_allow_html=True)
+        with c0:
+            st.markdown("[https://github.com/Karthik6622/PYTHON/tree/main/streamlit/Streamlit_programs/PROJECTS](https://github.com/Karthik6622/PYTHON/tree/main/streamlit/Streamlit_programs/PROJECTS)",unsafe_allow_html=True)
+        st.markdown("---")
     elif sa=="Project Overview":
+
         st.markdown("<h1 style='text-align:center;background-color:#59E137;'>Project Overview: Tamil Nadu Assembly Election EDA & Prediction</h1>",unsafe_allow_html=True)
         st.markdown("<br>",unsafe_allow_html=True)
         st.markdown(
