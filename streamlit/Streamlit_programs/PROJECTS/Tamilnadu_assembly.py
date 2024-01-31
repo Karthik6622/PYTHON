@@ -2375,7 +2375,7 @@ else:
             gmail_link = f"mailto:{gmail_address}"
             st.markdown(f"[karthikmca6622@gmail.com]({gmail_link})")
             phone_number="9944194787"
-            phone_link = f"tel:{gmail_address}"
+            phone_link = f"tel:{phone_number}"
             st.markdown(f"[9944194787]({phone_link})")
         st.markdown("---")
         c11,c22=st.columns([4,4])
