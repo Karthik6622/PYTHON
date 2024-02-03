@@ -14,13 +14,17 @@ with st.sidebar:
    d=st.selectbox("MODE(DARK&LIGHT)",options=['Dark','light'],key='p')
    st.markdown("""
                <style>
+               .st-emotion-cache-q8sbsg.e1nzilvr5{
+               margin-top:0px;
+               }
                .st-emotion-cache-q8sbsg.e1nzilvr5 p{
                 font-size:20px;
                 font-weight:bold;
                 color:red;
                 text-align:center;
-                margin-left:20px;
+                
                 }
+               
                 </style>
                 """,unsafe_allow_html=True)
 if d=='Dark':
@@ -126,12 +130,12 @@ if select=='Chatbot':
     with st.sidebar:
         with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706811014627.json") as s:
             ddd=json.load(s)
-        st_lottie(ddd,height=300,width=300,speed=4)
+        st_lottie(ddd,height=250,width=250,speed=4)
     prediction_input = st.chat_input(key="text_key",placeholder="Type something to know about love...")
-    #customizing pageclear butto
+    #customizing pageclear button
     st.markdown("""
                     <style>
-                    .st-emotion-cache-1ub5arx.ef3psqc12{
+                    .st-emotion-cache-hc3laj.ef3psqc12{
                     color:red;
                     width:250px;
                     background-color:black;
@@ -174,7 +178,9 @@ if select=='Chatbot':
         
         chat_history1.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
-        st.title("Love Help Chatbot")
+        
+        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
+
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
@@ -198,7 +204,7 @@ if select=='Chatbot':
         conn.commit()
         conn.close()
     else:
-        st.title("Love Help Chatbot")
+        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not chat_history1:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
@@ -210,7 +216,7 @@ if select=='Chatbot':
                 ll="My name is Baby! How can I assist you with the topic of love?"
                 ll1=ll.split(" ")
                 for i in ll1:
-                        st.markdown(f"<h6 style='text-align:center;color:green;font-weight:bold;'> {i}</h6>",unsafe_allow_html=True)
+                        st.markdown(f"<h6 style='text-align:center;color:red;font-weight:bold;'> {i}</h6>",unsafe_allow_html=True)
                         t.sleep(0.2)
            with cx3:
                 with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
@@ -240,28 +246,33 @@ if select=='Chatbot':
             visibility:hidden;
             }
             
+            
+            .st-emotion-cache-0.e1f1d6gn0{
+            
+            }
             .main.st-emotion-cache-uf99v8.ea3mdgi88{
-                border:2px solid white;
+                border:2px solid orange;
                 padding-left:0px;
                 width:100%;
                 box-shadow: 5px 5px 10px black;
                 background-color:#99FF99;
             }
-            .st-emotion-cache-0.e1f1d6gn0{
             
-            }
-            .st-emotion-cache-1wm93xv.ea3mdgi28{
-            
-            background-color:#99FF99;
-            }
             .stHeadingContainer{
+            font-size:20px;
             text-align:center;
-            margin-top:0px;
+            margin-bottom:0px;
             background-color:black;
             border:5px solid white;
+            
             }
             .st-emotion-cache-s1k4sy.e1d2x3se4{
             border:5px solid white;
+            background-color:black;
+            }
+            .stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
+            background-color:black;
+            height:20px;
             }
             
         </style>
@@ -280,7 +291,7 @@ if select=='Chatbot':
 elif select=="MostAskedInputs":
     with st.sidebar:
         st.markdown("---")
-        st.markdown("<h1 style='text-align:center;color:green';>Customer Review</h1>",unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center;color:red';>Customer Review</h1>",unsafe_allow_html=True)
         customer_name1=st.empty()
         description1=st.empty()
         customer_name =customer_name1.text_input('',key="1",placeholder="Enter the Name")
@@ -290,9 +301,16 @@ elif select=="MostAskedInputs":
                     .st-emotion-cache-1if5ada.e1y5xkzn1{
                     visibility:hidden;
                     }
+                    .st-emotion-cache-hc3lajef3psqc12{
+                    color:red;
+                    width:250px;
+                    background-color:black;
+                    margin-left:20px;
+                    border-radius:12px 12px 12px 12px;
+                    }
                     """,unsafe_allow_html=True)
         rate=st.slider("Rate from 1 to 5",0,5,3)
-        st.write(f'You Selected: {"⭐️"*int(rate)}')
+        st.write(f'<h6 style="color:green";>You Selected: {"⭐️"*int(rate)}</h6>',unsafe_allow_html=True)
         description=description1.text_area('',key="2",placeholder="Enter the message!!!")
         submit=st.button("submit")
         st.markdown("---")
@@ -531,7 +549,7 @@ elif select=='settings':
                 """,unsafe_allow_html=True)
     with st.sidebar:
         st.markdown("---")
-        st.markdown("<h1 style='text-align:center;color:green';>Customer Review</h1>",unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center;color:red';>Customer Review</h1>",unsafe_allow_html=True)
         customer_name1=st.empty()
         description1=st.empty()
         customer_name =customer_name1.text_input('',key="1",placeholder="Enter the Name")
@@ -541,9 +559,16 @@ elif select=='settings':
                     .st-emotion-cache-1if5ada.e1y5xkzn1{
                     visibility:hidden;
                     }
+                    .st-emotion-cache-hc3laj.ef3psqc12{
+                    color:red;
+                    width:250px;
+                    background-color:black;
+                    margin-left:20px;
+                    border-radius:12px 12px 12px 12px;
+                    }
                     """,unsafe_allow_html=True)
         rate=st.slider("Rate from 1 to 5",0,5,3)
-        st.write(f'You Selected: {"⭐️"*int(rate)}')
+        st.markdown(f'<h6 style="color:green;font-size:20px;">You Selected: {"⭐️"*int(rate)}</h6>',unsafe_allow_html=True)
         description=description1.text_area('',key="2",placeholder="Enter the message!!!")
         submit=st.button("submit")
         st.markdown("---")
@@ -569,7 +594,7 @@ elif select=='settings':
 
             st.markdown(f"""
                         <div class='k'>
-                        {st_lottie(con,height=500,width=None,speed=2,loop=True)}
+                        {st_lottie(con,height=430,width=None,speed=2,loop=True)}
                         </div>
                            """,unsafe_allow_html=True)
             
@@ -578,18 +603,18 @@ elif select=='settings':
             #st.markdown("---")
             st.write("<h2 style='color:#00ff00;text-decoration:underline;'>Contactus</h2>",unsafe_allow_html=True,use_column_width=True)
             
-            st.write("<h4 style='color:orange;'> 💻 Creater:  KARTHIK R</h4>",use_column_width=True,unsafe_allow_html=True)
+            st.write("<h5 style='color:orange;'> 💻 Creater:  KARTHIK R</h5>",use_column_width=True,unsafe_allow_html=True)
             
             gmail_address="karthikmca6622@gmail.com"
             gmail_link=f"mailto:{gmail_address}"
             #we can see the emojis inside the github cheat-sheet-https://github.com/ikatyang/emoji-cheat-sheet
-            st.write(f"#### <h4 style='color:orange;'> :email: Email: [karthikmca6622@gmail.com]({gmail_link})</h4>",use_column_width=True,unsafe_allow_html=True)
+            st.write(f"#### <h5 style='color:orange;'> :email: Email: [karthikmca6622@gmail.com]({gmail_link})</h4>",use_column_width=True,unsafe_allow_html=True)
             
             phone_number="9944194787"
             phone_link=f"tel:{phone_number}"
-            st.write("#### <h4 style='color:orange;'> :iphone: Phone-Number:  [9944194787]({phone_link})</h4>",use_column_width=True,unsafe_allow_html=True)
-            st.write("#### <h4 style='color:orange;'> :rocket: Github: [https://github.com/Karthik6622/PYTHON](https://github.com/Karthik6622/PYTHON)</h4>",use_container_width=True,unsafe_allow_html=True)
-            st.write("#### <h4 style='color:orange;'> :o: Streamlit: [https://share.streamlit.io/](https://share.streamlit.io/)</h4>",use_container_width=True,unsafe_allow_html=True)
+            st.write("#### <h5 style='color:orange;'> :iphone: Phone-Number:  [9944194787]({phone_link})</h5>",use_column_width=True,unsafe_allow_html=True)
+            st.write("#### <h5 style='color:orange;'> :rocket: Github: [https://github.com/Karthik6622/PYTHON](https://github.com/Karthik6622/PYTHON)</h5>",use_container_width=True,unsafe_allow_html=True)
+            st.write("#### <h5 style='color:orange;'> :o: Streamlit: [https://share.streamlit.io/](https://share.streamlit.io/)</h5>",use_container_width=True,unsafe_allow_html=True)
             st.markdown("---")
         st.markdown("---")
     with tab2:
