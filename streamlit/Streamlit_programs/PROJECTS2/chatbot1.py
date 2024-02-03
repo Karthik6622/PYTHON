@@ -61,7 +61,7 @@ with st.sidebar:
 if select=='Chatbot':
     @st.cache_data
     def model1():
-        with open("intents.json") as file:
+        with open("streamlit/Streamlit_programs/PROJECTS2/intents.json") as file:
             data=json.load(file)
         tag=[]
         input=[]
@@ -124,7 +124,7 @@ if select=='Chatbot':
     #print(inp)
     import random
     with st.sidebar:
-        with open("Animation - 1706811014627.json") as s:
+        with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706811014627.json") as s:
             ddd=json.load(s)
         st_lottie(ddd,height=300,width=300,speed=4)
     prediction_input = st.chat_input(key="text_key",placeholder="Type something to know about love...")
