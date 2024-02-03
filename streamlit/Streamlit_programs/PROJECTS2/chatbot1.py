@@ -10,6 +10,12 @@ from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
 st.set_page_config(layout="wide")
+st.markdown("""<style>
+                .styles_terminalButton__JBj5T {
+                   visibility: hidden;
+               }
+                </style>
+                """,unsafe_allow_html=True)
 with st.sidebar:
    d=st.selectbox("MODE(DARK&LIGHT)",options=['Dark','light'],key='p')
    st.markdown("""
@@ -24,8 +30,8 @@ with st.sidebar:
                 text-align:center;
                 
                 }
-               .styles_terminalButton__JBj5T{
-               visibility:hidden;
+               .styles_terminalButton__JBj5T {
+                   visibility: hidden;
                }
                 </style>
                 """,unsafe_allow_html=True)
