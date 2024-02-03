@@ -24,7 +24,9 @@ with st.sidebar:
                 text-align:center;
                 
                 }
-               
+               .styles_terminalButton__JBj5T{
+               visibility:hidden;
+               }
                 </style>
                 """,unsafe_allow_html=True)
 if d=='Dark':
