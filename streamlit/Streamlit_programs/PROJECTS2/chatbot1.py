@@ -190,7 +190,7 @@ if select=='Chatbot':
                 c1,c2=st.columns([6,10])
                 with c1:
                     st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
-                    st.markdown("<br>",unsafe_allow_html=True)
+                    #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
                     st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
@@ -232,7 +232,7 @@ if select=='Chatbot':
                 c1,c2=st.columns([6,10])
                 with c1:
                     st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
-                    st.markdown("<br>",unsafe_allow_html=True)
+                    #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
                     st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
