@@ -9,9 +9,11 @@ from kkk import chat_history1
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
-st.set_page_config(layout="wide")
+#page_config={"page_title":"baby"}
+#browser tab title and icon 
+st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
 st.markdown("""<style>
-                .styles_terminalButton__JBj5T {
+                footer {
                    visibility: hidden;
                }
                 </style>
