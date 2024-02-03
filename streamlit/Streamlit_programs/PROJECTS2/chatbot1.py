@@ -213,7 +213,7 @@ if select=='Chatbot':
                         st.markdown(f"<h6 style='text-align:center;color:green;font-weight:bold;'> {i}</h6>",unsafe_allow_html=True)
                         t.sleep(0.2)
            with cx3:
-                with open("Animation - 1706803520058.json") as s:
+                with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
                   ddd=json.load(s)
                 st_lottie(ddd,height=500,width=None,speed=1)
            #st.markdown("## My name is Baby! How can I assist you with the topic of love?")
@@ -299,7 +299,7 @@ elif select=="MostAskedInputs":
         if submit:
            
            st.write("Thankyou for your review!!")
-           c=sqlite3.connect("E:\\streamlit\\Streamlit_programs\\PROJECTS2\\lovechatbot.db")
+           c=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
            cur=c.cursor()
            cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
            c.commit()
@@ -312,7 +312,7 @@ elif select=="MostAskedInputs":
         orientation='horizontal',
         menu_title=""
     )
-    con=sqlite3.connect("E:\streamlit\Streamlit_programs\PROJECTS2\lovechatbot.db")
+    con=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=con.cursor()
     query="select UserInput,ModelResponse from userinputresponse"
     cur.execute(query)
@@ -358,7 +358,7 @@ elif select=="MostAskedInputs":
 
 elif select=='ProjectOverview':
     with st.sidebar:
-        with open("Animation - 1706725721151.json") as c:
+        with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
            con=json.load(c)
         st_lottie(con,height=200,width=300,speed=2)
     st.markdown("""
@@ -550,7 +550,7 @@ elif select=='settings':
         if submit:
            
            st.write("Thankyou for your review!!")
-           c=sqlite3.connect("E:\\streamlit\\Streamlit_programs\\PROJECTS2\\lovechatbot.db")
+           c=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
            cur=c.cursor()
            cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
            c.commit()
@@ -564,7 +564,7 @@ elif select=='settings':
         c1,c2=st.columns(2)
         with c1:
             from streamlit_lottie import st_lottie
-            with open("Animation - 1706721681647.json") as c:
+            with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706721681647.json") as c:
                 con=json.load(c)
 
             st.markdown(f"""
@@ -597,7 +597,7 @@ elif select=='settings':
         with co1:
            st.markdown("<h4 style='color:#00ff00;'>JSON DATA FILE</h4>",unsafe_allow_html=True)
            #st.markdown("---")
-        with open("intents.json") as fi:
+        with open("streamlit/Streamlit_programs/PROJECTS2/intents.json") as fi:
             da=json.load(fi)
         #This code converts the dictionary (da) into a JSON-formatted string using json.dumps. 
         json_data=json.dumps(da,indent=2)# the indent parameter is an optional argument that specifies the number of spaces to use for indentation when pretty-printing the JSON string
@@ -612,14 +612,14 @@ elif select=='settings':
             st.markdown("<h4 style='color:#00ff00;'>Source code</h4>",unsafe_allow_html=True)
             #st.markdown("---")
         with co22_:
-            st.markdown("[https://github.com/](https://github.com/)")
+            st.markdown("[https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/chatbot1.py](https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/chatbot1.py)")
         st.markdown("<hr>",unsafe_allow_html=True)
         co111,co222=st.columns([1,2])
         with co111:
             st.markdown("<h4 style='color:#00ff00;'>Databasefile</h4>",unsafe_allow_html=True)
             #st.markdown("---")
         with co222:
-            st.markdown("[https://github.com/](https://github.com/)")
+            st.markdown("[https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json](https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json)")
             #st.markdown("---")
     with tab3:
         inp_pass=st.text_input("Enter the passcode")
@@ -627,7 +627,7 @@ elif select=='settings':
         if submit:
             if inp_pass=='6860':
                 st.write("kkkk")
-                conn1 = sqlite3.connect("E:\\streamlit\\Streamlit_programs\\PROJECTS2\\lovechatbot.db")
+                conn1 = sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
                 cursor = conn1.cursor()
                 query = "DELETE FROM userinputresponse"
                 cursor.execute(query)
