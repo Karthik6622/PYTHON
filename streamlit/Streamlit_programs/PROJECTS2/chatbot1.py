@@ -286,7 +286,7 @@ if select=='Chatbot':
             .st-emotion-cache-s1k4sy.e1d2x3se4{
             border:5px solid white;
             background-color:None;
-            margin-bottom:20px;
+            margin-bottom:40px;
             }
             .stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
             background-color:black;
