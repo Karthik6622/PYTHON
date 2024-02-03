@@ -285,11 +285,19 @@ if select=='Chatbot':
             }
             .st-emotion-cache-s1k4sy.e1d2x3se4{
             border:5px solid white;
-            background-color:black;
+            background-color:None;
+            margin-bottom:20px;
             }
             .stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
             background-color:black;
-            height:20px;
+            height:0%;
+            }
+            .st-emotion-cache-s1k4sy.e1d2x3se4{
+            background-color:black;
+            }
+            .stChatInputContainer.st-emotion-cache-164vu5a.e1d2x3se5{
+            background-color:black;
+            height:10px;
             }
             
         </style>
