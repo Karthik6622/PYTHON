@@ -46,6 +46,13 @@ elif d=='light':
         background-color: white;
         border:2px solid black;
         }
+        /*disaplying side default icons*/
+        .st-emotion-cache-zq5wmm.ezrtsby0{
+            visibility:hidden;
+        }
+        #MainMenu{
+           visibility:hidden;
+        }
     </style>'''
 
 st.markdown(light, unsafe_allow_html=True)
@@ -308,6 +315,10 @@ elif select=="MostAskedInputs":
                     margin-left:20px;
                     border-radius:12px 12px 12px 12px;
                     }
+                    
+                    .st-emotion-cache-zq5wmm.ezrtsby0{
+                    visibility:hidden;
+                    }
                     """,unsafe_allow_html=True)
         rate=st.slider("Rate from 1 to 5",0,5,3)
         st.write(f'<h6 style="color:green";>You Selected: {"⭐️"*int(rate)}</h6>',unsafe_allow_html=True)
@@ -417,6 +428,10 @@ elif select=='ProjectOverview':
                 h5{
                 color:blue;
                 font-weight:bold;
+                }
+                /*#disabling right up corner 3 dot*/
+                .st-emotion-cache-zq5wmm.ezrtsby0{
+                    visibility:hidden;
                 }
                 </style>
                 """,unsafe_allow_html=True)
@@ -544,6 +559,10 @@ elif select=='settings':
                 .st-emotion-cache-sh2krr.e1nzilvr5 p{
                 font-size:25px;
                 font-weight:bold;
+                }
+                /*#disabling right up corner 3 dot*/
+                .st-emotion-cache-zq5wmm.ezrtsby0{
+                  visibility:hidden;
                 }
                 </style>
                 """,unsafe_allow_html=True)
