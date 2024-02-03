@@ -14,10 +14,10 @@ with st.sidebar:
    d=st.selectbox("MODE(DARK&LIGHT)",options=['Dark','light'],key='p')
    st.markdown("""
                <style>
-               .st-emotion-cache-sh2krr.e1nzilvr5 p{
-                font-size:25px;
+               .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+                font-size:20px;
                 font-weight:bold;
-                color:green;
+                color:red;
                 text-align:center;
                 margin-left:20px;
                 }
