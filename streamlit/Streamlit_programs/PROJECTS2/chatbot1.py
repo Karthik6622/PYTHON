@@ -179,7 +179,7 @@ if select=='Chatbot':
         chat_history1.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
         
-        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
+        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
 
         with st.sidebar:
             clear=st.button("Pageclear")
@@ -204,7 +204,7 @@ if select=='Chatbot':
         conn.commit()
         conn.close()
     else:
-        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
+        st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not chat_history1:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
