@@ -202,7 +202,7 @@ if select=='Chatbot':
         if not chat_history1:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
-               with open("Animation - 1706803520058.json") as s:
+               with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
                   ddd=json.load(s)
                st_lottie(ddd,height=500,width=None,speed=1)
            with cx2:    
