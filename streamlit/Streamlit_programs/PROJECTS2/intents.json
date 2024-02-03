@@ -1,7 +1,15 @@
 {"intents": [
     {"tag": "greeting",
-     "patterns": ["Hi", "Hey", "Is anyone there?", "Hello", "Hay","Hey beauty","hi beauty"],
+     "patterns": ["Hi", "Hey", "Is anyone there?", "Hello", "Hay","Hey beauty","hi beauty","baby"],
      "responses": ["Hi there! How can I assist you with love today?","Hello! Ready to chat about love?","Hey! What romantic topic are you interested in?"]
+    },
+    {"tag": "howareyou",
+     "patterns": ["Hi how are you?", "how you are doing?", "how you doing?", "are you ok?","How are you doing?","How are you feeling?","How's it going?","How are things?","How's everything?","What's up?","How are you today?","How do you do?","How's life treating you?","How's your day been?"],
+     "responses": ["I'm doing well.Thanks for asking I hope you are doing well!","I'm great.Thanks for asking I hope you are doing well!","I'm all right.Thanks for asking I hope you are doing well!","I'm doing pretty well.Thanks for asking I hope you are doing well!","I'm fantastic.Thanks for asking I hope you are doing well!"]
+    },
+    {"tag": "notok",
+     "patterns": ["i am not ok", "not well", "upset","i am not in good mood","i feel sad","depress"],
+     "responses": ["Oh!bad to here.you can come out from sadness by love so ask me some love topics"]
     },
     {"tag": "goodbye",
      "patterns": ["Bye", "See you later", "Goodbye"],
@@ -30,6 +38,10 @@
     {"tag": "boyfriend",
     "patterns": ["do you have a boyfriend?", "are you single?", "are you commited?","can i know about your love life?"],
     "responses": ["I have boyfriend.his name is Karthik and he made me", "Yea! My boyfriend name is Karthik and he made me","I am loving Karthik and he made me"]
+    },
+    {"tag": "lovee",
+    "patterns": ["i love you", "love you?","can i know about your love life?"],
+    "responses": ["I have boyfriend.his name is Karthik and he made me","I am loving Karthik and he made me"]
     },
     {"tag":"Compliments",
     "patterns":["You're stunning",
@@ -85,7 +97,7 @@
     },
     {
     "tag":"propose",
-    "patterns":["how to propose to girl?","give me some tips for propose the girl?","can you suggest some way to proposal","how to Proposing to the girlfriend?"],
+    "patterns":["how to propose to girl?","give me some tips for propose the girl?","can you suggest some way to proposal","how to Proposing to the girlfriend?","propose"],
     "responses":["1.Know Her Well:Ensure that you know her preferences, likes, and dislikes. Consider her personality and the kind of proposal that would resonate with her.2.Plan Ahead:Plan the proposal in advance. This includes deciding on the location, the words you'll say, and any special elements you want to include.3.Consider Her Style:Think about the kind of proposal she would appreciate. Some people prefer private, intimate proposals, while others might enjoy a more public display.4.Choose a Meaningful Ring:If you plan to give her a ring, choose one that reflects her style and preferences. It doesn't have to be extravagant, but it should hold sentimental value.",
     "1.Write Your Thoughts:Consider writing down your thoughts and feelings. Whether you choose to read from a prepared script or speak from the heart, having your words organized can help express your emotions clearly.2.Personalize the Proposal:Add personal touches to the proposal. This could be including elements from your relationship, like the place you first met or incorporating shared hobbies.3.Capture the Moment:Consider having someone capture the moment on camera. This could be a friend, photographer, or even a discreetly placed camera if you're proposing in a public space.4.Choose the Right Moment: Pick a moment that is special to both of you. It could be a place that holds sentimental value or a time when you're both relaxed and happy.",
     "1.Stay Calm and Be Confident:Take a deep breath and stay calm. Be confident in your decision and express your feelings sincerely.2.Speak from the Heart:Express your feelings genuinely. Share why you love her and why you want to spend the rest of your life with her.3.Be Open to Her Response:Be prepared for any response, and respect her feelings. If she needs a moment to process, give her the time she needs.4.Ask for Her Parents' Blessing (If Appropriate):If you feel it's appropriate and you're comfortable doing so, consider asking for her parents' blessing before proposing. This traditional gesture can be meaningful for some families."

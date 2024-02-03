@@ -11,12 +11,53 @@ import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
 st.set_page_config(layout="wide")
 with st.sidebar:
+   d=st.selectbox("MODE(DARK&LIGHT)",options=['Dark','light'],key='p')
+   st.markdown("""
+               <style>
+               .st-emotion-cache-sh2krr.e1nzilvr5 p{
+                font-size:25px;
+                font-weight:bold;
+                color:green;
+                text-align:center;
+                margin-left:20px;
+                }
+                </style>
+                """,unsafe_allow_html=True)
+if d=='Dark':
+    light = '''
+    <style>
+        .stApp {
+        background-color: black;
+        }
+    </style>
+    '''
+elif d=='light':
+    light = '''
+    <style>
+        .stApp {
+        background-color: white;
+        color:red;
+        }
+        .st-emotion-cache-6qob1r.eczjsme3{
+        background-color: white;
+        border:2px solid black;
+        }
+    </style>'''
+
+st.markdown(light, unsafe_allow_html=True)
+
+
+
+
+with st.sidebar:
     select=option_menu(
     menu_title="",
     options=['Chatbot','ProjectOverview','settings',"MostAskedInputs"],
+    icons=['robot','file-earmark-ppt-fill','gear-fill','people-fill'],
     orientation="vertical",
 
     )    
+    
 if select=='Chatbot':
     @st.cache_data
     def model1():
@@ -82,23 +123,25 @@ if select=='Chatbot':
     inp=input_shpe[0]
     #print(inp)
     import random
-    st.title("Love Help Chatbot")
-    clear=st.button("Pageclear")
-    if clear:
-        chat_history1=[]
-    else:
-       for i in range(len(chat_history1)):
-                c1,c2=st.columns([6,10])
-                with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
-                    st.markdown("<br>",unsafe_allow_html=True)
-                with c2:
-                    st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
-
-    def kk2():
-        #st.title("Love Help Chatbot")
-        prediction_input=st.session_state.text_key
+    with st.sidebar:
+        with open("Animation - 1706811014627.json") as s:
+            ddd=json.load(s)
+        st_lottie(ddd,height=300,width=300,speed=4)
+    prediction_input = st.chat_input(key="text_key",placeholder="Type something to know about love...")
+    #customizing pageclear butto
+    st.markdown("""
+                    <style>
+                    .st-emotion-cache-1ub5arx.ef3psqc12{
+                    color:red;
+                    width:250px;
+                    background-color:black;
+                    margin-left:20px;
+                    border-radius:12px 12px 12px 12px;
+                    }
+                    </style>
+                    """,unsafe_allow_html=True)
+    if prediction_input:
+        
         text_p=[]
         #removing puncucation from the prediction_input
         prediction_input=[letter.lower() for letter in prediction_input if letter not in string.punctuation]
@@ -131,40 +174,101 @@ if select=='Chatbot':
         
         chat_history1.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
+        st.title("Love Help Chatbot")
+        with st.sidebar:
+            clear=st.button("Pageclear")
+        if clear:
+            chat_history1.clear()
+        else:
+            for i in range(len(chat_history1)):
+                c1,c2=st.columns([6,10])
+                with c1:
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown("<br>",unsafe_allow_html=True)
+                with c2:
+                    st.markdown("<br>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
+    
         
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
-        st.session_state.text_key=""
         #storing the user giving data and model response data into sqllite database
         conn=sqlite3.connect("E:\streamlit\Streamlit_programs\PROJECTS2\lovechatbot.db")
         cursor=conn.cursor()
         cursor.execute("insert into userinputresponse values(?,?)",(prediction_input,pp))
         conn.commit()
         conn.close()
+    else:
+        st.title("Love Help Chatbot")
+        if not chat_history1:
+           cx1,cx2,cx3=st.columns(3)
+           with cx1:
+               with open("Animation - 1706803520058.json") as s:
+                  ddd=json.load(s)
+               st_lottie(ddd,height=500,width=None,speed=1)
+           with cx2:    
+                import time as t
+                ll="My name is Baby! How can I assist you with the topic of love?"
+                ll1=ll.split(" ")
+                for i in ll1:
+                        st.markdown(f"<h6 style='text-align:center;color:green;font-weight:bold;'> {i}</h6>",unsafe_allow_html=True)
+                        t.sleep(0.2)
+           with cx3:
+                with open("Animation - 1706803520058.json") as s:
+                  ddd=json.load(s)
+                st_lottie(ddd,height=500,width=None,speed=1)
+           #st.markdown("## My name is Baby! How can I assist you with the topic of love?")
+        with st.sidebar:
+            clear=st.button("Pageclear")
+        if clear:
+            chat_history1.clear()
+        else:     
+            for i in range(len(chat_history1)):
+                c1,c2=st.columns([6,10])
+                with c1:
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown("<br>",unsafe_allow_html=True)
+                with c2:
+                    st.markdown("<br>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
     #customizing the chatbot using inspect classes
     ##4b4e4b
+    #.stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
     st.markdown(
         """
         <style>
+            .st-emotion-cache-zq5wmm.ezrtsby0{
+            visibility:hidden;
+            }
             
-            
-            .st-emotion-cache-0.e1f1d6gn0{
+            .main.st-emotion-cache-uf99v8.ea3mdgi88{
                 border:2px solid white;
-                padding-left:15px;
+                padding-left:0px;
                 width:100%;
-                box-shadow: 5px 5px 10px #4b4e4b;
+                box-shadow: 5px 5px 10px black;
                 background-color:#99FF99;
+            }
+            .st-emotion-cache-0.e1f1d6gn0{
+            
+            }
+            .st-emotion-cache-1wm93xv.ea3mdgi28{
+            
+            background-color:#99FF99;
             }
             .stHeadingContainer{
             text-align:center;
-            color:orange;
-            margin-top:20px;
-            background-color:#ff9900;
+            margin-top:0px;
+            background-color:black;
+            border:5px solid white;
             }
+            .st-emotion-cache-s1k4sy.e1d2x3se4{
+            border:5px solid white;
+            }
+            
         </style>
         """,
         unsafe_allow_html=True,
     )
-    prediction_input = st.text_input("",on_change=kk2,key='text_key',value="",placeholder="Type something to know about love...")
+    
     st.markdown(
         f"""
         <script>
@@ -174,6 +278,35 @@ if select=='Chatbot':
         unsafe_allow_html=True,
     )
 elif select=="MostAskedInputs":
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("<h1 style='text-align:center;color:green';>Customer Review</h1>",unsafe_allow_html=True)
+        customer_name1=st.empty()
+        description1=st.empty()
+        customer_name =customer_name1.text_input('',key="1",placeholder="Enter the Name")
+        #disabling the send icon
+        st.markdown("""
+                    <style>
+                    .st-emotion-cache-1if5ada.e1y5xkzn1{
+                    visibility:hidden;
+                    }
+                    """,unsafe_allow_html=True)
+        rate=st.slider("Rate from 1 to 5",0,5,3)
+        st.write(f'You Selected: {"⭐️"*int(rate)}')
+        description=description1.text_area('',key="2",placeholder="Enter the message!!!")
+        submit=st.button("submit")
+        st.markdown("---")
+        if submit:
+           
+           st.write("Thankyou for your review!!")
+           c=sqlite3.connect("E:\\streamlit\\Streamlit_programs\\PROJECTS2\\lovechatbot.db")
+           cur=c.cursor()
+           cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
+           c.commit()
+           c.close()
+           #In Streamlit, st.empty() is a method that creates an empty container in which you can dynamically add content. The primary use of st.empty() is to create a placeholder or container that you can later fill with dynamic content based on certain conditions or user interactions.
+           customer_name =customer_name1.text_input('',key="3",placeholder="Enter the Name")
+           description=description1.text_area('',key="4",placeholder="Enter the message!!!")
     op=option_menu(
         options=['ALL','MostAskedinputs','MostAskedresponse'],
         orientation='horizontal',
@@ -185,14 +318,18 @@ elif select=="MostAskedInputs":
     cur.execute(query)
     data=cur.fetchall()
     dd=pd.DataFrame(data)
+    #setting index vaue from 1
+    dd.index=range(1,len(dd.index)+1)
     dd.rename(columns={0:'input',1:'Response'},inplace=True)
     if op=='ALL':
-       st.table(dd)
+       st.dataframe(dd,use_container_width=True)
     elif op=='MostAskedinputs':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
         else:
             count=dd['input'].value_counts().reset_index()
+            #setting index vaue from 1
+            count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
                 st.dataframe(count.head(10),use_container_width=True)
@@ -207,6 +344,8 @@ elif select=="MostAskedInputs":
             st.write("DATABASE IS EMPTY!!!!")
         else:
             count=dd['Response'].value_counts().reset_index()
+            #setting index vaue from 1
+            count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
                 st.dataframe(count.head(10),use_container_width=True)
@@ -222,7 +361,6 @@ elif select=='ProjectOverview':
         with open("Animation - 1706725721151.json") as c:
            con=json.load(c)
         st_lottie(con,height=200,width=300,speed=2)
-
     st.markdown("""
                <style>
                 .k{
@@ -376,10 +514,51 @@ elif select=='ProjectOverview':
     </div>
     """,unsafe_allow_html=True)
 elif select=='settings':
+    st.markdown("""
+                <style>
+                
+                .st-emotion-cache-sh2krr.e1nzilvr5
+                {
+                width:300px;
+                height:50px;
+                
+                }
+                .st-emotion-cache-sh2krr.e1nzilvr5 p{
+                font-size:25px;
+                font-weight:bold;
+                }
+                </style>
+                """,unsafe_allow_html=True)
     with st.sidebar:
-        with open("Animation - 1706722176313.json") as c1:
-           con1=json.load(c1)
-        st_lottie(con1,height=200,width=300,speed=2)
+        st.markdown("---")
+        st.markdown("<h1 style='text-align:center;color:green';>Customer Review</h1>",unsafe_allow_html=True)
+        customer_name1=st.empty()
+        description1=st.empty()
+        customer_name =customer_name1.text_input('',key="1",placeholder="Enter the Name")
+        #disabling the send icon
+        st.markdown("""
+                    <style>
+                    .st-emotion-cache-1if5ada.e1y5xkzn1{
+                    visibility:hidden;
+                    }
+                    """,unsafe_allow_html=True)
+        rate=st.slider("Rate from 1 to 5",0,5,3)
+        st.write(f'You Selected: {"⭐️"*int(rate)}')
+        description=description1.text_area('',key="2",placeholder="Enter the message!!!")
+        submit=st.button("submit")
+        st.markdown("---")
+        if submit:
+           
+           st.write("Thankyou for your review!!")
+           c=sqlite3.connect("E:\\streamlit\\Streamlit_programs\\PROJECTS2\\lovechatbot.db")
+           cur=c.cursor()
+           cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
+           c.commit()
+           c.close()
+           #In Streamlit, st.empty() is a method that creates an empty container in which you can dynamically add content. The primary use of st.empty() is to create a placeholder or container that you can later fill with dynamic content based on certain conditions or user interactions.
+           customer_name =customer_name1.text_input('',key="3",placeholder="Enter the Name")
+           description=description1.text_area('',key="4",placeholder="Enter the message!!!")
+
     tab1,tab2,tab3=st.tabs(['Developer/ContactUs','Datasource/codes','Deletedatafromdatabase'])
     with tab1:
         c1,c2=st.columns(2)
@@ -387,21 +566,36 @@ elif select=='settings':
             from streamlit_lottie import st_lottie
             with open("Animation - 1706721681647.json") as c:
                 con=json.load(c)
-            st_lottie(con,height=500,width=500,speed=2)
+
+            st.markdown(f"""
+                        <div class='k'>
+                        {st_lottie(con,height=500,width=None,speed=2,loop=True)}
+                        </div>
+                           """,unsafe_allow_html=True)
+            
             
         with c2:
-            st.write("## CreatedBY")
-            st.markdown("### KARTHIK R")
+            #st.markdown("---")
+            st.write("<h2 style='color:#00ff00;text-decoration:underline;'>Contactus</h2>",unsafe_allow_html=True,use_column_width=True)
+            
+            st.write("<h4 style='color:orange;'> 💻 Creater:  KARTHIK R</h4>",use_column_width=True,unsafe_allow_html=True)
+            
             gmail_address="karthikmca6622@gmail.com"
             gmail_link=f"mailto:{gmail_address}"
-            st.markdown("[karthikmca6622@gmail.com]({gmail_link})")
+            #we can see the emojis inside the github cheat-sheet-https://github.com/ikatyang/emoji-cheat-sheet
+            st.write(f"#### <h4 style='color:orange;'> :email: Email: [karthikmca6622@gmail.com]({gmail_link})</h4>",use_column_width=True,unsafe_allow_html=True)
+            
             phone_number="9944194787"
             phone_link=f"tel:{phone_number}"
-            st.markdown("[9944194787]({phone_link})")
+            st.write("#### <h4 style='color:orange;'> :iphone: Phone-Number:  [9944194787]({phone_link})</h4>",use_column_width=True,unsafe_allow_html=True)
+            st.write("#### <h4 style='color:orange;'> :rocket: Github: [https://github.com/Karthik6622/PYTHON](https://github.com/Karthik6622/PYTHON)</h4>",use_container_width=True,unsafe_allow_html=True)
+            st.write("#### <h4 style='color:orange;'> :o: Streamlit: [https://share.streamlit.io/](https://share.streamlit.io/)</h4>",use_container_width=True,unsafe_allow_html=True)
+            st.markdown("---")
+        st.markdown("---")
     with tab2:
         co1,co2=st.columns([1,2])
         with co1:
-           st.markdown("## JSON DATA FILE")
+           st.markdown("<h4 style='color:#00ff00;'>JSON DATA FILE</h4>",unsafe_allow_html=True)
            #st.markdown("---")
         with open("intents.json") as fi:
             da=json.load(fi)
@@ -410,18 +604,19 @@ elif select=='settings':
         
         with co2:
            st.markdown("<br>",unsafe_allow_html=True)
+           
            st.download_button("DOWNLOAD JSON DATA",data=json_data,file_name="lovedata.json")
         st.markdown("---")
-        co11,co22=st.columns([1,2])
-        with co11:
-            st.markdown("## Source code")
+        co11_,co22_=st.columns([1,2])
+        with co11_:
+            st.markdown("<h4 style='color:#00ff00;'>Source code</h4>",unsafe_allow_html=True)
             #st.markdown("---")
-        with co22:
+        with co22_:
             st.markdown("[https://github.com/](https://github.com/)")
         st.markdown("<hr>",unsafe_allow_html=True)
         co111,co222=st.columns([1,2])
         with co111:
-            st.markdown("## Databasefile")
+            st.markdown("<h4 style='color:#00ff00;'>Databasefile</h4>",unsafe_allow_html=True)
             #st.markdown("---")
         with co222:
             st.markdown("[https://github.com/](https://github.com/)")
