@@ -13,7 +13,7 @@ from streamlit_lottie import st_lottie
 #browser tab title and icon 
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
 st.markdown("""<style>
-                #manage-app-button{
+                .styles_terminalButton__JBj5T{
                    visibility: hidden;
                }
                 </style>
