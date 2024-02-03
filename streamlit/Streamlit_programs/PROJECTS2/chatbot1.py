@@ -192,7 +192,7 @@ if select=='Chatbot':
         
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
         #storing the user giving data and model response data into sqllite database
-        conn=sqlite3.connect("streamlit\Streamlit_programs\PROJECTS2\lovechatbot.db")
+        conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cursor=conn.cursor()
         cursor.execute("insert into userinputresponse values(?,?)",(prediction_input,pp))
         conn.commit()
