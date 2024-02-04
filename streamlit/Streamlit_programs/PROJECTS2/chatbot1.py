@@ -426,7 +426,7 @@ elif select=="EDA(Inputs-Responses&Reviews)":
         cur.close()
         conn.close()
         dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
-        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages'])
+        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages','ALL Customer Reviews'])
         if radio=='star Ratings':
             data=go.Scatter(
                 y=dataframe['Ratings'],
@@ -470,15 +470,25 @@ elif select=="EDA(Inputs-Responses&Reviews)":
         elif radio=='Popular messages':
             val_count=dataframe['Message'].value_counts().reset_index()
             #st.write(val_count)
-            cc1,cc2=st.columns(2)
+            cc1,cc2=st.columns([1,4])
             with cc1:
-               radio1=st.radio("",options=['top10','least10'])
-               if radio1=='top10':
+               radio1=st.radio("",options=['Most Given 10','Least Given 10','Most Given 5','Least Given 5','Most Given 1','Least Given 1'])
+               if radio1=='Most Given 10':
                    dk=val_count.head(10)
-               elif radio1=='least10':
+               elif radio1=='Least Given 10':
                     dk=val_count.tail(10)
+               elif radio1=='Most Given 5':
+                   dk=val_count.head(5)
+               elif radio1=='Least Given 5':
+                    dk=val_count.tail(5)
+               elif radio1=='Most Given 1':
+                   dk=val_count.head(1)
+               elif radio1=='Least Given 1':
+                    dk=val_count.tail(1)
             with cc2:
                 st.table(dk)
+        elif radio=='ALL Customer Reviews':
+            st.table(dataframe)
 elif select=='ProjectOverview':
     with st.sidebar:
         with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
