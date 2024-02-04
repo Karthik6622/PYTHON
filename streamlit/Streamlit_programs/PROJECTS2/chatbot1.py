@@ -318,6 +318,15 @@ if select=='Chatbot':
         unsafe_allow_html=True,
     )
 elif select=="EDA(Inputs-Responses&Reviews)":
+    #customizing all tables
+    st.markdown("""
+                <style>
+                tr{
+                background-color:black
+                }
+                </style>
+                """,unsafe_allow_html=True
+                )
     with st.sidebar:
         st.markdown("---")
         st.markdown("<h1 style='text-align:center;color:red';>Customer Review</h1>",unsafe_allow_html=True)
