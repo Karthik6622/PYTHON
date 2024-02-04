@@ -9,6 +9,8 @@ from kkk import chat_history1
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
+from plotly.offline import plot
+import plotly.graph_objs as go
 #page_config={"page_title":"baby"}
 #browser tab title and icon 
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
@@ -73,7 +75,7 @@ st.markdown(light, unsafe_allow_html=True)
 with st.sidebar:
     select=option_menu(
     menu_title="",
-    options=['Chatbot','ProjectOverview','settings',"MostAskedInputs"],
+    options=['Chatbot','ProjectOverview','settings',"EDA(Inputs-Responses&Reviews)"],
     icons=['robot','file-earmark-ppt-fill','gear-fill','people-fill'],
     orientation="vertical",
 
@@ -314,7 +316,7 @@ if select=='Chatbot':
         """,
         unsafe_allow_html=True,
     )
-elif select=="MostAskedInputs":
+elif select=="EDA(Inputs-Responses&Reviews)":
     with st.sidebar:
         st.markdown("---")
         st.markdown("<h1 style='text-align:center;color:red';>Customer Review</h1>",unsafe_allow_html=True)
@@ -356,7 +358,7 @@ elif select=="MostAskedInputs":
            customer_name =customer_name1.text_input('',key="3",placeholder="Enter the Name")
            description=description1.text_area('',key="4",placeholder="Enter the message!!!")
     op=option_menu(
-        options=['ALL','MostAskedinputs','MostAskedresponse'],
+        options=['ALL Inputs & Responses','MostAskedinputs','Mostgivenresponses','User Reviews&Ratings','EDA for Reviews'],
         orientation='horizontal',
         menu_title=""
     )
@@ -369,8 +371,8 @@ elif select=="MostAskedInputs":
     #setting index vaue from 1
     dd.index=range(1,len(dd.index)+1)
     dd.rename(columns={0:'input',1:'Response'},inplace=True)
-    if op=='ALL':
-       st.dataframe(dd,use_container_width=True)
+    if op=='ALL Inputs & Responses':
+       st.table(dd)
     elif op=='MostAskedinputs':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
@@ -380,14 +382,14 @@ elif select=="MostAskedInputs":
             count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
-                st.dataframe(count.head(10),use_container_width=True)
+                st.table(count.head(10))
             elif se=='LEAST10':
-                st.dataframe(count.tail(10),use_container_width=True)
+                st.table(count.tail(10))
             elif se=='TOP20':
-                st.dataframe(count.head(20),use_container_width=True)
+                st.table(count.head(20))
             elif se=='LEAST20':
-                st.dataframe(count.tail(20),use_container_width=True)
-    elif op=='MostAskedresponse':
+                st.table(count.tail(20))
+    elif op=='Mostgivenresponses':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
         else:
@@ -396,14 +398,87 @@ elif select=="MostAskedInputs":
             count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
-                st.dataframe(count.head(10),use_container_width=True)
+                st.table(count.head(10))
             elif se=='LEAST10':
-                st.dataframe(count.tail(10),use_container_width=True)
+                st.table(count.tail(10))
             elif se=='TOP20':
-                st.dataframe(count.head(20),use_container_width=True)
+                st.table(count.head(20))
             elif se=='LEAST20':
-                st.dataframe(count.tail(20),use_container_width=True)
-
+                st.table(count.tail(20))
+    elif op=='User Reviews&Ratings':
+        conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        cur=conn.cursor()
+        query="select * from review_table"
+        cur.execute(query)
+        d=cur.fetchall()
+        dataframe=pd.DataFrame(d)
+        cur.close()
+        conn.close()
+        dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
+        st.table(dataframe)
+    elif op=='EDA for Reviews':
+        conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        cur=conn.cursor()
+        query="select * from review_table"
+        cur.execute(query)
+        d=cur.fetchall()
+        dataframe=pd.DataFrame(d)
+        cur.close()
+        conn.close()
+        dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
+        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages'])
+        if radio=='star Ratings':
+            data=go.Scatter(
+                y=dataframe['Ratings'],
+                mode="lines+markers",
+                name="lines",
+                text=dataframe['Ratings'].astype(str),
+                marker=dict(
+                color="plum",
+                ),
+            )
+            layout=go.Layout(
+            title=dict(text="Customer Star Ratings",x=0.3,y=0.9,font=dict(size=25)),
+            xaxis_title="No of Ratings",
+            yaxis_title="Ratings",
+            paper_bgcolor="#ff3333",
+            margin=dict(l=50,r=40,b=50,t=90),
+            )
+            fig=go.Figure(data=data,layout=layout)
+            st.plotly_chart(fig,use_container_width=True)
+            #for histogram text
+            da1=dataframe['Ratings'].value_counts().reset_index()
+            da2=da1.sort_values(by="Ratings")
+            #st.write(da2)
+            data=go.Histogram(
+            x=dataframe['Ratings'],
+            name="Myplot",
+            marker=dict(color='plum'),
+            text=da2['count']
+            #line=dict(width=5,color='orange')  
+            )
+            layout=go.Layout(
+            bargap=0.1,
+            title=dict(text="No of Star Ratings",x=0.4,y=0.9,font=dict(size=25)),
+            xaxis_title="No of Ratings",
+            yaxis_title="count",
+            paper_bgcolor="#ff3333",
+            margin=dict(l=50,r=40,b=50,t=90),
+            )
+            fig=go.Figure(data=data,layout=layout)
+            st.plotly_chart(fig,use_container_width=True)
+        elif radio=='Popular messages':
+            val_count=dataframe['Message'].value_counts().reset_index()
+            #st.write(val_count)
+            cc1,cc2=st.columns(2)
+            with cc1:
+               radio1=st.radio("",options=['top10','least10'])
+               if radio1=='top10':
+                   dk=val_count.head(10)
+               elif radio1=='least10':
+                    dk=val_count.tail(10)
+            with cc2:
+                st.table(dk)
 elif select=='ProjectOverview':
     with st.sidebar:
         with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
