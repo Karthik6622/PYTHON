@@ -5,12 +5,14 @@ import numpy as np
 import string
 from tensorflow import keras
 import sqlite3
-from kkk import chat_history1
+#from kkk import chat_history1
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
 #page_config={"page_title":"baby"}
 #browser tab title and icon 
+if "chat_history11" not in st.session_state:
+    st.session_state.chat_history11=[]
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
 st.markdown("""<style>
                 .styles_terminalButton__JBj5T{
@@ -193,7 +195,7 @@ if select=='Chatbot':
 
         #print(response_tag)
         
-        chat_history1.append({'YOU':text_p,'BABY':pp})
+        st.session_state.chat_history11.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
         
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
@@ -201,16 +203,16 @@ if select=='Chatbot':
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            chat_history1.clear()
+            st.session_state.chat_history11.clear()
         else:
-            for i in range(len(chat_history1)):
+            for i in range(len(st.session_state.chat_history11)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history11[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history11[i]['BABY']}",unsafe_allow_html=True)
     
         
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
@@ -222,7 +224,7 @@ if select=='Chatbot':
         conn.close()
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
-        if not chat_history1:
+        if not st.session_state.chat_history11:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
                with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
@@ -243,16 +245,16 @@ if select=='Chatbot':
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            chat_history1.clear()
+            st.session_state.chat_history11.clear()
         else:     
-            for i in range(len(chat_history1)):
+            for i in range(len(st.session_state.chat_history11)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history11[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history11[i]['BABY']}",unsafe_allow_html=True)
     #customizing the chatbot using inspect classes
     ##4b4e4b
     #.stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
