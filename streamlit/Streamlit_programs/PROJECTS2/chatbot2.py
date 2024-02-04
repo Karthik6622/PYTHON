@@ -11,6 +11,7 @@ import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
 #page_config={"page_title":"baby"}
 #browser tab title and icon 
+#this session state create prevent one user meassges another user can't see.it create each session for every user
 if "chat_history11" not in st.session_state:
     st.session_state.chat_history11=[]
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
