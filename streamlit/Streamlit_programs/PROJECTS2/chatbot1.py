@@ -5,7 +5,7 @@ import numpy as np
 import string
 from tensorflow import keras
 import sqlite3
-from kkk import chat_history1
+#from kkk import chat_history1
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
@@ -13,6 +13,9 @@ from plotly.offline import plot
 import plotly.graph_objs as go
 #page_config={"page_title":"baby"}
 #browser tab title and icon 
+#this session state create prevent one user meassges another user can't see.it create each session for every user
+if "chat_history1" not in st.session_state:
+    st.session_state.chat_history1=[]
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
 st.markdown("""<style>
                 .styles_terminalButton__JBj5T{
@@ -186,7 +189,7 @@ if select=='Chatbot':
 
         #if model final output morethan 7 it will display the prediction model result lessthan 7 means we will print below message
         print(output[0][output1])
-        accuracy=output[0][output1]
+        accuracy=round(output[0][output1],2)
         if output[0][output1]>=0.8:
             response_tag=le.inverse_transform([output1])[0]
             pp=random.choice(response[response_tag])
@@ -196,7 +199,7 @@ if select=='Chatbot':
 
         #print(response_tag)
         
-        chat_history1.append({'YOU':text_p,'BABY':pp,'Accuracy':accuracy})
+        st.session_state.chat_history1.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
         
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
@@ -204,28 +207,28 @@ if select=='Chatbot':
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            chat_history1.clear()
+            st.session_state.chat_history1.clear()
         else:
-            for i in range(len(chat_history1)):
+            for i in range(len(st.session_state.chat_history1)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history1[i]['BABY']}",unsafe_allow_html=True)
     
         
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
         #storing the user giving data and model response data into sqllite database
         conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cursor=conn.cursor()
-        cursor.execute("insert into userinputresponse values(?,?)",(prediction_input,pp))
+        cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
-        if not chat_history1:
+        if not st.session_state.chat_history1:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
                with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
@@ -246,16 +249,16 @@ if select=='Chatbot':
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            chat_history1.clear()
+            st.session_state.chat_history1.clear()
         else:     
-            for i in range(len(chat_history1)):
+            for i in range(len(st.session_state.chat_history1)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history1[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history1[i]['BABY']}",unsafe_allow_html=True)
     #customizing the chatbot using inspect classes
     ##4b4e4b
     #.stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
@@ -374,13 +377,13 @@ elif select=="EDA(Inputs-Responses&Reviews)":
     )
     con=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=con.cursor()
-    query="select UserInput,ModelResponse from userinputresponse"
+    query="select UserInput,ModelResponse,Accuracy from userinputresponse"
     cur.execute(query)
     data=cur.fetchall()
     dd=pd.DataFrame(data)
     #setting index vaue from 1
     dd.index=range(1,len(dd.index)+1)
-    dd.rename(columns={0:'input',1:'Response'},inplace=True)
+    dd.rename(columns={0:'input',1:'Response',2:'Accuracy'},inplace=True)
     if op=='ALL Inputs & Responses':
        st.table(dd)
     elif op=='MostAskedinputs':
