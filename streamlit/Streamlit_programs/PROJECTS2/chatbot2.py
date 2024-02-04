@@ -366,7 +366,7 @@ elif select=="MostAskedInputs":
     )
     con=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=con.cursor()
-    query="select UserInput,ModelResponse,Accuracy from userinputresponse"
+    query="select * from userinputresponse"
     cur.execute(query)
     data=cur.fetchall()
     dd=pd.DataFrame(data)
@@ -374,7 +374,7 @@ elif select=="MostAskedInputs":
     dd.index=range(1,len(dd.index)+1)
     dd.rename(columns={0:'input',1:'Response',2:'ModelAccuracy'},inplace=True)
     if op=='ALL':
-       st.dataframe(dd,use_container_width=True)
+       st.table(dd)
     elif op=='MostAskedinputs':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
