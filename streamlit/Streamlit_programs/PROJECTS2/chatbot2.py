@@ -187,6 +187,7 @@ if select=='Chatbot':
 
         #if model final output morethan 7 it will display the prediction model result lessthan 7 means we will print below message
         print(output[0][output1])
+        accuracy=output[0][output1]
         if output[0][output1]>=0.6:
             response_tag=le.inverse_transform([output1])[0]
             pp=random.choice(response[response_tag])
@@ -220,7 +221,7 @@ if select=='Chatbot':
         #storing the user giving data and model response data into sqllite database
         conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cursor=conn.cursor()
-        cursor.execute("insert into userinputresponse values(?,?)",(prediction_input,pp))
+        cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,accuracy))
         conn.commit()
         conn.close()
     else:
