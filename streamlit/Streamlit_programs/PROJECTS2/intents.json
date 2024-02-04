@@ -181,9 +181,14 @@
     },
     {
         "tag":"handleconflict",
-        "patterns":["how to solve love problems","love problem","love conflicts","love conflict","love fights","love fight"],
+        "patterns":["how to solve love problems","love problem","love conflicts","love conflict","love fights","love fight","how to avoid breakup","how to avoid fight with lover","how to avoid fight with girlfriend"],
         "responses":["Handling conflicts in a relationship requires effective communication, empathy, and a willingness to work together toward resolution. Here are some practical steps to handle conflicts in a relationship: 1.Stay Calm:Keep your emotions in check and approach the situation with a calm demeanor. Avoid reacting impulsively or letting anger escalate the conflict. 2.Choose the Right Time and Place:Find a suitable time and place to discuss the issue. Avoid bringing up sensitive topics in the heat of the moment or when either of you is stressed or busy. 3.Active Listening:Actively listen to your partner's perspective without interrupting. Show that you understand by repeating back what you've heard. This helps avoid misunderstandings.4. Express Yourself Clearly:Use 'I' statements to express your feelings and concerns. For example, say 'I feel hurt when...' instead of placing blame with 'You always...' 5.Focus on the Issue, Not the Person:Address the specific issue at hand rather than criticizing your partner's character. Avoid making generalizations or bringing up unrelated past grievances.",
         "Handling conflicts in a relationship requires effective communication, empathy, and a willingness to work together toward resolution. Here are some practical steps to handle conflicts in a relationship:  1.Apologize and Forgive:If you've made a mistake, apologize sincerely. Be willing to forgive your partner for their mistakes as well. Forgiveness is essential for moving forward. 2.Use 'We' Language:Frame the conversation using inclusive language. For example, say 'how can we find a solution?' This reinforces the idea that you are a team working together. 3.Take a Break if Needed:If the conflict becomes too heated, it's okay to take a break. Allow both parties to cool off and reflect before returning to the discussion. 4.Seek Solutions, Not Blame:Focus on finding solutions rather than assigning blame. Collaborate to come up with practical and realistic steps to address the issue."]
+    },
+    {
+        "tag":"breakup",
+        "patterns":["breakup","what is breakup?","tell me about breakup","explain me about breakup","breakingup","breaksup"],
+        "responses":["The term 'breakup' typically refers to the termination or ending of a relationship, often between romantic partners. In the context of personal relationships, a breakup involves the decision to no longer continue the relationship, leading to a separation or dissolution of the connection between the individuals involved."]
     }
 ]
 }

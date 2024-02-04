@@ -186,7 +186,8 @@ if select=='Chatbot':
 
         #if model final output morethan 7 it will display the prediction model result lessthan 7 means we will print below message
         print(output[0][output1])
-        if output[0][output1]>=0.6:
+        accuracy=output[0][output1]
+        if output[0][output1]>=0.8:
             response_tag=le.inverse_transform([output1])[0]
             pp=random.choice(response[response_tag])
             #print(response_tag)
@@ -195,7 +196,7 @@ if select=='Chatbot':
 
         #print(response_tag)
         
-        chat_history1.append({'YOU':text_p,'BABY':pp})
+        chat_history1.append({'YOU':text_p,'BABY':pp,'Accuracy':accuracy})
         #chat_history1.append({})
         
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
@@ -415,7 +416,10 @@ elif select=="EDA(Inputs-Responses&Reviews)":
         cur.close()
         conn.close()
         dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
-        st.table(dataframe)
+        if dataframe.empty:
+            st.write("DATABASE IS EMPTY!!!!")
+        else:
+            st.table(dataframe)
     elif op=='EDA for Reviews':
         conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cur=conn.cursor()
@@ -426,69 +430,78 @@ elif select=="EDA(Inputs-Responses&Reviews)":
         cur.close()
         conn.close()
         dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
-        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages','ALL Customer Reviews'])
+        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages','ALL Customer Names'])
         if radio=='star Ratings':
-            data=go.Scatter(
-                y=dataframe['Ratings'],
-                mode="lines+markers",
-                name="lines",
-                text=dataframe['Ratings'].astype(str),
-                marker=dict(
-                color="plum",
-                ),
-            )
-            layout=go.Layout(
-            title=dict(text="Customer Star Ratings",x=0.3,y=0.9,font=dict(size=25)),
-            xaxis_title="No of Ratings",
-            yaxis_title="Ratings",
-            paper_bgcolor="#ff3333",
-            margin=dict(l=50,r=40,b=50,t=90),
-            )
-            fig=go.Figure(data=data,layout=layout)
-            st.plotly_chart(fig,use_container_width=True)
-            #for histogram text
-            da1=dataframe['Ratings'].value_counts().reset_index()
-            da2=da1.sort_values(by="Ratings")
-            #st.write(da2)
-            data=go.Histogram(
-            x=dataframe['Ratings'],
-            name="Myplot",
-            marker=dict(color='plum'),
-            text=da2['count']
-            #line=dict(width=5,color='orange')  
-            )
-            layout=go.Layout(
-            bargap=0.1,
-            title=dict(text="No of Star Ratings",x=0.4,y=0.9,font=dict(size=25)),
-            xaxis_title="No of Ratings",
-            yaxis_title="count",
-            paper_bgcolor="#ff3333",
-            margin=dict(l=50,r=40,b=50,t=90),
-            )
-            fig=go.Figure(data=data,layout=layout)
-            st.plotly_chart(fig,use_container_width=True)
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+                data=go.Scatter(
+                    y=dataframe['Ratings'],
+                    mode="lines+markers",
+                    name="lines",
+                    text=dataframe['Ratings'].astype(str),
+                    marker=dict(
+                    color="plum",
+                    ),
+                )
+                layout=go.Layout(
+                title=dict(text="Customer Star Ratings",x=0.3,y=0.9,font=dict(size=25)),
+                xaxis_title="No of Ratings",
+                yaxis_title="Ratings",
+                paper_bgcolor="#ff3333",
+                margin=dict(l=50,r=40,b=50,t=90),
+                )
+                fig=go.Figure(data=data,layout=layout)
+                st.plotly_chart(fig,use_container_width=True)
+                #for histogram text
+                da1=dataframe['Ratings'].value_counts().reset_index()
+                da2=da1.sort_values(by="Ratings")
+                #st.write(da2)
+                data=go.Histogram(
+                x=dataframe['Ratings'],
+                name="Myplot",
+                marker=dict(color='plum'),
+                text=da2['count']
+                #line=dict(width=5,color='orange')  
+                )
+                layout=go.Layout(
+                bargap=0.1,
+                title=dict(text="No of Star Ratings",x=0.4,y=0.9,font=dict(size=25)),
+                xaxis_title="No of Ratings",
+                yaxis_title="count",
+                paper_bgcolor="#ff3333",
+                margin=dict(l=50,r=40,b=50,t=90),
+                )
+                fig=go.Figure(data=data,layout=layout)
+                st.plotly_chart(fig,use_container_width=True)
         elif radio=='Popular messages':
-            val_count=dataframe['Message'].value_counts().reset_index()
-            #st.write(val_count)
-            cc1,cc2=st.columns([1,4])
-            with cc1:
-               radio1=st.radio("",options=['Most Given 10','Least Given 10','Most Given 5','Least Given 5','Most Given 1','Least Given 1'])
-               if radio1=='Most Given 10':
-                   dk=val_count.head(10)
-               elif radio1=='Least Given 10':
-                    dk=val_count.tail(10)
-               elif radio1=='Most Given 5':
-                   dk=val_count.head(5)
-               elif radio1=='Least Given 5':
-                    dk=val_count.tail(5)
-               elif radio1=='Most Given 1':
-                   dk=val_count.head(1)
-               elif radio1=='Least Given 1':
-                    dk=val_count.tail(1)
-            with cc2:
-                st.table(dk)
-        elif radio=='ALL Customer Reviews':
-            st.table(dataframe)
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+                val_count=dataframe['Message'].value_counts().reset_index()
+                #st.write(val_count)
+                cc1,cc2=st.columns([1,4])
+                with cc1:
+                    radio1=st.radio("",options=['Most Given 10','Least Given 10','Most Given 5','Least Given 5','Most Given 1','Least Given 1'])
+                    if radio1=='Most Given 10':
+                        dk=val_count.head(10)
+                    elif radio1=='Least Given 10':
+                            dk=val_count.tail(10)
+                    elif radio1=='Most Given 5':
+                        dk=val_count.head(5)
+                    elif radio1=='Least Given 5':
+                            dk=val_count.tail(5)
+                    elif radio1=='Most Given 1':
+                        dk=val_count.head(1)
+                    elif radio1=='Least Given 1':
+                            dk=val_count.tail(1)
+                with cc2:
+                    st.table(dk)
+        elif radio=='ALL Customer Names':
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+               st.table(dataframe['Name'])
 elif select=='ProjectOverview':
     with st.sidebar:
         with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
@@ -770,20 +783,39 @@ elif select=='settings':
             st.markdown("[https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json](https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json)")
             #st.markdown("---")
     with tab3:
-        inp_pass=st.text_input("Enter the passcode")
-        submit=st.button("RESET/CLEAR THE DATABASE")
-        if submit:
-            if inp_pass=='6860':
-                st.write("kkkk")
-                conn1 = sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
-                cursor = conn1.cursor()
-                query = "DELETE FROM userinputresponse"
-                cursor.execute(query)
-                conn1.commit()
-                st.write("Delete successful")
-                conn1.close()
+        selct=st.selectbox("Select the Database to want to Delete",options=['USERINPUTDATABASE','USERREVIEWDATABASE'])
+        if selct=='USERINPUTDATABASE':
+            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERINPUTDATABASE....")
+            submit=st.button("RESET/CLEAR THE DATABASE")
+            if submit:
+                if inp_pass=='6860':
+                    #st.write("kkkk")
+                    conn1 = sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+                    cursor = conn1.cursor()
+                    query = "DELETE FROM userinputresponse"
+                    cursor.execute(query)
+                    conn1.commit()
+                    #st.write("<h2 style='color:green';>Delete successful</h2>",unsafe_allow_html=True)
+                    st.success('Delete successful')
+                    conn1.close()
 
-            else:
-                st.write("Please enter correct passcode!!!!")
-else:
+                else:
+                    st.error("Please enter correct passcode!!!!")
+        elif selct=='USERREVIEWDATABASE':
+            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERREVIEWDATABASE....")
+            submit=st.button("RESET/CLEAR THE DATABASE")
+            if submit:
+                if inp_pass=='6860':
+                    #st.write("kkkk")
+                    conn1 = sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+                    cursor = conn1.cursor()
+                    query = "DELETE FROM review_table"
+                    cursor.execute(query)
+                    conn1.commit()
+                    #st.write("<h2 style='color:green';>Delete successful</h2>",unsafe_allow_html=True)
+                    st.success('Delete successful')
+                    conn1.close()
+                else:
+                    st.error("Please enter correct passcode!!!!")
+else:        
     st.write("kkkk")
