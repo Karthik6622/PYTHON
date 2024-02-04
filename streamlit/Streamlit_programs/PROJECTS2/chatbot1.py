@@ -139,7 +139,7 @@ if select=='Chatbot':
             keras.layers.Dense(len_out,activation='softmax')
         ])
         model.compile(optimizer="adam",loss="sparse_categorical_crossentropy",metrics=['accuracy'])
-        model.fit(x_train,y_train,epochs=1000)
+        model.fit(x_train,y_train,epochs=500)
         return input_shpe,token,le,response,model
     #creating the chatbot
     input_shpe,token,le,response,model=model1()
