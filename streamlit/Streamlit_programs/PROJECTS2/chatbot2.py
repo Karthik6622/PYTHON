@@ -187,8 +187,8 @@ if select=='Chatbot':
 
         #if model final output morethan 7 it will display the prediction model result lessthan 7 means we will print below message
         print(output[0][output1])
-        accuracy=output[0][output1]
-        if output[0][output1]>=0.6:
+        accuracy=round(output[0][output1],2)
+        if output[0][output1]>=0.7:
             response_tag=le.inverse_transform([output1])[0]
             pp=random.choice(response[response_tag])
             #print(response_tag)
@@ -366,7 +366,7 @@ elif select=="MostAskedInputs":
     )
     con=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=con.cursor()
-    query="select UserInput,ModelResponse,Accuracy from userinputresponse"
+    query="select * from userinputresponse"
     cur.execute(query)
     data=cur.fetchall()
     dd=pd.DataFrame(data)
@@ -374,7 +374,7 @@ elif select=="MostAskedInputs":
     dd.index=range(1,len(dd.index)+1)
     dd.rename(columns={0:'input',1:'Response',2:'ModelAccuracy'},inplace=True)
     if op=='ALL':
-       st.dataframe(dd,use_container_width=True)
+       st.table(dd)
     elif op=='MostAskedinputs':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
