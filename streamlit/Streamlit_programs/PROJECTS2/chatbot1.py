@@ -58,14 +58,14 @@ if d=='Dark':
         button{
         color:red;
         }
-        span{
-        color:white;
-        }
         .stChatFloatingInputContainer.st-emotion-cache-90vs21.e1d2x3se2{
         background-color:black;
         }
         .st-emotion-cache-s1k4sy.e1d2x3se4{
         background-color:white;
+        }
+        .stChatInputContainer.st-emotion-cache-qm70ho.e1d2x3se5{
+        color:white;
         }
         textarea{
         color:white;
@@ -97,12 +97,17 @@ st.markdown(light, unsafe_allow_html=True)
 #givinng background color for table
 st.markdown("""
             <style>
-            tbody{
+            tbody tr td{
             background-color:black;
             color:white;
             border:2px solid white;
             }
-            thead{
+            tbody tr th{
+            background-color:black;
+            color:orange;
+            border:2px solid white;
+            }
+            thead tr th{
             color:orange;
             background-color:black;
             border:4px solid white;
