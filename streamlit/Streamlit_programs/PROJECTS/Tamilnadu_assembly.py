@@ -30,6 +30,12 @@ th{
 appview-container.st-emotion-cache-1wrcr25.ea3mdgi4{
    background-color:black;
 }
+p{
+  color:white;
+}
+.st-emotion-cache-0.e1f1d6gn0 span{
+  color:black;
+}
 </style>
 """,unsafe_allow_html=True)
 #pip install stremlit-option-menu
