@@ -22,7 +22,7 @@ td{
     color:white;
 }
 span{
-   color:white;
+   color:red;
 }
 th{
   color:white;          
@@ -31,7 +31,7 @@ appview-container.st-emotion-cache-1wrcr25.ea3mdgi4{
    background-color:black;
 }
 p{
-  color:white;
+  color:red;
 }
 .st-emotion-cache-0.e1f1d6gn0 span{
   color:black;
