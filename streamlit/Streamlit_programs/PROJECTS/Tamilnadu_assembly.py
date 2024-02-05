@@ -15,10 +15,13 @@ st.markdown("""
 #MainMenu{
     visibility: hidden;
 }
-.stApp{
-    background-color:black;
+u{
+    color:white;
 }
-body{
+td{
+    color:white;
+}
+appview-container.st-emotion-cache-1wrcr25.ea3mdgi4{
    background-color:black;
 }
 </style>
