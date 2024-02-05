@@ -18,6 +18,9 @@ st.markdown("""
 .stApp{
     background-color:black;
 }
+body{
+   background-color:black;
+}
 </style>
 """,unsafe_allow_html=True)
 #pip install stremlit-option-menu
