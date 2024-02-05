@@ -67,6 +67,9 @@ if d=='Dark':
         .st-emotion-cache-s1k4sy.e1d2x3se4{
         background-color:white;
         }
+        textarea{
+        color:white;
+        }
     </style>
     '''
 elif d=='light':
@@ -94,13 +97,15 @@ st.markdown(light, unsafe_allow_html=True)
 #givinng background color for table
 st.markdown("""
             <style>
-            tr{
+            tbody{
             background-color:black;
             color:white;
-            border:2px solid orange;
+            border:2px solid white;
             }
-            tr th{
+            thead{
             color:orange;
+            background-color:black;
+            border:4px solid white;
             }
             p{
             color:red;
