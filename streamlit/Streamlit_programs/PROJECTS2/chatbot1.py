@@ -99,6 +99,7 @@ st.markdown("""
             <style>
             .st-emotion-cache-a51556 {
             color:orange;
+            }
             tbody tr td{
             background-color:black;
             border:2px solid white;
