@@ -15,7 +15,7 @@ st.markdown("""
 #MainMenu{
     visibility: hidden;
 }
-.setApp{
+.stApp{
     background-color:black;
 }
 </style>
