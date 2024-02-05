@@ -93,6 +93,9 @@ elif d=='light':
         .st-emotion-cache-10trblm.e1nzilvr1 {
         color:black;
         }
+        .st-emotion-cache-eczf16.e1nzilvr3{
+        color:white;
+        }
     </style>'''
 
 st.markdown(light, unsafe_allow_html=True)
