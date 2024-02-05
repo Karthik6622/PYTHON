@@ -90,6 +90,9 @@ elif d=='light':
         #MainMenu{
            visibility:hidden;
         }
+        span{
+        color:black;
+        }
     </style>'''
 
 st.markdown(light, unsafe_allow_html=True)
