@@ -73,6 +73,10 @@ if d=='Dark':
         .st-emotion-cache-10trblm.e1nzilvr1{
             color:white
         }
+        st-emotion-cache-q8sbsg.e1nzilvr5{
+        color:red;
+        font-size:20px;
+        }
     </style>
     '''
 elif d=='light':
