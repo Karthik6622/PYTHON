@@ -51,6 +51,22 @@ if d=='Dark':
         .st-emotion-cache-6qob1r.eczjsme3{
         background-color:black;
         border:2px solid white;
+        }
+        .st-emotion-cache-18ni7ap.ezrtsby2{
+        background-color:black;
+        }
+        button{
+        color:red;
+        }
+        span{
+        color:white;
+        }
+        .stChatFloatingInputContainer.st-emotion-cache-90vs21.e1d2x3se2{
+        background-color:black;
+        }
+        .st-emotion-cache-s1k4sy.e1d2x3se4{
+        background-color:#666666;
+        }
     </style>
     '''
 elif d=='light':
@@ -78,7 +94,7 @@ st.markdown(light, unsafe_allow_html=True)
 #givinng background color for table
 st.markdown("""
             <style>
-            table{
+            tr{
             background-color:black;
             color:white;
             }
@@ -549,10 +565,12 @@ elif select=='ProjectOverview':
                 font-weight:bold;
                 border:2px solid white;
                 box-shadow:2px 5px 20px #4b4e4b;
+                
                 }
                 .k p{
                 font-size:25px;
                 font-weight:bold;
+                color:white;
                 }
                 h4{
                 color:green;
