@@ -102,7 +102,7 @@ st.markdown("""
             color:orange;
             }
             p{
-            color:White;
+            color:red;
             font-size:15px;
             }
             .st-emotion-cache-16idsys.e1nzilvr5 p{
@@ -565,12 +565,12 @@ elif select=='ProjectOverview':
                 font-weight:bold;
                 border:2px solid white;
                 box-shadow:2px 5px 20px #4b4e4b;
-                
+                color:white;
                 }
                 .k p{
                 font-size:25px;
                 font-weight:bold;
-                color:white;
+                
                 }
                 h4{
                 color:green;
