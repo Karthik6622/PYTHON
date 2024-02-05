@@ -48,6 +48,8 @@ if d=='Dark':
         .stApp {
         background-color: black;
         }
+        .st-emotion-cache-6qob1r.eczjsme3{
+        background-color:black;
     </style>
     '''
 elif d=='light':
