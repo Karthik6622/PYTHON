@@ -50,6 +50,7 @@ if d=='Dark':
         }
         .st-emotion-cache-6qob1r.eczjsme3{
         background-color:black;
+        border:2px solid white;
     </style>
     '''
 elif d=='light':
@@ -74,8 +75,26 @@ elif d=='light':
 
 st.markdown(light, unsafe_allow_html=True)
 
-
-
+#givinng background color for table
+st.markdown("""
+            <style>
+            table{
+            background-color:black;
+            color:white;
+            }
+            th{
+            color:orange;
+            }
+            p{
+            color:White;
+            font-size:15px;
+            }
+            .st-emotion-cache-16idsys.e1nzilvr5 p{
+            color:red;
+            font-size:20px;
+            }
+            </style>
+            """,unsafe_allow_html=True)
 
 with st.sidebar:
     select=option_menu(
