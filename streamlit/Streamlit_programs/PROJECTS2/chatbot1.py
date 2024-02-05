@@ -65,7 +65,7 @@ if d=='Dark':
         background-color:black;
         }
         .st-emotion-cache-s1k4sy.e1d2x3se4{
-        background-color:#666666;
+        background-color:white;
         }
     </style>
     '''
@@ -97,8 +97,9 @@ st.markdown("""
             tr{
             background-color:black;
             color:white;
+            border:2px solid orange;
             }
-            th{
+            tr th{
             color:orange;
             }
             p{
