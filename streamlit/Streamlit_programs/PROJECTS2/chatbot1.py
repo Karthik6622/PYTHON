@@ -91,10 +91,10 @@ elif d=='light':
            visibility:hidden;
         }
         .st-emotion-cache-10trblm.e1nzilvr1 {
-        color:black;
+        color:red;
         }
-        .st-emotion-cache-eczf16.e1nzilvr3{
-        color:white;
+        input{
+        border:1px solid red;
         }
     </style>'''
 
