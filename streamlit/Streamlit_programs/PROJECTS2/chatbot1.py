@@ -97,7 +97,7 @@ st.markdown(light, unsafe_allow_html=True)
 #givinng background color for table
 st.markdown("""
             <style>
-            table{
+            .st-emotion-cache-165ax5l{
             background-color:black;
             border:2px solid white;
             }
