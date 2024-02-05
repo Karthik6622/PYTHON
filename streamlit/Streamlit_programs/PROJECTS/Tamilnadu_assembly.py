@@ -21,6 +21,12 @@ u{
 td{
     color:white;
 }
+span{
+   color:white;
+}
+th{
+  color:white;          
+            }
 appview-container.st-emotion-cache-1wrcr25.ea3mdgi4{
    background-color:black;
 }
