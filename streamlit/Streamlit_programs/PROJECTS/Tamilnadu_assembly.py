@@ -34,7 +34,7 @@ p{
   color:red;
 }
 .st-emotion-cache-0.e1f1d6gn0 span{
-  color:black;
+  color:red;
 }
 </style>
 """,unsafe_allow_html=True)
