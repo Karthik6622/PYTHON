@@ -70,6 +70,9 @@ if d=='Dark':
         .st-de{
         color:white;
         }
+        .st-emotion-cache-10trblm.e1nzilvr1{
+            color:white
+        }
     </style>
     '''
 elif d=='light':
