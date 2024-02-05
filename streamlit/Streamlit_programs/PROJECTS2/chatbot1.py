@@ -30,13 +30,13 @@ with st.sidebar:
                .st-emotion-cache-q8sbsg.e1nzilvr5{
                margin-top:0px;
                }
-               .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+               
+               .st-emotion-cache-16idsys p{
                 font-size:20px;
                 font-weight:bold;
                 color:red;
-                text-align:center;
                 
-                }
+               }
                .styles_terminalButton__JBj5T {
                    visibility: hidden;
                }
@@ -102,6 +102,7 @@ st.markdown("""
             tbody tr td{
             background-color:black;
             border:2px solid white;
+            color:white;
             }
             thead tr th{
             background-color:black;
