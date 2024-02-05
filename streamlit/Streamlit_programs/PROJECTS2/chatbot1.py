@@ -109,6 +109,12 @@ st.markdown("""
             border:2px solid white;
             color:white;
             }
+
+            tr th{
+            background-color:black;
+            border:2px solid white;
+            color:white;
+            }
             p{
             color:red;
             font-size:15px;
