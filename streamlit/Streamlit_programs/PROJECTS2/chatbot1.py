@@ -91,10 +91,11 @@ elif d=='light':
            visibility:hidden;
         }
         .st-emotion-cache-10trblm.e1nzilvr1 {
-        color:red;
+        color:green;
         }
-        input{
-        border:1px solid red;
+        st-bb {
+        background-color: rgb(255, 255, 255);
+        border: 1px solid red;
         }
     </style>'''
 
