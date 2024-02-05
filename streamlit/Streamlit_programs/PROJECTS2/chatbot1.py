@@ -104,7 +104,7 @@ st.markdown("""
             .st-emotion-cache-a51556 {
             color:orange;
             }
-            tr{
+            tr td{
             background-color:black;
             border:2px solid white;
             color:white;
