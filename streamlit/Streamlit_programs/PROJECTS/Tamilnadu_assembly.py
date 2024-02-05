@@ -15,6 +15,9 @@ st.markdown("""
 #MainMenu{
     visibility: hidden;
 }
+.setApp{
+    background-color:black;
+}
 </style>
 """,unsafe_allow_html=True)
 #pip install stremlit-option-menu
