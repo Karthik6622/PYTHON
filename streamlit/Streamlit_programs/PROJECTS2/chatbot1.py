@@ -90,7 +90,7 @@ elif d=='light':
         #MainMenu{
            visibility:hidden;
         }
-        span{
+        .st-emotion-cache-10trblm.e1nzilvr1 {
         color:black;
         }
     </style>'''
