@@ -40,6 +40,9 @@ with st.sidebar:
                .styles_terminalButton__JBj5T {
                    visibility: hidden;
                }
+               .st-emotion-cache-10trblm.e1nzilvr1{
+               color:white
+               }
                 </style>
                 """,unsafe_allow_html=True)
 if d=='Dark':
@@ -64,10 +67,7 @@ if d=='Dark':
         .st-emotion-cache-s1k4sy.e1d2x3se4{
         background-color:white;
         }
-        .stChatInputContainer.st-emotion-cache-qm70ho.e1d2x3se5{
-        color:white;
-        }
-        textarea{
+        .st-de{
         color:white;
         }
     </style>
@@ -97,20 +97,15 @@ st.markdown(light, unsafe_allow_html=True)
 #givinng background color for table
 st.markdown("""
             <style>
+            .st-emotion-cache-a51556 {
+            color:orange;
             tbody tr td{
             background-color:black;
-            color:white;
-            border:2px solid white;
-            }
-            tbody tr th{
-            background-color:black;
-            color:orange;
             border:2px solid white;
             }
             thead tr th{
-            color:orange;
             background-color:black;
-            border:4px solid white;
+            border:2px solid white;
             }
             p{
             color:red;
