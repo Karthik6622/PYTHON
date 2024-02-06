@@ -112,6 +112,11 @@ elif d=='light':
         .st-de{
         color:white;
         }
+        .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+        color:red;
+        font-size:20px;
+        font-weight:bold;
+        }
     </style>'''
 
 st.markdown(light, unsafe_allow_html=True)
