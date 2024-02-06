@@ -275,7 +275,7 @@ if select=='Chatbot':
         #if model final output morethan 7 it will display the prediction model result lessthan 7 means we will print below message
         print(output[0][output1])
         accuracy=round(output[0][output1],2)
-        if output[0][output1]>=0.8:
+        if output[0][output1]>=0.7:
             response_tag=le.inverse_transform([output1])[0]
             pp=random.choice(response[response_tag])
             #print(response_tag)
