@@ -79,8 +79,8 @@ if d=='Dark':
         }
         .st-emotion-cache-q8sbsg.e1nzilvr5 p{
         color:red;
-        font-size:25px;
-        
+        font-size:20px;
+        font-weight:bold;
         }
     </style>
     '''
