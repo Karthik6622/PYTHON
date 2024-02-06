@@ -77,6 +77,11 @@ if d=='Dark':
         color:red;
         font-size:25px;
         }
+        .st-emotion-cache-q8sbsg e1nzilvr5 p{
+        color:red;
+        font-size:25px;
+        
+        }
     </style>
     '''
 elif d=='light':
@@ -139,6 +144,13 @@ st.markdown("""
             .st-emotion-cache-16idsys.e1nzilvr5 p{
             color:red;
             font-size:20px;
+            }
+            .st-emotion-cache-zuelfj{
+            background-color:black;
+            border:2px solid white;
+            }
+            .st-emotion-cache-c34i5s {
+            color:orange;
             }
             </style>
             """,unsafe_allow_html=True)
