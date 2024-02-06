@@ -105,7 +105,7 @@ elif d=='light':
         .st-emotion-cache-10trblm.e1nzilvr1 {
         color:green;
         }
-        .st-gj {
+        .st-ag { 
         
         border: 1px solid red;
         }
