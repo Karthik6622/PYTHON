@@ -106,7 +106,7 @@ elif d=='light':
         color:green;
         }
         .st-bb {
-        background-color: rgb(255, 255, 255);
+        
         border: 1px solid red;
        }
         .st-de{
