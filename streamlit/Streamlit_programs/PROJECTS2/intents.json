@@ -24,8 +24,8 @@
      "responses": ["Im Baby, your bot assistant", "I'm Baby, an Artificial Intelligent bot"]
     },
     {"tag": "babygoout",
-     "patterns": ["can we go out?","what is your age?", "how old are you?","can i know about your age?","when is your birthday?","tell me your birth datae?","current age","age rightnow"],
-     "responses": ["Im 23 year old right now..","I've been on this Earth for 23 years.","I've completed 23 trips around the sun","I'm in my 24th year of life."]
+     "patterns": ["can we go out?","are you coming out with me?", "come we go out?","why can't we go out?","shall we go out?","would you like to come out?","is there any posibilties go out?"],
+     "responses": ["NO !!!!! sorry I Can't come with you out"]
     },
     {"tag": "age",
      "patterns": ["What is the age?","what is your age?", "how old are you?","can i know about your age?","when is your birthday?","tell me your birth datae?","current age","age rightnow"],
@@ -137,7 +137,7 @@
    },
    {
     "tag":"love stories",
-    "patterns":["suggest me some love story","tell me some love stories?","can you explain me some love stories?","explain me love story?","tell me some short love stories?"],
+    "patterns":["suggest me some love story","tell me some love stories?","can you explain me some love stories?","explain me love story?","tell me some short love stories?,love stories"],
     "responses":["1.The Coffee Connection:He noticed her reading a book at the coffee shop every day. One day, he left a note on her table with his number. The bookish conversations turned into coffee dates, and they found love in the shared silence of their favorite reading spot.2.Unexpected Love at First Sight:They collided on the street, spilling coffee everywhere. In that messy moment, their eyes met, and they knew it was love at first sight – or maybe just a caffeine-induced connection.3.The Message in a Bottle:She found a message in a bottle washed ashore. It was a love letter from a stranger. Intrigued, she replied, and their letters became a lifeline connecting two hearts.",
     "1.Dance Floor Romance:They met at a dance class and stumbled through the steps together. Their laughter on the dance floor turned into a dance of a lifetime – a dance of love.2.The Star-Crossed Lovers:They both reached for the last box of cereal at the grocery store simultaneously. Their eyes locked, and the grocery store aisle became their love story's prologue.3.The Coincidental Connection:They kept bumping into each other at random places around the city. Eventually, they realized it wasn't a coincidence but the universe's way of bringing them together.",
     "1.Sunset Vows:On a secluded beach at sunset, they exchanged vows written in the sand. The tide may wash away the words, but their love remained etched in their hearts.2.Candlelit Confessions:He filled her room with candles and confessed his feelings. The flickering flames illuminated their connection, and the room became a sanctuary of love.3.The Message in a Bottle:She found a message in a bottle washed ashore. It was a love letter from a stranger. Intrigued, she replied, and their letters became a lifeline connecting two hearts.4.Unexpected Love at First Sight:They collided on the street, spilling coffee everywhere. In that messy moment, their eyes met, and they knew it was love at first sight – or maybe just a caffeine-induced connection."
@@ -232,6 +232,11 @@
         "tag":"proposeboy",
         "patterns":["propose to boy?","correct the boy","tell me some propose idea for my boyfriend","how to propose one boy?"],
         "responses":["Proposing to someone is a special and personal moment, and there are various ways you can go about it. Here are some ideas on how to propose to a boy: 1.Know His Preferences: Consider his personality and preferences. Some people prefer private, intimate proposals, while others may appreciate a more public gesture.2.Choose the Right Setting:Select a location that holds meaning for both of you, whether it's where you first met, had a significant date, or a place he loves.3.Customize the Proposal:Tailor the proposal to reflect your relationship. Incorporate elements that are meaningful to both of you, whether it's a shared hobby, inside jokes, or common interests.4.Use Props or Memorabilia:Bring along items that represent your relationship, such as photographs, a special piece of jewelry, or something significant you both share.5.Plan a Surprise: If he enjoys surprises, plan a surprise proposal. This could involve arranging a gathering of friends and family, or even a destination surprise. 6.Include Loved Ones:If he is close to his family and friends, consider involving them in the proposal. You could arrange a gathering where loved ones are present to witness the moment.7.Write a Letter or Poem: Express your feelings in a heartfelt letter or poem. You can read it aloud during the proposal or present it to him as a keepsake. 8.Capture the Moment:Hire a photographer or have a friend capture the moment. This way, you'll have lasting memories of the special occasion. 9.Plan an Activity:Incorporate an activity you both enjoy, such as a favorite hobby or a scenic hike, and pop the question during or after the activity.10.Keep it Simple:If he prefers simplicity, a quiet and private proposal can be just as meaningful. You could choose a cozy night at home or a quiet spot in nature."]
+    },
+    {
+        "tag":"Yes",
+        "patterns":["yes","yes i am ready","yes baby","yea sure","tell me some love topics","explain me some love topics","love topics","love topic","suggest me some love topics","can you explain me love topics","what can i ask to you?","what i can ask you?","suggest me some love topics"],
+        "responses":["just i am remind you with some General topic of love questions like 1.how to improve the relationship. 2.can you suggest me some dateideas. 3.how to make girl to love?. 4.give me some tips for propose the girl? 5.how to make girlfriend so happy? 6.suggest me some love story. 7.tell me some love quotes? 8.tell me the tips to ask girl go out?  These are just general topics still more topics are available Please ask!!!!"]
     }
 
 ]
