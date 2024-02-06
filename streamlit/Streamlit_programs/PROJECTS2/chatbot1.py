@@ -150,7 +150,7 @@ st.markdown("""
             border:2px solid white;
             }
             .st-emotion-cache-c34i5s {
-            color:orange;
+            color:red;
             }
             </style>
             """,unsafe_allow_html=True)
