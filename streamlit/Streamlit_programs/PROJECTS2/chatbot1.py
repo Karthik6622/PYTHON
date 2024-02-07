@@ -251,7 +251,7 @@ if select=='Chatbot':
                     }
                     </style>
                     """,unsafe_allow_html=True)
-    if prediction_input:
+    if prediction_input !="hi baby i am karthik" and prediction_input is not None:
         
         text_p=[]
         #removing puncucation from the prediction_input
@@ -311,6 +311,11 @@ if select=='Chatbot':
         cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
+    elif prediction_input=="hi baby i am karthik":
+        from streamlit.components.v1 import html
+        #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
+        url="https://karthiklovechatbot.streamlit.app/?embed=true"
+        st.components.v1.iframe(url,height=1000,width=1200)
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not st.session_state.chat_history1:
@@ -884,7 +889,7 @@ elif select=='settings':
     with tab3:
         selct=st.selectbox("Select the Database to want to Delete",options=['USERINPUTDATABASE','USERREVIEWDATABASE'])
         if selct=='USERINPUTDATABASE':
-            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERINPUTDATABASE....")
+            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERINPUTDATABASE....",type="password")
             submit=st.button("RESET/CLEAR THE DATABASE")
             if submit:
                 if inp_pass=='6860':
