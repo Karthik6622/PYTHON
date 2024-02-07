@@ -9,11 +9,14 @@ import sqlite3
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
+from plotly.offline import plot
+import plotly.graph_objs as go
+from chatbot3 import *
 #page_config={"page_title":"baby"}
 #browser tab title and icon 
 #this session state create prevent one user meassges another user can't see.it create each session for every user
-if "chat_history11" not in st.session_state:
-    st.session_state.chat_history11=[]
+if "chat_history1" not in st.session_state:
+    st.session_state.chat_history1=[]
 st.set_page_config(page_title="baby Love chatbot",page_icon=":cupid:",layout="wide")
 st.markdown("""<style>
                 .styles_terminalButton__JBj5T{
@@ -28,15 +31,18 @@ with st.sidebar:
                .st-emotion-cache-q8sbsg.e1nzilvr5{
                margin-top:0px;
                }
-               .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+               
+               .st-emotion-cache-16idsys p{
                 font-size:20px;
                 font-weight:bold;
                 color:red;
-                text-align:center;
                 
-                }
+               }
                .styles_terminalButton__JBj5T {
                    visibility: hidden;
+               }
+               .st-emotion-cache-10trblm.e1nzilvr1{
+               color:white
                }
                 </style>
                 """,unsafe_allow_html=True)
@@ -45,6 +51,37 @@ if d=='Dark':
     <style>
         .stApp {
         background-color: black;
+        }
+        .st-emotion-cache-6qob1r.eczjsme3{
+        background-color:black;
+        border:2px solid white;
+        }
+        .st-emotion-cache-18ni7ap.ezrtsby2{
+        background-color:black;
+        }
+        button{
+        color:red;
+        }
+        .stChatFloatingInputContainer.st-emotion-cache-90vs21.e1d2x3se2{
+        background-color:black;
+        }
+        .st-emotion-cache-s1k4sy.e1d2x3se4{
+        background-color:white;
+        }
+        .st-de{
+        color:white;
+        }
+        .st-emotion-cache-10trblm.e1nzilvr1{
+            color:white
+        }
+        st-emotion-cache-q8sbsg.e1nzilvr5{
+        color:red;
+        font-size:25px;
+        }
+        .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+        color:red;
+        font-size:20px;
+        font-weight:bold;
         }
     </style>
     '''
@@ -66,17 +103,68 @@ elif d=='light':
         #MainMenu{
            visibility:hidden;
         }
+        .st-emotion-cache-10trblm.e1nzilvr1 {
+        color:green;
+        }
+        .st-bb {
+        
+        border: 1px solid red;
+       }
+        .st-de{
+        color:white;
+        }
+        .st-emotion-cache-q8sbsg.e1nzilvr5 p{
+        color:red;
+        font-size:20px;
+        font-weight:bold;
+        }
     </style>'''
 
 st.markdown(light, unsafe_allow_html=True)
 
+#givinng background color for table
+st.markdown("""
+            <style>
+            .st-emotion-cache-165ax5l{
+            background-color:black;
+            border:2px solid white;
+            }
+            .st-emotion-cache-a51556 {
+            color:orange;
+            }
+            tr td{
+            background-color:black;
+            border:2px solid white;
+            color:white;
+            }
 
-
+            tr th{
+            background-color:black;
+            border:2px solid white;
+            color:white;
+            }
+            p{
+            color:red;
+            font-size:15px;
+            }
+            .st-emotion-cache-16idsys.e1nzilvr5 p{
+            color:red;
+            font-size:20px;
+            }
+            .st-emotion-cache-zuelfj{
+            background-color:black;
+            border:2px solid white;
+            }
+            .st-emotion-cache-c34i5s {
+            color:red;
+            }
+            </style>
+            """,unsafe_allow_html=True)
 
 with st.sidebar:
     select=option_menu(
     menu_title="",
-    options=['Chatbot','ProjectOverview','settings',"MostAskedInputs"],
+    options=['Chatbot','ProjectOverview','settings',"EDA(Inputs-Responses&Reviews)"],
     icons=['robot','file-earmark-ppt-fill','gear-fill','people-fill'],
     orientation="vertical",
 
@@ -85,7 +173,7 @@ with st.sidebar:
 if select=='Chatbot':
     @st.cache_data
     def model1():
-        with open("streamlit/Streamlit_programs/PROJECTS2/intents.json") as file:
+        with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/intents.json") as file:
             data=json.load(file)
         tag=[]
         input=[]
@@ -148,7 +236,7 @@ if select=='Chatbot':
     #print(inp)
     import random
     with st.sidebar:
-        with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706811014627.json") as s:
+        with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/Animation - 1706811014627.json") as s:
             ddd=json.load(s)
         st_lottie(ddd,height=250,width=250,speed=4)
     prediction_input = st.chat_input(key="text_key",placeholder="Type something to know about love...")
@@ -164,7 +252,8 @@ if select=='Chatbot':
                     }
                     </style>
                     """,unsafe_allow_html=True)
-    if prediction_input:
+    
+    if prediction_input !="hi baby i am karthik" and prediction_input is not None:
         
         text_p=[]
         #removing puncucation from the prediction_input
@@ -197,7 +286,7 @@ if select=='Chatbot':
 
         #print(response_tag)
         
-        st.session_state.chat_history11.append({'YOU':text_p,'BABY':pp})
+        st.session_state.chat_history1.append({'YOU':text_p,'BABY':pp})
         #chat_history1.append({})
         
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
@@ -205,31 +294,36 @@ if select=='Chatbot':
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            st.session_state.chat_history11.clear()
+            st.session_state.chat_history1.clear()
         else:
-            for i in range(len(st.session_state.chat_history11)):
+            for i in range(len(st.session_state.chat_history1)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history11[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history11[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history1[i]['BABY']}",unsafe_allow_html=True)
     
         
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
         #storing the user giving data and model response data into sqllite database
-        conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        conn=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cursor=conn.cursor()
         cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
+    elif prediction_input=="hi baby i am karthik":
+        from streamlit.components.v1 import html
+        #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
+        url="https://karthiklovechatbot.streamlit.app/?embed=true"
+        st.components.v1.iframe(url,height=1000,width=1200)
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
-        if not st.session_state.chat_history11:
+        if not st.session_state.chat_history1:
            cx1,cx2,cx3=st.columns(3)
            with cx1:
-               with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
+               with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
                   ddd=json.load(s)
                st_lottie(ddd,height=500,width=None,speed=1)
            with cx2:    
@@ -240,23 +334,23 @@ if select=='Chatbot':
                         st.markdown(f"<h6 style='text-align:center;color:red;font-weight:bold;'> {i}</h6>",unsafe_allow_html=True)
                         t.sleep(0.2)
            with cx3:
-                with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
+                with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/Animation - 1706803520058.json") as s:
                   ddd=json.load(s)
                 st_lottie(ddd,height=500,width=None,speed=1)
            #st.markdown("## My name is Baby! How can I assist you with the topic of love?")
         with st.sidebar:
             clear=st.button("Pageclear")
         if clear:
-            st.session_state.chat_history11.clear()
+            st.session_state.chat_history1.clear()
         else:     
-            for i in range(len(st.session_state.chat_history11)):
+            for i in range(len(st.session_state.chat_history1)):
                 c1,c2=st.columns([6,10])
                 with c1:
-                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history11[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:blue;'><strong><u>YOU</u></strong>👩‍💻: {st.session_state.chat_history1[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
                     #st.markdown("<br>",unsafe_allow_html=True)
                 with c2:
                     st.markdown("<br>",unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history11[i]['BABY']}",unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {st.session_state.chat_history1[i]['BABY']}",unsafe_allow_html=True)
     #customizing the chatbot using inspect classes
     ##4b4e4b
     #.stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
@@ -318,7 +412,16 @@ if select=='Chatbot':
         """,
         unsafe_allow_html=True,
     )
-elif select=="MostAskedInputs":
+elif select=="EDA(Inputs-Responses&Reviews)":
+    #customizing all tables
+    st.markdown("""
+                <style>
+                tr{
+                background-color:black
+                }
+                </style>
+                """,unsafe_allow_html=True
+                )
     with st.sidebar:
         st.markdown("---")
         st.markdown("<h1 style='text-align:center;color:red';>Customer Review</h1>",unsafe_allow_html=True)
@@ -351,7 +454,7 @@ elif select=="MostAskedInputs":
         if submit:
            
            st.write("Thankyou for your review!!")
-           c=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+           c=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
            cur=c.cursor()
            cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
            c.commit()
@@ -360,20 +463,20 @@ elif select=="MostAskedInputs":
            customer_name =customer_name1.text_input('',key="3",placeholder="Enter the Name")
            description=description1.text_area('',key="4",placeholder="Enter the message!!!")
     op=option_menu(
-        options=['ALL','MostAskedinputs','MostAskedresponse'],
+        options=['ALL Inputs & Responses','MostAskedinputs','Mostgivenresponses','User Reviews&Ratings','EDA for Reviews'],
         orientation='horizontal',
         menu_title=""
     )
-    con=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+    con=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=con.cursor()
-    query="select * from userinputresponse"
+    query="select UserInput,ModelResponse,Accuracy from userinputresponse"
     cur.execute(query)
     data=cur.fetchall()
     dd=pd.DataFrame(data)
     #setting index vaue from 1
     dd.index=range(1,len(dd.index)+1)
-    dd.rename(columns={0:'input',1:'Response',2:'ModelAccuracy'},inplace=True)
-    if op=='ALL':
+    dd.rename(columns={0:'input',1:'Response',2:'Accuracy'},inplace=True)
+    if op=='ALL Inputs & Responses':
        st.table(dd)
     elif op=='MostAskedinputs':
         if dd.empty:
@@ -384,14 +487,14 @@ elif select=="MostAskedInputs":
             count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
-                st.dataframe(count.head(10),use_container_width=True)
+                st.table(count.head(10))
             elif se=='LEAST10':
-                st.dataframe(count.tail(10),use_container_width=True)
+                st.table(count.tail(10))
             elif se=='TOP20':
-                st.dataframe(count.head(20),use_container_width=True)
+                st.table(count.head(20))
             elif se=='LEAST20':
-                st.dataframe(count.tail(20),use_container_width=True)
-    elif op=='MostAskedresponse':
+                st.table(count.tail(20))
+    elif op=='Mostgivenresponses':
         if dd.empty:
             st.write("DATABASE IS EMPTY!!!!")
         else:
@@ -400,17 +503,112 @@ elif select=="MostAskedInputs":
             count.index=range(1,len(count.index)+1)
             se=st.selectbox("SELECT THE CATEGORY",options=['TOP10','LEAST10','TOP20','LEAST20'])
             if se=='TOP10':
-                st.dataframe(count.head(10),use_container_width=True)
+                st.table(count.head(10))
             elif se=='LEAST10':
-                st.dataframe(count.tail(10),use_container_width=True)
+                st.table(count.tail(10))
             elif se=='TOP20':
-                st.dataframe(count.head(20),use_container_width=True)
+                st.table(count.head(20))
             elif se=='LEAST20':
-                st.dataframe(count.tail(20),use_container_width=True)
-
+                st.table(count.tail(20))
+    elif op=='User Reviews&Ratings':
+        conn=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        cur=conn.cursor()
+        query="select * from review_table"
+        cur.execute(query)
+        d=cur.fetchall()
+        dataframe=pd.DataFrame(d)
+        cur.close()
+        conn.close()
+        dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
+        if dataframe.empty:
+            st.write("DATABASE IS EMPTY!!!!")
+        else:
+            st.table(dataframe)
+    elif op=='EDA for Reviews':
+        conn=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        cur=conn.cursor()
+        query="select * from review_table"
+        cur.execute(query)
+        d=cur.fetchall()
+        dataframe=pd.DataFrame(d)
+        cur.close()
+        conn.close()
+        dataframe.rename(columns={0:'Name',1:"Ratings",2:"Message"},inplace=True)
+        radio=st.selectbox("Select what you want to see?",options=['star Ratings','Popular messages','ALL Customer Names'])
+        if radio=='star Ratings':
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+                data=go.Scatter(
+                    y=dataframe['Ratings'],
+                    mode="lines+markers",
+                    name="lines",
+                    text=dataframe['Ratings'].astype(str),
+                    marker=dict(
+                    color="plum",
+                    ),
+                )
+                layout=go.Layout(
+                title=dict(text="Customer Star Ratings",x=0.3,y=0.9,font=dict(size=25)),
+                xaxis_title="No of Ratings",
+                yaxis_title="Ratings",
+                paper_bgcolor="#ff3333",
+                margin=dict(l=50,r=40,b=50,t=90),
+                )
+                fig=go.Figure(data=data,layout=layout)
+                st.plotly_chart(fig,use_container_width=True)
+                #for histogram text
+                da1=dataframe['Ratings'].value_counts().reset_index()
+                da2=da1.sort_values(by="Ratings")
+                #st.write(da2)
+                data=go.Histogram(
+                x=dataframe['Ratings'],
+                name="Myplot",
+                marker=dict(color='plum'),
+                text=da2['count']
+                #line=dict(width=5,color='orange')  
+                )
+                layout=go.Layout(
+                bargap=0.1,
+                title=dict(text="No of Star Ratings",x=0.4,y=0.9,font=dict(size=25)),
+                xaxis_title="No of Ratings",
+                yaxis_title="count",
+                paper_bgcolor="#ff3333",
+                margin=dict(l=50,r=40,b=50,t=90),
+                )
+                fig=go.Figure(data=data,layout=layout)
+                st.plotly_chart(fig,use_container_width=True)
+        elif radio=='Popular messages':
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+                val_count=dataframe['Message'].value_counts().reset_index()
+                #st.write(val_count)
+                cc1,cc2=st.columns([1,4])
+                with cc1:
+                    radio1=st.radio("",options=['Most Given 10','Least Given 10','Most Given 5','Least Given 5','Most Given 1','Least Given 1'])
+                    if radio1=='Most Given 10':
+                        dk=val_count.head(10)
+                    elif radio1=='Least Given 10':
+                            dk=val_count.tail(10)
+                    elif radio1=='Most Given 5':
+                        dk=val_count.head(5)
+                    elif radio1=='Least Given 5':
+                            dk=val_count.tail(5)
+                    elif radio1=='Most Given 1':
+                        dk=val_count.head(1)
+                    elif radio1=='Least Given 1':
+                            dk=val_count.tail(1)
+                with cc2:
+                    st.table(dk)
+        elif radio=='ALL Customer Names':
+            if dataframe.empty:
+               st.write("DATABASE IS EMPTY!!!!")
+            else:
+               st.table(dataframe['Name'])
 elif select=='ProjectOverview':
     with st.sidebar:
-        with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
+        with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
            con=json.load(c)
         st_lottie(con,height=200,width=300,speed=2)
     st.markdown("""
@@ -422,10 +620,12 @@ elif select=='ProjectOverview':
                 font-weight:bold;
                 border:2px solid white;
                 box-shadow:2px 5px 20px #4b4e4b;
+                color:white;
                 }
                 .k p{
                 font-size:25px;
                 font-weight:bold;
+                
                 }
                 h4{
                 color:green;
@@ -617,7 +817,7 @@ elif select=='settings':
         if submit:
            
            st.write("Thankyou for your review!!")
-           c=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+           c=sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
            cur=c.cursor()
            cur.execute("insert into review_table values(?,?,?)",(customer_name,rate,description))
            c.commit()
@@ -631,7 +831,7 @@ elif select=='settings':
         c1,c2=st.columns(2)
         with c1:
             from streamlit_lottie import st_lottie
-            with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706721681647.json") as c:
+            with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/Animation - 1706721681647.json") as c:
                 con=json.load(c)
 
             st.markdown(f"""
@@ -664,7 +864,7 @@ elif select=='settings':
         with co1:
            st.markdown("<h4 style='color:#00ff00;'>JSON DATA FILE</h4>",unsafe_allow_html=True)
            #st.markdown("---")
-        with open("streamlit/Streamlit_programs/PROJECTS2/intents.json") as fi:
+        with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/intents.json") as fi:
             da=json.load(fi)
         #This code converts the dictionary (da) into a JSON-formatted string using json.dumps. 
         json_data=json.dumps(da,indent=2)# the indent parameter is an optional argument that specifies the number of spaces to use for indentation when pretty-printing the JSON string
@@ -689,20 +889,39 @@ elif select=='settings':
             st.markdown("[https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json](https://github.com/Karthik6622/PYTHON/blob/main/streamlit/Streamlit_programs/PROJECTS2/intents.json)")
             #st.markdown("---")
     with tab3:
-        inp_pass=st.text_input("Enter the passcode")
-        submit=st.button("RESET/CLEAR THE DATABASE")
-        if submit:
-            if inp_pass=='6860':
-                st.write("kkkk")
-                conn1 = sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
-                cursor = conn1.cursor()
-                query = "DELETE FROM userinputresponse"
-                cursor.execute(query)
-                conn1.commit()
-                st.write("Delete successful")
-                conn1.close()
+        selct=st.selectbox("Select the Database to want to Delete",options=['USERINPUTDATABASE','USERREVIEWDATABASE'])
+        if selct=='USERINPUTDATABASE':
+            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERINPUTDATABASE....")
+            submit=st.button("RESET/CLEAR THE DATABASE")
+            if submit:
+                if inp_pass=='6860':
+                    #st.write("kkkk")
+                    conn1 = sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+                    cursor = conn1.cursor()
+                    query = "DELETE FROM userinputresponse"
+                    cursor.execute(query)
+                    conn1.commit()
+                    #st.write("<h2 style='color:green';>Delete successful</h2>",unsafe_allow_html=True)
+                    st.success('Delete successful')
+                    conn1.close()
 
-            else:
-                st.write("Please enter correct passcode!!!!")
-else:
+                else:
+                    st.error("Please enter correct passcode!!!!")
+        elif selct=='USERREVIEWDATABASE':
+            inp_pass=st.text_input("",placeholder="Enter your Passcode to delete USERREVIEWDATABASE....")
+            submit=st.button("RESET/CLEAR THE DATABASE")
+            if submit:
+                if inp_pass=='6860':
+                    #st.write("kkkk")
+                    conn1 = sqlite3.connect("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+                    cursor = conn1.cursor()
+                    query = "DELETE FROM review_table"
+                    cursor.execute(query)
+                    conn1.commit()
+                    #st.write("<h2 style='color:green';>Delete successful</h2>",unsafe_allow_html=True)
+                    st.success('Delete successful')
+                    conn1.close()
+                else:
+                    st.error("Please enter correct passcode!!!!")
+else:        
     st.write("kkkk")

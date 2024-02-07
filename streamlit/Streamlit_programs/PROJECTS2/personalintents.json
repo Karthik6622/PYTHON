@@ -1,0 +1,6 @@
+{"intents2": [
+    {"tag": "love",
+     "patterns": ["i love you", "Hey", "Is anyone there?", "Hello", "Hay","Hey beauty","hi beauty","baby"],
+     "responses": ["I love karthik..."]
+    }
+]}
