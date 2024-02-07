@@ -5,4 +5,6 @@ input=st.chat_input(placeholder="Type somethings")
 
 if input:
     chat_history.append(input)
-    st.write(chat_history)
+    for i in chat_history:
+       st.write(i)
+    
