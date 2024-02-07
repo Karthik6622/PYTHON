@@ -7,6 +7,6 @@ for i in chat_history:
 if input!='exit':
     chat_history.append(input)
 elif input=='exit':
-    st.write("[GO TO PAGE](https://babylovechatbot.streamlit.app/)",unsafe_allow_html=True)
+    st.markdown('<a href="https://babylovechatbot.streamlit.app/?embed=true" target="_self">Google</a>', unsafe_allow_html=True)
     
     
