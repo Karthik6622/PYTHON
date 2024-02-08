@@ -251,7 +251,7 @@ if select=='Chatbot':
                     }
                     </style>
                     """,unsafe_allow_html=True)
-    if prediction_input !="hi baby i am karthik" and prediction_input is not None:
+    if prediction_input !="karthik" and prediction_input is not None:
         
         text_p=[]
         #removing puncucation from the prediction_input
