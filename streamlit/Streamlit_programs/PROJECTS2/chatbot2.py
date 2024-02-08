@@ -8,13 +8,14 @@ if input!='exit':
     chat_history.append(input)
 elif input=='exit':
     st.markdown("""
-                <script>
+                <script type="text/javascript">
                 function exitIframe() {
                     // Close or navigate back
                     window.parent.location.href = "https://babylovechatbot.streamlit.app/embed=true"
                 }
                 </script>
+                <body>
                 <button onclick="exitIframe()">Exit Iframe</button>
-
+                </body>
                 
                 """,unsafe_allow_html=True)
