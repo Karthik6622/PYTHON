@@ -314,9 +314,8 @@ if select=='Chatbot':
     elif prediction_input=="karthik":
         from streamlit.components.v1 import html
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
-        st.write("KKKKKKKKK")
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
-        st.components.v1.iframe(url,height=1000,width=1200)
+        st.components.v1.iframe(url,use_column_width=True)
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not st.session_state.chat_history1:
