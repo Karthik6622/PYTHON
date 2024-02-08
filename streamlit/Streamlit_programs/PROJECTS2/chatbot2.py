@@ -10,9 +10,12 @@ elif input=='exit':
 
     st.button("Go to Homepage!!!",key='clickevent()')
     st.markdown("""
+                <button onclick="exitIframe()">Exit Iframe</button>
+
                 <script>
-                function clickevent(){
-                window.parent.location.href="https://babylovechatbot.streamlit.app/embed=true"
+                function exitIframe() {
+                    // Close or navigate back
+                    window.parent.location.href = "https://babylovechatbot.streamlit.app/"
                 }
                 </script>
                 """,unsafe_allow_html=True)
