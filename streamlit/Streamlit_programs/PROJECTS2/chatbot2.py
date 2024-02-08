@@ -7,6 +7,12 @@ for i in chat_history:
 if input!='exit':
     chat_history.append(input)
 elif input=='exit':
-    st.markdown('<a href="https://babylovechatbot.streamlit.app/?embed=true" target="_self">Google</a>', unsafe_allow_html=True)
-    
-    
+
+    st.button("Go to Homepage!!!",key='clickevent()')
+    st.markdown("""
+                <script>
+                function clickevent(){
+                window.parent.location.href="https://babylovechatbot.streamlit.app/embed=true"
+                }
+                </script>
+                """,unsafe_allow_html=True)
