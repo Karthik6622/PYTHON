@@ -322,6 +322,12 @@ if select=='Chatbot':
             .st-de {
                visibility:hidden;     
                 }
+            .st-emotion-cache-s1k4sy.e1d2x3se4 {
+                visibility:hidden;
+                    }
+            .embeddedAppMetaInfoBar_container__DxxL1{
+                visibility:hidden;
+            }
             </style>
             """,unsafe_allow_html=True)
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
