@@ -330,11 +330,20 @@ if select=='Chatbot':
             .embeddedAppMetaInfoBar_container__DxxL1{
                 visibility:hidden;
             }
+            .stChatFloatingInputContainer.st-emotion-cache-usj992.e1d2x3se2{
+                visibility:hidden;  
+            }
+            .embeddedAppMetaInfoBar_hostedName__-kdmi{
+                visibility:hidden;
+            }
+            .embeddedAppMetaInfoBar_linkOutText__4ptMa{
+                visibility:hidden;    
+            }
             </style>
             """,unsafe_allow_html=True)
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
-        st.components.v1.iframe(url,height=800)
+        st.components.v1.iframe(url,height=700)
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not st.session_state.chat_history1:
