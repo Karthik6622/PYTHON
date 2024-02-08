@@ -7,15 +7,14 @@ for i in chat_history:
 if input!='exit':
     chat_history.append(input)
 elif input=='exit':
-
-    st.button("Go to Homepage!!!",key='clickevent()')
     st.markdown("""
-                <button onclick="exitIframe()">Exit Iframe</button>
-
                 <script>
                 function exitIframe() {
                     // Close or navigate back
-                    window.parent.location.href = "https://babylovechatbot.streamlit.app/"
+                    window.parent.location.href = "https://babylovechatbot.streamlit.app/embed=true"
                 }
                 </script>
+                <button onclick="exitIframe()">Exit Iframe</button>
+
+                
                 """,unsafe_allow_html=True)
