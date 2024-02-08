@@ -340,7 +340,7 @@ if select=='Chatbot':
                 visibility:hidden;    
             }
             .styles_streamlitAppContainer__w82h8.styles_embed__UIgBb {
-                visibility:hidden;
+                background-color:black;
                     }
             </style>
             """,unsafe_allow_html=True)
