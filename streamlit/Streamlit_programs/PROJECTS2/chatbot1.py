@@ -316,7 +316,7 @@ if select=='Chatbot':
         #hidding the chat_input
         st.markdown("""
             <style>
-            .st-emotion-cache-l5rnit {
+            .st-emotion-cache-1najhon {
             visibility:hidden;
             }
             </style>
