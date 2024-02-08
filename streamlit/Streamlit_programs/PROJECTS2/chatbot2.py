@@ -13,7 +13,8 @@ elif input=='exit':
                 <script type="text/javascript">
                 function exitIframe() {
                     // Close or navigate back
-                    window.parent.location.href = "https://babylovechatbot.streamlit.app/embed=true"
+                    //window.parent.location.href = "https://babylovechatbot.streamlit.app/embed=true"
+                    alert("do you want go out?)
                 }
                 </script>
                 </head>
