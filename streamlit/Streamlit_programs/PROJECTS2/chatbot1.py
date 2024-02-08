@@ -318,6 +318,7 @@ if select=='Chatbot':
             <style>
             .st-emotion-cache-1najhon {
                visibility:hidden;
+                background-color:black;
             }
             .st-de {
                visibility:hidden;     
