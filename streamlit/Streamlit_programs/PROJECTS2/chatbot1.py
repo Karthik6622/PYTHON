@@ -311,9 +311,10 @@ if select=='Chatbot':
         cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
-    elif prediction_input=="hi baby i am karthik":
+    elif prediction_input=="karthik":
         from streamlit.components.v1 import html
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
+        st.write("KKKKKKKKK")
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
         st.components.v1.iframe(url,height=1000,width=1200)
     else:
