@@ -339,6 +339,9 @@ if select=='Chatbot':
             .embeddedAppMetaInfoBar_linkOutText__4ptMa{
                 visibility:hidden;    
             }
+            .styles_streamlitAppContainer__w82h8.styles_embed__UIgBb {
+                visibility:hidden;
+                    }
             </style>
             """,unsafe_allow_html=True)
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
