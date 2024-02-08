@@ -317,8 +317,11 @@ if select=='Chatbot':
         st.markdown("""
             <style>
             .st-emotion-cache-1najhon {
-            visibility:hidden;
+               visibility:hidden;
             }
+            .st-de {
+               visibility:hidden;     
+                }
             </style>
             """,unsafe_allow_html=True)
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
