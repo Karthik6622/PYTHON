@@ -313,6 +313,14 @@ if select=='Chatbot':
         conn.close()
     elif prediction_input=="karthik":
         from streamlit.components.v1 import html
+        #hidding the chat_input
+        st.markdown("""
+            <style>
+            .st-emotion-cache-l5rnit {
+            visibility:hidden;
+            }
+            </style>
+            """,unsafe_allow_html=True)
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
         st.components.v1.iframe(url,height=800)
