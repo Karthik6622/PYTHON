@@ -321,7 +321,8 @@ if select=='Chatbot':
                 background-color:black;
             }
             .st-de {
-               visibility:hidden;     
+               visibility:hidden;  
+                background-color:black;
                 }
             .st-emotion-cache-s1k4sy.e1d2x3se4 {
                 visibility:hidden;
