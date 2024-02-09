@@ -7,6 +7,14 @@
      "patterns": ["Hi how are you?", "how you are doing?", "how you doing?", "are you ok?","How are you doing?","How are you feeling?","How's it going?","How are things?","How's everything?","What's up?","How are you today?","How do you do?","How's life treating you?","How's your day been?"],
      "responses": ["I'm doing well.what about you?!","I'm great.are you good?","I'm all right Karthik.you good?","I'm doing pretty well.dai where are you karthik?","I'm fantastic karthik.what about you?"]
     },
+    {"tag": "iamwell",
+     "patterns": ["I am good baby", "I am not bad baby", "i am always fine", "we met morning right"],
+     "responses": ["ok"]
+    },
+    {"tag": "loveyou",
+     "patterns": ["I love you", "love you baby", "i am loving you baby"],
+     "responses": ["love you too karthik", "i love you too","love you too da karthik"]
+    },
     {"tag": "notok",
      "patterns": ["i am not ok", "not well", "upset","i am not in good mood","i feel sad","depress"],
      "responses": ["Oh!bad to here what happened da?","tell me karthik what happened?"]
@@ -15,8 +23,28 @@
      "patterns": ["Bye", "See you later", "Goodbye","see you tommrrow"],
      "responses": ["See you later karthik", "why da?what are you going to do?", "Bye! da","call me later karthik","dai why are you not speaking?"]
     },
-    {"tag": "thanks",
-     "patterns": ["Thanks", "Thank you", "That's helpful", "Thanks for the help"],
-     "responses": ["Happy to help!", "Any time!", "My pleasure", "You're most welcome!"]
+    {"tag": "sorry",
+     "patterns": ["sorry", "sorry di", "sorry baby"],
+     "responses": ["it's ok karthik", "ok fine da","don't do next time"]
+    },
+    {"tag": "whatareyoudoing",
+     "patterns": ["what are you doing?", "what you do?", "what do you do?"],
+     "responses": ["I am in office so i can't speak right now karthik", "I am in room.where are you now?","I am outside right now.can you come out now?","I am in native da"]
+    },
+    {
+        "tag":"workingoffice",
+        "patterns":["why are you still working office?","when your work going to complete","when will you complete your work","when you going to leave?","when you going to leave from office","what time you going to leave?","when you leave from office","when you leave to home?"],
+        "responses":["still some work is there da,i will be complete in 20 mins","i have to complete this work by tommrrow","some urgent work da it will finish with in 30 mins"]
+    },
+    {
+        "tag":"howtogohome",
+        "patterns":["how do you go to home?","how you go to home","how can you go home","how do you go to Pg","how to reach home"],
+        "responses":["I will book Rapido and go","I will use cab to reach Pg"]
+    },
+    {
+        "tag":"afterreachhomepingme",
+        "patterns":["after reach the home pingme","be safe!! after reach the home ping me","once reached the home call me","be careful once reached pg ping me."],
+        "responses":["ok da"]
     }
+
 ]}

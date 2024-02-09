@@ -11,7 +11,7 @@ st.markdown("<h2 style='text-align:center;border:5px solid white;'>Personal Chat
 @st.cache_data
 def algorithm():
     #streamlit/Streamlit_programs/PROJECTS2/personalintents.json--->github file path
-    with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
+    with open("streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
          data=json.load(f)
     tag=[]
     input=[]
@@ -55,7 +55,7 @@ def algorithm():
         keras.layers.Dense(len_out,activation='softmax'),
     ])
     model.compile(optimizer="adam",loss="sparse_categorical_crossentropy",metrics=['accuracy'])
-    model.fit(x_train,y_train,epochs=300)
+    model.fit(x_train,y_train,epochs=500)
     return token,input_shape,model,lab,response
 token,input_shape,model,lab,response=algorithm()
 #setting the border for chat_inpput
