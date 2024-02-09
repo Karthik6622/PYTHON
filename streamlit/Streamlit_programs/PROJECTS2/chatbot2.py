@@ -10,7 +10,7 @@ st.set_page_config(layout="wide")
 st.title("Personal Chatbot") 
 @st.cache_data
 def algorithm():
-    with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
+    with open("streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
          data=json.load(f)
     tag=[]
     input=[]
