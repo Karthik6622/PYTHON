@@ -345,9 +345,7 @@ if select=='Chatbot':
             </style>
             """,unsafe_allow_html=True)
         with st.sidebar:
-            clear=st.button("Pageclear")
-        if clear:
-            chat_history.clear()
+            clear=st.button("Comeout")
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
         st.components.v1.iframe(url,height=800)
