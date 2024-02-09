@@ -346,6 +346,9 @@ if select=='Chatbot':
             .st-bb {
             visibility:hidden;
             }
+            .st-am {
+            visibility:hidden;
+            }
             .st-emotion-cache-q8sbsg.e1nzilvr5 {
             visibility:hidden;
             }
