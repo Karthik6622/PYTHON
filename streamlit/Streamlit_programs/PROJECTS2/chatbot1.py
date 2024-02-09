@@ -343,7 +343,7 @@ if select=='Chatbot':
                 background-color:black;
                     }
             //hiding the dark/light mode option
-            .st-am {
+            .st-bb {
             visibility:hidden;
             }
             .st-emotion-cache-q8sbsg.e1nzilvr5 {
