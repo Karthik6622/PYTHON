@@ -1,6 +1,22 @@
 {"intents2": [
-    {"tag": "love",
-     "patterns": ["i love you", "Hey", "Is anyone there?", "Hello", "Hay","Hey beauty","hi beauty","baby"],
-     "responses": ["I love karthik..."]
+    {"tag": "greeting",
+     "patterns": ["Hi", "Hey", "Is anyone there?", "Hello", "Hay","Hey beauty","hi beauty","baby"],
+     "responses": ["Hi da!?","Hello! karthik","Hey! why took so long to message"]
+    },
+    {"tag": "howareyou",
+     "patterns": ["Hi how are you?", "how you are doing?", "how you doing?", "are you ok?","How are you doing?","How are you feeling?","How's it going?","How are things?","How's everything?","What's up?","How are you today?","How do you do?","How's life treating you?","How's your day been?"],
+     "responses": ["I'm doing well.what about you?!","I'm great.are you good?","I'm all right Karthik.you good?","I'm doing pretty well.dai where are you karthik?","I'm fantastic karthik.what about you?"]
+    },
+    {"tag": "notok",
+     "patterns": ["i am not ok", "not well", "upset","i am not in good mood","i feel sad","depress"],
+     "responses": ["Oh!bad to here what happened da?","tell me karthik what happened?"]
+    },
+    {"tag": "goodbye",
+     "patterns": ["Bye", "See you later", "Goodbye","see you tommrrow"],
+     "responses": ["See you later karthik", "why da?what are you going to do?", "Bye! da","call me later karthik","dai why are you not speaking?"]
+    },
+    {"tag": "thanks",
+     "patterns": ["Thanks", "Thank you", "That's helpful", "Thanks for the help"],
+     "responses": ["Happy to help!", "Any time!", "My pleasure", "You're most welcome!"]
     }
 ]}
