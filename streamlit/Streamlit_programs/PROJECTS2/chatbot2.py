@@ -7,7 +7,7 @@ import numpy
 from kkk import chat_history
 #setting the streamlit page layout as wide
 st.set_page_config(layout="wide")
-
+st.title("Personal Chatbot") 
 @st.cache_data
 def algorithm():
     with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
@@ -57,7 +57,7 @@ def algorithm():
     model.fit(x_train,y_train,epochs=300)
     return token,input_shape,model,lab,response
 token,input_shape,model,lab,response=algorithm()
-st.title("Personal Chatbot") 
+
 input=st.chat_input(placeholder="Type somethings")
 input_shape2=input_shape[0]
 if input!='exit' and input is not None:

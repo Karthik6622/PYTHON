@@ -5,7 +5,7 @@ import numpy as np
 import string
 from tensorflow import keras
 import sqlite3
-#from kkk import chat_history1
+from kkk import *
 from streamlit_option_menu import option_menu
 import streamlit.components.v1 as com
 from streamlit_lottie import st_lottie
@@ -344,9 +344,13 @@ if select=='Chatbot':
                     }
             </style>
             """,unsafe_allow_html=True)
+        with st.sidebar:
+            clear=st.button("Pageclear")
+        if clear:
+            chat_history.clear()
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
         url="https://karthiklovechatbot.streamlit.app/?embed=true"
-        st.components.v1.iframe(url,height=700)
+        st.components.v1.iframe(url,height=800)
     else:
         st.markdown(" <h3 style='border:5px solid white;text-align:center;font-weight:bold;background-color:black;'>Love Help Chatbot</h3>",unsafe_allow_html=True)
         if not st.session_state.chat_history1:
