@@ -16,7 +16,7 @@
      "responses": ["love you too karthik", "i love you too","love you too da karthik"]
     },
     {"tag": "notok",
-     "patterns": ["i am not ok", "not well", "upset","i am not in good mood","i feel sad","depress"],
+     "patterns": ["i am not ok", "not well", "upset","i am not in good mood","i feel sad","depress","i am bad"],
      "responses": ["Oh!bad to here what happened da?","tell me karthik what happened?"]
     },
     {"tag": "goodbye",
@@ -44,7 +44,38 @@
     {
         "tag":"afterreachhomepingme",
         "patterns":["after reach the home pingme","be safe!! after reach the home ping me","once reached the home call me","be careful once reached pg ping me."],
-        "responses":["ok da"]
+        "responses":["ok da...Bye"]
+    },
+    {
+        "tag":"iaminroom",
+        "patterns":["i am in room now","i am in room","i am in PG"],
+        "responses":["when you left from office?","what are you doing in room?"]
+    },
+    {
+        "tag":"iamgoingroom",
+        "patterns":["i am going to room now","i will reach room with in 5 mins","i am near the PG."],
+        "responses":["once reached your Pg,Let me know","call me!!! once arrive pg"]
+    },
+    {
+        "tag":"leftfromoffice",
+        "patterns":["i have left office around 6:30PM","just now I left from the office","i was left 7 clock"],
+        "responses":["why did't inform me?","why did not inform me while going?","why did't inform me when you were leaving?"]
+    },
+    {
+        "tag":"iamforgetoffice",
+        "patterns":["Sorry baby i forgot to tell","sorry i have forgotten to inform you","I thought you were busy"],
+        "responses":["Now a days you are changed da","it's ok da karthik","I had been waiting for your call but it could not happened..ok da"]
+    },
+    {
+        "tag":"iamfree",
+        "patterns":["simply using mobile phone","using laptop","having my dinner with my friends"],
+        "responses":["are you coming out?","Sleep early da"]
+    },
+    {
+        "tag":"",
+        "patterns":["simply using mobile phone","using laptop","having my dinner with my friends"],
+        "responses":["are you coming out?","Sleep early da"]
     }
+
 
 ]}
