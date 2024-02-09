@@ -7,10 +7,11 @@ import numpy
 from kkk import chat_history
 #setting the streamlit page layout as wide
 st.set_page_config(layout="wide")
-st.title("Personal Chatbot") 
+st.markdown("<h2 style='text-align:center;border:5px solid white;'>Personal Chatbot</h2>",unsafe_allow_html=True) 
 @st.cache_data
 def algorithm():
-    with open("streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
+    #streamlit/Streamlit_programs/PROJECTS2/personalintents.json--->github file path
+    with open("E:/PYTHON/streamlit/Streamlit_programs/PROJECTS2/personalintents.json") as f:
          data=json.load(f)
     tag=[]
     input=[]
@@ -57,7 +58,30 @@ def algorithm():
     model.fit(x_train,y_train,epochs=300)
     return token,input_shape,model,lab,response
 token,input_shape,model,lab,response=algorithm()
+#setting the border for chat_inpput
+st.markdown("""
+           <style>
+            .st-bu {
+            border:3px solid white;
+            }
+            .st-emotion-cache-1wrcr25 {
+            background-color:black;
+            }
+            .st-emotion-cache-90vs21 {
+            background-color:black;
+            }
+            .st-emotion-cache-1dzqdhp {
+            border:3px solid white;
+            text-align:center;
+            font-weight:bold;
+            }
 
+            .st-emotion-cache-10trblm {
+                color: floralwhite;
+            }
+            
+            </style>
+            """,unsafe_allow_html=True)
 input=st.chat_input(placeholder="Type somethings")
 input_shape2=input_shape[0]
 if input!='exit' and input is not None:
@@ -85,7 +109,7 @@ if input!='exit' and input is not None:
         pp="What are you asking karthik i could not understand"
     chat_history.append({'YOU':test_input,'BABY':pp})
     for i in range(len(chat_history)):
-        c1,c2=st.columns([6,10])
+        c1,c2=st.columns([9,10])
         with c1:
             st.markdown(f"<h3 style='color:green;'><strong><u>YOU</u></strong>👩‍💻: {chat_history[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
             #st.markdown("<br>",unsafe_allow_html=True)
@@ -95,6 +119,6 @@ if input!='exit' and input is not None:
 elif input=='exit':
     st.markdown('<a href="https://babylovechatbot.streamlit.app/?embed=true" target="_self">exit</a>', unsafe_allow_html=True)
 else:
-    st.write("Please enetr somthing")
+    st.write("<br><h2 style='color:white;text-align:center;'>Hey sweetheart!!!!!</h2>",unsafe_allow_html=True)
     
     

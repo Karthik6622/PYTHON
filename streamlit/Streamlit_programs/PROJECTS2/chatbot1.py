@@ -342,8 +342,16 @@ if select=='Chatbot':
             .styles_streamlitAppContainer__w82h8.styles_embed__UIgBb {
                 background-color:black;
                     }
+            //hiding the dark/light mode option
+            .st-am {
+            visibility:hidden;
+            }
+            .st-emotion-cache-q8sbsg.e1nzilvr5 {
+            visibility:hidden;
+            }
             </style>
             """,unsafe_allow_html=True)
+        #come out from personal chatbot page to love chatbot
         with st.sidebar:
             clear=st.button("Comeout")
         #st.write(f'<iframe src="https://karthiklovechatbot.streamlit.app/"></iframe>',unsafe_allow_html=True)
