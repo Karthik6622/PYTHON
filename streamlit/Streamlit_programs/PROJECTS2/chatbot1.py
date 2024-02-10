@@ -311,7 +311,7 @@ if select=='Chatbot':
         cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
-    elif prediction_input=="hi baby i am karthik":
+    elif prediction_input=="karthik":
         from streamlit.components.v1 import html
         #hidding the chat_input
         st.markdown("""
