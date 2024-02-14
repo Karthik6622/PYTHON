@@ -117,6 +117,14 @@ if input:
             st.markdown("<br>",unsafe_allow_html=True)
             st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history[i]['BABY']}",unsafe_allow_html=True)
 else:
-    st.write("<br><h2 style='color:white;text-align:center;'>Hey sweetheart!!!!!</h2>",unsafe_allow_html=True)
+    #st.write("<br><h2 style='color:white;text-align:center;'>Hey sweetheart!!!!!</h2>",unsafe_allow_html=True)
+    for i in range(len(chat_history)):
+        c1,c2=st.columns([9,10])
+        with c1:
+            st.markdown(f"<h3 style='color:green;'><strong><u>YOU</u></strong>👩‍💻: {chat_history[i]['YOU'][0]}</h3>",unsafe_allow_html=True)
+            #st.markdown("<br>",unsafe_allow_html=True)
+        with c2:
+            st.markdown("<br>",unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history[i]['BABY']}",unsafe_allow_html=True)
     
     
