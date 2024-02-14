@@ -85,7 +85,7 @@ st.markdown("""
             """,unsafe_allow_html=True)
 input=st.chat_input(placeholder="Type somethings")
 input_shape2=input_shape[0]
-if input:
+if input is not None:
     test_input=[]
     pred_input=[wrd1.lower() for wrd1 in input if wrd1 not in string.punctuation]
     pred_input=''.join(pred_input)
