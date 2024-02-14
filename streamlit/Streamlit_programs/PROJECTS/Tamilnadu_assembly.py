@@ -1532,7 +1532,7 @@ elif see=='Histogram':
                     for ll,ll1 in zip(daa,s_2):
                         #st.write(ll1)
                         layy=go.Layout(
-                            title=dict(text=f"Pie chart for male and female({ll1})",x=0.4,y=1)
+                            title=dict(text=f"Pie chart for Canditate's Age({ll1})",x=0.4,y=1)
                         )    
                         fii=go.Figure(data=ll,layout=layy)
                         st.plotly_chart(fii,use_container_width=True)
