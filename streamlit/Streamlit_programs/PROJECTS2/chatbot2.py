@@ -84,7 +84,7 @@ st.markdown("""
             """,unsafe_allow_html=True)
 input=st.chat_input(placeholder="Type somethings")
 input_shape2=input_shape[0]
-if input!='exit' and input is not None:
+if input:
     test_input=[]
     pred_input=[wrd1.lower() for wrd1 in input if wrd1 not in string.punctuation]
     pred_input=''.join(pred_input)
@@ -116,8 +116,6 @@ if input!='exit' and input is not None:
         with c2:
             st.markdown("<br>",unsafe_allow_html=True)
             st.markdown(f"<h3 style='color:green;'><strong><u>BABY</u></strong>❤️: {chat_history[i]['BABY']}",unsafe_allow_html=True)
-elif input=='exit':
-    st.markdown('<a href="https://babylovechatbot.streamlit.app/?embed=true" target="_self">exit</a>', unsafe_allow_html=True)
 else:
     st.write("<br><h2 style='color:white;text-align:center;'>Hey sweetheart!!!!!</h2>",unsafe_allow_html=True)
     
