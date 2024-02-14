@@ -654,6 +654,8 @@ elif select=="EDA(Inputs-Responses&Reviews)":
         cur.execute("select * from personalchatbot")
         df=cur.fetchall()
         df2=pd.DataFrame(df)
+        cur.close()
+        connect.close()
         st.dataframe(df2)
 
 elif select=='ProjectOverview':
