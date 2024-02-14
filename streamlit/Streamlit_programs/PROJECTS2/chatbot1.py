@@ -307,7 +307,7 @@ if select=='Chatbot':
             #st.markdown("<br><br><br>",unsafe_allow_html=True)
         #storing the user giving data and model response data into sqllite database
         conn=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
-        cursor=conn.cursor()
+        cursor=conn.cursor() 
         cursor.execute("insert into userinputresponse values(?,?,?)",(prediction_input,pp,str(accuracy)))
         conn.commit()
         conn.close()
@@ -505,7 +505,7 @@ elif select=="EDA(Inputs-Responses&Reviews)":
            customer_name =customer_name1.text_input('',key="3",placeholder="Enter the Name")
            description=description1.text_area('',key="4",placeholder="Enter the message!!!")
     op=option_menu(
-        options=['ALL Inputs & Responses','MostAskedinputs','Mostgivenresponses','User Reviews&Ratings','EDA for Reviews'],
+        options=['ALL Inputs & Responses','MostAskedinputs','Mostgivenresponses','User Reviews&Ratings','EDA for Reviews',"Personal Chatbot Inputs&Responses"],
         orientation='horizontal',
         menu_title=""
     )
@@ -648,6 +648,14 @@ elif select=="EDA(Inputs-Responses&Reviews)":
                st.write("DATABASE IS EMPTY!!!!")
             else:
                st.table(dataframe['Name'])
+    elif op=="Personal Chatbot Inputs&Responses":
+        connect=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+        cur=connect.cursor()
+        cur.execute("select * from personalchatbot")
+        df=cur.fetchall()
+        df2=pd.DataFrame(df)
+        st.dataframe(df2)
+
 elif select=='ProjectOverview':
     with st.sidebar:
         with open("streamlit/Streamlit_programs/PROJECTS2/Animation - 1706725721151.json") as c:
