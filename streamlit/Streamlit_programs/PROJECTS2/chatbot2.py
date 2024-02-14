@@ -5,6 +5,7 @@ import string
 from tensorflow import keras
 import numpy
 from kkk import chat_history
+import sqlite3
 #setting the streamlit page layout as wide
 st.set_page_config(layout="wide")
 st.markdown("<h2 style='text-align:center;border:5px solid white;'>Personal Chatbot</h2>",unsafe_allow_html=True) 
@@ -108,6 +109,12 @@ if input:
     else:
         pp="What are you asking karthik i could not understand"
     chat_history.append({'YOU':test_input,'BABY':pp})
+    connect=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+    cur=connect.cursor()
+    cur.execute("insert into personalchatbot(?,?,?)",(test_input,pp,str(accuracy)))
+    cur.commit()
+    cur.close()
+    connect.close()
     for i in range(len(chat_history)):
         c1,c2=st.columns([9,10])
         with c1:
