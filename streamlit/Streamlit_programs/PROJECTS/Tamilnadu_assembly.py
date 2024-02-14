@@ -1399,8 +1399,8 @@ elif see=='Histogram':
                     fi=go.Figure(data=dataa,layout=lay)
                     st.plotly_chart(fi,use_container_width=True)
                     
-                    fi=go.Figure(data=dataa,layout=lay)
-                    st.plotly_chart(fi,use_container_width=True)
+                    #fi=go.Figure(data=dataa,layout=lay)
+                    #st.plotly_chart(fi,use_container_width=True)
                     fii=go.Figure(data=dadad,layout=layy)
                     st.plotly_chart(fii,use_container_width=True)
                 elif s21=='Constituency_Type':
