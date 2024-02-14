@@ -109,11 +109,11 @@ if input is not None:
     else:
         pp="What are you asking karthik i could not understand"
     chat_history.append({'YOU':test_input,'BABY':pp})
-    connect=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
-    cur=connect.cursor()
+    connect1=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
+    cur=connect1.cursor()
     cur.execute("insert into personalchatbot values(?,?,?)",(input,pp,str(accuracy)))
-    connect.commit()
-    connect.close()
+    connect1.commit()
+    connect1.close()
     for i in range(len(chat_history)):
         c1,c2=st.columns([9,10])
         with c1:
