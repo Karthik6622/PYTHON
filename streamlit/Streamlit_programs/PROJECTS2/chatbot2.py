@@ -111,7 +111,7 @@ if input:
     chat_history.append({'YOU':test_input,'BABY':pp})
     connect=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=connect.cursor()
-    cur.execute("insert into personalchatbot(?,?,?)",(test_input,pp,str(accuracy)))
+    cur.execute("insert into personalchatbot values(?,?,?)",(test_input,pp,str(accuracy)))
     connect.commit()
     connect.close()
     for i in range(len(chat_history)):
