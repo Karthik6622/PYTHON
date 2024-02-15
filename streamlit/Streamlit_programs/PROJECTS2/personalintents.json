@@ -72,10 +72,23 @@
         "responses":["are you coming out?","Sleep early da"]
     },
     {
-        "tag":"",
-        "patterns":["simply using mobile phone","using laptop","having my dinner with my friends"],
-        "responses":["are you coming out?","Sleep early da"]
+        "tag":"yescomingout",
+        "patterns":["wait baby i will come in 5 minutes","i will come with in 5 mins","I will come where are you right now?"],
+        "responses":["I am in near office.come fast karthik"]
+    },
+    
+    {
+        "tag":"whenwentnative",
+        "patterns":["when you went native baby?"],
+        "responses":["today morning i have arrived here da.."]
+    },
+
+    {
+        "tag":"whydidnottellnative",
+        "patterns":["why not informed me?","why did not you inform me about going native","why you did not tell me about going native"],
+        "responses":["sorry da i should have informed you but could not"]
     }
+
 
 
 ]}
