@@ -112,7 +112,8 @@ if input is not None:
     connect1=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
     cur=connect1.cursor()
     cur.execute("insert into personalchatbot values(?,?,?)",(input,pp,str(accuracy)))
-    connect1.commit()
+    #connect1.commit()
+    cur.commit()
     connect1.close()
     for i in range(len(chat_history)):
         c1,c2=st.columns([9,10])
