@@ -95,7 +95,7 @@
     },
     {
         "tag":"haddinner",
-        "patterns":["had dinner baby?","have you eaten your dinner?","did you complete your dinner?"],
+        "patterns":["had dinner?","had dinner baby?","have you eaten your dinner?","did you complete your dinner?"],
         "responses":["Yes da just now i had what about you?","no da not yet done!!"]
     },
     {  
@@ -106,7 +106,7 @@
     },
     {
         "tag":"answerdinner",
-        "patterns":["yea I had just now","i have completed my dinner","yes i did"],
+        "patterns":["yes i had","yea i had","yea I had just now","i have completed my dinner","yes i did"],
         "responses":["what you had?"]
     },
     {
@@ -126,12 +126,12 @@
     },
     {
         "tag":"hadbreakfast",
-        "patterns":["had breakfast baby?","have you eaten your breakfast?","did you omplete your breakfast?"],
+        "patterns":["had breakfast?","had breakfast baby?","have you eaten your breakfast?","did you omplete your breakfast?"],
         "responses":["Yes da just now i had what about you?"]
     },
     {
         "tag":"answerbreakfast",
-        "patterns":["yea I had just now","i have completed my dinner","yes i did"],
+        "patterns":["yea I had","yes I had","yea I had just now","i have completed my dinner","yes i did"],
         "responses":["what you had?"]
     },
     {
@@ -152,12 +152,12 @@
     },
     {
         "tag":"hadlunch",
-        "patterns":["had lunch baby?","have you eaten your lunch?","did you omplete your lunch?"],
+        "patterns":["had lunch","had lunch baby?","have you eaten your lunch?","did you omplete your lunch?"],
         "responses":["Yes da just now i had what about you?"]
     },
     {
         "tag":"answerlunch",
-        "patterns":["yea I had just now","i have completed my lunch","yes i did"],
+        "patterns":["ues i had","yea i had","yea I had just now","i have completed my lunch","yes i did"],
         "responses":["what you had?"]
     },
     {
