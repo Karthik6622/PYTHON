@@ -78,6 +78,11 @@
     },
     
     {
+        "tag":"notcomingout",
+        "patterns":["i have some work baby so i unable to coming out","i have to do some work"],
+        "responses":["Ok da no issue bye see you later"]
+    },
+    {
         "tag":"whenwentnative",
         "patterns":["when you went native baby?"],
         "responses":["today morning i have arrived here da.."]
@@ -87,7 +92,98 @@
         "tag":"whydidnottellnative",
         "patterns":["why not informed me?","why did not you inform me about going native","why you did not tell me about going native"],
         "responses":["sorry da i should have informed you but could not"]
+    },
+    {
+        "tag":"haddinner",
+        "patterns":["had dinner baby?","have you eaten your dinner?","did you complete your dinner?"],
+        "responses":["Yes da just now i had what about you?","no da not yet done!!"]
+    },
+    {  
+        "tag":"haddnotdinner",
+        "patterns":["why not had dinner baby?","why have you not eaten your dinner?","why did not you complete your dinner?"],
+        "responses":["still time is there right to have dinner","i am going right now to get dinner"]
+
+    },
+    {
+        "tag":"answerdinner",
+        "patterns":["yea I had just now","i have completed my dinner","yes i did"],
+        "responses":["what you had?"]
+    },
+    {
+        "tag":"dinneritems",
+        "patterns":["i had dosa.what you had?","i had sapatti.what you had?","i had rice.what you had?"],
+        "responses":["I had chicken briyani","i had rice only da","i had sapatti da"]
+    },
+    {
+        "tag":"notdonedinner",
+        "patterns":["i have not done my dinner?","not done i will eat","no baby i have not done my dinner"],
+        "responses":["oh ok da","eat fast time already too late"]
+    },
+    {
+        "tag":"eatfasttimealreadylate",
+        "patterns":["ok baby"],
+        "responses":["ok da"]
+    },
+    {
+        "tag":"hadbreakfast",
+        "patterns":["had breakfast baby?","have you eaten your breakfast?","did you omplete your breakfast?"],
+        "responses":["Yes da just now i had what about you?"]
+    },
+    {
+        "tag":"answerbreakfast",
+        "patterns":["yea I had just now","i have completed my dinner","yes i did"],
+        "responses":["what you had?"]
+    },
+    {
+        "tag":"breakfastitems",
+        "patterns":["i had dosa.what you had?","i had sapatti.what you had?","i had idly.what you had?","i had poori.what you had?"],
+        "responses":["I had idly and sambar da","i had lemon rice only da","i had sapatti da"]
+    },
+    {
+        "tag":"notdonebreakfast",
+        "patterns":["i have not done my breakfast?","not done i will eat","no baby i have not done my breakfast"],
+        "responses":["oh ok da","eat fast time already too late"]
+    },
+    {  
+        "tag":"haddnotbreakfast",
+        "patterns":["why not had breakfast baby?","why have you not eaten your breakfast?","why did not you complete your breakfast?"],
+        "responses":["still time is there right to have breakfast","i am going right now to get breakfast"]
+
+    },
+    {
+        "tag":"hadlunch",
+        "patterns":["had lunch baby?","have you eaten your lunch?","did you omplete your lunch?"],
+        "responses":["Yes da just now i had what about you?"]
+    },
+    {
+        "tag":"answerlunch",
+        "patterns":["yea I had just now","i have completed my lunch","yes i did"],
+        "responses":["what you had?"]
+    },
+    {
+        "tag":"lunchitems",
+        "patterns":["i had fish melas.what you had?","i had briyani.what you had?","i had rice.what you had?","i had poori.what you had?"],
+        "responses":["I had briyani da","i had fried rice only da","i fice curry and rice sapatti da"]
+    },
+    {
+        "tag":"notdonelunch",
+        "patterns":["i have not done my lunch?","not done i will eat","no baby i have not done my lunch"],
+        "responses":["oh ok da","eat fast time already too late"]
+    },
+    
+    {  
+        "tag":"candlelightdinner",
+        "patterns":["can we go candle light dinner baby?","shall we go candle light dinner baby?","can we go out for dinner?","shall we go out for dinner?"],
+        "responses":["really karthik ok da we will go around 8pm"]
+
+    },
+    {  
+        "tag":"comelunch",
+        "patterns":["would you like to come out lunch with me baby?","come we go out for lunch baby?","can we go out for lunch?","shall we go out for lunch?"],
+        "responses":["really karthik ok da we will go"]
+
     }
+
 
 
 
