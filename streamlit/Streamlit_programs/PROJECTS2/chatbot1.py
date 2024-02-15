@@ -651,7 +651,7 @@ elif select=="EDA(Inputs-Responses&Reviews)":
     elif op=="Personal Chatbot Inputs&Responses":
         connect=sqlite3.connect("streamlit/Streamlit_programs/PROJECTS2/lovechatbot.db")
         cur=connect.cursor()
-        query="select * from userinputresponse"
+        query="select * from personalchatbot"
         cur.execute(query)
         df=cur.fetchall()
         df2=pd.DataFrame(df)
