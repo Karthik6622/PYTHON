@@ -111,7 +111,7 @@
     },
     {
         "tag":"dinneritems",
-        "patterns":["i had dosa.what you had?","i had sapatti.what you had?","i had rice.what you had?"],
+        "patterns":["what you had","i had dosa.what you had?","i had sapatti.what you had?","i had rice.what you had?"],
         "responses":["I had chicken briyani","i had rice only da","i had sapatti da"]
     },
     {
@@ -136,7 +136,7 @@
     },
     {
         "tag":"breakfastitems",
-        "patterns":["i had dosa.what you had?","i had sapatti.what you had?","i had idly.what you had?","i had poori.what you had?"],
+        "patterns":["what you had","i had dosa.what you had?","i had sapatti.what you had?","i had idly.what you had?","i had poori.what you had?"],
         "responses":["I had idly and sambar da","i had lemon rice only da","i had sapatti da"]
     },
     {
@@ -157,12 +157,12 @@
     },
     {
         "tag":"answerlunch",
-        "patterns":["ues i had","yea i had","yea I had just now","i have completed my lunch","yes i did"],
+        "patterns":["yes i had","yea i had","yea I had just now","i have completed my lunch","yes i did"],
         "responses":["what you had?"]
     },
     {
         "tag":"lunchitems",
-        "patterns":["i had fish melas.what you had?","i had briyani.what you had?","i had rice.what you had?","i had poori.what you had?"],
+        "patterns":["what you had","i had fish melas.what you had?","i had briyani.what you had?","i had rice.what you had?","i had poori.what you had?"],
         "responses":["I had briyani da","i had fried rice only da","i fice curry and rice sapatti da"]
     },
     {
