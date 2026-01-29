@@ -1,0 +1,6 @@
+File Handling in python:
+modes of operation:
+r- It is used to read the data from the file
+w- It is used to write the data in to filea-will not remove the previous content
+r+- both read and write operation
+w+- both read and write operation

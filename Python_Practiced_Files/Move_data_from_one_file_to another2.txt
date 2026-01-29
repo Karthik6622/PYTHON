@@ -1,0 +1,12 @@
+noitarepo etirw dna daer htob-+w
+noitarepo etirw dna daer htob-+r
+tnetnoc suoiverp eht evomer ton lliw-aelif ot ni atad eht etirw ot desu si tI-w
+elif eht morf atad eht daer ot desu si tI-r
+:noitarepo fo sedom
+:nohtyp ni gnildnaH eliF
+File Handling in python:
+modes of operation:
+r-It is used to read the data from the file
+w-It is used to write the data in to filea-will not remove the previous content
+r+-both read and write operation
+w+-both read and write operation

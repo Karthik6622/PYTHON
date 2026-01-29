@@ -1,0 +1,28 @@
+Test Scenarios
+
+Field	Scenario Type	Description
+Full name	Positive	Enter a valid full name (e.g., "John Doe"). Expect acceptance.
+Full name	Negative	Leave the field blank. Expect a "Required field" error message.
+Full name	Negative	Enter a name with numbers or special characters (e.g., "John123@"). Expect an "Invalid name format" error.
+Full name	Boundary	Enter a name with the minimum allowed characters (e.g., "Jo"). Expect acceptance.
+Full name	Boundary	Enter a name with the maximum allowed characters. Expect acceptance.
+Email ID	Positive	Enter a valid email address (e.g., "test.user@example.com"). Expect acceptance.
+Email ID	Negative	Leave the field blank. Expect a "Required field" error message.
+Email ID	Negative	Enter an invalid email format (e.g., "test.user@", "test@.com"). Expect an "Invalid email format" error.
+Email ID	Negative	Enter an already registered email address. Expect a "User already exists" error message.
+Password	Positive	Enter a password with more than 6 characters (e.g., "password123"). Expect acceptance.
+Password	Negative	Leave the field blank. Expect a "Required field" error message.
+Password	Boundary	Enter a password with exactly 6 characters (e.g., "passwd"). Expect acceptance.
+Password	Boundary	Enter a password with 5 characters (e.g., "passw"). Expect a "Minimum 6 characters required" error.
+Mobile number	Positive	Enter a valid 10-digit mobile number (e.g., "9876543210"). Expect acceptance.
+Mobile number	Negative	Leave the field blank. Expect a "Required field" error message.
+Mobile number	Negative	Enter a number with non-digit characters (e.g., "98765abcde"). Expect an "Invalid mobile number" error.
+Mobile number	Boundary	Enter a number with 9 digits. Expect an "Invalid mobile number" error.
+Mobile number	Boundary	Enter a number with 11 digits. Expect an "Invalid mobile number" error.
+Work status	Positive	Select the "I'm experienced" radio button. Expect selection to be registered.
+Work status	Positive	Select the "I'm a fresher" radio button. Expect selection to be registered.
+Work status	Negative	Do not select any option. Expect a "Please select your work status" error on submission.
+Updates Checkbox	Positive	Click the checkbox to select it. Expect the checkbox to be checked.
+Updates Checkbox	Positive	Click the checkbox again to deselect it. Expect the checkbox to be unchecked.
+Register now	Negative	Click the "Register now" button with one or more required fields empty. Expect the button to be disabled or show validation errors.
+Register now	Positive	Fill all required fields with valid data and click "Register now". Expect successful registration and navigation to the next page.
