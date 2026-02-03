@@ -1,6 +1,3 @@
 {
-  "apikey": ""***REDACTED***"=CF5B85D0",
-  "jiraurl": "https://karthikmca6622.atlassian.net/",
-  "email": "karthikmca6622@gmail.com",
-  "issueid": "KK-5"
+  "confirmation": "I fully understand all output format rules and classification logic for input handling. For JSON input, I will add 'source':'Jira' at the top level and return the object without modifying any other fields or structure, and without any extra text. For non-JSON (plain text) input, I will output a JSON object with 'Source:Text' and 'User Input' containing the exact input, and nothing else. All output will always be strictly JSON only. There is no ambiguity in these instructions. Edge cases such as JSON arrays, malformed JSON, or mixed input will be classified strictly: only valid JSON objects get the 'source':'Jira' field; all other input will be treated as plain text and output accordingly. I am ready to implement this logic as specified."
 }
