@@ -1,1 +1,13 @@
-{"source": "Jira", "apikey": ""***REDACTED***"=CF5B85D0", "jiraurl": "https://karthikmca6622.atlassian.net/", "email": "karthikmca6622@gmail.com", "issueid": "KK-5"}
+As an Admin user,
+I want to create, view, and delete user accounts,
+so that I can manage system access.
+
+The system should allow the Admin to:
+
+Create a new user with a username and email
+
+View the list of existing users
+
+Delete an existing user
+
+Only Admin users are allowed to perform these actions.
