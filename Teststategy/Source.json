@@ -1,7 +1,4 @@
 {
-  "source": "Jira",
-  "apikey": ""***REDACTED***"=CF5B85D0",
-  "jiraurl": "https://karthikmca6622.atlassian.net/",
-  "email": "karthikmca6622@gmail.com",
-  "issueid": "KK-5"
+  "Source": "Text",
+  "User Input": "As an Admin user,\nI want to create, view, and delete user accounts,\nso that I can manage system access.\n\nThe system should allow the Admin to:\n\nCreate a new user with a username and email\n\nView the list of existing users\n\nDelete an existing user\n\nOnly Admin users are allowed to perform these actions."
 }
