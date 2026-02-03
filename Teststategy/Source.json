@@ -1,7 +1,1 @@
-{
-  "source": "Jira",
-  "apikey": ""***REDACTED***"=CF5B85D0",
-  "jiraurl": "https://karthikmca6622.atlassian.net/",
-  "email": "karthikmca6622@gmail.com",
-  "issueid": "KK-5"
-}
+When the input JSON already contains a 'source' field, the recommended behavior is to raise an explicit error rather than overwrite or leave the field unchanged. This approach ensures data integrity, prevents silent conflicts, and maintains predictable system behavior. Overwriting the field could result in loss of important provenance information, while leaving it unchanged may cause ambiguity about the true source of the data. Raising an error prompts the user to resolve the conflict manually, ensuring that the uploaded JSON reflects the intended and unambiguous source attribution. This strategy also supports extensibility for future agents, as it enforces clear rules for field ownership and prevents accidental data corruption. Therefore, if the 'source' field is already present, the system should halt processing and return a descriptive error indicating that the 'source' field exists and must be resolved before upload.
