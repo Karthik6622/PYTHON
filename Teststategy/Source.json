@@ -1,13 +1,4 @@
-As an Admin user,
-I want to create, view, and delete user accounts,
-so that I can manage system access.
-
-The system should allow the Admin to:
-
-Create a new user with a username and email
-
-View the list of existing users
-
-Delete an existing user
-
-Only Admin users are allowed to perform these actions.
+{
+  "Source": "Text",
+  "User Input": "As an Admin user,\nI want to create, view, and delete user accounts,\nso that I can manage system access.\n\nThe system should allow the Admin to:\n\nCreate a new user with a username and email\n\nView the list of existing users\n\nDelete an existing user\n\nOnly Admin users are allowed to perform these actions."
+}
