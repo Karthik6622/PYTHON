@@ -1,49 +1,22 @@
 {
-  "metadata": {
-    "description": "CID to TestCase Mapping",
-    "created_date": "2025-01-20",
-    "version": "1.0"
+  "CID_001": {
+    "testcase_name": "Login Functionality Test",
+    "details": "Verify user can login with valid credentials"
   },
-  "mappings": {
-    "CID001": {
-      "testcase_name": "User Authentication Test",
-      "details": "Validates user login functionality with valid and invalid credentials, including edge cases for username and password fields"
-    },
-    "CID002": {
-      "testcase_name": "Password Reset Workflow",
-      "details": "Tests the complete password reset flow including email verification, token validation, and new password setup"
-    },
-    "CID003": {
-      "testcase_name": "Session Management Test",
-      "details": "Verifies session timeout, concurrent session handling, and proper session cleanup on logout"
-    },
-    "CID004": {
-      "testcase_name": "API Response Validation",
-      "details": "Tests API endpoints for correct response codes, payload structure, and error handling mechanisms"
-    },
-    "CID005": {
-      "testcase_name": "Database Transaction Test",
-      "details": "Validates ACID properties of database transactions, rollback scenarios, and data integrity"
-    },
-    "CID006": {
-      "testcase_name": "UI Responsiveness Test",
-      "details": "Tests user interface responsiveness across different screen sizes and browser compatibility"
-    },
-    "CID007": {
-      "testcase_name": "File Upload Validation",
-      "details": "Verifies file upload functionality including size limits, file type validation, and error handling"
-    },
-    "CID008": {
-      "testcase_name": "Search Functionality Test",
-      "details": "Tests search feature with various query types, filters, and result pagination"
-    },
-    "CID009": {
-      "testcase_name": "Payment Gateway Integration",
-      "details": "Validates payment processing, transaction status updates, and refund workflows"
-    },
-    "CID010": {
-      "testcase_name": "Email Notification Test",
-      "details": "Tests email delivery, template rendering, and notification triggers for various events"
-    }
+  "CID_002": {
+    "testcase_name": "Password Reset Test",
+    "details": "Verify password reset functionality works correctly"
+  },
+  "CID_003": {
+    "testcase_name": "User Registration Test",
+    "details": "Verify new user registration process"
+  },
+  "CID_004": {
+    "testcase_name": "Dashboard Load Test",
+    "details": "Verify dashboard loads correctly after login"
+  },
+  "CID_005": {
+    "testcase_name": "Logout Functionality Test",
+    "details": "Verify user can logout successfully"
   }
 }
