@@ -1,1 +1,49 @@
-{"C578": {"testcase_name": "Test Case TC_006", "details": {"id": 578, "title": "Test Case TC_006", "section_id": 34, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "34", "created_by": 1, "created_on": 1770964715, "updated_by": 1, "updated_on": 1770964715, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 6, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Login as admin user. [Test Data: Valid admin credentials] [Acceptance Criteria: TS_006]\n2. Select a product to update inventory. [Test Data: Existing product ID] [Acceptance Criteria: TS_006]\n3. Update inventory quantity and save. [Test Data: New inventory quantity] [Acceptance Criteria: TS_006]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. Admin login successful.\n2. Product inventory details are displayed.\n3. Inventory is updated and reflected in product availability.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}}, "C574": {"testcase_name": "Test Case TC_002", "details": {"id": 574, "title": "Test Case TC_002", "section_id": 34, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "34", "created_by": 1, "created_on": 1770964713, "updated_by": 1, "updated_on": 1770964713, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 2, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Login as admin user. [Test Data: Valid admin credentials] [Acceptance Criteria: TS_002]\n2. Navigate to the add product page. [Test Data: N/A] [Acceptance Criteria: TS_002]\n3. Enter all required product details and submit. [Test Data: Valid product data (name, price, inventory, etc.)] [Acceptance Criteria: TS_002]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. Admin login successful.\n2. Add product form is displayed.\n3. Product is created successfully and appears in the product list.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}}, "C576": {"testcase_name": "Test Case TC_004", "details": {"id": 576, "title": "Test Case TC_004", "section_id": 34, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "34", "created_by": 1, "created_on": 1770964714, "updated_by": 1, "updated_on": 1770964714, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 4, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Login as admin user. [Test Data: Valid admin credentials] [Acceptance Criteria: TS_004]\n2. Select a product to mark as inactive. [Test Data: Existing product ID] [Acceptance Criteria: TS_004]\n3. Mark the product as inactive. [Test Data: N/A] [Acceptance Criteria: TS_004]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. Admin login successful.\n2. Product details are displayed.\n3. Product is marked as inactive and no longer appears in active listings.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}}, "C577": {"testcase_name": "Test Case TC_005", "details": {"id": 577, "title": "Test Case TC_005", "section_id": 34, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "34", "created_by": 1, "created_on": 1770964715, "updated_by": 1, "updated_on": 1770964715, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 5, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Login as admin user. [Test Data: Valid admin credentials] [Acceptance Criteria: TS_005]\n2. Select a product to delete. [Test Data: Existing product ID] [Acceptance Criteria: TS_005]\n3. Delete the product from the database. [Test Data: N/A] [Acceptance Criteria: TS_005]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. Admin login successful.\n2. Product details are displayed.\n3. Product is permanently removed and cannot be found in the product list.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}}}
+{
+  "metadata": {
+    "description": "CID to TestCase Mapping",
+    "created_date": "2025-01-20",
+    "version": "1.0"
+  },
+  "mappings": {
+    "CID001": {
+      "testcase_name": "User Authentication Test",
+      "details": "Validates user login functionality with valid and invalid credentials, including edge cases for username and password fields"
+    },
+    "CID002": {
+      "testcase_name": "Password Reset Workflow",
+      "details": "Tests the complete password reset flow including email verification, token validation, and new password setup"
+    },
+    "CID003": {
+      "testcase_name": "Session Management Test",
+      "details": "Verifies session timeout, concurrent session handling, and proper session cleanup on logout"
+    },
+    "CID004": {
+      "testcase_name": "API Response Validation",
+      "details": "Tests API endpoints for correct response codes, payload structure, and error handling mechanisms"
+    },
+    "CID005": {
+      "testcase_name": "Database Transaction Test",
+      "details": "Validates ACID properties of database transactions, rollback scenarios, and data integrity"
+    },
+    "CID006": {
+      "testcase_name": "UI Responsiveness Test",
+      "details": "Tests user interface responsiveness across different screen sizes and browser compatibility"
+    },
+    "CID007": {
+      "testcase_name": "File Upload Validation",
+      "details": "Verifies file upload functionality including size limits, file type validation, and error handling"
+    },
+    "CID008": {
+      "testcase_name": "Search Functionality Test",
+      "details": "Tests search feature with various query types, filters, and result pagination"
+    },
+    "CID009": {
+      "testcase_name": "Payment Gateway Integration",
+      "details": "Validates payment processing, transaction status updates, and refund workflows"
+    },
+    "CID010": {
+      "testcase_name": "Email Notification Test",
+      "details": "Tests email delivery, template rendering, and notification triggers for various events"
+    }
+  }
+}
