@@ -1,22 +1,10 @@
 {
-  "CID_001": {
-    "testcase_name": "Login Functionality Test",
-    "details": "Verify user can login with valid credentials"
+  "C53303842": {
+    "testcase_name": "C53303842",
+    "details": {}
   },
-  "CID_002": {
-    "testcase_name": "Password Reset Test",
-    "details": "Verify password reset functionality works correctly"
-  },
-  "CID_003": {
-    "testcase_name": "User Registration Test",
-    "details": "Verify new user registration process"
-  },
-  "CID_004": {
-    "testcase_name": "Dashboard Load Test",
-    "details": "Verify dashboard loads correctly after login"
-  },
-  "CID_005": {
-    "testcase_name": "Logout Functionality Test",
-    "details": "Verify user can logout successfully"
+  "C53303844": {
+    "testcase_name": "C53303844",
+    "details": {}
   }
 }
