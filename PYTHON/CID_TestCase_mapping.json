@@ -1,10 +1,10 @@
 {
   "C53303842": {
-    "testcase_name": "C53303842",
-    "details": {}
+    "testcase_name": "Test Case C53303842",
+    "details": "Test case details for CID C53303842"
   },
-  "C53303844": {
-    "testcase_name": "C53303844",
-    "details": {}
+  "53303844": {
+    "testcase_name": "Test Case 53303844",
+    "details": "Test case details for CID 53303844"
   }
 }
