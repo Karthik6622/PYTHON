@@ -1,10 +1,10 @@
 {
   "C53303842": {
-    "testcase_name": "Test Case C53303842 - Sample Test",
-    "details": "This is a sample testcase detail for CID C53303842. In actual implementation, this would contain the complete case_details from the input."
+    "testcase_name": "Testcase_C53303842",
+    "details": "Test case details for C53303842"
   },
   "C53303844": {
-    "testcase_name": "Test Case C53303844 - Another Sample Test",
-    "details": "This is a sample testcase detail for CID C53303844 (note: original had '53303844' without 'C' prefix). In actual implementation, this would contain the complete case_details from the input."
+    "testcase_name": "Testcase_C53303844",
+    "details": "Test case details for C53303844"
   }
 }
