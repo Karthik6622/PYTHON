@@ -1,1 +1,20 @@
-{"CIDs": [{"functionname": "test_01_verify_click_the_HP_Privacy_Statement_link_C578", "cid": "C578"}, {"functionname": "test_02_verify_visibility_manage_privacy_settings_button_C574", "cid": "C574"}, {"functionname": "test_03_verify__manage_privacy_settings_C576", "cid": "C576"}, {"functionname": "test_04_verify_delete_your_account_link_C577", "cid": "C577"}]}
+{
+  "CIDs": [
+    {
+      "functionname": "test_01_verify_click_the_HP_Privacy_Statement_link_C53303841",
+      "cid": "C53303841"
+    },
+    {
+      "functionname": "test_02_verify_visibility_manage_privacy_settings_button_C53303843",
+      "cid": "C53303843"
+    },
+    {
+      "functionname": "test_03_verify__manage_privacy_settings_C53303844",
+      "cid": "C53303844"
+    },
+    {
+      "functionname": "test_04_verify_delete_your_account_link_C53303842",
+      "cid": "C53303842"
+    }
+  ]
+}
