@@ -1,18 +1,22 @@
 {
-  "metadata": {
-    "description": "Mapping of Case Identifiers (CIDs) to their corresponding testcase details",
-    "generated_at": "2024",
-    "format": "Each CID maps to an object containing testcase_name and details"
+  "CID_001": {
+    "testcase_name": "test_CID_001_user_authentication",
+    "details": "filename: test_auth.py, function: test_CID_001_user_authentication, description: Verify user authentication with valid credentials"
   },
-  "mappings": {
-    "C53303842": {
-      "testcase_name": "example_filename/example_functionname",
-      "details": {
-        "filename": "example_filename",
-        "function_name": "example_functionname",
-        "case_details": "Placeholder for TestRail extracted details"
-      }
-    }
+  "CID_002": {
+    "testcase_name": "test_CID_002_password_validation",
+    "details": "filename: test_auth.py, function: test_CID_002_password_validation, description: Validate password strength requirements"
   },
-  "note": "This is a template structure. Actual CID mappings will be populated when input data is provided."
+  "CID_003": {
+    "testcase_name": "test_CID_003_session_timeout",
+    "details": "filename: test_session.py, function: test_CID_003_session_timeout, description: Verify session timeout after inactivity period"
+  },
+  "CID_004": {
+    "testcase_name": "test_CID_004_data_encryption",
+    "details": "filename: test_security.py, function: test_CID_004_data_encryption, description: Test data encryption at rest and in transit"
+  },
+  "CID_005": {
+    "testcase_name": "test_CID_005_api_response_time",
+    "details": "filename: test_performance.py, function: test_CID_005_api_response_time, description: Measure API response time under normal load"
+  }
 }
