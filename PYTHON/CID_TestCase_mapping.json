@@ -1,22 +1,20 @@
 {
-  "CID_001": {
-    "testcase_name": "test_CID_001_user_authentication",
-    "details": "filename: test_auth.py, function: test_CID_001_user_authentication, description: Verify user authentication with valid credentials"
+  "C53303842": {
+    "testcase_name": "Test case for C53303842",
+    "details": {
+      "filename": "test_example.py",
+      "functionname": "test_function_842",
+      "cid": "C53303842",
+      "case_details": "Placeholder for testrail extracted details for C53303842"
+    }
   },
-  "CID_002": {
-    "testcase_name": "test_CID_002_password_validation",
-    "details": "filename: test_auth.py, function: test_CID_002_password_validation, description: Validate password strength requirements"
-  },
-  "CID_003": {
-    "testcase_name": "test_CID_003_session_timeout",
-    "details": "filename: test_session.py, function: test_CID_003_session_timeout, description: Verify session timeout after inactivity period"
-  },
-  "CID_004": {
-    "testcase_name": "test_CID_004_data_encryption",
-    "details": "filename: test_security.py, function: test_CID_004_data_encryption, description: Test data encryption at rest and in transit"
-  },
-  "CID_005": {
-    "testcase_name": "test_CID_005_api_response_time",
-    "details": "filename: test_performance.py, function: test_CID_005_api_response_time, description: Measure API response time under normal load"
+  "C53303844": {
+    "testcase_name": "Test case for C53303844",
+    "details": {
+      "filename": "test_example.py",
+      "functionname": "test_function_844",
+      "cid": "C53303844",
+      "case_details": "Placeholder for testrail extracted details for C53303844"
+    }
   }
 }
