@@ -1,150 +1,56 @@
 {
-  "C4292": {
-    "testcase_name": "test_01_verify_click_the_HP_Privacy_Statement_link_C4292",
-    "details": {
-      "filename": "test_suite.py",
-      "functionname": "test_01_verify_click_the_HP_Privacy_Statement_link_C4292",
-      "case_details": {
-        "id": 4292,
-        "title": "Test Case 1",
-        "section_id": 31,
-        "template_id": 1,
-        "type_id": 6,
-        "priority_id": 2,
-        "milestone_id": null,
-        "refs": "SCRUM-336",
-        "created_by": 1,
-        "created_on": 1773694192,
-        "updated_by": 1,
-        "updated_on": 1773694192,
-        "estimate": "5min",
-        "estimate_forecast": "5min",
-        "suite_id": 7,
-        "display_order": 49,
-        "is_deleted": 0,
-        "custom_automation_type": null,
-        "custom_case_automation_candidate": null,
-        "custom_case_is_automated": false,
-        "custom_preconds": null,
-        "custom_steps": "1. Initiate the AI agentic workflow with valid input data and all required assets available. [Test Data: Valid Jira Story, valid design asset links, proper authentication tokens] [Acceptance Criteria: 1]\n2. Monitor progression through each workflow phase (ingestion, scenario generation, validation, publishing). [Test Data: N/A] [Acceptance Criteria: 1]\n3. Verify that the final output is published to TestRail and status updated in Jira. [Test Data: N/A] [Acceptance Criteria: 1]\n",
-        "custom_testrail_bdd_scenario": null,
-        "custom_expected": "1. Workflow starts and each agent is triggered as per design.\n2. Each phase completes successfully with correct data handoff.\n3. Test cases are visible in TestRail, Jira story is updated with traceability links.\n",
-        "custom_steps_separated": null,
-        "custom_mission": null,
-        "custom_goals": null,
-        "labels": []
-      }
+  "test_suite": "test_suite.py",
+  "imports": ["import pytest", "from MobileApps.libs.flows.windows.hpx_rebranding.flow_container import FlowContainer"],
+  "fixtures": "",
+  "list_of_pages": [],
+  "list_of_functions": [
+    {
+      "function_name": "test_01_verify_click_the_HP_Privacy_Statement_link_C4292",
+      "function": "    @pytest.mark.regressionDryRunPass\n    @pytest.mark.regressionDryRunPassSet2\n    def test_01_verify_click_the_HP_Privacy_Statement_link_C53303841(self):\n        self.fc.launch_myHP_and_skip_fuf()  \n        if \"Maximize HP\" == self.profile.verify_myhp_maximize():\n           self.profile.maximize_myhp()\n        self.profile.verify_home_device_card()  \n        self.profile.click_devicepage_avatar_btn()\n        self.profile.click_profile_settings_btn()    \n        self.hpx_settings.verify_privacy_statement_link()\n        self.hpx_settings.click_privacy_statement_link()\n        self.devicesMFE.verify_browser_webview_pane()\n        self.hpx_settings.verify_privacy_in_external_browser()\n        self.fc.kill_chrome_process()\n        self.fc.close_myHP()\n",
+      "list_of_CIDs": ["C4292"],
+      "test_case_info": [
+        {
+          "test_case_id": "C4292",
+          "test_case_name": "Test Case 1",
+          "test_case_details": {"id": 4292, "title": "Test Case 1", "section_id": 31, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "SCRUM-336", "created_by": 1, "created_on": 1773694192, "updated_by": 1, "updated_on": 1773694192, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 49, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Initiate the AI agentic workflow with valid input data and all required assets available. [Test Data: Valid Jira Story, valid design asset links, proper authentication tokens] [Acceptance Criteria: 1]\n2. Monitor progression through each workflow phase (ingestion, scenario generation, validation, publishing). [Test Data: N/A] [Acceptance Criteria: 1]\n3. Verify that the final output is published to TestRail and status updated in Jira. [Test Data: N/A] [Acceptance Criteria: 1]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. Workflow starts and each agent is triggered as per design.\n2. Each phase completes successfully with correct data handoff.\n3. Test cases are visible in TestRail, Jira story is updated with traceability links.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}
+        }
+      ]
+    },
+    {
+      "function_name": "test_02_verify_visibility_manage_privacy_settings_button_C4293",
+      "function": "    @pytest.mark.regressionDryRunPass\n    @pytest.mark.regressionDryRunPassSet1\n    def test_02_verify_visibility_manage_privacy_settings_button_C53303843(self):\n        self.fc.launch_myHP_and_skip_fuf()  \n        if \"Maximize HP\" == self.profile.verify_myhp_maximize():\n           self.profile.maximize_myhp()\n        self.profile.verify_home_device_card()   \n        self.profile.click_devicepage_avatar_btn()\n        self.profile.click_profile_settings_btn()    \n        self.hpx_settings.verify_manage_privacy_title()\n        self.fc.close_myHP()  \n",
+      "list_of_CIDs": ["C4293"],
+      "test_case_info": [
+        {
+          "test_case_id": "C4293",
+          "test_case_name": "Test Case 2",
+          "test_case_details": {"id": 4293, "title": "Test Case 2", "section_id": 31, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "SCRUM-336", "created_by": 1, "created_on": 1773694199, "updated_by": 1, "updated_on": 1773694199, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 50, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Trigger the workflow with an invalid or expired Jira API token. [Test Data: Invalid Jira API token] [Acceptance Criteria: 2]\n2. Observe the error handling and user notification mechanisms. [Test Data: N/A] [Acceptance Criteria: 2]\n3. Attempt recovery by providing a valid Jira API token. [Test Data: Valid Jira API token] [Acceptance Criteria: 2]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. System detects authentication failure and logs the error.\n2. User receives clear error message and guidance for re-authentication.\n3. Workflow resumes successfully after re-authentication.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}
+        }
+      ]
+    },
+    {
+      "function_name": "test_03_verify__manage_privacy_settings_C4294",
+      "function": "    @pytest.mark.regressionDryRunPass\n    @pytest.mark.regressionDryRunPassSet1\n    def test_03_verify__manage_privacy_settings_C53303844(self):\n        self.fc.launch_myHP_and_skip_fuf()  \n        if \"Maximize HP\" == self.profile.verify_myhp_maximize():\n           self.profile.maximize_myhp()\n        self.profile.verify_home_device_card()\n        self.profile.click_devicepage_avatar_btn()\n        self.profile.click_profile_settings_btn()    \n        self.hpx_settings.verify_manage_privacy_title()\n        self.hpx_settings.click_manage_privacy_btn()\n        self.hpx_settings.verify_application_privacy_consents()\n        self.fc.close_myHP()  \n",
+      "list_of_CIDs": ["C4294"],
+      "test_case_info": [
+        {
+          "test_case_id": "C4294",
+          "test_case_name": "Test Case 3",
+          "test_case_details": {"id": 4294, "title": "Test Case 3", "section_id": 31, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "SCRUM-336", "created_by": 1, "created_on": 1773694202, "updated_by": 1, "updated_on": 1773694202, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 51, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Start the workflow with a Jira Story that references a missing or deleted design asset. [Test Data: Jira Story with invalid/missing design asset link] [Acceptance Criteria: 3]\n2. Check for error messaging and escalation process. [Test Data: N/A] [Acceptance Criteria: 3]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. System detects missing asset and halts scenario generation.\n2. User is notified of missing asset and given steps to resolve.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}
+        }
+      ]
+    },
+    {
+      "function_name": "test_04_verify_delete_your_account_link_C4296",
+      "function": "    @pytest.mark.regressionDryRunPass\n    @pytest.mark.regressionDryRunPassSet2\n    def test_04_verify_delete_your_account_link_C53303842(self):\n        self.fc.kill_myhp_process()\n        self.fc.kill_chrome_process()\n        self.fc.launch_myHP_and_skip_fuf()\n        if \"Maximize HP\" == self.profile.verify_myhp_maximize():\n            self.profile.maximize_myhp()\n        logged_in = self.profile.verify_top_profile_icon_signed_in()\n        if not logged_in:\n            self.profile.sign_in_to_hp(\"qamamobiprod.rcb@gmail.com\", \"Rcb@12345\")\n        self.profile.click_top_profile_icon_signed_in()  \n        self.profile.verify_settings_side_panel()\n        self.profile.click_profile_settings_btn()\n        # After logging only the \"Delete your account\" link should be visible\n        self.hpx_settings.verify_delete_your_account()            \n        self.fc.close_myHP()\n",
+      "list_of_CIDs": ["C4296"],
+      "test_case_info": [
+        {
+          "test_case_id": "C4296",
+          "test_case_name": "Test Case 5",
+          "test_case_details": {"id": 4296, "title": "Test Case 5", "section_id": 31, "template_id": 1, "type_id": 6, "priority_id": 2, "milestone_id": null, "refs": "SCRUM-336", "created_by": 1, "created_on": 1773694208, "updated_by": 1, "updated_on": 1773694208, "estimate": "5min", "estimate_forecast": "5min", "suite_id": 7, "display_order": 53, "is_deleted": 0, "custom_automation_type": null, "custom_case_automation_candidate": null, "custom_case_is_automated": false, "custom_preconds": null, "custom_steps": "1. Trigger the workflow and simulate TestRail API downtime during the publishing step. [Test Data: Simulated TestRail API outage] [Acceptance Criteria: 5]\n2. Verify retry logic and user notification. [Test Data: N/A] [Acceptance Criteria: 5]\n3. Check that no partial or duplicate data is published to TestRail. [Test Data: N/A] [Acceptance Criteria: 5]\n", "custom_testrail_bdd_scenario": null, "custom_expected": "1. System detects API unavailability and logs the error.\n2. System retries publishing as per configuration and notifies user if it fails.\n3. TestRail remains consistent, no partial uploads.\n", "custom_steps_separated": null, "custom_mission": null, "custom_goals": null, "labels": []}
+        }
+      ]
     }
-  },
-  "C4293": {
-    "testcase_name": "test_02_verify_visibility_manage_privacy_settings_button_C4293",
-    "details": {
-      "filename": "test_suite.py",
-      "functionname": "test_02_verify_visibility_manage_privacy_settings_button_C4293",
-      "case_details": {
-        "id": 4293,
-        "title": "Test Case 2",
-        "section_id": 31,
-        "template_id": 1,
-        "type_id": 6,
-        "priority_id": 2,
-        "milestone_id": null,
-        "refs": "SCRUM-336",
-        "created_by": 1,
-        "created_on": 1773694199,
-        "updated_by": 1,
-        "updated_on": 1773694199,
-        "estimate": "5min",
-        "estimate_forecast": "5min",
-        "suite_id": 7,
-        "display_order": 50,
-        "is_deleted": 0,
-        "custom_automation_type": null,
-        "custom_case_automation_candidate": null,
-        "custom_case_is_automated": false,
-        "custom_preconds": null,
-        "custom_steps": "1. Trigger the workflow with an invalid or expired Jira API token. [Test Data: Invalid Jira API token] [Acceptance Criteria: 2]\n2. Observe the error handling and user notification mechanisms. [Test Data: N/A] [Acceptance Criteria: 2]\n3. Attempt recovery by providing a valid Jira API token. [Test Data: Valid Jira API token] [Acceptance Criteria: 2]\n",
-        "custom_testrail_bdd_scenario": null,
-        "custom_expected": "1. System detects authentication failure and logs the error.\n2. User receives clear error message and guidance for re-authentication.\n3. Workflow resumes successfully after re-authentication.\n",
-        "custom_steps_separated": null,
-        "custom_mission": null,
-        "custom_goals": null,
-        "labels": []
-      }
-    }
-  },
-  "C4294": {
-    "testcase_name": "test_03_verify__manage_privacy_settings_C4294",
-    "details": {
-      "filename": "test_suite.py",
-      "functionname": "test_03_verify__manage_privacy_settings_C4294",
-      "case_details": {
-        "id": 4294,
-        "title": "Test Case 3",
-        "section_id": 31,
-        "template_id": 1,
-        "type_id": 6,
-        "priority_id": 2,
-        "milestone_id": null,
-        "refs": "SCRUM-336",
-        "created_by": 1,
-        "created_on": 1773694202,
-        "updated_by": 1,
-        "updated_on": 1773694202,
-        "estimate": "5min",
-        "estimate_forecast": "5min",
-        "suite_id": 7,
-        "display_order": 51,
-        "is_deleted": 0,
-        "custom_automation_type": null,
-        "custom_case_automation_candidate": null,
-        "custom_case_is_automated": false,
-        "custom_preconds": null,
-        "custom_steps": "1. Start the workflow with a Jira Story that references a missing or deleted design asset. [Test Data: Jira Story with invalid/missing design asset link] [Acceptance Criteria: 3]\n2. Check for error messaging and escalation process. [Test Data: N/A] [Acceptance Criteria: 3]\n",
-        "custom_testrail_bdd_scenario": null,
-        "custom_expected": "1. System detects missing asset and halts scenario generation.\n2. User is notified of missing asset and given steps to resolve.\n",
-        "custom_steps_separated": null,
-        "custom_mission": null,
-        "custom_goals": null,
-        "labels": []
-      }
-    }
-  },
-  "C4296": {
-    "testcase_name": "test_04_verify_delete_your_account_link_C4296",
-    "details": {
-      "filename": "test_suite.py",
-      "functionname": "test_04_verify_delete_your_account_link_C4296",
-      "case_details": {
-        "id": 4296,
-        "title": "Test Case 5",
-        "section_id": 31,
-        "template_id": 1,
-        "type_id": 6,
-        "priority_id": 2,
-        "milestone_id": null,
-        "refs": "SCRUM-336",
-        "created_by": 1,
-        "created_on": 1773694208,
-        "updated_by": 1,
-        "updated_on": 1773694208,
-        "estimate": "5min",
-        "estimate_forecast": "5min",
-        "suite_id": 7,
-        "display_order": 53,
-        "is_deleted": 0,
-        "custom_automation_type": null,
-        "custom_case_automation_candidate": null,
-        "custom_case_is_automated": false,
-        "custom_preconds": null,
-        "custom_steps": "1. Trigger the workflow and simulate TestRail API downtime during the publishing step. [Test Data: Simulated TestRail API outage] [Acceptance Criteria: 5]\n2. Verify retry logic and user notification. [Test Data: N/A] [Acceptance Criteria: 5]\n3. Check that no partial or duplicate data is published to TestRail. [Test Data: N/A] [Acceptance Criteria: 5]\n",
-        "custom_testrail_bdd_scenario": null,
-        "custom_expected": "1. System detects API unavailability and logs the error.\n2. System retries publishing as per configuration and notifies user if it fails.\n3. TestRail remains consistent, no partial uploads.\n",
-        "custom_steps_separated": null,
-        "custom_mission": null,
-        "custom_goals": null,
-        "labels": []
-      }
-    }
-  }
+  ]
 }
