@@ -1,0 +1,20 @@
+{
+  "type": "figma",
+  "source": "user",
+  "file_url": "https://www.figma.com/proto/aU7cWxU0eLhx138PhiFkX7/Ecommerce-Cart?node-id=1-2&t=wUz5tHpUbMrZQjwI-1&scaling=contain&content-scaling=fixed",
+  "figma_file_id": "aU7cWxU0eLhx138PhiFkX7",
+  "artifact_purpose": "UI/UX design for Ecommerce Cart workflow",
+  "authentication": {
+    "method": "api_key",
+    "api_key": "figd_06XZcvnR_j3X6nIOLStUhQq5ibIx_6d04IvVycpV"
+  },
+  "expected_understanding_outputs": [
+    "user_flows",
+    "screen_inventory",
+    "component_usage",
+    "design_assumptions",
+    "design_gaps"
+  ],
+  "created_at": "2026-05-11T00:00:00Z",
+  "comments": "This file acts as a reference pointer to Figma. The actual design data must be fetched during the Figma Understanding Workflow."
+}
