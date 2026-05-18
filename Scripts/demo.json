@@ -1,0 +1,1 @@
+[{ "scenario_id": "TS001", "scenario_name": "Verify successful login with valid credentials", "scenario_description": "Ensure user can login using valid username and password." }, { "scenario_id": "TS002", "scenario_name": "Verify login failure with invalid password", "scenario_description": "Ensure login fails when invalid password is entered." }]
