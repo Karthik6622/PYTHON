@@ -1,0 +1,124 @@
+[
+  {
+    "Test Case ID": "TC-001",
+    "Title": "TikTok icon is displayed in footer for supported locales",
+    "Description": "Verify that the TikTok social media icon is visible in the footer for supported locales (Philippines, United States, France, Germany).",
+    "Preconditions": "User is on the Essilor.com site for a supported locale.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for Philippines.",
+      "Scroll to the footer section.",
+      "Verify the TikTok icon is present and ranked #3 after Instagram and before YouTube."
+    ],
+    "Expected Result": "TikTok icon is visible in the footer and positioned correctly.",
+    "Priority": "High",
+    "Severity": "Critical",
+    "Associated User Story": "US-002"
+  },
+  {
+    "Test Case ID": "TC-002",
+    "Title": "TikTok icon redirects to Essilor TikTok account in new tab",
+    "Description": "Verify that clicking the TikTok icon in the footer opens the Essilor TikTok account in a new browser tab.",
+    "Preconditions": "User is on the Essilor.com site for a supported locale and TikTok icon is visible in the footer.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for United States.",
+      "Scroll to the footer section.",
+      "Click the TikTok icon."
+    ],
+    "Expected Result": "Essilor TikTok account (https://www.tiktok.com/@essilor) opens in a new browser tab.",
+    "Priority": "High",
+    "Severity": "Critical",
+    "Associated User Story": "US-002"
+  },
+  {
+    "Test Case ID": "TC-003",
+    "Title": "TikTok icon is not displayed in footer for unsupported locales",
+    "Description": "Verify that the TikTok social media icon is not visible in the footer for unsupported locales (India, China, Taiwan, Hongkong).",
+    "Preconditions": "User is on the Essilor.com site for an unsupported locale.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for India.",
+      "Scroll to the footer section.",
+      "Verify the TikTok icon is not present."
+    ],
+    "Expected Result": "TikTok icon is not visible in the footer.",
+    "Priority": "High",
+    "Severity": "Major",
+    "Associated User Story": "US-003"
+  },
+  {
+    "Test Case ID": "TC-004",
+    "Title": "TikTok icon is ranked #3 in social media icons list",
+    "Description": "Verify that the TikTok icon is positioned as the third icon in the social media icons list in the footer, after Instagram and before YouTube, for supported locales.",
+    "Preconditions": "User is on the Essilor.com site for a supported locale.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for France.",
+      "Scroll to the footer section.",
+      "Verify the order of social media icons: Instagram, TikTok, YouTube."
+    ],
+    "Expected Result": "TikTok icon is ranked #3 in the social media icons list.",
+    "Priority": "Medium",
+    "Severity": "Major",
+    "Associated User Story": "US-002"
+  },
+  {
+    "Test Case ID": "TC-005",
+    "Title": "TikTok icon opens correct URL",
+    "Description": "Verify that clicking the TikTok icon opens the correct Essilor TikTok account URL (https://www.tiktok.com/@essilor).",
+    "Preconditions": "User is on the Essilor.com site for a supported locale and TikTok icon is visible in the footer.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for Germany.",
+      "Scroll to the footer section.",
+      "Click the TikTok icon.",
+      "Verify the opened URL is https://www.tiktok.com/@essilor."
+    ],
+    "Expected Result": "TikTok icon opens the correct Essilor TikTok account URL.",
+    "Priority": "Medium",
+    "Severity": "Major",
+    "Associated User Story": "US-002"
+  },
+  {
+    "Test Case ID": "TC-006",
+    "Title": "TikTok icon does not open in same tab",
+    "Description": "Verify that clicking the TikTok icon does not redirect the user in the same tab but opens a new tab instead.",
+    "Preconditions": "User is on the Essilor.com site for a supported locale and TikTok icon is visible in the footer.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for Philippines.",
+      "Scroll to the footer section.",
+      "Click the TikTok icon.",
+      "Verify the Essilor TikTok account opens in a new tab and the original site remains open."
+    ],
+    "Expected Result": "Essilor TikTok account opens in a new tab, original site remains open.",
+    "Priority": "Medium",
+    "Severity": "Minor",
+    "Associated User Story": "US-002"
+  },
+  {
+    "Test Case ID": "TC-007",
+    "Title": "TikTok icon is not clickable for unsupported locales",
+    "Description": "Verify that the TikTok icon is not clickable or present for unsupported locales (India, China, Taiwan, Hongkong).",
+    "Preconditions": "User is on the Essilor.com site for an unsupported locale.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for China.",
+      "Scroll to the footer section.",
+      "Verify the TikTok icon is not present or clickable."
+    ],
+    "Expected Result": "TikTok icon is not present or clickable for unsupported locales.",
+    "Priority": "Medium",
+    "Severity": "Major",
+    "Associated User Story": "US-003"
+  },
+  {
+    "Test Case ID": "TC-008",
+    "Title": "Footer layout remains consistent after TikTok icon addition",
+    "Description": "Verify that the addition of the TikTok icon does not disrupt the footer layout for supported locales.",
+    "Preconditions": "User is on the Essilor.com site for a supported locale.",
+    "Test Steps": [
+      "Navigate to the Essilor.com site for United States.",
+      "Scroll to the footer section.",
+      "Verify the footer layout remains consistent and visually correct after TikTok icon addition."
+    ],
+    "Expected Result": "Footer layout remains consistent and visually correct.",
+    "Priority": "Low",
+    "Severity": "Minor",
+    "Associated User Story": "US-002"
+  }
+]
