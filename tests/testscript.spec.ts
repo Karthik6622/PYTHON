@@ -38,11 +38,17 @@ test.only('test5', async ({ page }) => {
 
   const cardInput = page.getByRole('textbox', { name: 'Enter Card Number' });
   await expect(cardInput).toBeVisible({ timeout: 15000 });
+  await cardInput.scrollIntoViewIfNeeded();
+  await cardInput.focus();
   await cardInput.fill('123456');
 
   const pinInput = page.getByRole('textbox', { name: 'Enter PIN' });
   await expect(pinInput).toBeVisible({ timeout: 15000 });
+  await pinInput.scrollIntoViewIfNeeded();
+  await pinInput.focus();
   await pinInput.fill('123456');
+  await page.getByRole('button', { name: 'Check Balance' }).scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: 'Check Balance' }).focus();
   await page.getByRole('button', { name: 'Check Balance' }).click();
   await expect(page.locator('#termsAndConditions')).toContainText('Invalid Gift Card or Invalid Pin', { timeout: 15000 });
   await page.goto('https://www.dickssportinggoods.com/s/policy/price-match-policy');
@@ -131,4 +137,15 @@ test.only('test5', async ({ page }) => {
     - text: Add to Cart
     `);
 });
+
+test('new arrivals block has 15 products', async ({ page }) => {
+  await page.goto('https://www.dickssportinggoods.com/s/policy/price-match-policy');
+
+  const newArrivalsSection = page.locator('li:has-text("New Arrivals")');
+  await expect(newArrivalsSection).toBeVisible({ timeout: 15000 });
+
+  const productCards = page.locator('#NewArrivalsTab > div.slides > div > div > div > div');
+  await expect(productCards).toHaveCount(15, { timeout: 15000 });
+});
+//#NewArrivalsTab > div.slides > div > div > div > div
 
