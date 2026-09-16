@@ -1,0 +1,152 @@
+{
+    "gap_report_metadata": {
+        "requirement_id": "SCRUM-957",
+        "requirement_title": "As a customer, I want to browse available mobile devices, review product details and default configurations, view promotional offers and estimated delivery information, authenticate when required, and seamlessly continue my purchase journey after successful login, so that I can make an informed purchase decision and complete my mobile device purchase successfully.",
+        "overall_coverage_percentage": 42.86
+    },
+    "coverage_gap_report": {
+        "summary": {
+            "total_criteria": 7,
+            "unmapped_count": 0,
+            "partially_mapped_count": 4,
+            "fully_mapped_count": 3
+        },
+        "unmapped_criteria": [],
+        "partially_mapped_criteria": [
+            {
+                "acceptance_criterion": "When the Product Details Page is opened, the application shall: Display the default device colour. Display the default storage option. Display the default payment option. Display the correct pricing for the default configuration. Display the estimated delivery date. Display the promotional offer (if available).",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "1429"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify default device configuration values on Samsung Galaxy A57 5G product detail page"
+                ],
+                "gap_analysis": "Test case 1429 validates default colour (Awesome Navy), default storage (256 GB), and default payment option (24-month installment). However, it does not explicitly verify correct pricing for default configuration, estimated delivery date, or promotional offer display, leaving gaps in coverage. Critical business elements such as pricing accuracy, delivery expectations, and promotional incentives are not validated, creating risk for customer experience and revenue assurance.",
+                "recommended_test_enhancements": [
+                    "Create test case to validate correct pricing display for default configuration (Awesome Navy, 256 GB, 24-month installment) with expected price verification against pricing rules engine",
+                    "Create test case to validate estimated delivery date display on PDP with format validation and business day calculation verification",
+                    "Create test case to validate promotional offer display when available with offer details, terms, and expiration date",
+                    "Create test case to validate promotional offer absence handling when not available with appropriate UI state verification"
+                ]
+            },
+            {
+                "acceptance_criterion": "The customer shall be able to: View the Next button. Click the Next button. Continue to the next purchase step. Prevent duplicate submissions when the button is clicked multiple times. Resume the purchase journey after successful authentication.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "1430",
+                    "1435"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify Next button initiates progression to next step for authenticated user",
+                    "Verify Next button behavior when clicked multiple times rapidly by unauthenticated user"
+                ],
+                "gap_analysis": "Test case 1430 validates viewing Next button, clicking it, and continuing to next step for authenticated users. Test case 1435 validates prevention of duplicate submissions by verifying only single popup appears on multiple rapid clicks. However, neither test case explicitly validates resuming purchase journey after successful authentication, leaving a critical gap in the authentication flow. This gap creates risk for cart abandonment and poor user experience as customers may lose their configuration selections during authentication.",
+                "recommended_test_enhancements": [
+                    "Create end-to-end test case validating complete authentication flow: unauthenticated user clicks Next on PDP → login popup appears → user successfully logs in → system redirects user back to exact purchase step with selected configuration intact → user continues purchase journey seamlessly",
+                    "Enhance test case 1430 to validate session state persistence across authentication boundary with configuration data (colour, storage, payment option) verification",
+                    "Create test case to validate purchase journey resumption with deep link preservation and URL parameter integrity after authentication"
+                ]
+            },
+            {
+                "acceptance_criterion": "If the customer is not authenticated, the application shall: Display the Login popup after clicking Next. Display Login and Sign Up options. Prevent the purchase journey until authentication is completed. Redirect the customer back to the interrupted purchase step after successful login.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "1431"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify login or sign-up popup is displayed for unauthenticated user clicking Next"
+                ],
+                "gap_analysis": "Test case 1431 validates display of login popup after clicking Next for unauthenticated users, verifies popup message, and confirms presence of 'Log in with Hub ID' and 'Don't have an account? Sign up here' buttons. However, it does not explicitly validate that purchase journey is prevented until authentication is completed or that customer is redirected back to interrupted purchase step after successful login. This creates security and user experience risks as the authentication gate enforcement and post-authentication redirect behavior are not validated.",
+                "recommended_test_enhancements": [
+                    "Create test case to validate purchase journey prevention: verify user cannot proceed to next step without authentication, verify popup cannot be bypassed, verify direct URL navigation to next step is blocked for unauthenticated users",
+                    "Create test case to validate post-authentication redirect: after successful login, verify user is redirected to Samsung Galaxy A57 5G PDP with previously selected configuration intact (colour, storage, payment option preserved)",
+                    "Create test case to validate seamless purchase journey continuation: verify user can click Next after authentication and proceed to next purchase step without re-entering configuration",
+                    "Create negative test case to validate failed authentication handling: verify user remains on authentication screen, verify error message display, verify purchase journey remains blocked"
+                ]
+            },
+            {
+                "acceptance_criterion": "The application shall gracefully handle error scenarios including: Network interruption while loading pages. Device unavailability or out-of-stock condition. Slow network response while loading the Product Details Page. HTTP 500/Internal Server Error. API timeout while retrieving product details. Display appropriate error messages without crashing.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "1432",
+                    "1433",
+                    "1434"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify system behavior when navigating to All Phones with network interruption",
+                    "Verify system behavior when Samsung Galaxy A57 5G device card is not available on listing page",
+                    "Verify default configuration visibility when PDP loads with delayed hydration"
+                ],
+                "gap_analysis": "Test case 1432 validates network interruption handling during navigation to All Phones. Test case 1433 validates device unavailability/out-of-stock condition handling. Test case 1434 validates slow network response while loading PDP. However, none of the test cases explicitly validate HTTP 500/Internal Server Error handling or API timeout while retrieving product details. These are critical error scenarios in production environments that can impact customer experience and system stability. Missing validation creates risk for unhandled exceptions, application crashes, and poor error messaging.",
+                "recommended_test_enhancements": [
+                    "Create test case to validate HTTP 500/Internal Server Error handling when loading PDP: simulate server error, verify appropriate error message display, verify application stability without crash, verify retry mechanism or fallback behavior",
+                    "Create test case to validate HTTP 500/Internal Server Error handling when retrieving product details API: simulate API server error, verify graceful degradation, verify error message clarity, verify user can navigate back or retry",
+                    "Create test case to validate API timeout while retrieving product details: simulate API timeout scenario, verify timeout error message display, verify loading state handling, verify application does not hang or crash",
+                    "Create test case to validate combined error scenario handling: simulate multiple concurrent errors (network + API timeout), verify error prioritization, verify error message stacking or consolidation, verify system recovery"
+                ]
+            }
+        ],
+        "fully_mapped_criteria": [
+            {
+                "acceptance_criterion": "The customer shall be able to: Navigate from the StarHub Home page to Mobile → All Phones. View the Mobile Devices listing page. Verify the page heading is displayed correctly. Verify the correct URL is loaded. View all available mobile devices.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "1427"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify successful navigation to mobile devices listing page from StarHub personal homepage"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "The customer shall be able to: Select Samsung Galaxy A57 5G from the device listing. Navigate to the Product Details Page. Verify the product information. Verify the Product Details Page URL.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "1428"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify successful selection and navigation to Samsung Galaxy A57 5G device details page"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "The application shall ensure that the authentication popup: Displays correctly on Desktop. Displays correctly on Tablet. Displays correctly on Mobile. Maintains usability across supported screen resolutions.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "1436"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify authentication popup elements are accessible with timing-sensitive overlay rendering"
+                ],
+                "confidence_score": 85
+            }
+        ],
+        "test_case_improvements": [
+            {
+                "test_case_id": "1429",
+                "missing_scenario": "Missing validation for correct pricing display for default configuration, estimated delivery date display, and promotional offer display (if available).",
+                "suggested_test_steps": "Add Step 8: Verify the pricing displayed matches the expected price for default configuration (Awesome Navy, 256 GB, 24-month installment) [Test Data- Expected price for default configuration] [Acceptance Criteria- AC3]. Add Step 9: Verify the estimated delivery date is displayed on the page [Test Data- Expected delivery date format and visibility] [Acceptance Criteria- AC3]. Add Step 10: Verify promotional offer is displayed if available, or verify absence of promotional offer section if not available [Test Data- Promotional offer availability status] [Acceptance Criteria- AC3].",
+                "suggested_expected_result": "Step 8 Expected: Pricing displayed matches expected price for default configuration (Awesome Navy, 256 GB, 24-month installment). Step 9 Expected: Estimated delivery date is clearly visible and displayed in correct format. Step 10 Expected: If promotional offer is available, it is displayed prominently; if not available, promotional offer section is not displayed or shows appropriate message."
+            },
+            {
+                "test_case_id": "1430",
+                "missing_scenario": "Missing validation for resuming purchase journey after successful authentication.",
+                "suggested_test_steps": "Add Step 8: Log out from the application [Acceptance Criteria- AC4]. Add Step 9: Navigate back to Samsung Galaxy A57 5G PDP and select a specific configuration (e.g., different colour or storage) [Test Data- Selected configuration to track] [Acceptance Criteria- AC4]. Add Step 10: Click Next button to trigger authentication [Acceptance Criteria- AC4]. Add Step 11: Complete login with valid Hub ID credentials [Test Data- Valid Hub ID credentials] [Acceptance Criteria- AC4]. Add Step 12: Verify user is redirected back to Samsung Galaxy A57 5G PDP with previously selected configuration intact [Test Data- Configuration selected in Step 9] [Acceptance Criteria- AC4]. Add Step 13: Verify user can continue purchase journey from the interrupted step [Acceptance Criteria- AC4].",
+                "suggested_expected_result": "Step 8 Expected: User is logged out successfully. Step 9 Expected: Specific configuration is selected and visible on PDP. Step 10 Expected: Login popup is displayed. Step 11 Expected: User is authenticated successfully. Step 12 Expected: User is redirected to Samsung Galaxy A57 5G PDP with the exact configuration selected before authentication (colour, storage, payment option). Step 13 Expected: User can click Next and continue to the next purchase step seamlessly."
+            },
+            {
+                "test_case_id": "1431",
+                "missing_scenario": "Missing validation that purchase journey is prevented until authentication is completed and that customer is redirected back to interrupted purchase step after successful login.",
+                "suggested_test_steps": "Add Step 10: Attempt to close the popup without logging in or signing up [Acceptance Criteria- AC5]. Add Step 11: Verify that user remains on the same page and cannot proceed to next purchase step without authentication [Acceptance Criteria- AC5]. Add Step 12: Click 'Log in with Hub ID' button in the popup [Acceptance Criteria- AC5]. Add Step 13: Complete login with valid Hub ID credentials [Test Data- Valid Hub ID credentials] [Acceptance Criteria- AC5]. Add Step 14: Verify user is redirected back to Samsung Galaxy A57 5G PDP after successful login [Acceptance Criteria- AC5]. Add Step 15: Verify user can now click Next and proceed to the next purchase step [Acceptance Criteria- AC5].",
+                "suggested_expected_result": "Step 10 Expected: Popup is closed. Step 11 Expected: User remains on Samsung Galaxy A57 5G PDP and cannot proceed to next purchase step; clicking Next again triggers the login popup. Step 12 Expected: Login form or authentication page is displayed. Step 13 Expected: User is authenticated successfully. Step 14 Expected: User is redirected back to Samsung Galaxy A57 5G PDP with device configuration intact. Step 15 Expected: User can click Next and successfully proceed to the next purchase step (e.g., plan selection, checkout)."
+            },
+            {
+                "test_case_id": "1436",
+                "missing_scenario": "Missing explicit validation across Desktop, Tablet, and Mobile devices to ensure responsive authentication popup display.",
+                "suggested_test_steps": "Add Step 11: Resize browser window to Desktop resolution (e.g., 1920x1080) and verify popup displays correctly [Test Data- Desktop resolution: 1920x1080] [Acceptance Criteria- AC7]. Add Step 12: Resize browser window to Tablet resolution (e.g., 768x1024) and verify popup displays correctly [Test Data- Tablet resolution: 768x1024] [Acceptance Criteria- AC7]. Add Step 13: Resize browser window to Mobile resolution (e.g., 375x667) and verify popup displays correctly [Test Data- Mobile resolution: 375x667] [Acceptance Criteria- AC7]. Add Step 14: Verify popup maintains usability (all elements visible, clickable, and properly aligned) across all tested resolutions [Acceptance Criteria- AC7].",
+                "suggested_expected_result": "Step 11 Expected: Popup displays correctly on Desktop with all elements visible, properly aligned, and interactable. Step 12 Expected: Popup displays correctly on Tablet with all elements visible, properly aligned, and interactable. Step 13 Expected: Popup displays correctly on Mobile with all elements visible, properly aligned, and interactable. Step 14 Expected: Popup maintains consistent usability across Desktop, Tablet, and Mobile resolutions without layout issues or accessibility problems."
+            }
+        ]
+    }
+}
