@@ -1,62 +1,87 @@
 {
     "gap_report_metadata": {
-        "requirement_id": "SCRUM-956",
-        "requirement_title": "Task - SCRUM-956 (Title unavailable from Jira API response)",
+        "requirement_id": "SCRUM-339",
+        "requirement_title": "Deploy a multi-agent AI framework for autonomous test case generation",
         "overall_coverage_percentage": 0.0
     },
     "coverage_gap_report": {
         "summary": {
-            "total_criteria": 7,
-            "unmapped_count": 7,
+            "total_criteria": 5,
+            "unmapped_count": 5,
             "partially_mapped_count": 0,
             "fully_mapped_count": 0
         },
         "unmapped_criteria": [
             {
-                "acceptance_criterion": "AC1",
+                "acceptance_criterion": "Context Ingestion: The AI agent successfully connects to the Jira API to extract the User Story description, acceptance criteria, and any linked design assets.",
                 "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC1. Ensure functional, boundary, and negative test scenarios are included."
+                "gap_analysis": "No test cases exist in TestRail to validate Jira API connectivity, data extraction accuracy, or handling of linked design assets. Critical integration point remains untested.",
+                "action_required": "Create comprehensive test cases covering: (1) Successful Jira API authentication and connection, (2) Accurate extraction of User Story fields (description, acceptance criteria, attachments), (3) Handling of missing or malformed data, (4) Validation of linked design asset retrieval, (5) Error handling for API failures or timeouts."
             },
             {
-                "acceptance_criterion": "AC2",
+                "acceptance_criterion": "Scenario Generation: The system uses a \"Planner Agent\" to analyze the ingested story and output a list of positive, negative, and edge-case Test Scenarios.",
                 "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC2. Ensure functional, boundary, and negative test scenarios are included."
+                "gap_analysis": "No test cases validate the Planner Agent's ability to generate comprehensive test scenarios across positive, negative, and edge-case categories. AI-driven scenario generation logic is completely untested.",
+                "action_required": "Develop test cases to verify: (1) Generation of positive test scenarios for happy path flows, (2) Identification and generation of negative test scenarios for error conditions, (3) Creation of edge-case scenarios for boundary conditions, (4) Completeness and relevance of generated scenarios, (5) Handling of ambiguous or incomplete requirements, (6) Performance and response time for scenario generation."
             },
             {
-                "acceptance_criterion": "AC3",
+                "acceptance_criterion": "Test Case Formulation: A \"Writer Agent\" translates the approved Test Scenarios into granular Test Cases (Pre-conditions, Steps, Expected Results).",
                 "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC3. Ensure functional, boundary, and negative test scenarios are included."
+                "gap_analysis": "No test cases exist to validate the Writer Agent's translation of scenarios into structured test cases with proper pre-conditions, steps, and expected results. Quality and format of generated test cases remain unverified.",
+                "action_required": "Create test cases to validate: (1) Accurate translation of scenarios into structured test case format, (2) Completeness of pre-conditions for each test case, (3) Clarity and executability of test steps, (4) Precision and measurability of expected results, (5) Proper formatting and adherence to TestRail schema, (6) Handling of complex or multi-step scenarios."
             },
             {
-                "acceptance_criterion": "AC4",
+                "acceptance_criterion": "Test Management Integration: The generated test cases are automatically formatted and published to the correct project suite in TestRail via API.",
                 "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC4. Ensure functional, boundary, and negative test scenarios are included."
+                "gap_analysis": "No test cases validate TestRail API integration, authentication, data formatting, or successful publication of test cases to the correct project suite. Critical integration endpoint is untested. Current TestRail API error (400 Bad Request) confirms this gap.",
+                "action_required": "Develop comprehensive integration test cases covering: (1) TestRail API authentication and authorization, (2) Correct project, suite, and section targeting, (3) Proper formatting of test case payload for TestRail API, (4) Successful creation of test cases in TestRail, (5) Handling of API errors (400, 401, 403, 500), (6) Validation of published test case data integrity, (7) Rollback or retry mechanisms for failed publications. URGENT: Resolve current 400 Bad Request error by verifying project_id, suite_id, and section_id configuration."
             },
             {
-                "acceptance_criterion": "AC5",
+                "acceptance_criterion": "Human-in-the-Loop: The system flags ambiguous requirements and requires a QE sign-off before publishing cases to TestRail.",
                 "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC5. Ensure functional, boundary, and negative test scenarios are included."
-            },
-            {
-                "acceptance_criterion": "AC6",
-                "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC6. Ensure functional, boundary, and negative test scenarios are included."
-            },
-            {
-                "acceptance_criterion": "AC7",
-                "status": "Not Covered",
-                "gap_analysis": "No test cases retrieved from TestRail due to API failure (400 Bad Request). This acceptance criterion has zero test coverage and represents a critical gap in quality assurance.",
-                "action_required": "Verify TestRail project_id, suite_id, and section_id parameters. Once corrected, create comprehensive test cases covering all scenarios for AC7. Ensure functional, boundary, and negative test scenarios are included."
+                "gap_analysis": "No test cases validate the human-in-the-loop workflow, ambiguity detection logic, QE notification mechanism, or sign-off process before TestRail publication. Quality gate mechanism is completely untested.",
+                "action_required": "Create test cases to verify: (1) Accurate detection and flagging of ambiguous or incomplete requirements, (2) Proper notification to QE team for review, (3) Sign-off workflow and approval mechanism, (4) Prevention of auto-publication for flagged cases, (5) Audit trail for QE approvals and rejections, (6) Handling of timeout or abandoned reviews, (7) Override capabilities for urgent scenarios."
             }
         ],
         "partially_mapped_criteria": [],
         "fully_mapped_criteria": [],
-        "test_case_improvements": []
+        "test_case_improvements": [
+            {
+                "test_case_id": "NEW_TC_001",
+                "missing_scenario": "Jira API Integration - Context Ingestion Validation",
+                "suggested_test_steps": "1. Configure Jira API credentials in the AI framework\n2. Trigger context ingestion for requirement SCRUM-339\n3. Verify successful API connection and authentication\n4. Validate extraction of User Story description\n5. Validate extraction of acceptance criteria\n6. Validate retrieval of linked design assets\n7. Verify data integrity and completeness",
+                "suggested_expected_result": "AI agent successfully connects to Jira API, extracts all User Story fields including description, acceptance criteria, and linked assets without data loss or corruption. All extracted data matches source Jira ticket."
+            },
+            {
+                "test_case_id": "NEW_TC_002",
+                "missing_scenario": "Planner Agent - Comprehensive Scenario Generation",
+                "suggested_test_steps": "1. Provide Planner Agent with ingested requirement data\n2. Execute scenario generation process\n3. Review generated positive test scenarios\n4. Review generated negative test scenarios\n5. Review generated edge-case scenarios\n6. Validate completeness and relevance of all scenarios\n7. Verify scenario categorization accuracy",
+                "suggested_expected_result": "Planner Agent generates comprehensive list of test scenarios covering all positive flows, negative conditions, and edge cases. Scenarios are properly categorized, relevant to the requirement, and provide adequate test coverage."
+            },
+            {
+                "test_case_id": "NEW_TC_003",
+                "missing_scenario": "Writer Agent - Test Case Formulation Quality",
+                "suggested_test_steps": "1. Provide Writer Agent with approved test scenarios\n2. Execute test case formulation process\n3. Review generated test case structure\n4. Validate pre-conditions completeness and clarity\n5. Validate test steps executability and sequence\n6. Validate expected results precision and measurability\n7. Verify TestRail format compliance",
+                "suggested_expected_result": "Writer Agent translates scenarios into well-structured test cases with clear pre-conditions, executable step-by-step instructions, and precise expected results. All test cases comply with TestRail schema and quality standards."
+            },
+            {
+                "test_case_id": "NEW_TC_004",
+                "missing_scenario": "TestRail Integration - API Publication Success",
+                "suggested_test_steps": "1. Configure TestRail API credentials and target project/suite/section\n2. Generate test cases using Writer Agent\n3. Trigger automatic publication to TestRail\n4. Verify API authentication success\n5. Verify correct project, suite, and section targeting\n6. Verify test case creation in TestRail\n7. Validate published test case data integrity\n8. Confirm no data loss or formatting issues",
+                "suggested_expected_result": "Generated test cases are successfully published to the correct TestRail project suite via API. All test case data (title, pre-conditions, steps, expected results) is accurately transferred without loss or corruption. API returns 200 success status."
+            },
+            {
+                "test_case_id": "NEW_TC_005",
+                "missing_scenario": "TestRail Integration - API Error Handling",
+                "suggested_test_steps": "1. Simulate TestRail API errors (400, 401, 403, 500)\n2. Trigger test case publication process\n3. Verify error detection and logging\n4. Verify appropriate error messages to user\n5. Verify retry mechanism activation\n6. Verify rollback for partial failures\n7. Confirm no data corruption in TestRail",
+                "suggested_expected_result": "System gracefully handles TestRail API errors with proper error detection, logging, user notification, and retry mechanisms. No test cases are partially created or corrupted. System provides clear guidance for resolution."
+            },
+            {
+                "test_case_id": "NEW_TC_006",
+                "missing_scenario": "Human-in-the-Loop - Ambiguity Detection and QE Sign-off",
+                "suggested_test_steps": "1. Provide system with ambiguous or incomplete requirement\n2. Execute scenario generation process\n3. Verify ambiguity detection and flagging\n4. Verify QE notification is triggered\n5. Simulate QE review and sign-off\n6. Verify publication is blocked until sign-off\n7. Verify publication proceeds after approval\n8. Validate audit trail creation",
+                "suggested_expected_result": "System accurately detects ambiguous requirements, flags them for review, notifies QE team, and blocks auto-publication until explicit sign-off is received. Complete audit trail is maintained for all reviews and approvals."
+            }
+        ]
     }
 }
