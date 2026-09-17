@@ -1,257 +1,92 @@
 {
     "gap_report_metadata": {
-        "requirement_id": "SCRUM-957",
-        "requirement_title": "As a customer, I want to browse available mobile devices, review product details and default configurations, view promotional offers and estimated delivery information, authenticate when required, and seamlessly continue my purchase journey after successful login, so that I can make an informed purchase decision and complete my mobile device purchase successfully.",
-        "overall_coverage_percentage": 42.86
+        "requirement_id": "SCRUM-960",
+        "requirement_title": "As a Foot Locker online customer, I want to navigate across primary categories, view brand & sale pages, interact with product grids and global footer links, So that I can easily discover products, view clear pricing, and access essential site information.",
+        "overall_coverage_percentage": 0.0
     },
     "coverage_gap_report": {
         "summary": {
-            "total_criteria": 7,
-            "unmapped_count": 0,
-            "partially_mapped_count": 4,
-            "fully_mapped_count": 3
+            "total_criteria": 12,
+            "unmapped_count": 12,
+            "partially_mapped_count": 0,
+            "fully_mapped_count": 0
         },
-        "unmapped_criteria": [],
-        "partially_mapped_criteria": [
+        "unmapped_criteria": [
             {
-                "acceptance_criterion": "When the Product Details Page is opened, the application shall: Display the default device colour. Display the default storage option. Display the default payment option. Display the correct pricing for the default configuration. Display the estimated delivery date. Display the promotional offer (if available).",
-                "status": "Partially Covered",
-                "mapped_test_case_ids": [
-                    "658",
-                    "668"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify default device configuration displays correct values for Colour, Storage, and Payment option on Samsung Galaxy A57 5G details page",
-                    "Verify default device configuration displays correct colour, storage, and payment option on Samsung Galaxy A57 5G PDP"
-                ],
-                "gap_analysis": "Test cases 658 and 668 validate default colour (Black/Awesome Navy), storage (256GB), and payment option (24-month installment). However, they do not explicitly verify correct pricing for default configuration, estimated delivery date, or promotional offer display. These three critical aspects are missing from test coverage, representing a 50% gap in AC3 validation. This gap poses a risk to revenue accuracy and customer experience as pricing errors or missing delivery information could lead to customer dissatisfaction and abandoned purchases.",
-                "recommended_test_enhancements": [
-                    "Add explicit validation step to verify correct pricing calculation and display based on default configuration (colour, storage, payment option). Include test data with expected price values for each configuration combination.",
-                    "Add validation step to verify estimated delivery date visibility, format (e.g., 'Estimated delivery: DD MMM YYYY'), and accuracy. Ensure delivery date is dynamically calculated based on current date and logistics parameters.",
-                    "Add validation step to verify promotional offer display when available, including offer text, discount amount, and validity period. Also validate graceful handling when no promotional offer is active (e.g., section hidden or 'No offers available' message).",
-                    "Create negative test scenarios to validate pricing display when API returns invalid/null pricing data, and verify appropriate error handling without breaking the page layout."
-                ]
+                "acceptance_criterion": "[AC-1] Homepage & Global Header Loading - The homepage (https://www.footlocker.com/) must load with the title containing \"Foot Locker\", page body rendered, global header visible, and primary navigation items present (Men's, Women's, Kids', Sale, Releases).",
+                "status": "Not Covered",
+                "gap_analysis": "No test cases mapped to validate homepage loading, title verification, global header visibility, and primary navigation items. Critical user entry point remains untested. TestRail data retrieval failed (400 Bad Request) for project_id=10, suite_id=14, section_id=60.",
+                "action_required": "Create automated UI test case to verify homepage loads successfully, validate page title contains 'Foot Locker', confirm global header renders, and assert all primary navigation items (Men's, Women's, Kids', Sale, Releases) are present and visible. Verify TestRail configuration parameters."
             },
             {
-                "acceptance_criterion": "The customer shall be able to: View the Next button. Click the Next button. Continue to the next purchase step. Prevent duplicate submissions when the button is clicked multiple times. Resume the purchase journey after successful authentication.",
-                "status": "Partially Covered",
-                "mapped_test_case_ids": [
-                    "659",
-                    "669"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify Next button is interactable and initiates the next step in purchase journey",
-                    "Verify Next button initiates the next step in purchase journey"
-                ],
-                "gap_analysis": "Test cases 659 and 669 validate Next button visibility, clickability, and initiation of next purchase step. Test cases 664 and 674 validate duplicate submission prevention through button disabling and rapid click handling. However, none of the test cases explicitly verify resuming the purchase journey after successful authentication, which is a critical aspect of AC4. This represents a 20% gap in AC4 coverage. The missing validation creates a risk of poor user experience where authenticated users may lose their selected configuration or be redirected to incorrect pages, leading to purchase abandonment.",
-                "recommended_test_enhancements": [
-                    "Create an end-to-end test case that validates the complete authentication flow: 1) User selects device configuration on PDP. 2) User clicks Next while unauthenticated. 3) Login popup appears and blocks purchase journey. 4) User successfully logs in with valid credentials. 5) System redirects user back to the exact purchase step (PDP) with selected configuration intact (device model, colour, storage, payment option preserved). 6) User can continue purchase journey seamlessly by clicking Next again.",
-                    "Add validation to verify session state persistence after authentication, ensuring all user selections (device configuration, quantity, add-ons) are maintained in session storage or backend.",
-                    "Add validation to verify the URL after authentication redirect matches the interrupted purchase step URL, confirming users are returned to the correct page.",
-                    "Test edge cases: authentication timeout during login, authentication failure and retry, and multiple authentication attempts to ensure purchase journey resumption works consistently."
-                ]
+                "acceptance_criterion": "[AC-2] Primary Category Navigation - Clicking on Men's, Women's, or Kids' in the primary navigation bar must navigate the browser away from the homepage to their respective category landing pages.",
+                "status": "Not Covered",
+                "gap_analysis": "No test cases exist to validate primary category navigation functionality. Navigation flow from homepage to category pages is untested, creating risk for broken user journeys. TestRail API returned 400 error indicating invalid project/suite/section combination.",
+                "action_required": "Develop end-to-end navigation test cases for each primary category (Men's, Women's, Kids'). Each test should click the navigation link, verify URL change, and confirm category landing page loads. Validate TestRail project structure and correct IDs."
             },
             {
-                "acceptance_criterion": "If the customer is not authenticated, the application shall: Display the Login popup after clicking Next. Display Login and Sign Up options. Prevent the purchase journey until authentication is completed. Redirect the customer back to the interrupted purchase step after successful login.",
-                "status": "Partially Covered",
-                "mapped_test_case_ids": [
-                    "660",
-                    "670"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify login or sign-up popup is displayed with correct message and action buttons when unauthenticated user clicks Next",
-                    "Verify login and sign-up popup displays with correct message and action buttons for unauthenticated user"
-                ],
-                "gap_analysis": "Test cases 660 and 670 validate login popup display after clicking Next, presence of Login and Sign Up options, and popup message content ('Please log in or sign up to continue'). However, they do not verify that the purchase journey is prevented until authentication is completed (e.g., closing popup blocks further progress), nor do they validate redirection back to the interrupted purchase step after successful login with context preservation. This represents a 50% gap in AC5 coverage. The missing validation creates security and UX risks: users might bypass authentication, or lose their purchase context after login, leading to frustration and cart abandonment.",
-                "recommended_test_enhancements": [
-                    "Add validation step to verify purchase journey is blocked when user attempts to close or dismiss the login popup without authenticating. Verify that clicking outside the popup, pressing ESC key, or clicking a close button does not allow the user to proceed to the next purchase step.",
-                    "Add validation step to verify that after closing the popup without authentication, clicking Next button again re-displays the login popup, confirming persistent authentication enforcement.",
-                    "Create end-to-end test case: 1) User clicks Next on PDP while unauthenticated. 2) Login popup appears. 3) User clicks 'Log in with Hub ID' and enters valid credentials. 4) User completes login successfully. 5) System redirects user back to Samsung Galaxy A57 5G PDP with selected configuration preserved (colour, storage, payment option intact). 6) User can now click Next and proceed to the next purchase step without re-authentication.",
-                    "Add validation to verify authentication token/session is properly established after login and persists across subsequent purchase steps.",
-                    "Test negative scenarios: login failure handling, network interruption during authentication, and session expiry during purchase journey to ensure robust authentication flow."
-                ]
+                "acceptance_criterion": "[AC-3] Logo Navigation & Site Return - Clicking the Foot Locker logo from any page must navigate the user back to https://www.footlocker.com/.",
+                "status": "Not Covered",
+                "gap_analysis": "Logo navigation functionality lacks test coverage. Return-to-home user flow is untested across different page contexts. This is a critical navigation pattern that must be validated. No TestRail test cases available due to API retrieval failure.",
+                "action_required": "Create test cases to validate logo click from multiple page contexts (category pages, product pages, cart, etc.) and verify navigation returns to homepage URL. Implement cross-page logo navigation validation. Correct TestRail API parameters."
             },
             {
-                "acceptance_criterion": "The application shall gracefully handle error scenarios including: Network interruption while loading pages. Device unavailability or out-of-stock condition. Slow network response while loading the Product Details Page. HTTP 500/Internal Server Error. API timeout while retrieving product details. Display appropriate error messages without crashing.",
-                "status": "Partially Covered",
-                "mapped_test_case_ids": [
-                    "661",
-                    "671"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify system behavior when user attempts to navigate to All Phones with network interruption",
-                    "Verify system behavior when All Phones listing page fails to load or displays zero items"
-                ],
-                "gap_analysis": "Test cases 661 and 671 validate network interruption handling during navigation and device listing failure scenarios with appropriate error messages. Test cases 662 and 672 validate device unavailability/out-of-stock conditions with proper messaging. Test case 663 validates slow network response while loading PDP with loading indicators. However, explicit test cases for HTTP 500/Internal Server Error and API timeout while retrieving product details are not present. This represents a 33% gap in AC6 coverage. The missing validation creates a risk of poor error handling for critical server-side failures, potentially leading to application crashes, blank pages, or confusing error states that frustrate users and damage brand reputation.",
-                "recommended_test_enhancements": [
-                    "Create test case to validate HTTP 500/Internal Server Error handling when loading PDP or device listing: 1) Simulate HTTP 500 response from product details API. 2) Verify application displays user-friendly error message (e.g., 'We're experiencing technical difficulties. Please try again later.'). 3) Verify error message includes actionable options (Retry button, Return to Home link). 4) Verify application does not crash or display technical stack traces. 5) Verify page layout remains intact with error message displayed in appropriate location.",
-                    "Create test case to validate API timeout handling when retrieving product details: 1) Simulate API timeout (e.g., response time > 30 seconds). 2) Verify application displays timeout error message (e.g., 'Request timed out. Please check your connection and try again.'). 3) Verify retry mechanism is available and functional. 4) Verify graceful degradation: if product details cannot be loaded, display cached data or partial information with clear indication of missing data. 5) Verify application remains responsive and does not freeze.",
-                    "Add validation to verify error logging and monitoring: ensure HTTP 500 and timeout errors are logged to backend monitoring systems for debugging and alerting.",
-                    "Test error recovery: after displaying HTTP 500 or timeout error, verify that clicking Retry button successfully reloads the page/data when the error condition is resolved.",
-                    "Test combinations: simulate multiple error conditions in sequence (e.g., network interruption followed by HTTP 500) to ensure robust error handling across scenarios."
-                ]
+                "acceptance_criterion": "[AC-4] Cart Icon Navigation - Clicking the Cart icon in the header must navigate the user to the cart page (/cart).",
+                "status": "Not Covered",
+                "gap_analysis": "Cart icon navigation is not validated by any test cases. Shopping cart access, a critical e-commerce function, remains untested. TestRail data unavailable due to 400 Bad Request error.",
+                "action_required": "Implement test case to locate cart icon in header, perform click action, verify navigation to /cart URL, and confirm cart page renders successfully. Validate TestRail configuration."
+            },
+            {
+                "acceptance_criterion": "[AC-5] Primary Navigation Hover & Mega-Menu - Hovering over Men's in the primary navigation must open the mega-menu panel and display a Shoes sub-category link with a valid href.",
+                "status": "Not Covered",
+                "gap_analysis": "Mega-menu interaction and hover behavior are not covered by test cases. Sub-category navigation through mega-menu is untested, impacting product discovery user experience. TestRail test case retrieval failed.",
+                "action_required": "Create UI interaction test to hover over Men's navigation item, verify mega-menu panel opens, validate Shoes sub-category link is visible with valid href attribute. Implement hover state validation. Verify TestRail project_id, suite_id, and section_id."
+            },
+            {
+                "acceptance_criterion": "[AC-6] Primary Navigation Direct Links (Releases & Sale) - Clicking Releases must navigate to /release-calendar and display the Release Calendar. Clicking Sale must navigate to /category/sale.html and display sale content.",
+                "status": "Not Covered",
+                "gap_analysis": "Direct navigation links for Releases and Sale pages lack test coverage. Critical promotional and product release pages are untested. No test cases available from TestRail due to API error.",
+                "action_required": "Develop test cases for Releases navigation (verify /release-calendar URL and Release Calendar display) and Sale navigation (verify /category/sale.html URL and sale content rendering). Validate both navigation paths and content display. Correct TestRail API configuration."
+            },
+            {
+                "acceptance_criterion": "[AC-7] Category Navigation Status - Direct navigation to main primary categories (Men's, Women's, Kids', Sale, Releases) must return a successful (non-error) response status.",
+                "status": "Not Covered",
+                "gap_analysis": "HTTP response status validation for category pages is not covered. No test cases verify successful page loads (200 status) for primary categories, creating risk for broken links and error pages. TestRail data retrieval failed.",
+                "action_required": "Implement API/HTTP status validation test cases for all primary category URLs. Verify each category navigation returns 200 OK status. Include negative testing for error handling. Validate TestRail parameters and retry data retrieval."
+            },
+            {
+                "acceptance_criterion": "[AC-8] Category Page Results & Product Tile Pricing - Navigating to a category page (e.g., /category/mens/shoes.html) must display a results-count heading matching \"Showing {N} results\". The product grid must contain visible product tiles displaying non-empty titles and prices formatted as $X.XX.",
+                "status": "Not Covered",
+                "gap_analysis": "Product listing page validation is completely untested. Results count, product grid rendering, product tile visibility, title display, and price formatting ($X.XX) lack test coverage. Critical e-commerce display functionality remains unvalidated. TestRail API returned 400 error.",
+                "action_required": "Create comprehensive product listing page test suite: (1) Verify results-count heading format matches 'Showing {N} results', (2) Validate product grid contains visible tiles, (3) Assert product titles are non-empty, (4) Verify price format matches $X.XX pattern. Correct TestRail configuration."
+            },
+            {
+                "acceptance_criterion": "[AC-9] Sale Page Dual Pricing - Locating product tiles on the Sale page must display two price values (an original price and a discounted price).",
+                "status": "Not Covered",
+                "gap_analysis": "Sale page dual pricing display is not validated by any test cases. Promotional pricing transparency, a critical e-commerce requirement, is untested. No TestRail test cases available.",
+                "action_required": "Develop test case to navigate to Sale page, locate product tiles, and verify each tile displays both original price and discounted price. Validate price comparison logic and visual differentiation. Verify TestRail project structure."
+            },
+            {
+                "acceptance_criterion": "[AC-10] Hero / Promo Banner Verification - The homepage hero/promo banner heading must be visible with non-empty text and include a call-to-action link with a valid href.",
+                "status": "Not Covered",
+                "gap_analysis": "Homepage promotional content validation is missing. Hero banner visibility, heading text presence, and CTA link validation are untested, impacting marketing effectiveness measurement. TestRail data unavailable due to API failure.",
+                "action_required": "Create test case to verify hero/promo banner is visible on homepage, validate heading contains non-empty text, and confirm call-to-action link has valid href attribute. Implement promotional content validation framework. Correct TestRail API parameters."
+            },
+            {
+                "acceptance_criterion": "[AC-11] Brand Page Display & Product Links - Navigating to a dedicated brand page (e.g., /category/brands/nike.html) must load the brand page, display brand-related text, and contain at least one related product link.",
+                "status": "Not Covered",
+                "gap_analysis": "Brand page functionality lacks test coverage. Brand page loading, brand-specific content display, and product link presence are untested. Brand-focused shopping experience remains unvalidated. TestRail test case retrieval failed.",
+                "action_required": "Implement test case to navigate to brand page (e.g., Nike), verify page loads successfully, validate brand-related text is displayed, and confirm at least one product link is present. Test multiple brand pages for consistency. Validate TestRail configuration."
+            },
+            {
+                "acceptance_criterion": "[AC-12] Header Store Locator & Footer Verification - \"Find a Store\" must be visible in the header. The footer must be visible upon scrolling, contain at least one link, and include a Privacy-related link with a valid href.",
+                "status": "Not Covered",
+                "gap_analysis": "Global site elements (header store locator and footer) are not validated by test cases. Store locator visibility, footer rendering after scroll, footer link presence, and privacy link validation are untested. Critical site-wide navigation and compliance elements lack coverage. No TestRail data available.",
+                "action_required": "Create test cases to: (1) Verify 'Find a Store' is visible in header, (2) Scroll page and confirm footer becomes visible, (3) Validate footer contains at least one link, (4) Verify Privacy-related link exists with valid href. Implement global element validation suite. Correct TestRail project_id, suite_id, and section_id."
             }
         ],
-        "fully_mapped_criteria": [
-            {
-                "acceptance_criterion": "The customer shall be able to: Navigate from the StarHub Home page to Mobile → All Phones. View the Mobile Devices listing page. Verify the page heading is displayed correctly. Verify the correct URL is loaded. View all available mobile devices.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "656",
-                    "666"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify user can successfully navigate to Mobile Devices listing page from StarHub personal homepage",
-                    "Verify successful navigation to All Phones listing page from StarHub homepage"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "The customer shall be able to: Select Samsung Galaxy A57 5G from the device listing. Navigate to the Product Details Page. Verify the product information. Verify the Product Details Page URL.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "657",
-                    "667"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify user can select Samsung Galaxy A57 5G device from All Phones listing and navigate to device details page",
-                    "Verify Samsung Galaxy A57 5G device details page displays when selected from All Phones listing"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "The application shall ensure that the authentication popup: Displays correctly on Desktop. Displays correctly on Tablet. Displays correctly on Mobile. Maintains usability across supported screen resolutions.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "675"
-                ],
-                "mapped_test_case_titles": [
-                    "Verify authentication popup displays correctly and remains functional across different viewport sizes"
-                ],
-                "confidence_score": 95
-            }
-        ],
-        "test_case_improvements": [
-            {
-                "test_case_id": "656",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC1 - Mobile Devices Listing navigation and verification."
-            },
-            {
-                "test_case_id": "657",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC2 - Samsung Galaxy A57 5G selection and PDP navigation."
-            },
-            {
-                "test_case_id": "658",
-                "missing_scenario": "Validation of correct pricing for default configuration, estimated delivery date, and promotional offer display",
-                "suggested_test_steps": "Add steps after Step 7: Step 8: Verify the device price displayed matches the expected price for default configuration (Black, 256GB, 24-month installment) [Test Data- Expected price calculation based on configuration] [Acceptance Criteria- AC3]. Step 9: Verify estimated delivery date is displayed on the page [Test Data- Expected format: 'Estimated delivery: DD MMM YYYY' or similar] [Acceptance Criteria- AC3]. Step 10: Verify promotional offer is displayed if available [Test Data- Check for promotional banner/text] [Acceptance Criteria- AC3].",
-                "suggested_expected_result": "Step 8: Device price is correctly calculated and displayed based on default configuration. Step 9: Estimated delivery date is visible in expected format. Step 10: Promotional offer is displayed if available, or gracefully handled if not available."
-            },
-            {
-                "test_case_id": "659",
-                "missing_scenario": "Validation of resuming purchase journey after successful authentication",
-                "suggested_test_steps": "Add steps after Step 6: Step 7: If login popup appears, enter valid credentials and complete login [Test Data- Valid username and password] [Acceptance Criteria- AC4]. Step 8: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration intact [Acceptance Criteria- AC4]. Step 9: Verify user can continue purchase journey from where they left off [Acceptance Criteria- AC4].",
-                "suggested_expected_result": "Step 7: User successfully logs in. Step 8: User is redirected to PDP with device configuration preserved. Step 9: User can seamlessly continue purchase journey without re-selecting configuration."
-            },
-            {
-                "test_case_id": "660",
-                "missing_scenario": "Validation that purchase journey is prevented until authentication and redirection after successful login",
-                "suggested_test_steps": "Add steps after Step 8: Step 9: Verify that clicking outside the popup or closing it does not allow purchase journey to continue [Acceptance Criteria- AC5]. Step 10: Click 'Log in with Hub ID' button and enter valid credentials [Test Data- Valid Hub ID credentials] [Acceptance Criteria- AC5]. Step 11: Complete login process [Acceptance Criteria- AC5]. Step 12: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC5]. Step 13: Verify Next button now allows user to continue purchase journey [Acceptance Criteria- AC5].",
-                "suggested_expected_result": "Step 9: Purchase journey remains blocked until authentication. Step 10-11: User successfully logs in. Step 12: User is redirected to PDP with context preserved. Step 13: User can now proceed with purchase journey."
-            },
-            {
-                "test_case_id": "661",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC6 - Network interruption error handling during navigation."
-            },
-            {
-                "test_case_id": "662",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC6 - Device unavailability/out-of-stock error handling."
-            },
-            {
-                "test_case_id": "663",
-                "missing_scenario": "Validation of pricing, estimated delivery date, and promotional offer under slow network conditions",
-                "suggested_test_steps": "Add steps after Step 9: Step 10: Verify device price is displayed correctly after full page load [Test Data- Expected price for 256GB, 24-month configuration] [Acceptance Criteria- AC3]. Step 11: Verify estimated delivery date is displayed [Acceptance Criteria- AC3]. Step 12: Verify promotional offer is displayed if available [Acceptance Criteria- AC3].",
-                "suggested_expected_result": "Step 10: Device price is correctly displayed. Step 11: Estimated delivery date is visible. Step 12: Promotional offer is displayed if available."
-            },
-            {
-                "test_case_id": "664",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC4 - Duplicate submission prevention."
-            },
-            {
-                "test_case_id": "665",
-                "missing_scenario": "Validation of purchase journey prevention and post-authentication redirection",
-                "suggested_test_steps": "Add steps after Step 11: Step 12: Attempt to close popup and verify purchase journey cannot continue without authentication [Acceptance Criteria- AC5]. Step 13: Click 'Log in with Hub ID' and complete authentication [Test Data- Valid credentials] [Acceptance Criteria- AC5]. Step 14: Verify user is redirected back to PDP with configuration preserved [Acceptance Criteria- AC5]. Step 15: Verify user can now continue purchase journey [Acceptance Criteria- AC5].",
-                "suggested_expected_result": "Step 12: Purchase journey is blocked without authentication. Step 13: User successfully authenticates. Step 14: User is redirected to PDP with context intact. Step 15: Purchase journey can now proceed."
-            },
-            {
-                "test_case_id": "666",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC1 - Navigation to All Phones listing page."
-            },
-            {
-                "test_case_id": "667",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC2 - Samsung Galaxy A57 5G PDP navigation and verification."
-            },
-            {
-                "test_case_id": "668",
-                "missing_scenario": "Validation of correct pricing, estimated delivery date, and promotional offer display",
-                "suggested_test_steps": "Add steps after Step 8: Step 9: Verify the device price displayed is correct for the default configuration (Awesome Navy, 256GB, 24-month installment) [Test Data- Expected price based on configuration] [Acceptance Criteria- AC3]. Step 10: Verify estimated delivery date is displayed on the page [Test Data- Expected format and visibility] [Acceptance Criteria- AC3]. Step 11: Verify promotional offer is displayed if available [Test Data- Promotional banner/text presence] [Acceptance Criteria- AC3].",
-                "suggested_expected_result": "Step 9: Device price is accurately calculated and displayed. Step 10: Estimated delivery date is visible and formatted correctly. Step 11: Promotional offer is displayed when available."
-            },
-            {
-                "test_case_id": "669",
-                "missing_scenario": "Validation of resuming purchase journey after successful authentication",
-                "suggested_test_steps": "Add steps after Step 7: Step 8: If login/signup popup appears, click 'Log in with Hub ID' [Acceptance Criteria- AC4]. Step 9: Enter valid credentials and complete login [Test Data- Valid Hub ID credentials] [Acceptance Criteria- AC4]. Step 10: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC4]. Step 11: Verify user can now continue purchase journey by clicking Next again [Acceptance Criteria- AC4].",
-                "suggested_expected_result": "Step 8-9: User successfully authenticates. Step 10: User is redirected to PDP with device configuration intact. Step 11: User can seamlessly continue purchase journey."
-            },
-            {
-                "test_case_id": "670",
-                "missing_scenario": "Validation that purchase journey is prevented until authentication and redirection after successful login",
-                "suggested_test_steps": "Add steps after Step 9: Step 10: Close the popup and verify that purchase journey cannot proceed [Acceptance Criteria- AC5]. Step 11: Click Next button again to reopen popup [Acceptance Criteria- AC5]. Step 12: Click 'Log in with Hub ID' button [Acceptance Criteria- AC5]. Step 13: Enter valid credentials and complete login [Test Data- Valid Hub ID credentials] [Acceptance Criteria- AC5]. Step 14: Verify user is redirected back to Samsung Galaxy A57 5G PDP with configuration preserved [Acceptance Criteria- AC5]. Step 15: Verify Next button now allows purchase journey to continue [Acceptance Criteria- AC5].",
-                "suggested_expected_result": "Step 10: Purchase journey is blocked. Step 11: Popup reopens. Step 12-13: User successfully logs in. Step 14: User is redirected to PDP with context preserved. Step 15: Purchase journey can now proceed."
-            },
-            {
-                "test_case_id": "671",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC6 - Error handling when All Phones listing fails to load."
-            },
-            {
-                "test_case_id": "672",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC6 - Error handling for device unavailability."
-            },
-            {
-                "test_case_id": "673",
-                "missing_scenario": "Validation of pricing, estimated delivery date, and promotional offer under slow network conditions",
-                "suggested_test_steps": "Add steps after Step 9: Step 10: Verify device price is correctly displayed for default configuration [Test Data- Expected price for Awesome Navy, 256GB, 24-month] [Acceptance Criteria- AC3]. Step 11: Verify estimated delivery date is displayed [Acceptance Criteria- AC3]. Step 12: Verify promotional offer is displayed if available [Acceptance Criteria- AC3].",
-                "suggested_expected_result": "Step 10: Device price is accurately displayed. Step 11: Estimated delivery date is visible. Step 12: Promotional offer is displayed when available."
-            },
-            {
-                "test_case_id": "674",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides sufficient coverage for AC4 - Duplicate submission prevention through rapid clicking."
-            },
-            {
-                "test_case_id": "675",
-                "missing_scenario": "None",
-                "suggested_test_steps": "No changes required.",
-                "suggested_expected_result": "Existing test case provides comprehensive coverage for AC7 - Responsive authentication popup across Desktop, Tablet, and Mobile viewports."
-            }
-        ]
+        "partially_mapped_criteria": [],
+        "fully_mapped_criteria": [],
+        "test_case_improvements": []
     }
 }
