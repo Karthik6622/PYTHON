@@ -2,91 +2,161 @@
     "gap_report_metadata": {
         "requirement_id": "SCRUM-960",
         "requirement_title": "As a Foot Locker online customer, I want to navigate across primary categories, view brand & sale pages, interact with product grids and global footer links, So that I can easily discover products, view clear pricing, and access essential site information.",
-        "overall_coverage_percentage": 0.0
+        "overall_coverage_percentage": 100.0
     },
     "coverage_gap_report": {
         "summary": {
             "total_criteria": 12,
-            "unmapped_count": 12,
+            "unmapped_count": 0,
             "partially_mapped_count": 0,
-            "fully_mapped_count": 0
+            "fully_mapped_count": 12
         },
-        "unmapped_criteria": [
+        "unmapped_criteria": [],
+        "partially_mapped_criteria": [],
+        "fully_mapped_criteria": [
             {
                 "acceptance_criterion": "[AC-1] Homepage & Global Header Loading - The homepage (https://www.footlocker.com/) must load with the title containing \"Foot Locker\", page body rendered, global header visible, and primary navigation items present (Men's, Women's, Kids', Sale, Releases).",
-                "status": "Not Covered",
-                "gap_analysis": "No test cases mapped to validate homepage loading, title verification, global header visibility, and primary navigation items. Critical user entry point remains untested. TestRail data retrieval failed (400 Bad Request) for project_id=10, suite_id=14, section_id=60.",
-                "action_required": "Create automated UI test case to verify homepage loads successfully, validate page title contains 'Foot Locker', confirm global header renders, and assert all primary navigation items (Men's, Women's, Kids', Sale, Releases) are present and visible. Verify TestRail configuration parameters."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2468",
+                    "2469"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-001: Homepage loads successfully",
+                    "TC-002: Global nav bar is visible"
+                ],
+                "confidence_score": 95
             },
             {
                 "acceptance_criterion": "[AC-2] Primary Category Navigation - Clicking on Men's, Women's, or Kids' in the primary navigation bar must navigate the browser away from the homepage to their respective category landing pages.",
-                "status": "Not Covered",
-                "gap_analysis": "No test cases exist to validate primary category navigation functionality. Navigation flow from homepage to category pages is untested, creating risk for broken user journeys. TestRail API returned 400 error indicating invalid project/suite/section combination.",
-                "action_required": "Develop end-to-end navigation test cases for each primary category (Men's, Women's, Kids'). Each test should click the navigation link, verify URL change, and confirm category landing page loads. Validate TestRail project structure and correct IDs."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2470",
+                    "2471",
+                    "2472"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-003: Navigate to Men's category",
+                    "TC-004: Navigate to Women's category",
+                    "TC-005: Navigate to Kids' category"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-3] Logo Navigation & Site Return - Clicking the Foot Locker logo from any page must navigate the user back to https://www.footlocker.com/.",
-                "status": "Not Covered",
-                "gap_analysis": "Logo navigation functionality lacks test coverage. Return-to-home user flow is untested across different page contexts. This is a critical navigation pattern that must be validated. No TestRail test cases available due to API retrieval failure.",
-                "action_required": "Create test cases to validate logo click from multiple page contexts (category pages, product pages, cart, etc.) and verify navigation returns to homepage URL. Implement cross-page logo navigation validation. Correct TestRail API parameters."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2476"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-009: Logo click returns to homepage"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-4] Cart Icon Navigation - Clicking the Cart icon in the header must navigate the user to the cart page (/cart).",
-                "status": "Not Covered",
-                "gap_analysis": "Cart icon navigation is not validated by any test cases. Shopping cart access, a critical e-commerce function, remains untested. TestRail data unavailable due to 400 Bad Request error.",
-                "action_required": "Implement test case to locate cart icon in header, perform click action, verify navigation to /cart URL, and confirm cart page renders successfully. Validate TestRail configuration."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2477"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-010: Cart icon navigates to cart page"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-5] Primary Navigation Hover & Mega-Menu - Hovering over Men's in the primary navigation must open the mega-menu panel and display a Shoes sub-category link with a valid href.",
-                "status": "Not Covered",
-                "gap_analysis": "Mega-menu interaction and hover behavior are not covered by test cases. Sub-category navigation through mega-menu is untested, impacting product discovery user experience. TestRail test case retrieval failed.",
-                "action_required": "Create UI interaction test to hover over Men's navigation item, verify mega-menu panel opens, validate Shoes sub-category link is visible with valid href attribute. Implement hover state validation. Verify TestRail project_id, suite_id, and section_id."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2475"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-008: Mega-menu sub-links render for Men's"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-6] Primary Navigation Direct Links (Releases & Sale) - Clicking Releases must navigate to /release-calendar and display the Release Calendar. Clicking Sale must navigate to /category/sale.html and display sale content.",
-                "status": "Not Covered",
-                "gap_analysis": "Direct navigation links for Releases and Sale pages lack test coverage. Critical promotional and product release pages are untested. No test cases available from TestRail due to API error.",
-                "action_required": "Develop test cases for Releases navigation (verify /release-calendar URL and Release Calendar display) and Sale navigation (verify /category/sale.html URL and sale content rendering). Validate both navigation paths and content display. Correct TestRail API configuration."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2473",
+                    "2474"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-006: Navigate to Sale page",
+                    "TC-007: Navigate to Releases page"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-7] Category Navigation Status - Direct navigation to main primary categories (Men's, Women's, Kids', Sale, Releases) must return a successful (non-error) response status.",
-                "status": "Not Covered",
-                "gap_analysis": "HTTP response status validation for category pages is not covered. No test cases verify successful page loads (200 status) for primary categories, creating risk for broken links and error pages. TestRail data retrieval failed.",
-                "action_required": "Implement API/HTTP status validation test cases for all primary category URLs. Verify each category navigation returns 200 OK status. Include negative testing for error handling. Validate TestRail parameters and retry data retrieval."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2478"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-011: No broken links across primary nav"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-8] Category Page Results & Product Tile Pricing - Navigating to a category page (e.g., /category/mens/shoes.html) must display a results-count heading matching \"Showing {N} results\". The product grid must contain visible product tiles displaying non-empty titles and prices formatted as $X.XX.",
-                "status": "Not Covered",
-                "gap_analysis": "Product listing page validation is completely untested. Results count, product grid rendering, product tile visibility, title display, and price formatting ($X.XX) lack test coverage. Critical e-commerce display functionality remains unvalidated. TestRail API returned 400 error.",
-                "action_required": "Create comprehensive product listing page test suite: (1) Verify results-count heading format matches 'Showing {N} results', (2) Validate product grid contains visible tiles, (3) Assert product titles are non-empty, (4) Verify price format matches $X.XX pattern. Correct TestRail configuration."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2479",
+                    "2480"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-012: Product grid renders on category page",
+                    "TC-013: Product tile shows name and valid price"
+                ],
+                "confidence_score": 95
             },
             {
                 "acceptance_criterion": "[AC-9] Sale Page Dual Pricing - Locating product tiles on the Sale page must display two price values (an original price and a discounted price).",
-                "status": "Not Covered",
-                "gap_analysis": "Sale page dual pricing display is not validated by any test cases. Promotional pricing transparency, a critical e-commerce requirement, is untested. No TestRail test cases available.",
-                "action_required": "Develop test case to navigate to Sale page, locate product tiles, and verify each tile displays both original price and discounted price. Validate price comparison logic and visual differentiation. Verify TestRail project structure."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2481"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-014: Sale page shows discounted pricing"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-10] Hero / Promo Banner Verification - The homepage hero/promo banner heading must be visible with non-empty text and include a call-to-action link with a valid href.",
-                "status": "Not Covered",
-                "gap_analysis": "Homepage promotional content validation is missing. Hero banner visibility, heading text presence, and CTA link validation are untested, impacting marketing effectiveness measurement. TestRail data unavailable due to API failure.",
-                "action_required": "Create test case to verify hero/promo banner is visible on homepage, validate heading contains non-empty text, and confirm call-to-action link has valid href attribute. Implement promotional content validation framework. Correct TestRail API parameters."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2482"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-015: Homepage hero banner has content and CTA"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-11] Brand Page Display & Product Links - Navigating to a dedicated brand page (e.g., /category/brands/nike.html) must load the brand page, display brand-related text, and contain at least one related product link.",
-                "status": "Not Covered",
-                "gap_analysis": "Brand page functionality lacks test coverage. Brand page loading, brand-specific content display, and product link presence are untested. Brand-focused shopping experience remains unvalidated. TestRail test case retrieval failed.",
-                "action_required": "Implement test case to navigate to brand page (e.g., Nike), verify page loads successfully, validate brand-related text is displayed, and confirm at least one product link is present. Test multiple brand pages for consistency. Validate TestRail configuration."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2483"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-016: Brand page shows brand-specific content (Nike)"
+                ],
+                "confidence_score": 100
             },
             {
                 "acceptance_criterion": "[AC-12] Header Store Locator & Footer Verification - \"Find a Store\" must be visible in the header. The footer must be visible upon scrolling, contain at least one link, and include a Privacy-related link with a valid href.",
-                "status": "Not Covered",
-                "gap_analysis": "Global site elements (header store locator and footer) are not validated by test cases. Store locator visibility, footer rendering after scroll, footer link presence, and privacy link validation are untested. Critical site-wide navigation and compliance elements lack coverage. No TestRail data available.",
-                "action_required": "Create test cases to: (1) Verify 'Find a Store' is visible in header, (2) Scroll page and confirm footer becomes visible, (3) Validate footer contains at least one link, (4) Verify Privacy-related link exists with valid href. Implement global element validation suite. Correct TestRail project_id, suite_id, and section_id."
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2484"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-017: Footer contains expected content"
+                ],
+                "confidence_score": 100
             }
         ],
-        "partially_mapped_criteria": [],
-        "fully_mapped_criteria": [],
         "test_case_improvements": []
     }
 }
