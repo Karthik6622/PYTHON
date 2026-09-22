@@ -1,162 +1,201 @@
 {
     "gap_report_metadata": {
-        "requirement_id": "SCRUM-960",
-        "requirement_title": "As a Foot Locker online customer, I want to navigate across primary categories, view brand & sale pages, interact with product grids and global footer links, So that I can easily discover products, view clear pricing, and access essential site information.",
-        "overall_coverage_percentage": 100.0
+        "requirement_id": "SCRUM-957",
+        "requirement_title": "Mobile Device Purchase Journey - Browse, Review, Authenticate, and Continue Purchase",
+        "overall_coverage_percentage": 42.86
     },
     "coverage_gap_report": {
         "summary": {
-            "total_criteria": 12,
+            "total_criteria": 7,
             "unmapped_count": 0,
-            "partially_mapped_count": 0,
-            "fully_mapped_count": 12
+            "partially_mapped_count": 4,
+            "fully_mapped_count": 3
         },
         "unmapped_criteria": [],
-        "partially_mapped_criteria": [],
+        "partially_mapped_criteria": [
+            {
+                "acceptance_criterion": "AC3 – Default Product Configuration (Partially Covered) - When the Product Details Page is opened, the application shall: Display the default device colour. Display the default storage option. Display the default payment option. Display the correct pricing for the default configuration. Display the estimated delivery date. Display the promotional offer (if available).",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "658"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify default device configuration displays correct values for Colour, Storage, and Payment option on Samsung Galaxy A57 5G details page"
+                ],
+                "gap_analysis": "Missing verification of: (1) correct pricing display for default configuration, (2) estimated delivery date display, (3) promotional offer display (if available). Current test case C658 only validates default colour, storage, and payment option visibility.",
+                "recommended_test_enhancements": [
+                    "Enhance test case C658 or create new test case to verify: (1) device price is displayed and matches expected value for default configuration (Black, 256GB, 24-month), (2) estimated delivery date is visible and in correct format, (3) promotional offer section is displayed when available or hidden when not applicable."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC4 – Continue Purchase Journey (Partially Covered) - The customer shall be able to: View the Next button. Click the Next button. Continue to the next purchase step. Prevent duplicate submissions when the button is clicked multiple times. Resume the purchase journey after successful authentication.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "664"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify Next button behavior when clicked multiple times rapidly to prevent duplicate submissions"
+                ],
+                "gap_analysis": "Missing verification of: user can resume the purchase journey after successful authentication. Current test case C664 validates Next button visibility, clickability, duplicate prevention, and continuation to next step, but does not test post-authentication journey resumption.",
+                "recommended_test_enhancements": [
+                    "Create new test case to verify: (1) user clicks Next on PDP while unauthenticated, (2) authentication popup appears, (3) user successfully logs in, (4) system automatically redirects user back to the exact purchase step where they were interrupted (PDP with selected configuration preserved), (5) user can continue purchase journey without re-selecting device or configuration."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC5 – Authentication (Partially Covered) - If the customer is not authenticated, the application shall: Display the Login popup after clicking Next. Display Login and Sign Up options. Prevent the purchase journey until authentication is completed. Redirect the customer back to the interrupted purchase step after successful login.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "660"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify login or sign-up popup is displayed with correct message and action buttons when unauthenticated user clicks Next"
+                ],
+                "gap_analysis": "Missing verification of: customer is redirected back to the interrupted purchase step after successful login. Current test case C660 validates popup display, Login/Sign Up options, and implicit purchase journey prevention, but does not test post-login redirection behavior.",
+                "recommended_test_enhancements": [
+                    "Create new test case to verify: (1) unauthenticated user clicks Next on Samsung Galaxy A57 5G PDP with specific configuration (e.g., Blue, 512GB, 12-month), (2) authentication popup appears, (3) user enters valid credentials and logs in successfully, (4) popup closes automatically, (5) user is redirected back to Samsung Galaxy A57 5G PDP with the same configuration preserved (Blue, 512GB, 12-month), (6) user can immediately click Next again to continue purchase without re-authentication."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC6 – Error Handling (Partially Covered) - The application shall gracefully handle error scenarios including: Network interruption while loading pages. Device unavailability or out-of-stock condition. Slow network response while loading the Product Details Page. HTTP 500/Internal Server Error. API timeout while retrieving product details. Display appropriate error messages without crashing.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "661"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify system behavior when user attempts to navigate to All Phones with network interruption"
+                ],
+                "gap_analysis": "Missing verification of: (1) device unavailability or out-of-stock condition handling, (2) slow network response while loading PDP, (3) HTTP 500/Internal Server Error handling, (4) API timeout while retrieving product details, (5) comprehensive crash prevention across all error scenarios. Current test case C661 only covers network interruption during All Phones listing page load.",
+                "recommended_test_enhancements": [
+                    "Create additional test cases to verify: (1) when Samsung Galaxy A57 5G is out of stock, appropriate message is displayed and user cannot proceed (C662 exists but not mapped to AC6), (2) when PDP loads under slow network (3G), page displays loading indicators and eventually renders correctly without crash (C663 and C673 exist but not mapped to AC6), (3) when API returns HTTP 500 error, user-friendly error message is displayed with retry option, (4) when API times out retrieving product details, timeout error message is displayed without application crash, (5) all error scenarios display appropriate messages and maintain application stability."
+                ]
+            }
+        ],
         "fully_mapped_criteria": [
             {
-                "acceptance_criterion": "[AC-1] Homepage & Global Header Loading - The homepage (https://www.footlocker.com/) must load with the title containing \"Foot Locker\", page body rendered, global header visible, and primary navigation items present (Men's, Women's, Kids', Sale, Releases).",
+                "acceptance_criterion": "AC1 – Mobile Devices Listing (Fully Covered) - The customer shall be able to: Navigate from the StarHub Home page to Mobile → All Phones. View the Mobile Devices listing page. Verify the page heading is displayed correctly. Verify the correct URL is loaded. View all available mobile devices.",
                 "status": "Fully Covered",
                 "mapped_test_case_ids": [
-                    "2468",
-                    "2469"
+                    "656"
                 ],
                 "mapped_test_case_titles": [
-                    "TC-001: Homepage loads successfully",
-                    "TC-002: Global nav bar is visible"
+                    "Verify user can successfully navigate to Mobile Devices listing page from StarHub personal homepage"
                 ],
                 "confidence_score": 95
             },
             {
-                "acceptance_criterion": "[AC-2] Primary Category Navigation - Clicking on Men's, Women's, or Kids' in the primary navigation bar must navigate the browser away from the homepage to their respective category landing pages.",
+                "acceptance_criterion": "AC2 – Product Details Page (Fully Covered) - The customer shall be able to: Select Samsung Galaxy A57 5G from the device listing. Navigate to the Product Details Page. Verify the product information. Verify the Product Details Page URL.",
                 "status": "Fully Covered",
                 "mapped_test_case_ids": [
-                    "2470",
-                    "2471",
-                    "2472"
+                    "657"
                 ],
                 "mapped_test_case_titles": [
-                    "TC-003: Navigate to Men's category",
-                    "TC-004: Navigate to Women's category",
-                    "TC-005: Navigate to Kids' category"
+                    "Verify user can select Samsung Galaxy A57 5G device from All Phones listing and navigate to device details page"
                 ],
                 "confidence_score": 95
             },
             {
-                "acceptance_criterion": "[AC-3] Logo Navigation & Site Return - Clicking the Foot Locker logo from any page must navigate the user back to https://www.footlocker.com/.",
+                "acceptance_criterion": "AC7 – Responsive Authentication Popup (Fully Covered) - The application shall ensure that the authentication popup: Displays correctly on Desktop. Displays correctly on Tablet. Displays correctly on Mobile. Maintains usability across supported screen resolutions.",
                 "status": "Fully Covered",
                 "mapped_test_case_ids": [
-                    "2476"
+                    "675"
                 ],
                 "mapped_test_case_titles": [
-                    "TC-009: Logo click returns to homepage"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-4] Cart Icon Navigation - Clicking the Cart icon in the header must navigate the user to the cart page (/cart).",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2477"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-010: Cart icon navigates to cart page"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-5] Primary Navigation Hover & Mega-Menu - Hovering over Men's in the primary navigation must open the mega-menu panel and display a Shoes sub-category link with a valid href.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2475"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-008: Mega-menu sub-links render for Men's"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-6] Primary Navigation Direct Links (Releases & Sale) - Clicking Releases must navigate to /release-calendar and display the Release Calendar. Clicking Sale must navigate to /category/sale.html and display sale content.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2473",
-                    "2474"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-006: Navigate to Sale page",
-                    "TC-007: Navigate to Releases page"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-7] Category Navigation Status - Direct navigation to main primary categories (Men's, Women's, Kids', Sale, Releases) must return a successful (non-error) response status.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2478"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-011: No broken links across primary nav"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-8] Category Page Results & Product Tile Pricing - Navigating to a category page (e.g., /category/mens/shoes.html) must display a results-count heading matching \"Showing {N} results\". The product grid must contain visible product tiles displaying non-empty titles and prices formatted as $X.XX.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2479",
-                    "2480"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-012: Product grid renders on category page",
-                    "TC-013: Product tile shows name and valid price"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-9] Sale Page Dual Pricing - Locating product tiles on the Sale page must display two price values (an original price and a discounted price).",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2481"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-014: Sale page shows discounted pricing"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-10] Hero / Promo Banner Verification - The homepage hero/promo banner heading must be visible with non-empty text and include a call-to-action link with a valid href.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2482"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-015: Homepage hero banner has content and CTA"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-11] Brand Page Display & Product Links - Navigating to a dedicated brand page (e.g., /category/brands/nike.html) must load the brand page, display brand-related text, and contain at least one related product link.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2483"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-016: Brand page shows brand-specific content (Nike)"
-                ],
-                "confidence_score": 95
-            },
-            {
-                "acceptance_criterion": "[AC-12] Header Store Locator & Footer Verification - \"Find a Store\" must be visible in the header. The footer must be visible upon scrolling, contain at least one link, and include a Privacy-related link with a valid href.",
-                "status": "Fully Covered",
-                "mapped_test_case_ids": [
-                    "2484"
-                ],
-                "mapped_test_case_titles": [
-                    "TC-017: Footer contains expected content"
+                    "Verify authentication popup displays correctly and remains functional across different viewport sizes"
                 ],
                 "confidence_score": 95
             }
         ],
-        "test_case_improvements": []
+        "test_case_improvements": [
+            {
+                "test_case_id": "658",
+                "missing_scenario": "Verification of correct pricing for default configuration, estimated delivery date display, and promotional offer display (if available).",
+                "suggested_test_steps": "Add step 9: Verify the device price is displayed and matches expected value for default configuration (Black, 256GB, 24-month) [Test Data- Expected price format: $XX.XX/month or $XXX upfront] [Acceptance Criteria- AC3]. Add step 10: Verify estimated delivery date is displayed [Test Data- Expected format: 'Estimated delivery: DD MMM YYYY' or 'Delivery in X-Y business days'] [Acceptance Criteria- AC3]. Add step 11: Verify promotional offer section is displayed if available [Test Data- Expected: Promotional banner or text if offer exists, or section hidden if no offer] [Acceptance Criteria- AC3].",
+                "suggested_expected_result": "Step 9 expected: Device price is displayed in correct format matching the default configuration. Step 10 expected: Estimated delivery date is visible and formatted correctly. Step 11 expected: Promotional offer is displayed when available, or section is appropriately hidden when no offer exists."
+            },
+            {
+                "test_case_id": "659",
+                "missing_scenario": "Verification that user can resume purchase journey after successful authentication.",
+                "suggested_test_steps": "Add step 7: If authentication popup appears, enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC4]. Add step 8: Verify popup closes after successful authentication [Acceptance Criteria- AC4]. Add step 9: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC4]. Add step 10: Verify user can continue purchase journey by clicking Next again without re-authentication [Acceptance Criteria- AC4].",
+                "suggested_expected_result": "Step 7 expected: Authentication is successful. Step 8 expected: Popup closes automatically. Step 9 expected: User returns to PDP with same device configuration intact. Step 10 expected: User proceeds to next purchase step without being prompted to log in again."
+            },
+            {
+                "test_case_id": "660",
+                "missing_scenario": "Verification that customer is redirected back to the interrupted purchase step after successful login.",
+                "suggested_test_steps": "Add step 9: Select a specific device configuration before clicking Next (e.g., change colour to Blue, storage to 512GB) [Test Data- Configuration: Blue, 512GB, 24-month] [Acceptance Criteria- AC5]. Move current step 5 to step 10. Add step 11: Click on 'Log in with Hub ID' button [Acceptance Criteria- AC5]. Add step 12: Enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC5]. Add step 13: Verify popup closes after successful login [Acceptance Criteria- AC5]. Add step 14: Verify user is redirected back to Samsung Galaxy A57 5G PDP [Acceptance Criteria- AC5]. Add step 15: Verify the previously selected configuration is preserved (Blue, 512GB, 24-month) [Acceptance Criteria- AC5]. Add step 16: Verify user can click Next again to continue purchase without re-authentication [Acceptance Criteria- AC5].",
+                "suggested_expected_result": "Step 11 expected: Login form is displayed. Step 12 expected: Login is successful. Step 13 expected: Popup closes automatically. Step 14 expected: User returns to Samsung Galaxy A57 5G PDP. Step 15 expected: Configuration remains Blue, 512GB, 24-month as selected before authentication. Step 16 expected: User proceeds to next purchase step without login prompt."
+            },
+            {
+                "test_case_id": "662",
+                "missing_scenario": "This test case should be mapped to AC6 - Error Handling for device unavailability scenario.",
+                "suggested_test_steps": "Add explicit reference to AC6 in test steps. Add step 6: Verify application does not crash and remains functional [Acceptance Criteria- AC6]. Add step 7: Verify error message is user-friendly and provides guidance (e.g., 'This device is currently unavailable. Please check back later or explore similar devices.') [Acceptance Criteria- AC6].",
+                "suggested_expected_result": "Step 6 expected: Application remains stable without crashes. Step 7 expected: Clear, user-friendly error message is displayed with actionable guidance."
+            },
+            {
+                "test_case_id": "663",
+                "missing_scenario": "This test case should be mapped to AC6 - Error Handling for slow network response during PDP load.",
+                "suggested_test_steps": "Add explicit reference to AC6 in test steps. Add step 10: Verify application does not crash during slow network conditions [Acceptance Criteria- AC6]. Add step 11: Verify appropriate loading indicators are displayed during delayed rendering [Acceptance Criteria- AC6]. Add step 12: Verify error message is displayed if page fails to load within reasonable timeout (e.g., 30 seconds) [Acceptance Criteria- AC6].",
+                "suggested_expected_result": "Step 10 expected: Application remains stable without crashes. Step 11 expected: Loading spinners or skeleton screens are visible during slow load. Step 12 expected: If timeout occurs, user-friendly error message is displayed with retry option."
+            },
+            {
+                "test_case_id": "664",
+                "missing_scenario": "Verification that user can resume purchase journey after successful authentication.",
+                "suggested_test_steps": "Add step 9: If authentication popup appears after clicking Next, enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC4]. Add step 10: Verify popup closes after successful authentication [Acceptance Criteria- AC4]. Add step 11: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC4]. Add step 12: Verify user can continue purchase journey by clicking Next again without re-authentication [Acceptance Criteria- AC4].",
+                "suggested_expected_result": "Step 9 expected: Authentication is successful. Step 10 expected: Popup closes automatically. Step 11 expected: User returns to PDP with same device configuration intact. Step 12 expected: User proceeds to next purchase step without being prompted to log in again."
+            },
+            {
+                "test_case_id": "665",
+                "missing_scenario": "Verification that customer is redirected back to the interrupted purchase step after successful login.",
+                "suggested_test_steps": "Add step 12: Click on 'Log in with Hub ID' button [Acceptance Criteria- AC5]. Add step 13: Enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC5]. Add step 14: Verify popup closes after successful login [Acceptance Criteria- AC5]. Add step 15: Verify user is redirected back to Samsung Galaxy A57 5G PDP [Acceptance Criteria- AC5]. Add step 16: Verify user can click Next again to continue purchase without re-authentication [Acceptance Criteria- AC5].",
+                "suggested_expected_result": "Step 12 expected: Login form is displayed. Step 13 expected: Login is successful. Step 14 expected: Popup closes automatically. Step 15 expected: User returns to Samsung Galaxy A57 5G PDP. Step 16 expected: User proceeds to next purchase step without login prompt."
+            },
+            {
+                "test_case_id": "668",
+                "missing_scenario": "Verification of correct pricing for default configuration, estimated delivery date display, and promotional offer display (if available). Note: This test case uses 'Awesome Navy' as default colour instead of 'Black' as in C658.",
+                "suggested_test_steps": "Add step 9: Verify the device price is displayed and matches expected value for default configuration (Awesome Navy, 256GB, 24-month) [Test Data- Expected price format: $XX.XX/month or $XXX upfront] [Acceptance Criteria- AC3]. Add step 10: Verify estimated delivery date is displayed [Test Data- Expected format: 'Estimated delivery: DD MMM YYYY' or 'Delivery in X-Y business days'] [Acceptance Criteria- AC3]. Add step 11: Verify promotional offer section is displayed if available [Test Data- Expected: Promotional banner or text if offer exists, or section hidden if no offer] [Acceptance Criteria- AC3].",
+                "suggested_expected_result": "Step 9 expected: Device price is displayed in correct format matching the default configuration. Step 10 expected: Estimated delivery date is visible and formatted correctly. Step 11 expected: Promotional offer is displayed when available, or section is appropriately hidden when no offer exists."
+            },
+            {
+                "test_case_id": "669",
+                "missing_scenario": "Verification that user can resume purchase journey after successful authentication.",
+                "suggested_test_steps": "Add step 8: If authentication popup appears, enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC4]. Add step 9: Verify popup closes after successful authentication [Acceptance Criteria- AC4]. Add step 10: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC4]. Add step 11: Verify user can continue purchase journey by clicking Next again without re-authentication [Acceptance Criteria- AC4].",
+                "suggested_expected_result": "Step 8 expected: Authentication is successful. Step 9 expected: Popup closes automatically. Step 10 expected: User returns to PDP with same device configuration intact. Step 11 expected: User proceeds to next purchase step without being prompted to log in again."
+            },
+            {
+                "test_case_id": "670",
+                "missing_scenario": "Verification that customer is redirected back to the interrupted purchase step after successful login.",
+                "suggested_test_steps": "Add step 10: Click on 'Log in with Hub ID' button [Acceptance Criteria- AC5]. Add step 11: Enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC5]. Add step 12: Verify popup closes after successful login [Acceptance Criteria- AC5]. Add step 13: Verify user is redirected back to Samsung Galaxy A57 5G PDP [Acceptance Criteria- AC5]. Add step 14: Verify the device configuration is preserved (if any configuration was selected before clicking Next) [Acceptance Criteria- AC5]. Add step 15: Verify user can click Next again to continue purchase without re-authentication [Acceptance Criteria- AC5].",
+                "suggested_expected_result": "Step 10 expected: Login form is displayed. Step 11 expected: Login is successful. Step 12 expected: Popup closes automatically. Step 13 expected: User returns to Samsung Galaxy A57 5G PDP. Step 14 expected: Configuration remains as selected before authentication. Step 15 expected: User proceeds to next purchase step without login prompt."
+            },
+            {
+                "test_case_id": "671",
+                "missing_scenario": "This test case should be mapped to AC6 - Error Handling for network failure during All Phones listing page load.",
+                "suggested_test_steps": "Add explicit reference to AC6 in test steps. Add step 8: Verify application does not crash and remains functional [Acceptance Criteria- AC6]. Add step 9: Verify error message provides actionable guidance (e.g., 'Check your connection and try again') [Acceptance Criteria- AC6].",
+                "suggested_expected_result": "Step 8 expected: Application remains stable without crashes. Step 9 expected: Clear, user-friendly error message is displayed with retry or navigation options."
+            },
+            {
+                "test_case_id": "672",
+                "missing_scenario": "This test case should be mapped to AC6 - Error Handling for device unavailability or out-of-stock condition.",
+                "suggested_test_steps": "Add explicit reference to AC6 in test steps. Add step 8: Verify application does not crash when device is unavailable [Acceptance Criteria- AC6]. Add step 9: Verify error message is user-friendly and provides guidance (e.g., 'This device is currently unavailable. Please check back later or explore similar devices.') [Acceptance Criteria- AC6].",
+                "suggested_expected_result": "Step 8 expected: Application remains stable without crashes. Step 9 expected: Clear, user-friendly error message is displayed with actionable guidance or alternative device recommendations."
+            },
+            {
+                "test_case_id": "673",
+                "missing_scenario": "This test case should be mapped to AC6 - Error Handling for slow network response while loading PDP.",
+                "suggested_test_steps": "Add explicit reference to AC6 in test steps. Add step 10: Verify application does not crash during slow network conditions [Acceptance Criteria- AC6]. Add step 11: Verify appropriate loading indicators are displayed during delayed rendering [Acceptance Criteria- AC6]. Add step 12: Verify error message is displayed if page fails to load within reasonable timeout (e.g., 30 seconds) [Acceptance Criteria- AC6].",
+                "suggested_expected_result": "Step 10 expected: Application remains stable without crashes. Step 11 expected: Loading spinners or skeleton screens are visible during slow load. Step 12 expected: If timeout occurs, user-friendly error message is displayed with retry option."
+            },
+            {
+                "test_case_id": "674",
+                "missing_scenario": "Verification that user can resume purchase journey after successful authentication.",
+                "suggested_test_steps": "Add step 9: If authentication popup appears after clicking Next, enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC4]. Add step 10: Verify popup closes after successful authentication [Acceptance Criteria- AC4]. Add step 11: Verify user is redirected back to Samsung Galaxy A57 5G PDP with selected configuration preserved [Acceptance Criteria- AC4]. Add step 12: Verify user can continue purchase journey by clicking Next again without re-authentication [Acceptance Criteria- AC4].",
+                "suggested_expected_result": "Step 9 expected: Authentication is successful. Step 10 expected: Popup closes automatically. Step 11 expected: User returns to PDP with same device configuration intact. Step 12 expected: User proceeds to next purchase step without being prompted to log in again."
+            },
+            {
+                "test_case_id": "675",
+                "missing_scenario": "Verification that customer is redirected back to the interrupted purchase step after successful login across different viewport sizes.",
+                "suggested_test_steps": "Add step 16: On desktop viewport, click 'Log in with Hub ID' button [Acceptance Criteria- AC5]. Add step 17: Enter valid login credentials and submit [Test Data- Valid credentials: test user account] [Acceptance Criteria- AC5]. Add step 18: Verify popup closes after successful login [Acceptance Criteria- AC5]. Add step 19: Verify user is redirected back to Samsung Galaxy A57 5G PDP [Acceptance Criteria- AC5]. Add step 20: Verify user can click Next again to continue purchase without re-authentication [Acceptance Criteria- AC5]. Add step 21: Repeat steps 16-20 for tablet and mobile viewports to ensure post-login redirection works across all screen sizes [Acceptance Criteria- AC5].",
+                "suggested_expected_result": "Step 16 expected: Login form is displayed. Step 17 expected: Login is successful. Step 18 expected: Popup closes automatically. Step 19 expected: User returns to Samsung Galaxy A57 5G PDP. Step 20 expected: User proceeds to next purchase step without login prompt. Step 21 expected: Post-login redirection functions correctly on all viewport sizes (mobile, tablet, desktop)."
+            }
+        ]
     }
 }
