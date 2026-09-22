@@ -1,0 +1,162 @@
+{
+    "gap_report_metadata": {
+        "requirement_id": "SCRUM-960",
+        "requirement_title": "As a Foot Locker online customer, I want to navigate across primary categories, view brand & sale pages, interact with product grids and global footer links, So that I can easily discover products, view clear pricing, and access essential site information.",
+        "overall_coverage_percentage": 100.0
+    },
+    "coverage_gap_report": {
+        "summary": {
+            "total_criteria": 12,
+            "unmapped_count": 0,
+            "partially_mapped_count": 0,
+            "fully_mapped_count": 12
+        },
+        "unmapped_criteria": [],
+        "partially_mapped_criteria": [],
+        "fully_mapped_criteria": [
+            {
+                "acceptance_criterion": "[AC-1] Homepage & Global Header Loading - The homepage (https://www.footlocker.com/) must load with the title containing \"Foot Locker\", page body rendered, global header visible, and primary navigation items present (Men's, Women's, Kids', Sale, Releases).",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2468",
+                    "2469"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-001: Homepage loads successfully",
+                    "TC-002: Global nav bar is visible"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-2] Primary Category Navigation - Clicking on Men's, Women's, or Kids' in the primary navigation bar must navigate the browser away from the homepage to their respective category landing pages.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2470",
+                    "2471",
+                    "2472"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-003: Navigate to Men's category",
+                    "TC-004: Navigate to Women's category",
+                    "TC-005: Navigate to Kids' category"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-3] Logo Navigation & Site Return - Clicking the Foot Locker logo from any page must navigate the user back to https://www.footlocker.com/.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2476"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-009: Logo click returns to homepage"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-4] Cart Icon Navigation - Clicking the Cart icon in the header must navigate the user to the cart page (/cart).",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2477"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-010: Cart icon navigates to cart page"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-5] Primary Navigation Hover & Mega-Menu - Hovering over Men's in the primary navigation must open the mega-menu panel and display a Shoes sub-category link with a valid href.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2475"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-008: Mega-menu sub-links render for Men's"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-6] Primary Navigation Direct Links (Releases & Sale) - Clicking Releases must navigate to /release-calendar and display the Release Calendar. Clicking Sale must navigate to /category/sale.html and display sale content.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2473",
+                    "2474"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-006: Navigate to Sale page",
+                    "TC-007: Navigate to Releases page"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-7] Category Navigation Status - Direct navigation to main primary categories (Men's, Women's, Kids', Sale, Releases) must return a successful (non-error) response status.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2478"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-011: No broken links across primary nav"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-8] Category Page Results & Product Tile Pricing - Navigating to a category page (e.g., /category/mens/shoes.html) must display a results-count heading matching \"Showing {N} results\". The product grid must contain visible product tiles displaying non-empty titles and prices formatted as $X.XX.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2479",
+                    "2480"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-012: Product grid renders on category page",
+                    "TC-013: Product tile shows name and valid price"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-9] Sale Page Dual Pricing - Locating product tiles on the Sale page must display two price values (an original price and a discounted price).",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2481"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-014: Sale page shows discounted pricing"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-10] Hero / Promo Banner Verification - The homepage hero/promo banner heading must be visible with non-empty text and include a call-to-action link with a valid href.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2482"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-015: Homepage hero banner has content and CTA"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-11] Brand Page Display & Product Links - Navigating to a dedicated brand page (e.g., /category/brands/nike.html) must load the brand page, display brand-related text, and contain at least one related product link.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2483"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-016: Brand page shows brand-specific content (Nike)"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "[AC-12] Header Store Locator & Footer Verification - \"Find a Store\" must be visible in the header. The footer must be visible upon scrolling, contain at least one link, and include a Privacy-related link with a valid href.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "2484"
+                ],
+                "mapped_test_case_titles": [
+                    "TC-017: Footer contains expected content"
+                ],
+                "confidence_score": 95
+            }
+        ],
+        "test_case_improvements": []
+    }
+}
