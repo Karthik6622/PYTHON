@@ -1,0 +1,151 @@
+{
+    "gap_report_metadata": {
+        "requirement_id": "SCRUM-957",
+        "requirement_title": "As a customer, I want to browse available mobile devices, review product details and default configurations, view promotional offers and estimated delivery information, authenticate when required, and seamlessly continue my purchase journey after successful login, so that I can make an informed purchase decision and complete my mobile device purchase successfully.",
+        "overall_coverage_percentage": 42.86
+    },
+    "coverage_gap_report": {
+        "summary": {
+            "total_criteria": 7,
+            "unmapped_count": 0,
+            "partially_mapped_count": 4,
+            "fully_mapped_count": 3
+        },
+        "unmapped_criteria": [],
+        "partially_mapped_criteria": [
+            {
+                "acceptance_criterion": "AC3 – Default Product Configuration (Partially Covered) - When the Product Details Page is opened, the application shall: Display the default device colour. Display the default storage option. Display the default payment option. Display the correct pricing for the default configuration. Display the estimated delivery date. Display the promotional offer (if available).",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "658"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify default device configuration displays correct values for Colour, Storage, and Payment option on Samsung Galaxy A57 5G details page"
+                ],
+                "gap_analysis": "Sub-conditions for default colour (step 5), default storage (step 6), and default payment option (step 7) are verified. However, sub-conditions for correct pricing display, estimated delivery date display, and promotional offer display are not verified by any test case. Missing verification for: correct pricing display for default configuration, estimated delivery date display, and promotional offer display (if available).",
+                "recommended_test_enhancements": [
+                    "Create new test cases to verify: (1) Correct pricing is displayed based on default configuration (colour, storage, payment option); (2) Estimated delivery date is displayed on the PDP; (3) Promotional offer is displayed when available and hidden when not available.",
+                    "Add step 9: Verify the device price displayed matches the expected price for the default configuration (256GB, 24-month installment) [Test Data- Expected price pattern based on configuration].",
+                    "Add step 10: Verify the estimated delivery date is displayed on the page [Test Data- Expected delivery date format].",
+                    "Add step 11: Verify promotional offer is displayed if available [Test Data- Check for promotional banner or offer text]."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC4 – Continue Purchase Journey (Partially Covered) - The customer shall be able to: View the Next button. Click the Next button. Continue to the next purchase step. Prevent duplicate submissions when the button is clicked multiple times. Resume the purchase journey after successful authentication.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "659"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify Next button is interactable and initiates the next step in purchase journey"
+                ],
+                "gap_analysis": "Sub-conditions for viewing the Next button (step 4), clicking the Next button (step 6), and continuing to next purchase step (step 6 expected result) are verified. However, sub-conditions for preventing duplicate submissions and resuming purchase journey after successful authentication are not verified by this test case. Missing verification for: preventing duplicate submissions when Next button is clicked multiple times, and resuming purchase journey after successful authentication.",
+                "recommended_test_enhancements": [
+                    "Enhance existing test case TC664 to be mapped to AC4, or create new test cases to verify: (1) Next button prevents duplicate submissions through debouncing or disabling mechanism; (2) After successful login, user is redirected back to the exact purchase step they were at before authentication.",
+                    "Add step 7: Rapidly click the Next button multiple times (3-5 clicks within 1 second) [Test Data- Multiple rapid clicks].",
+                    "Add step 8: Verify only one action is triggered and button is disabled after first click.",
+                    "Add step 9: Complete authentication process (login).",
+                    "Add step 10: Verify user is redirected back to the purchase step with previous configuration preserved."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC5 – Authentication (Partially Covered) - If the customer is not authenticated, the application shall: Display the Login popup after clicking Next. Display Login and Sign Up options. Prevent the purchase journey until authentication is completed. Redirect the customer back to the interrupted purchase step after successful login.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "660"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify login or sign-up popup is displayed with correct message and action buttons when unauthenticated user clicks Next"
+                ],
+                "gap_analysis": "Sub-conditions for displaying Login popup after clicking Next (steps 5-6), and displaying Login and Sign Up options (steps 7-8) are verified. However, sub-conditions for preventing purchase journey until authentication is completed and redirecting customer back to interrupted purchase step after successful login are not verified by any test case. Missing verification for: preventing purchase journey until authentication is completed, and redirecting customer back to interrupted purchase step after successful login.",
+                "recommended_test_enhancements": [
+                    "Create new test cases to verify: (1) Purchase journey is blocked and cannot proceed without authentication; (2) After successful login, user is automatically redirected to the interrupted purchase step with all previous selections preserved.",
+                    "Add step 9: Attempt to proceed with purchase without completing authentication (try to close popup and continue).",
+                    "Add step 10: Verify purchase journey cannot proceed without authentication.",
+                    "Add step 11: Click 'Log in with Hub ID' and complete login process [Test Data- Valid credentials].",
+                    "Add step 12: Verify user is redirected back to the Samsung Galaxy A57 5G purchase step after successful login.",
+                    "Add step 13: Verify device configuration selections are preserved after login."
+                ]
+            },
+            {
+                "acceptance_criterion": "AC6 – Error Handling (Partially Covered) - The application shall gracefully handle error scenarios including: Network interruption while loading pages. Device unavailability or out-of-stock condition. Slow network response while loading the Product Details Page. HTTP 500/Internal Server Error. API timeout while retrieving product details. Display appropriate error messages without crashing.",
+                "status": "Partially Covered",
+                "mapped_test_case_ids": [
+                    "661"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify system behavior when user attempts to navigate to All Phones with network interruption"
+                ],
+                "gap_analysis": "Sub-condition for network interruption while loading pages is verified in steps 3-6. However, sub-conditions for device unavailability/out-of-stock, slow network response on PDP, HTTP 500 error, API timeout, and displaying appropriate error messages without crashing are not fully verified by this single test case. Missing verification for: HTTP 500/Internal Server Error handling, API timeout while retrieving product details, and comprehensive verification that appropriate error messages are displayed without application crash across all error scenarios.",
+                "recommended_test_enhancements": [
+                    "Enhance error handling test coverage by creating test cases for: (1) HTTP 500 error response handling with appropriate user-friendly error message; (2) API timeout scenarios with timeout error message and retry option; (3) Comprehensive error message display verification ensuring application stability without crashes across all error types.",
+                    "Add step 8: Simulate HTTP 500 Internal Server Error response from backend [Test Data- Simulated 500 error].",
+                    "Add step 9: Verify appropriate error message is displayed without application crash.",
+                    "Add step 10: Simulate API timeout while loading All Phones listing [Test Data- Simulated timeout after 30 seconds].",
+                    "Add step 11: Verify timeout error message is displayed with retry option."
+                ]
+            }
+        ],
+        "fully_mapped_criteria": [
+            {
+                "acceptance_criterion": "AC1 – Mobile Devices Listing (Fully Covered) - The customer shall be able to: Navigate from the StarHub Home page to Mobile → All Phones. View the Mobile Devices listing page. Verify the page heading is displayed correctly. Verify the correct URL is loaded. View all available mobile devices.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "656"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify user can successfully navigate to Mobile Devices listing page from StarHub personal homepage"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "AC2 – Product Details Page (Fully Covered) - The customer shall be able to: Select Samsung Galaxy A57 5G from the device listing. Navigate to the Product Details Page. Verify the product information. Verify the Product Details Page URL.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "657"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify user can select Samsung Galaxy A57 5G device from All Phones listing and navigate to device details page"
+                ],
+                "confidence_score": 95
+            },
+            {
+                "acceptance_criterion": "AC7 – Responsive Authentication Popup (Fully Covered) - The application shall ensure that the authentication popup: Displays correctly on Desktop. Displays correctly on Tablet. Displays correctly on Mobile. Maintains usability across supported screen resolutions.",
+                "status": "Fully Covered",
+                "mapped_test_case_ids": [
+                    "675"
+                ],
+                "mapped_test_case_titles": [
+                    "Verify authentication popup displays correctly and remains functional across different viewport sizes"
+                ],
+                "confidence_score": 95
+            }
+        ],
+        "test_case_improvements": [
+            {
+                "test_case_id": "658",
+                "missing_scenario": "Verification of correct pricing, estimated delivery date, and promotional offer display",
+                "suggested_test_steps": "Add step 9: Verify the device price displayed matches the expected price for the default configuration (256GB, 24-month installment) [Test Data- Expected price pattern based on configuration]. Add step 10: Verify the estimated delivery date is displayed on the page [Test Data- Expected delivery date format]. Add step 11: Verify promotional offer is displayed if available [Test Data- Check for promotional banner or offer text].",
+                "suggested_expected_result": "Step 9 expected: Device price matches the expected amount for 256GB with 24-month installment. Step 10 expected: Estimated delivery date is visible in expected format. Step 11 expected: Promotional offer is displayed if available, or section is hidden if no offer exists."
+            },
+            {
+                "test_case_id": "659",
+                "missing_scenario": "Verification of duplicate submission prevention and purchase journey resumption after authentication",
+                "suggested_test_steps": "Add step 7: Rapidly click the Next button multiple times (3-5 clicks within 1 second) [Test Data- Multiple rapid clicks]. Add step 8: Verify only one action is triggered and button is disabled after first click. Add step 9: Complete authentication process (login). Add step 10: Verify user is redirected back to the purchase step with previous configuration preserved.",
+                "suggested_expected_result": "Step 7 expected: Multiple clicks are registered. Step 8 expected: Only one popup/navigation occurs, button shows disabled or loading state. Step 9 expected: User successfully logs in. Step 10 expected: User returns to purchase journey at the same step with device configuration intact."
+            },
+            {
+                "test_case_id": "660",
+                "missing_scenario": "Verification that purchase journey is blocked until authentication and user is redirected back after login",
+                "suggested_test_steps": "Add step 9: Attempt to proceed with purchase without completing authentication (try to close popup and continue). Add step 10: Verify purchase journey cannot proceed without authentication. Add step 11: Click 'Log in with Hub ID' and complete login process [Test Data- Valid credentials]. Add step 12: Verify user is redirected back to the Samsung Galaxy A57 5G purchase step after successful login. Add step 13: Verify device configuration selections are preserved after login.",
+                "suggested_expected_result": "Step 9 expected: Attempt to bypass authentication. Step 10 expected: Purchase journey is blocked, Next button or subsequent steps are not accessible. Step 11 expected: User successfully logs in. Step 12 expected: User is automatically redirected to Samsung Galaxy A57 5G purchase continuation page. Step 13 expected: All previous device selections (colour, storage, payment) are preserved."
+            },
+            {
+                "test_case_id": "671",
+                "missing_scenario": "Verification of HTTP 500 error and API timeout handling",
+                "suggested_test_steps": "Add step 8: Simulate HTTP 500 Internal Server Error response from backend [Test Data- Simulated 500 error]. Add step 9: Verify appropriate error message is displayed without application crash. Add step 10: Simulate API timeout while loading All Phones listing [Test Data- Simulated timeout after 30 seconds]. Add step 11: Verify timeout error message is displayed with retry option.",
+                "suggested_expected_result": "Step 8 expected: HTTP 500 error is simulated. Step 9 expected: User-friendly error message displayed (e.g., 'Something went wrong. Please try again later'), application remains stable. Step 10 expected: API timeout occurs. Step 11 expected: Timeout message displayed (e.g., 'Request timed out. Please retry'), retry button is available."
+            }
+        ]
+    }
+}
