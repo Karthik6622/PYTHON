@@ -1,18 +1,17 @@
 """Interview Studio: experience-based interview question generation.
 
-Run from this folder with: streamlit run kk.py
-Set HF_TOKEN in the environment before starting the app.
+Run from this folder with: streamlit run project.py
 """
 
 from __future__ import annotations
 
 import io
-import os
-
 import streamlit as st
 
 
 MODEL = "deepseek-ai/DeepSeek-V4.1-Flash:novita"
+# Paste your Hugging Face access token between the quotes below.
+HF_TOKEN = "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"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 24_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
@@ -53,27 +52,16 @@ def extract_text(uploaded_file, label: str) -> str:
     return text[:MAX_TEXT_CHARS]
 
 
-def get_token() -> str | None:
-    token = os.environ.get("HF_TOKEN")
-    if token:
-        return token
-    try:
-        return st.secrets.get("HF_TOKEN")
-    except Exception:
-        return None
-
-
 def generate_questions(resume: str, job_description: str, count: int) -> str:
-    token = get_token()
-    if not token:
-        raise RuntimeError("HF_TOKEN is missing. Set it in PowerShell before starting Streamlit; see README.md.")
+    if HF_TOKEN == "PASTE_YOUR_HUGGING_FACE_TOKEN_HERE" or not HF_TOKEN.strip():
+        raise RuntimeError("Paste your Hugging Face access token into HF_TOKEN near the top of project.py.")
 
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("The OpenAI package is missing. Run: pip install -r requirements.txt") from exc
 
-    client = OpenAI(base_url="https://router.huggingface.co/v1", api_key=token)
+    client = OpenAI(base_url="https://router.huggingface.co/v1", api_key=HF_TOKEN)
     prompt = f"""You are an experienced interviewer. Create exactly {count} interview questions for the role described below.
 
 Guidelines:
