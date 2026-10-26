@@ -9,7 +9,7 @@ import io
 import streamlit as st
 
 
-MODEL = "deepseek-flash"
+MODEL = "openai/gpt-oss-20b"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 24_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
@@ -50,26 +50,26 @@ def extract_text(uploaded_file, label: str) -> str:
     return text[:MAX_TEXT_CHARS]
 
 
-def get_deepseek_api_key() -> str:
-    """Read the DeepSeek API key from this project's Streamlit secrets."""
+def get_groq_api_key() -> str:
+    """Read the Groq API key from this project's Streamlit secrets."""
     try:
-        api_key = st.secrets.get("DEEPSEEK_API_KEY")
+        api_key = st.secrets.get("GROQ_API_KEY")
     except Exception as exc:
-        raise RuntimeError("DEEPSEEK_API_KEY is not configured. Add it to .streamlit/secrets.toml and restart the app.") from exc
-    if not api_key or api_key == "YOUR_DEEPSEEK_API_KEY":
-        raise RuntimeError("Replace YOUR_DEEPSEEK_API_KEY in .streamlit/secrets.toml with your DeepSeek API key.")
+        raise RuntimeError("GROQ_API_KEY is not configured. Add it to .streamlit/secrets.toml and restart the app.") from exc
+    if not api_key or api_key == "YOUR_GROQ_API_KEY":
+        raise RuntimeError("Replace YOUR_GROQ_API_KEY in .streamlit/secrets.toml with your Groq API key.")
     return str(api_key)
 
 
 def generate_questions(resume: str, job_description: str, count: int) -> str:
-    api_key = get_deepseek_api_key()
+    api_key = get_groq_api_key()
 
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("The OpenAI package is missing. Run: pip install -r requirements.txt") from exc
 
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
     prompt = f"""You are an experienced interviewer. Create exactly {count} interview questions for the role described below.
 
 Guidelines:
@@ -92,20 +92,14 @@ CANDIDATE RESUME:
 """
 
     try:
-        result = client.chat.completions.create(
+        result = client.responses.create(
             model=MODEL,
-            messages=[
-                {"role": "system", "content": "You are an experienced, fair, and evidence-based interviewer."},
-                {"role": "user", "content": prompt},
-            ],
-            stream=False,
-            reasoning_effort="high",
-            extra_body={"thinking": {"type": "enabled"}},
+            input=prompt,
         )
     except Exception as exc:
-        raise RuntimeError(f"DeepSeek API request failed: {exc}") from exc
+        raise RuntimeError(f"Groq API request failed: {exc}") from exc
 
-    answer = result.choices[0].message.content
+    answer = result.output_text
     if not answer or not answer.strip():
         raise RuntimeError("The model returned an empty response. Please try again.")
     return answer.strip()
@@ -187,7 +181,7 @@ def main() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.divider()
-    st.caption(f"Powered by DeepSeek · {MODEL}")
+    st.caption(f"Powered by Groq · {MODEL}")
 
 
 if __name__ == "__main__":
