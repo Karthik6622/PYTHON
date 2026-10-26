@@ -10,8 +10,8 @@ Install Python 3.10 or newer if it is not already installed. In VS Code, open th
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -m pip install -r requirements.txt
-$env:HF_TOKEN="your Hugging Face access token"
-py -m streamlit run kk.py
+$env:HF_TOKEN="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"
+py -m streamlit run project.py
 ```
 
 Streamlit will print a local URL, usually http://localhost:8501. Open it in your browser. Keep the terminal open while the app is running. If PowerShell blocks activation, you can skip the activation command and run `py -m pip install -r requirements.txt` and `py -m streamlit run kk.py` directly.
