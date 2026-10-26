@@ -3,3 +3,5 @@ __pycache__/
 venv/
 .env
 .streamlit/secrets.toml
+interview_sessions.json
+interview_sessions.json.*.tmp
