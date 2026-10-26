@@ -18,7 +18,7 @@ import streamlit as st
 MODEL = "deepseek-ai/deepseek-v4.1-flash"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MAX_FILE_BYTES = 5 * 1024 * 1024
-MAX_TEXT_CHARS = 24_000
+MAX_TEXT_CHARS = 12_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
 DATA_FILE = Path(__file__).with_name("interview_sessions.json")
 
@@ -152,26 +152,34 @@ def get_nvidia_api_key() -> str:
     return str(api_key)
 
 
-def call_nvidia_model(messages: list[dict]) -> str:
-    """Request a concise, non-streaming answer from NVIDIA's OpenAI-compatible API."""
+def stream_nvidia_model(messages: list[dict]):
+    """Yield answer text as soon as NVIDIA sends it; disable SDK retries to avoid long waits."""
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("The OpenAI SDK is missing. Run: py -m pip install -r requirements.txt") from exc
 
-    client = OpenAI(api_key=get_nvidia_api_key(), base_url=NVIDIA_BASE_URL, timeout=60.0)
-    completion = client.chat.completions.create(
+    client = OpenAI(
+        api_key=get_nvidia_api_key(),
+        base_url=NVIDIA_BASE_URL,
+        timeout=60.0,
+        max_retries=0,
+    )
+    stream = client.chat.completions.create(
         model=MODEL,
         messages=messages,
         temperature=0.7,
         top_p=0.9,
         max_tokens=2_500,
-        stream=False,
+        reasoning_effort="none",
+        stream=True,
     )
-    content = completion.choices[0].message.content
-    if not isinstance(content, str) or not content.strip():
-        raise RuntimeError("The model returned an empty response. Please try again.")
-    return content.strip()
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+        content = chunk.choices[0].delta.content
+        if isinstance(content, str) and content:
+            yield content
 
 
 def build_initial_guide(
@@ -212,7 +220,7 @@ CANDIDATE RESUME:
         {"role": "system", "content": "You are a fair, experienced interviewer. Produce concise, practical questions grounded in evidence."},
         {"role": "user", "content": prompt},
     ]
-    return call_nvidia_model(messages)
+    return stream_nvidia_model(messages)
 
 
 def build_followup_response(
@@ -274,7 +282,7 @@ CANDIDATE RESUME:
         {"role": "system", "content": "You are a concise, context-aware assistant for interviewers. Follow the requested scope."},
         {"role": "user", "content": prompt},
     ]
-    return call_nvidia_model(messages)
+    return stream_nvidia_model(messages)
 
 
 def update_time(session: dict, session_id: str | None = None) -> None:
@@ -523,14 +531,16 @@ def handle_chat_request(
     try:
         with st.chat_message("assistant", avatar="✳"):
             with st.spinner("DeepSeek is reviewing the resume and role…" if first_guide else "DeepSeek is reading this chat and preparing a reply…"):
-                response = (
+                response_stream = (
                     build_initial_guide(
                         session["resume_text"], session["job_description"], project_count, coding_count
                     )
                     if first_guide
                     else build_followup_response(session, request, total_count, coding_count)
                 )
-            st.markdown(response)
+                response = st.write_stream(response_stream)
+        if not isinstance(response, str) or not response.strip():
+            raise RuntimeError("NVIDIA returned an empty response. Please try again.")
         elapsed = time.perf_counter() - started
         session["messages"].append(
             {
