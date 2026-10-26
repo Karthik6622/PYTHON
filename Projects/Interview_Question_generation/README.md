@@ -15,7 +15,7 @@ py -m streamlit run project.py
 
 Open the local URL Streamlit prints, usually http://localhost:8501. Keep the terminal open while the app is running. If PowerShell blocks activation, skip the activation line and run the remaining commands.
 
-Before generating questions, add your Gemini API key to `.streamlit/secrets.toml` using the `GEMINI_API_KEY` key. This local secrets file is ignored by Git. The app uses Gemini 3.8 Flash through Google's Gemini API.
+Before generating questions, add your DeepSeek API key to `.streamlit/secrets.toml` using the `DEEPSEEK_API_KEY` key. This local secrets file is ignored by Git. The app uses DeepSeek Flash through the OpenAI-compatible DeepSeek API.
 
 ## Deployment
 

@@ -9,7 +9,7 @@ import io
 import streamlit as st
 
 
-MODEL = "gemini-3.8-flash"
+MODEL = "deepseek-flash"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 24_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
@@ -50,26 +50,26 @@ def extract_text(uploaded_file, label: str) -> str:
     return text[:MAX_TEXT_CHARS]
 
 
-def get_gemini_api_key() -> str:
-    """Read the Gemini API key from this project's Streamlit secrets."""
+def get_deepseek_api_key() -> str:
+    """Read the DeepSeek API key from this project's Streamlit secrets."""
     try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
+        api_key = st.secrets.get("DEEPSEEK_API_KEY")
     except Exception as exc:
-        raise RuntimeError("GEMINI_API_KEY is not configured. Add it to .streamlit/secrets.toml and restart the app.") from exc
-    if not api_key or api_key == "YOUR_GEMINI_API_KEY":
-        raise RuntimeError("Replace YOUR_GEMINI_API_KEY in .streamlit/secrets.toml with your Gemini API key.")
+        raise RuntimeError("DEEPSEEK_API_KEY is not configured. Add it to .streamlit/secrets.toml and restart the app.") from exc
+    if not api_key or api_key == "YOUR_DEEPSEEK_API_KEY":
+        raise RuntimeError("Replace YOUR_DEEPSEEK_API_KEY in .streamlit/secrets.toml with your DeepSeek API key.")
     return str(api_key)
 
 
 def generate_questions(resume: str, job_description: str, count: int) -> str:
-    api_key = get_gemini_api_key()
+    api_key = get_deepseek_api_key()
 
     try:
-        from google import genai
+        from openai import OpenAI
     except ImportError as exc:
-        raise RuntimeError("The Google Gen AI package is missing. Run: pip install -r requirements.txt") from exc
+        raise RuntimeError("The OpenAI package is missing. Run: pip install -r requirements.txt") from exc
 
-    client = genai.Client(api_key=api_key)
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     prompt = f"""You are an experienced interviewer. Create exactly {count} interview questions for the role described below.
 
 Guidelines:
@@ -92,14 +92,20 @@ CANDIDATE RESUME:
 """
 
     try:
-        result = client.models.generate_content(
+        result = client.chat.completions.create(
             model=MODEL,
-            contents=prompt,
+            messages=[
+                {"role": "system", "content": "You are an experienced, fair, and evidence-based interviewer."},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+            reasoning_effort="high",
+            extra_body={"thinking": {"type": "enabled"}},
         )
     except Exception as exc:
-        raise RuntimeError(f"Gemini API request failed: {exc}") from exc
+        raise RuntimeError(f"DeepSeek API request failed: {exc}") from exc
 
-    answer = result.text
+    answer = result.choices[0].message.content
     if not answer or not answer.strip():
         raise RuntimeError("The model returned an empty response. Please try again.")
     return answer.strip()
@@ -181,7 +187,7 @@ def main() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.divider()
-    st.caption(f"Powered by Google Gemini · {MODEL}")
+    st.caption(f"Powered by DeepSeek · {MODEL}")
 
 
 if __name__ == "__main__":
