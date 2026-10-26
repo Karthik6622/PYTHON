@@ -18,7 +18,6 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 12_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
-MODEL_TIMEOUT_SECONDS = 90.0
 MAX_FOLLOWUP_TOKENS = 900
 
 
@@ -110,13 +109,11 @@ def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_
     except ImportError as exc:
         raise RuntimeError("The OpenAI SDK is missing. Run: py -m pip install -r requirements.txt") from exc
 
-    started = time.perf_counter()
     client = OpenAI(
         api_key=get_nvidia_api_key(),
         base_url=NVIDIA_BASE_URL,
-        # Bound both connection and read waits so a congested inference endpoint
-        # cannot leave the user waiting for a minute or more.
-        timeout=MODEL_TIMEOUT_SECONDS,
+        # Let the streamed response continue for as long as the provider needs.
+        timeout=None,
         max_retries=0,
     )
     stream = client.chat.completions.create(
@@ -129,8 +126,6 @@ def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_
         stream=True,
     )
     for chunk in stream:
-        if time.perf_counter() - started >= MODEL_TIMEOUT_SECONDS:
-            raise TimeoutError("NVIDIA is taking too long to respond. Please retry in a moment.")
         if not chunk.choices:
             continue
         content = chunk.choices[0].delta.content
