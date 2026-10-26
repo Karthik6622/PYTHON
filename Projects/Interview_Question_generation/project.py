@@ -1,16 +1,14 @@
-"""Interview Studio: persistent interviewer chats powered by NVIDIA NIM."""
+"""Interview Studio: browser-session interviewer chats powered by NVIDIA NIM."""
 
 from __future__ import annotations
 
 import io
-import json
 import os
 import re
 import time
 import uuid
 from datetime import datetime
 from html import escape
-from pathlib import Path
 
 import streamlit as st
 
@@ -20,45 +18,6 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 12_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
-DATA_FILE = Path(__file__).with_name("interview_sessions.json")
-
-
-def empty_store() -> dict:
-    return {"sessions": {}, "order": []}
-
-
-def load_store() -> dict:
-    """Load saved chats from the local JSON history file."""
-    if not DATA_FILE.exists():
-        return empty_store()
-    try:
-        saved = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-        if not isinstance(saved, dict) or not isinstance(saved.get("sessions"), dict):
-            raise ValueError("Unexpected history format")
-        order = [sid for sid in saved.get("order", []) if sid in saved["sessions"]]
-        order.extend(sid for sid in saved["sessions"] if sid not in order)
-        return {"sessions": saved["sessions"], "order": order}
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        raise RuntimeError(
-            f"Could not read {DATA_FILE.name}. Keep a backup and repair or remove the invalid JSON file. Details: {exc}"
-        ) from exc
-
-
-def save_store() -> None:
-    """Atomically save chat history, source context, and settings to JSON."""
-    store = {
-        "sessions": st.session_state.interview_sessions,
-        "order": st.session_state.interview_session_order,
-    }
-    temporary_file = DATA_FILE.with_name(f".{DATA_FILE.name}.{uuid.uuid4().hex}.tmp")
-    try:
-        temporary_file.write_text(json.dumps(store, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(temporary_file, DATA_FILE)
-    finally:
-        if temporary_file.exists():
-            temporary_file.unlink()
-
-
 def make_session(title: str | None = None) -> tuple[str, dict]:
     number = len(st.session_state.interview_sessions) + 1
     session_id = uuid.uuid4().hex[:12]
@@ -83,22 +42,10 @@ def make_session(title: str | None = None) -> tuple[str, dict]:
 def initialize_sessions() -> None:
     if "interview_sessions" in st.session_state:
         return
-    store = load_store()
-    for saved_session in store["sessions"].values():
-        if not saved_session.get("initial_guide"):
-            for message in saved_session.get("messages", []):
-                if message.get("role") == "assistant" and not message.get("error"):
-                    saved_session["initial_guide"] = message.get("content", "")
-                    message["is_initial_guide"] = True
-                    break
-    st.session_state.interview_sessions = store["sessions"]
-    st.session_state.interview_session_order = store["order"]
-    if not st.session_state.interview_sessions:
-        session_id, _ = make_session("New interview")
-        st.session_state.active_interview_session = session_id
-        save_store()
-    else:
-        st.session_state.active_interview_session = store["order"][0]
+    st.session_state.interview_sessions = {}
+    st.session_state.interview_session_order = []
+    session_id, _ = make_session("New interview")
+    st.session_state.active_interview_session = session_id
 
 
 def extract_text(uploaded_file, label: str) -> str:
@@ -162,7 +109,7 @@ def stream_nvidia_model(messages: list[dict]):
     client = OpenAI(
         api_key=get_nvidia_api_key(),
         base_url=NVIDIA_BASE_URL,
-        timeout=60.0,
+        timeout=300.0,
         max_retries=0,
     )
     stream = client.chat.completions.create(
@@ -337,7 +284,6 @@ def session_title(session: dict) -> str:
 def create_new_session() -> None:
     session_id, _ = make_session()
     st.session_state.active_interview_session = session_id
-    save_store()
 
 
 def render_sidebar() -> tuple[str, dict, int, int, int]:
@@ -398,19 +344,18 @@ def render_sidebar() -> tuple[str, dict, int, int, int]:
         )
         st.markdown("---")
         st.markdown(
-            '<div class="sidebar-note">Chats are saved locally with the resume and role context. This file is private to this app folder; use a private single-user deployment for candidate data.</div>',
+            '<div class="sidebar-note">Chats and candidate context stay in this browser tab session. A new tab or device starts fresh; refreshing or closing this tab clears its session.</div>',
             unsafe_allow_html=True,
         )
         if settings_changed:
             update_time(session, active_id)
-            save_store()
     return active_id, session, total_count, project_count, coding_count
 
 
 def save_context_panel(session_id: str, session: dict) -> None:
     expanded = not bool(session.get("resume_text") and session.get("job_description"))
     with st.expander("Candidate and role context", expanded=expanded):
-        st.caption("Upload PDF, DOCX, or TXT files (5 MB max). Files are parsed locally; extracted text is saved in this chat file for follow-ups.")
+        st.caption("Upload PDF, DOCX, or TXT files (5 MB max). Files are parsed locally; extracted text stays in this browser tab session for follow-ups.")
         resume_col, job_col = st.columns(2)
         with resume_col:
             resume_upload = st.file_uploader(
@@ -457,7 +402,6 @@ def save_context_panel(session_id: str, session: dict) -> None:
                 session["job_description"] = job_description
                 session["job_name"] = job_name
                 update_time(session, session_id)
-                save_store()
                 st.success("Context saved to this interview chat. You can now ask for a guide or follow-up questions.")
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
@@ -492,7 +436,6 @@ def render_messages(session_id: str, session: dict) -> None:
                             if message.get("is_initial_guide"):
                                 session["initial_guide"] = edited
                             update_time(session, session_id)
-                            save_store()
                             st.rerun()
                     with download_col:
                         st.download_button(
@@ -525,7 +468,6 @@ def handle_chat_request(
         session["title"] = request[:42].strip().rstrip(".,!? ") or "Interview chat"
         st.session_state.setdefault("rename_widget_sync", set()).add(st.session_state.active_interview_session)
     update_time(session, st.session_state.active_interview_session)
-    save_store()
 
     started = time.perf_counter()
     try:
@@ -554,7 +496,6 @@ def handle_chat_request(
         if first_guide:
             session["initial_guide"] = response.strip()
         update_time(session, st.session_state.active_interview_session)
-        save_store()
         st.rerun()
     except Exception as exc:
         session["messages"].append(
@@ -567,7 +508,6 @@ def handle_chat_request(
             }
         )
         update_time(session, st.session_state.active_interview_session)
-        save_store()
         st.rerun()
 
 

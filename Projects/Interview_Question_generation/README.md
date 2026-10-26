@@ -1,6 +1,6 @@
 # Interview Studio
 
-A Streamlit chat-style interviewer workspace. Save a resume and job description, choose the question count and coding toggle, then generate the first guide with one button. After it appears, use chat to ask about a question or request targeted follow-ups. Named chats persist with their context and history in one local JSON file.
+A Streamlit chat-style interviewer workspace. Save a resume and job description, choose the question count and coding toggle, then generate the first guide with one button. After it appears, use chat to ask about a question or request targeted follow-ups. Chats and candidate context are kept only in the current Streamlit browser session.
 
 ## Run on Windows
 
@@ -21,8 +21,8 @@ Add `NVIDIA_API_KEY = "..."` to `.streamlit/secrets.toml`. The app connects to `
 
 ## Chat history and privacy
 
-Chats, question history, session titles, and extracted resume/job-description text are saved in `interview_sessions.json` beside `project.py`. The app reads this file at startup and writes changes atomically. Both `interview_sessions.json` and `.streamlit/secrets.toml` are ignored by Git; keep backups private and delete the JSON file to clear saved chats.
+Each browser tab has its own Streamlit session, so new tabs and devices start with a fresh workspace. Chats and extracted resume/job-description text are held in that session's memory, are not written to a shared history file, and clear when the tab is refreshed or closed. The app does not synchronize tab or device data. `.streamlit/secrets.toml` is ignored by Git.
 
-This local JSON store is intended for a private, single-user app instance. It has no sign-in or per-user access control, so anyone who can access a shared deployment could see its saved interviews. Use an authenticated database-backed setup before exposing the app to multiple users. Resume and job-description text are sent to NVIDIA when generating a guide or answering a follow-up.
+Resume and job-description text are sent to NVIDIA when generating a guide or answering a follow-up. Don't use this app to process candidate data unless your NVIDIA service configuration and organization policies allow it.
 
-Coding mode uses exactly a 90:10 split: choose 10 or 20 total questions to get one or two coding questions. Coding language is taken from the resume where available. Every main question requests 4–6 concise follow-up probes, aiming for four. NVIDIA requests stream output as it arrives, turn off model reasoning for this straightforward generation task, use a 60-second timeout with automatic retries disabled, and cap output at 2,500 tokens. Resume and job-description text are each limited to 12,000 characters to keep requests smaller. The app records total response time. Scanned PDFs without extractable text need OCR before upload. Each file is limited to 5 MB.
+Coding mode uses exactly a 90:10 split: choose 10 or 20 total questions to get one or two coding questions. Coding language is taken from the resume where available. Every main question requests 4–6 concise follow-up probes, aiming for four. NVIDIA requests stream output as it arrives, turn off model reasoning for this straightforward generation task, use a 300-second timeout with automatic retries disabled, and cap output at 2,500 tokens. Resume and job-description text are each limited to 12,000 characters to keep requests smaller. The app records total response time. Scanned PDFs without extractable text need OCR before upload. Each file is limited to 5 MB.
