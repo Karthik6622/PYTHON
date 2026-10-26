@@ -18,6 +18,10 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 12_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
+MODEL_TIMEOUT_SECONDS = 8.0
+MAX_FOLLOWUP_TOKENS = 700
+
+
 def make_session(title: str | None = None) -> tuple[str, dict]:
     number = len(st.session_state.interview_sessions) + 1
     session_id = uuid.uuid4().hex[:12]
@@ -99,17 +103,20 @@ def get_nvidia_api_key() -> str:
     return str(api_key)
 
 
-def stream_nvidia_model(messages: list[dict]):
+def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_TOKENS):
     """Yield answer text as soon as NVIDIA sends it; disable SDK retries to avoid long waits."""
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError("The OpenAI SDK is missing. Run: py -m pip install -r requirements.txt") from exc
 
+    started = time.perf_counter()
     client = OpenAI(
         api_key=get_nvidia_api_key(),
         base_url=NVIDIA_BASE_URL,
-        timeout=300.0,
+        # Bound both connection and read waits so a congested inference endpoint
+        # cannot leave the user waiting for a minute or more.
+        timeout=MODEL_TIMEOUT_SECONDS,
         max_retries=0,
     )
     stream = client.chat.completions.create(
@@ -117,11 +124,13 @@ def stream_nvidia_model(messages: list[dict]):
         messages=messages,
         temperature=0.7,
         top_p=0.9,
-        max_tokens=2_500,
+        max_tokens=max_tokens,
         reasoning_effort="none",
         stream=True,
     )
     for chunk in stream:
+        if time.perf_counter() - started >= MODEL_TIMEOUT_SECONDS:
+            raise TimeoutError("NVIDIA did not finish within 8 seconds. Please retry or check the NVIDIA service status.")
         if not chunk.choices:
             continue
         content = chunk.choices[0].delta.content
@@ -167,7 +176,8 @@ CANDIDATE RESUME:
         {"role": "system", "content": "You are a fair, experienced interviewer. Produce concise, practical questions grounded in evidence."},
         {"role": "user", "content": prompt},
     ]
-    return stream_nvidia_model(messages)
+    # The first guide is intentionally longer than an ordinary follow-up.
+    return stream_nvidia_model(messages, max_tokens=2_500)
 
 
 def build_followup_response(
@@ -468,6 +478,26 @@ def handle_chat_request(
         session["title"] = request[:42].strip().rstrip(".,!? ") or "Interview chat"
         st.session_state.setdefault("rename_widget_sync", set()).add(st.session_state.active_interview_session)
     update_time(session, st.session_state.active_interview_session)
+
+    # Avoid an expensive remote inference call for greetings and other
+    # conversational acknowledgements that do not need interview context.
+    if re.fullmatch(
+        r"(?:hi|hello|hey|hiya|good\s+(?:morning|afternoon|evening)|thanks|thank\s+you)[!.?\s]*",
+        request,
+        flags=re.IGNORECASE,
+    ):
+        response = "Hi! What would you like to work on in this interview?"
+        session["messages"].append(
+            {
+                "role": "assistant",
+                "content": response,
+                "created_at": datetime.now().strftime("%b %d, %Y · %I:%M %p"),
+                "duration_seconds": 0.0,
+                "is_initial_guide": False,
+            }
+        )
+        update_time(session, st.session_state.active_interview_session)
+        st.rerun()
 
     started = time.perf_counter()
     try:
