@@ -1,6 +1,6 @@
 # Interview Studio
 
-A Streamlit chat-style interviewer workspace. It creates experience-level questions from a resume and job description, supports optional coding questions, and saves named interview chats with their context and generated question history in one local JSON file.
+A Streamlit chat-style interviewer workspace. Save a resume and job description, choose the question count and coding toggle, then generate the first guide with one button. After it appears, use chat to ask about a question or request targeted follow-ups. Named chats persist with their context and history in one local JSON file.
 
 ## Run on Windows
 
@@ -23,6 +23,6 @@ Add `NVIDIA_API_KEY = "..."` to `.streamlit/secrets.toml`. The app connects to `
 
 Chats, question history, session titles, and extracted resume/job-description text are saved in `interview_sessions.json` beside `project.py`. The app reads this file at startup and writes changes atomically. Both `interview_sessions.json` and `.streamlit/secrets.toml` are ignored by Git; keep backups private and delete the JSON file to clear saved chats.
 
-This local JSON store is intended for a private, single-user app instance. It has no sign-in or per-user access control, so anyone who can access a shared deployment could see its saved interviews. Use an authenticated database-backed setup before exposing the app to multiple users. Uploaded documents are sent to NVIDIA only when a guide is generated.
+This local JSON store is intended for a private, single-user app instance. It has no sign-in or per-user access control, so anyone who can access a shared deployment could see its saved interviews. Use an authenticated database-backed setup before exposing the app to multiple users. Resume and job-description text are sent to NVIDIA when generating a guide or answering a follow-up.
 
-Coding mode uses exactly a 90:10 split: choose 10 or 20 total questions to get one or two coding questions. Coding language is taken from the resume where available. Scanned PDFs without extractable text need OCR before upload. Each file is limited to 5 MB.
+Coding mode uses exactly a 90:10 split: choose 10 or 20 total questions to get one or two coding questions. Coding language is taken from the resume where available. The model streams visible text as it arrives; each response records time to first text and total generation time. Streaming improves feedback during generation but cannot reduce NVIDIA-side processing time. Scanned PDFs without extractable text need OCR before upload. Each file is limited to 5 MB.
