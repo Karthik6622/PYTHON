@@ -15,6 +15,8 @@ py -m streamlit run project.py
 
 Open the local URL Streamlit prints, usually http://localhost:8501. Keep the terminal open while the app is running. If PowerShell blocks activation, skip the activation line and run the remaining commands.
 
+Before generating questions, add your Gemini API key to `.streamlit/secrets.toml` using the `GEMINI_API_KEY` key. This local secrets file is ignored by Git. The app uses Gemini 3.8 Flash through Google's Gemini API.
+
 ## Deployment
 
 Vercel does not provide a standard deployment workflow for a persistent Streamlit app. Use a Python and Streamlit compatible host. Streamlit Community Cloud deploys apps from GitHub; see the [deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
