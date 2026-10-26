@@ -1,10 +1,102 @@
-# Interview Studio
+# Interview Question Generation
 
-A Streamlit web app that creates interview questions tailored to the candidate's demonstrated experience and a job description. Supports resume and job-description uploads in PDF, DOCX, or TXT format, plus pasted job-description text. Files are processed in memory and are not saved by the app.
+A Streamlit application that generates interview questions based on a candidate's resume, experience, and job description using an LLM.
 
-## Run on Windows with PowerShell
+## Project Structure
 
-Install Python 3.10 or newer if it is not already installed. In VS Code, open this folder and select **Terminal → New Terminal**. Run these commands one at a time:
+```text
+Interview_Question_generation/
+├── .gitignore
+├── project.py
+├── README.md
+└── requirements.txt
+```
+
+## Prerequisites
+
+- Python 3.10 or later
+- PowerShell
+- Internet connection
+- Hugging Face access token
+
+## First-Time Setup
+
+Open the `Interview_Question_generation` folder in VS Code.
+
+Open:
+
+**Terminal → New Terminal**
+
+Make sure you are using PowerShell.
+
+Run:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -m pip install -r requirements.txt
+```
+
+If PowerShell blocks virtual-environment activation, run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+## Configure Hugging Face Token
+
+The application requires a Hugging Face access token.
+
+Set the token in the same PowerShell terminal before starting Streamlit:
+
+```powershell
+$env:HF_TOKEN="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"
+```
+
+Replace `YOUR_HUGGING_FACE_TOKEN_HERE` with your actual Hugging Face token.
+
+Verify that the token is available:
+
+```powershell
+if ($env:HF_TOKEN) { "HF_TOKEN is set" } else { "HF_TOKEN is missing" }
+```
+
+Expected result:
+
+```text
+HF_TOKEN is set
+```
+
+Never add the real Hugging Face token to `README.md`, `project.py`, or Git.
+
+## Run the Application
+
+```powershell
+py -m streamlit run project.py
+```
+
+Streamlit will display the local application address in the terminal.
+
+The default is normally:
+
+```text
+http://localhost:8501
+```
+
+Keep the terminal running while using the application.
+
+Press:
+
+```text
+Ctrl + C
+```
+
+to stop the application.
+
+## Quick Start
+
+For a fresh setup:
 
 ```powershell
 py -m venv .venv
@@ -14,16 +106,80 @@ $env:HF_TOKEN="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"
 py -m streamlit run project.py
 ```
 
-Streamlit will print a local URL, usually http://localhost:8501. Open it in your browser. Keep the terminal open while the app is running. If PowerShell blocks activation, you can skip the activation command and run `py -m pip install -r requirements.txt` and `py -m streamlit run kk.py` directly.
+For subsequent runs:
 
-## Hugging Face token
+```powershell
+.\.venv\Scripts\Activate.ps1
+$env:HF_TOKEN="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"
+py -m streamlit run project.py
+```
 
-Set `HF_TOKEN` in the same PowerShell terminal before launching Streamlit. Do not paste the token into the Python source or commit it to Git. If the token was posted in a shared place, revoke it and create a replacement in Hugging Face settings.
+IMPORTANT: `$env:HF_TOKEN` is set only for the current PowerShell session. If you close PowerShell, set the token again before starting the application.
 
-The app calls `deepseek-ai/DeepSeek-V4.1-Flash:novita` through `https://router.huggingface.co/v1`. The first generation request requires a valid token and access to the selected model.
+## Troubleshooting
 
-## Deploy on Vercel
+### HF_TOKEN is missing
 
-Vercel is designed primarily for serverless web frameworks and does not provide a standard one-click deployment path for a persistent Streamlit server. Run this app locally using the steps above, or deploy it to a Python-friendly hosting service that supports Streamlit. If you need a Vercel-hosted version, use the Next.js app variant instead of this Streamlit project.
+Run:
 
-Scanned PDFs without selectable/extractable text need OCR before upload. Each file is limited to 5 MB.
+```powershell
+$env:HF_TOKEN="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"
+```
+
+Verify:
+
+```powershell
+if ($env:HF_TOKEN) { "HF_TOKEN is set" } else { "HF_TOKEN is missing" }
+```
+
+Then:
+
+```powershell
+py -m streamlit run project.py
+```
+
+### Virtual Environment Activation Is Blocked
+
+Run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Then:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+### Streamlit Is Not Found
+
+Install the requirements:
+
+```powershell
+py -m pip install -r requirements.txt
+```
+
+Then:
+
+```powershell
+py -m streamlit run project.py
+```
+
+## Git Security
+
+Do not commit secrets or your local virtual environment.
+
+Ensure `.gitignore` contains:
+
+```gitignore
+.venv/
+.env
+__pycache__/
+*.pyc
+```
+
+Never commit your actual*Hugging Face access token.
+
+If a t*ken is accidentally pushed to Git *r shared publicly, revoke it and g*nerate a new token.
+
