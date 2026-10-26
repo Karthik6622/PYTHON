@@ -18,8 +18,8 @@ NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 12_000
 SUPPORTED_TYPES = ["pdf", "docx", "txt"]
-MODEL_TIMEOUT_SECONDS = 8.0
-MAX_FOLLOWUP_TOKENS = 700
+MODEL_TIMEOUT_SECONDS = 90.0
+MAX_FOLLOWUP_TOKENS = 900
 
 
 def make_session(title: str | None = None) -> tuple[str, dict]:
@@ -130,7 +130,7 @@ def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_
     )
     for chunk in stream:
         if time.perf_counter() - started >= MODEL_TIMEOUT_SECONDS:
-            raise TimeoutError("NVIDIA did not finish within 8 seconds. Please retry or check the NVIDIA service status.")
+            raise TimeoutError("NVIDIA is taking too long to respond. Please retry in a moment.")
         if not chunk.choices:
             continue
         content = chunk.choices[0].delta.content
@@ -157,7 +157,7 @@ def build_initial_guide(
 
     prompt = f"""Prepare the first interviewer guide for the supplied candidate and role. The interviewer will ask these questions directly; do not answer them.
 
-Create exactly {project_question_count} experience/project questions and {coding_question_count} coding questions, {total} total. The selected mix is 90% project questions and 10% coding questions when coding is enabled.
+Create exactly {project_question_count} experience/project questions and {coding_question_count} coding questions, {total} total. The selected mix is 90% project questions and 10% coding questions when coding is enabled. Keep every question and follow-up to one concise sentence so the guide is quick to read.
 
 Use specific projects, skills, responsibilities, outcomes, and seniority actually supported by the resume. Connect questions to the job description. Group questions under numbered project/experience headings, add a one-sentence interviewer rationale per section, and number questions Q1 through Q{total}. For every main question, provide 4 to 6 concise follow-up questions; aim for exactly 4. Follow-ups should probe decisions, implementation details, trade-offs, measurable outcomes, edge cases, and lessons learned, grounded in the resume. {coding_instruction}
 
@@ -177,7 +177,7 @@ CANDIDATE RESUME:
         {"role": "user", "content": prompt},
     ]
     # The first guide is intentionally longer than an ordinary follow-up.
-    return stream_nvidia_model(messages, max_tokens=2_500)
+    return stream_nvidia_model(messages, max_tokens=1_800)
 
 
 def build_followup_response(
