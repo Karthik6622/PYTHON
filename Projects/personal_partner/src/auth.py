@@ -6,6 +6,7 @@ import bcrypt
 import hashlib
 import logging
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -37,6 +38,12 @@ class AccountLockedError(AccountValidationError):
 _DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"not-a-real-password", bcrypt.gensalt(rounds=12))
 
 
+def _username_from_email(email: str) -> str:
+    """Internal unique handle; people sign in with their email address."""
+    local = re.sub(r"[^a-z0-9_.]", "", email.split("@", 1)[0])[:20] or "user"
+    return f"{local.ljust(3, '_')}_{uuid.uuid4().hex[:6]}"
+
+
 def create_account(
     display_name: str,
     username: str,
@@ -46,8 +53,8 @@ def create_account(
     accepted_terms: bool,
 ) -> dict[str, Any]:
     display_name = display_name.strip()
-    username = normalize_username(username)
     email = normalize_email(email)
+    username = normalize_username(username) or _username_from_email(email)
     for error in (
         validate_display_name(display_name),
         validate_username(username),
@@ -76,8 +83,15 @@ def create_account(
     )
 
 
-def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
-    record = storage.find_user_by_username(normalize_username(username))
+def authenticate_user(identifier: str, password: str) -> dict[str, Any] | None:
+    """Sign in with an email address (a legacy username is still accepted)."""
+    identifier = identifier.strip()
+    if "@" in identifier:
+        record = storage.find_user_by_email(identifier)
+        if record:
+            record = storage.find_user_by_username(str(record["username"]))
+    else:
+        record = storage.find_user_by_username(normalize_username(identifier))
     if record:
         remaining = storage.account_lock_remaining(record)
         if remaining is not None:
@@ -116,6 +130,7 @@ def public_account(user: dict[str, Any]) -> dict[str, Any]:
         "user_id": str(user["user_id"]),
         "username": str(user["username"]),
         "display_name": str(user["display_name"]),
+        "email": str(user.get("email", "")),
         "preferences": dict(user.get("preferences") or {}),
     }
 

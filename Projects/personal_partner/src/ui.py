@@ -31,9 +31,10 @@ from .social_auth import (
     github_is_configured,
     google_identity,
     google_is_configured,
+    google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import APP_CSS
+from .styles import APP_CSS, WELCOME_HERO_HTML
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -52,6 +53,7 @@ def _set_authenticated(user: dict[str, Any]) -> None:
     st.session_state.authenticated = True
     st.session_state.user_id = public["user_id"]
     st.session_state.username = public["username"]
+    st.session_state.email = public["email"]
     st.session_state.display_name = public["display_name"]
     st.session_state.user_preferences = public["preferences"]
     st.session_state.view = "Chat"
@@ -66,7 +68,7 @@ def _logout() -> None:
     except Exception:
         pass
     for key in (
-        "authenticated", "user_id", "username", "display_name", "user_preferences",
+        "authenticated", "user_id", "username", "email", "display_name", "user_preferences",
         "active_conversation_id", "pending_message_id", "pending_conversation_id",
         "last_model_error", "authenticated_view", "view",
     ):
@@ -98,8 +100,12 @@ def _social_buttons(prefix: str) -> None:
             disabled=not github_is_configured(),
             use_container_width=True,
         )
-    if not google_is_configured() or not github_is_configured():
-        st.caption("To enable social sign-up, add the provider credentials from `.streamlit/secrets.toml.example` to your private secrets file.")
+    missing = google_missing_settings()
+    if missing:
+        LOGGER.warning("Google sign-in is disabled; missing secrets: %s", ", ".join(missing))
+        st.caption("Google sign-in is not set up yet. Missing secrets: " + ", ".join(f"`{name}`" for name in missing) + ".")
+    if not github_is_configured():
+        st.caption("GitHub sign-in is not set up yet. Add `[github]` client_id, client_secret, and redirect_uri to your secrets.")
 
 
 def _show_social_error() -> None:
@@ -112,16 +118,7 @@ def render_welcome() -> None:
     _show_social_error()
     st.markdown('<div class="ks-brand">KindSpace</div>', unsafe_allow_html=True)
     st.write("")
-    st.markdown(
-        """
-        <section class="ks-hero">
-          <div class="ks-eyebrow">A little space to think things through</div>
-          <h1>Meet you where you are.</h1>
-          <p>KindSpace is a private AI assistant for everyday questions, reflection, planning, and encouragement.</p>
-        </section>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(WELCOME_HERO_HTML, unsafe_allow_html=True)
     st.write("")
     left, right = st.columns(2)
     with left:
@@ -146,7 +143,6 @@ def render_create_account() -> None:
     st.divider()
     with st.form("create_account_form", clear_on_submit=False):
         display_name = st.text_input("Display name", max_chars=80, autocomplete="name")
-        username = st.text_input("Username", max_chars=30, autocomplete="username", help="3–30 characters: letters, numbers, periods, underscores.")
         email = st.text_input("Email", max_chars=254, autocomplete="email")
         password = st.text_input("Password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
         confirm_password = st.text_input("Confirm password", type="password", autocomplete="new-password")
@@ -154,7 +150,7 @@ def render_create_account() -> None:
         submitted = st.form_submit_button("Create account", type="primary", use_container_width=True)
     if submitted:
         try:
-            user = create_account(display_name, username, email, password, confirm_password, accepted)
+            user = create_account(display_name, "", email, password, confirm_password, accepted)
             _set_authenticated(user)
             st.success("Your account is ready.")
             st.rerun()
@@ -176,13 +172,13 @@ def render_login() -> None:
     _social_buttons("login")
     st.divider()
     with st.form("login_form", clear_on_submit=True):
-        username = st.text_input("Username", autocomplete="username")
+        email = st.text_input("Email", autocomplete="email")
         password = st.text_input("Password", type="password", autocomplete="current-password")
         submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
     if submitted:
         locked = False
         try:
-            user = authenticate_user(username, password)
+            user = authenticate_user(email, password)
         except AccountLockedError as exc:
             st.error(str(exc))
             user = None
@@ -194,7 +190,7 @@ def render_login() -> None:
             _set_authenticated(user)
             st.rerun()
         if not locked:
-            st.error("Invalid username or password")
+            st.error("Invalid email or password")
     if st.button("Forgot password?", key="login_forgot"):
         st.session_state.view = "Forgot Password"
         st.rerun()
@@ -424,7 +420,7 @@ def render_profile(user_id: str) -> None:
     st.markdown('<div class="ks-card">Your account details stay separate from your chat content.</div>', unsafe_allow_html=True)
     st.write("")
     st.text_input("Display name", value=str(user.get("display_name", "")), disabled=True)
-    st.text_input("Username", value=str(user.get("username", "")), disabled=True)
+    st.text_input("Email", value=str(user.get("email", "")), disabled=True)
     st.caption(f"{len(conversations)} conversation(s) saved to this app’s local data folder.")
     st.markdown('<div class="ks-note">The app stores account and conversation data locally on the server where it runs. Use it only on a device or deployment you trust.</div>', unsafe_allow_html=True)
     if conversations:
@@ -457,12 +453,12 @@ def render_settings(user_id: str) -> None:
     st.subheader("Privacy and account data")
     st.caption("Deleting your account permanently removes its local account record and saved conversations.")
     with st.form("delete_account_form"):
-        confirm_username = st.text_input("Type your username to confirm deletion")
+        confirm_email = st.text_input("Type your email address to confirm deletion")
         confirm_delete = st.checkbox("I understand this permanently deletes my account and conversations.")
         delete = st.form_submit_button("Delete my account", type="secondary")
     if delete:
-        if confirm_username.strip().lower() != st.session_state.username.lower() or not confirm_delete:
-            st.error("Enter your username and select the confirmation box.")
+        if confirm_email.strip().lower() != str(st.session_state.get("email", "")).lower() or not confirm_delete:
+            st.error("Enter your email address and select the confirmation box.")
         elif storage.delete_all_user_data(user_id):
             _logout()
         else:

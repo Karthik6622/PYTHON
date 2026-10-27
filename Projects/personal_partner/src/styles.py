@@ -45,7 +45,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: var(--ks-ink); letter-spacing: -.02em; }
 .stApp p, .stApp li, .stApp label, .stApp [data-testid="stWidgetLabel"] p,
 .stApp [data-testid="stMarkdownContainer"] { color: var(--ks-ink); }
-.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] p { color: var(--ks-muted); }
+.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] p { color: var(--ks-muted); opacity: 1 !important; }
 .stApp [data-testid="stMarkdownContainer"] a, .stApp a:not([data-testid^="stBaseButton"]) { color: var(--ks-link); text-decoration: underline; }
 
 /* Sidebar */
@@ -130,9 +130,23 @@ hr { border-color: var(--ks-line); }
 
 /* Brand components */
 .ks-brand { color: var(--ks-brand-dark); font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; }
-.ks-hero { padding: clamp(1.2rem, 4vw, 2.6rem); border: 1px solid var(--ks-line); border-radius: 24px; background: linear-gradient(135deg, #fff 8%, #edf6f2 100%); }
-.ks-hero h1 { color: var(--ks-ink); }
-.ks-hero p { color: var(--ks-muted); }
+.ks-hero { position: relative; overflow: hidden; isolation: isolate; padding: clamp(1.4rem, 5vw, 3rem); border: 1px solid var(--ks-line); border-radius: 24px;
+  background: linear-gradient(120deg, #ffffff, #e6f3ee, #fdf1e8, #e6f3ee, #ffffff); background-size: 300% 300%; animation: ks-gradient 18s ease-in-out infinite; }
+.ks-hero h1 { color: var(--ks-ink); max-width: 16ch; }
+.ks-hero p { color: var(--ks-muted); max-width: 46ch; }
+.ks-hero-text { position: relative; z-index: 2; }
+.ks-orb { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .55; z-index: 0; pointer-events: none; animation: ks-float 14s ease-in-out infinite; }
+.ks-orb.one { width: 220px; height: 220px; right: -60px; top: -70px; background: radial-gradient(circle at 30% 30%, #bfe3d8, rgba(191,227,216,0) 70%); }
+.ks-orb.two { width: 180px; height: 180px; left: 38%; bottom: -80px; background: radial-gradient(circle at 30% 30%, #ffd9bf, rgba(255,217,191,0) 70%); animation-delay: -5s; }
+.ks-orb.three { width: 120px; height: 120px; left: -30px; top: 30%; background: radial-gradient(circle at 30% 30%, #cfe6f5, rgba(207,230,245,0) 70%); animation-delay: -9s; }
+.ks-art { position: absolute; right: clamp(.5rem, 4vw, 2.5rem); top: 50%; width: clamp(150px, 26vw, 260px); transform: translateY(-50%); z-index: 1; animation: ks-float 9s ease-in-out infinite; }
+.ks-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; margin-top: .9rem; }
+.ks-feature { padding: .9rem 1rem; border: 1px solid var(--ks-line); border-radius: 14px; background: var(--ks-panel); color: var(--ks-ink); }
+.ks-feature strong { display: block; color: var(--ks-brand-dark); margin-bottom: .2rem; }
+.ks-feature span { color: var(--ks-muted); font-size: .92rem; }
+@keyframes ks-gradient { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes ks-float { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -14px, 0); } }
+@keyframes ks-art-float { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(calc(-50% - 12px)); } }.ks-art { animation-name: ks-art-float; }
 .ks-eyebrow { color: var(--ks-brand-dark); font-weight: 700; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
 .ks-note { padding: .85rem 1rem; border-radius: 12px; border: 1px solid #e3c7b4; background: var(--ks-peach); color: var(--ks-peach-ink) !important; }
 .ks-card { padding: 1rem; border: 1px solid var(--ks-line); border-radius: 16px; background: var(--ks-panel); color: var(--ks-ink); }
@@ -141,6 +155,8 @@ hr { border-color: var(--ks-line); }
   [data-testid="stSidebar"] { min-width: 0; }
   [data-testid="stSidebar"] .block-container { padding: .8rem .65rem; }
   .ks-hero { border-radius: 18px; }
+  .ks-art { display: none; }
+  .ks-hero h1 { max-width: none; }
   [data-testid="stHorizontalBlock"] { gap: .65rem; }
   [data-testid="stChatMessage"] { padding: .5rem 0; }
   .stApp [data-testid^="stBaseButton"] { min-height: 2.9rem; }
@@ -149,7 +165,33 @@ hr { border-color: var(--ks-line); }
   .stApp [data-testid^="stBaseButton"], .stApp .stLinkButton > a { border: 1px solid ButtonText !important; forced-color-adjust: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
 </style>
 """
+
+# No blank lines or indentation: Markdown would otherwise end the HTML block early.
+WELCOME_HERO_HTML = (
+    '<section class="ks-hero">'
+    '<span class="ks-orb one"></span><span class="ks-orb two"></span><span class="ks-orb three"></span>'
+    '<svg class="ks-art" viewBox="0 0 240 240" role="img" aria-label="A leaf growing from a small plant pot">'
+    '<circle cx="120" cy="120" r="108" fill="#ffffff" fill-opacity=".7"/>'
+    '<circle cx="120" cy="120" r="84" fill="#e1efea"/>'
+    '<path d="M120 178 C120 140 120 118 120 92" stroke="#0f5f57" stroke-width="6" stroke-linecap="round" fill="none"/>'
+    '<path d="M120 126 C86 126 66 104 64 80 C92 80 116 96 120 126 Z" fill="#0f5f57"/>'
+    '<path d="M120 108 C148 108 168 90 172 64 C144 64 122 80 120 108 Z" fill="#2f8f80"/>'
+    '<path d="M92 178 H148 L142 208 H98 Z" fill="#d98b5f"/>'
+    '<rect x="88" y="172" width="64" height="10" rx="5" fill="#c4764b"/>'
+    '</svg>'
+    '<div class="ks-hero-text">'
+    '<div class="ks-eyebrow">A little space to think things through</div>'
+    '<h1>Meet you where you are.</h1>'
+    '<p>KindSpace is a private AI assistant for everyday questions, reflection, planning, and encouragement.</p>'
+    '</div>'
+    '</section>'
+    '<div class="ks-features">'
+    '<div class="ks-feature"><strong>Private by design</strong><span>Your conversations stay in your own account.</span></div>'
+    '<div class="ks-feature"><strong>Ready when you are</strong><span>Ask, plan, or reflect at any hour.</span></div>'
+    '<div class="ks-feature"><strong>Your pace, your tone</strong><span>Choose warm, direct, or encouraging replies.</span></div>'
+    '</div>'
+)

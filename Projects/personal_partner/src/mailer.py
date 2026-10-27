@@ -15,16 +15,38 @@ LOGGER = logging.getLogger("kindspace.mailer")
 _REQUIRED = ("SMTP_HOST", "SMTP_FROM", "APP_BASE_URL")
 
 
-def _setting(name: str, default: str = "") -> str:
+def _secret_value(name: str) -> str:
+    """Read a secret from the top level, then from any one-level table.
+
+    In TOML, keys written below a `[table]` header belong to that table, so SMTP
+    settings pasted under `[github]` would otherwise be invisible.
+    """
     try:
-        value = st.secrets.get(name)
+        root = st.secrets
+        value = root.get(name)
+        if value not in (None, ""):
+            return str(value)
+        for key in list(root.keys()):
+            section = root[key]
+            if hasattr(section, "get") and not isinstance(section, str):
+                value = section.get(name)
+                if value not in (None, ""):
+                    return str(value)
     except Exception:
-        value = None
-    return str(value if value not in (None, "") else os.environ.get(name, default)).strip()
+        pass
+    return ""
+
+
+def _setting(name: str, default: str = "") -> str:
+    return (_secret_value(name) or os.environ.get(name, default) or default).strip()
+
+
+def missing_mail_settings() -> list[str]:
+    return [name for name in _REQUIRED if not _setting(name) or _setting(name).casefold().startswith("your-")]
 
 
 def mail_is_configured() -> bool:
-    return all(_setting(name) and not _setting(name).casefold().startswith("your-") for name in _REQUIRED)
+    return not missing_mail_settings()
 
 
 def app_base_url() -> str:

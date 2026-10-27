@@ -37,14 +37,23 @@ def _provider_placeholder(value: str) -> bool:
     return not value or value.casefold().startswith("your-") or value.casefold().startswith("generate-")
 
 
-def google_is_configured() -> bool:
+def google_missing_settings() -> list[str]:
+    """Names (never values) of the Google login settings that are absent or still placeholders."""
     root = _root_secrets()
     shared = _mapping(root.get("auth"))
     google = _mapping(shared.get("google"))
-    return all(
-        not _provider_placeholder(str(value or ""))
-        for value in (shared.get("redirect_uri"), shared.get("cookie_secret"), google.get("client_id"), google.get("client_secret"), google.get("server_metadata_url"))
-    )
+    required = {
+        "[auth] redirect_uri": shared.get("redirect_uri"),
+        "[auth] cookie_secret": shared.get("cookie_secret"),
+        "[auth.google] client_id": google.get("client_id"),
+        "[auth.google] client_secret": google.get("client_secret"),
+        "[auth.google] server_metadata_url": google.get("server_metadata_url"),
+    }
+    return [name for name, value in required.items() if _provider_placeholder(str(value or ""))]
+
+
+def google_is_configured() -> bool:
+    return not google_missing_settings()
 
 
 def github_settings() -> tuple[str, str, str]:

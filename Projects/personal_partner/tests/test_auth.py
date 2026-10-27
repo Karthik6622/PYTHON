@@ -32,6 +32,17 @@ def test_account_creation_rejects_duplicate_email_case_insensitively(tmp_path, m
         create_account("Other", "ada.two", "ADA@example.com", "Strong-Pass9!", "Strong-Pass9!", True)
 
 
+def test_login_with_email_and_generated_username(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(storage, "USERS_FILE", tmp_path / "users.json")
+    monkeypatch.setattr(storage, "CONVERSATIONS_DIR", tmp_path / "conversations")
+    storage.initialize_storage()
+    account = create_account("Ada", "", "Ada.Lovelace@Example.com", "Strong-Pass9!", "Strong-Pass9!", True)
+    assert account["username"].startswith("ada.lovelace_")
+    assert authenticate_user(" ada.lovelace@example.com ", "Strong-Pass9!")["user_id"] == account["user_id"]
+    assert authenticate_user("ada.lovelace@example.com", "wrong") is None
+
+
 def test_account_creation_requires_terms():
     with pytest.raises(AccountValidationError, match="accept the privacy"):
         create_account("Ada", "ada.one", "ada@example.com", "Strong-Pass9!", "Strong-Pass9!", False)
