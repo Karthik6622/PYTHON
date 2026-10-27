@@ -8,9 +8,12 @@ import re
 import smtplib
 import ssl
 from email.message import EmailMessage
-from email.utils import formataddr, formatdate, make_msgid
+from email.utils import formataddr, formatdate, make_msgid, parseaddr
 
+import httpx
 import streamlit as st
+
+_BREVO_URL = "https://api.brevo.com/v3"
 
 
 LOGGER = logging.getLogger("kindspace.mailer")
@@ -44,8 +47,13 @@ def _setting(name: str, default: str = "") -> str:
     return (_secret_value(name) or os.environ.get(name, default) or default).strip()
 
 
+def _api_key() -> str:
+    return _setting("BREVO_API_KEY")
+
+
 def missing_mail_settings() -> list[str]:
-    return [name for name in _REQUIRED if not _setting(name) or _setting(name).casefold().startswith("your-")]
+    required = ("SMTP_FROM", "APP_BASE_URL") if _api_key() else _REQUIRED
+    return [name for name in required if not _setting(name) or _setting(name).casefold().startswith("your-")]
 
 
 def mail_is_configured() -> bool:
@@ -94,6 +102,7 @@ def _open_connection() -> smtplib.SMTP:
     password = _setting("SMTP_PASSWORD").replace(" ", "")
     # Some hosts block STARTTLS on 587; fall back to implicit TLS on 465 before giving up.
     ports = [port] + ([465] if port == 587 else [])
+    errors: list[str] = []
     last_error: Exception | None = None
     for candidate in ports:
         try:
@@ -102,9 +111,10 @@ def _open_connection() -> smtplib.SMTP:
             raise
         except (OSError, smtplib.SMTPException) as exc:
             LOGGER.warning("SMTP connection to %s:%s failed: %s: %s", host, candidate, type(exc).__name__, exc)
+            errors.append(f"port {candidate} {type(exc).__name__}")
             last_error = exc
     assert last_error is not None
-    raise last_error
+    raise smtplib.SMTPConnectError(0, "; ".join(errors)) from last_error
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -112,6 +122,15 @@ def email_service_problem() -> str | None:
     """Check the SMTP login without sending anything. Returns a safe, account-independent reason or None."""
     if not mail_is_configured():
         return "Email settings are missing: " + ", ".join(missing_mail_settings()) + "."
+    if _api_key():
+        try:
+            response = httpx.get(f"{_BREVO_URL}/account", headers={"api-key": _api_key()}, timeout=15)
+        except httpx.HTTPError as exc:
+            LOGGER.exception("Could not reach the Brevo API")
+            return f"Could not reach the email service ({type(exc).__name__})."
+        if response.status_code in (401, 403):
+            return "The email service rejected BREVO_API_KEY. Create a new API key in Brevo (SMTP & API > API keys)."
+        return None
     try:
         with _open_connection():
             return None
@@ -121,7 +140,10 @@ def email_service_problem() -> str | None:
     except (OSError, smtplib.SMTPException, ValueError) as exc:
         LOGGER.exception("Could not connect to the SMTP server")
         detail = f"{type(exc).__name__}: {str(exc)[:160]}"
-        return f"Could not connect to the mail server ({detail}). Check SMTP_HOST and SMTP_PORT."
+        return (
+            f"Could not connect to the mail server ({detail}). Check SMTP_HOST and SMTP_PORT. "
+            "If this app is hosted on Streamlit Cloud, outbound SMTP may be blocked; set BREVO_API_KEY to send over HTTPS instead."
+        )
 
 
 def send_password_reset_email(to_address: str, display_name: str, token: str, valid_minutes: int) -> bool:
@@ -130,6 +152,33 @@ def send_password_reset_email(to_address: str, display_name: str, token: str, va
         LOGGER.warning("Password reset requested but SMTP is not configured")
         return False
     link = f"{app_base_url()}/?reset_token={token}"
+    if _api_key():
+        sender_name, sender_email = parseaddr(_sender())
+        body = (
+            f"Hi {display_name},\n\n"
+            f"Use the link below to choose a new KindSpace password. It works once and expires in {valid_minutes} minutes.\n\n"
+            f"{link}\n\n"
+            "If you didn't ask for this, you can ignore this email; your password will not change.\n"
+        )
+        try:
+            response = httpx.post(
+                f"{_BREVO_URL}/smtp/email",
+                headers={"api-key": _api_key(), "accept": "application/json"},
+                json={
+                    "sender": {"name": sender_name or "KindSpace", "email": sender_email},
+                    "to": [{"email": to_address}],
+                    "subject": "Reset your KindSpace password",
+                    "textContent": body,
+                },
+                timeout=20,
+            )
+            if response.status_code >= 300:
+                LOGGER.error("Brevo rejected the email: %s %s", response.status_code, response.text[:300])
+                return False
+            return True
+        except httpx.HTTPError:
+            LOGGER.exception("Could not send password reset email via Brevo")
+            return False
     message = EmailMessage()
     message["Subject"] = "Reset your KindSpace password"
     message["From"] = _sender()
