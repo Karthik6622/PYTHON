@@ -34,14 +34,16 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import (
-    APP_CSS,
-    BRAND_HTML,
-    auth_header_html,
-    welcome_card_head_html,
-    welcome_features_html,
-    welcome_intro_html,
-    welcome_topbar_html,
+from .styles import APP_CSS, BRAND_HTML, auth_header_html
+from .welcome_design import (
+    WELCOME_CSS,
+    WELCOME_FONT_CSS,
+    features_html,
+    footer_html,
+    hero_text_html,
+    nav_brand_html,
+    preview_html,
+    trust_html,
 )
 
 
@@ -133,28 +135,40 @@ def _show_social_error() -> None:
 
 def render_welcome() -> None:
     _show_social_error()
-    st.markdown(welcome_topbar_html(), unsafe_allow_html=True)
-    with st.container(key="ks_herobox"):
-        left, right = st.columns([1.15, 0.85], vertical_alignment="center")
-        with left:
-            st.markdown(
-                welcome_intro_html(str(st.session_state.get("display_name") or ""))
-                + '<div class="ks-note">Your conversations are connected to your account and designed to stay personal to you. '
-                'WithYou is an AI assistant, not a human, therapist, doctor, or emergency service.</div>',
-                unsafe_allow_html=True,
-            )
-        with right:
-            with st.container(key="ks_auth"):
-                st.markdown(welcome_card_head_html(), unsafe_allow_html=True)
-                if st.button("Get started", key="welcome_login", type="primary", use_container_width=True):
+    st.markdown(WELCOME_FONT_CSS + WELCOME_CSS, unsafe_allow_html=True)
+    with st.container(key="ks_welcome"):
+        with st.container(key="ks_nav"):
+            brand_col, login_col, signup_col = st.columns([6, 1.3, 2], vertical_alignment="center")
+            with brand_col:
+                st.markdown(nav_brand_html(), unsafe_allow_html=True)
+            with login_col:
+                if st.button("Log in", key="nav_login", type="tertiary"):
                     st.session_state.view = "Login"
                     st.rerun()
-                if st.button("Create account", key="welcome_signup", use_container_width=True):
+            with signup_col:
+                if st.button("Create account", key="nav_signup"):
                     st.session_state.view = "Create Account"
                     st.rerun()
-                _social_buttons("welcome", welcome=True, stacked=True)
-    st.markdown(welcome_features_html(), unsafe_allow_html=True)
-    st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion &middot; Powered by <strong>RK</strong></div>', unsafe_allow_html=True)
+        with st.container(key="ks_hero"):
+            left, right = st.columns([1.1, 0.9], vertical_alignment="center")
+            with left:
+                st.markdown(hero_text_html(str(st.session_state.get("display_name") or "")), unsafe_allow_html=True)
+                with st.container(key="ks_cta"):
+                    start_col, signup_col = st.columns(2)
+                    with start_col:
+                        if st.button("Get started", key="welcome_login", type="primary", use_container_width=True):
+                            st.session_state.view = "Login"
+                            st.rerun()
+                    with signup_col:
+                        if st.button("Create account", key="welcome_signup", use_container_width=True):
+                            st.session_state.view = "Create Account"
+                            st.rerun()
+                    _social_buttons("welcome", welcome=True)
+                st.markdown(trust_html(), unsafe_allow_html=True)
+            with right:
+                st.markdown(preview_html(), unsafe_allow_html=True)
+        st.markdown(features_html(), unsafe_allow_html=True)
+        st.markdown(footer_html(), unsafe_allow_html=True)
 
 
 def _auth_links(prompt: str, label: str, key: str, view: str) -> None:

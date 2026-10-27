@@ -257,69 +257,10 @@ BRAND_MARK_SVG = (
 
 BRAND_HTML = f'<span class="ks-brand">{BRAND_MARK_SVG}<span>WithYou</span></span>'
 
-_HERO_ART = (
-    '<svg viewBox="0 0 240 240" role="img" aria-label="A small leafy plant in a warm pot, surrounded by soft circles">'
-    '<circle cx="120" cy="120" r="112" fill="#ffffff" fill-opacity=".72"/>'
-    '<circle cx="120" cy="120" r="86" fill="#E9F4F1"/>'
-    '<circle cx="186" cy="62" r="16" fill="#E9A06D" fill-opacity=".55"/>'
-    '<circle cx="52" cy="176" r="10" fill="#2B8C7E" fill-opacity=".35"/>'
-    '<path d="M120 178 C120 140 120 118 120 92" stroke="#0B5D55" stroke-width="6" stroke-linecap="round" fill="none"/>'
-    '<path d="M120 126 C86 126 66 104 64 80 C92 80 116 96 120 126 Z" fill="#0B5D55"/>'
-    '<path d="M120 108 C148 108 168 90 172 64 C144 64 122 80 120 108 Z" fill="#2B8C7E"/>'
-    '<path d="M92 178 H148 L142 208 H98 Z" fill="#E9A06D"/>'
-    '<rect x="88" y="172" width="64" height="10" rx="5" fill="#D88B55"/>'
-    '</svg>'
-)
-
-_ICON_LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
-_ICON_CHAT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>'
-_ICON_SLIDERS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
-
-
-def _feature(icon: str, title: str, text: str) -> str:
-    return f'<div class="ks-feature"><div class="ks-feature-icon">{icon}</div><strong>{title}</strong><span>{text}</span></div>'
-
-
 def auth_header_html(badge: str, title: str, subtitle: str) -> str:
     """Header banner for the Login / Create account / Reset pages."""
     return (
         f'<div class="ks-authhead">{BRAND_HTML}'
         f'<div><span class="ks-badge">{html.escape(badge)}</span></div>'
         f'<h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>'
-    )
-
-
-def welcome_topbar_html() -> str:
-    return f'<div class="ks-topbar">{BRAND_HTML}</div>'
-
-
-def welcome_intro_html(display_name: str = "") -> str:
-    """Hero text. No blank lines or indentation: Markdown would otherwise end the HTML block early."""
-    hello = f'<div class="ks-hello">Welcome back, {html.escape(display_name)}</div>' if display_name else ""
-    return (
-        '<div class="ks-hero ks-hero-text">'
-        '<div class="ks-eyebrow">Your personal space to talk, think &amp; grow</div>'
-        f'{hello}'
-        '<h1>Here for whatever<br> is on your mind.</h1>'
-        '<p>WithYou is your personal AI companion for everyday conversations, questions, ideas, planning, reflection, '
-        'and encouragement, all in one private space.</p>'
-        '</div>'
-    )
-
-
-def welcome_card_head_html() -> str:
-    return (
-        f'<div class="ks-card-art">{_HERO_ART}</div>'
-        '<div class="ks-card-title">Ready when you are</div>'
-        '<div class="ks-card-sub">Log in or create an account to begin.</div>'
-    )
-
-
-def welcome_features_html() -> str:
-    return (
-        '<div class="ks-features">'
-        + _feature(_ICON_LOCK, "Your conversations, your space", "Your chats stay connected to your account, so you can come back anytime and continue where you left off.")
-        + _feature(_ICON_CHAT, "Always ready to talk", "Ask a question, share a thought, make a plan, or simply have a conversation whenever you need one.")
-        + _feature(_ICON_SLIDERS, "Made to feel personal", "Choose how you like to chat and enjoy responses that feel warm, natural, and helpful.")
-        + '</div>'
     )
