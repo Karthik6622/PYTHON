@@ -6,7 +6,7 @@ import re
 
 import streamlit as st
 
-from components.state import current_project, flash, get_storage, guarded, image_if_exists, make_pipeline, refresh
+from components.state import current_project, flash, get_storage, guarded, image_if_exists, job_running, make_pipeline, refresh
 
 
 def _safe_name(title: str) -> str:
@@ -17,6 +17,9 @@ def render() -> None:
     project = current_project()
     if project is None or project.plan is None:
         st.info("Create a book plan first.")
+        return
+    if job_running(project):
+        st.info("The book is still being generated. The PDF and DOCX are built automatically at the end; see the Chapters tab.")
         return
     storage = get_storage()
     st.subheader("Export")

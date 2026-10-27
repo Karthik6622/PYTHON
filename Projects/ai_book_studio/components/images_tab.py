@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import bump_content, current_project, flash, guarded, image_if_exists, make_pipeline, refresh
+from components.state import bump_content, current_project, flash, guarded, image_if_exists, job_running, make_pipeline, refresh
 from components.styles import pill
 from config import get_image_settings
 from models.book_models import IllustrationPlan
@@ -25,6 +25,9 @@ def render() -> None:
     project = current_project()
     if project is None or project.plan is None:
         st.info("Create a book plan first.")
+        return
+    if job_running(project):
+        st.info("The book is being generated. Images are created automatically; watch the progress on the Chapters tab.")
         return
     version = st.session_state["content_version"]
     settings = get_image_settings()

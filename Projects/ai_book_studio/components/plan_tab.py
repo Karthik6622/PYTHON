@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import current_project, flash, get_storage, guarded, make_pipeline, refresh, set_project
+from components.progress_panel import controls
+from components.state import current_project, flash, get_storage, go_to, guarded, job_running, make_pipeline, refresh, set_project
 from models.book_models import BookProject
-from utils.retry_utils import AIBookError
 from utils.text_utils import compute_budget
 from utils.validation_utils import validate_plan
 
@@ -54,13 +54,14 @@ def render() -> None:
             st.text_area("Illustration idea", chapter.image_concept, key=_key("cc", n), height=70)
 
     save_col, regen_col = st.columns(2)
-    if save_col.button("💾 Save Plan Changes", width="stretch"):
+    locked = job_running(project)
+    if save_col.button("💾 Save Plan Changes", width="stretch", disabled=locked):
         _save_plan(project, budget.target_words)
     with regen_col:
         confirmed = True
         if project.chapters:
             confirmed = st.checkbox("Discard generated chapters and images when regenerating", key="plan_regen_confirm")
-        if st.button("🔄 Regenerate Plan", width="stretch", disabled=not confirmed):
+        if st.button("🔄 Regenerate Plan", width="stretch", disabled=not confirmed or locked):
             _regenerate_plan(project)
 
     st.divider()
@@ -118,36 +119,13 @@ def _regenerate_plan(project: BookProject) -> None:
 def _generation_section(project: BookProject) -> None:
     st.markdown("##### Generate the book")
     st.markdown(
-        '<p class="section-note">Bible, front matter, every chapter (written, reviewed, revised and summarised), illustrations, '
-        "cover and the PDF and DOCX files. Progress is saved after every step, so you can resume at any time.</p>",
+        '<p class="section-note">Bible, front matter, every chapter (written, tested, revised and summarised), illustrations, '
+        "cover and the PDF and DOCX files. Generation runs in the background and progress is saved after every step. "
+        "When you start it, the Chapters tab opens and shows live status.</p>",
         unsafe_allow_html=True,
     )
-    status = project.status
-    if status.stage == "failed" and status.error:
-        st.error(f"The last run stopped: {status.error}")
-    if status.stage == "completed":
-        st.success("The book has been generated. Open the Preview and Export tabs.")
-    elif status.stage in {"running", "failed"}:
-        st.progress(min(max(status.progress, 0.0), 1.0), text=status.message or "Paused")
-
-    label = "▶️ Resume Generation" if status.stage in {"running", "failed"} else "🚀 Generate Complete Book"
-    if not st.button(label, type="primary", width="stretch"):
+    if job_running(project):
+        st.info("Generation is running. Watch it live on the Chapters tab.")
+        st.button("📖 Open Chapters (live status)", on_click=go_to, args=("chapters",), width="stretch")
         return
-
-    bar = st.progress(0.0, text="Starting...")
-
-    def on_progress(fraction: float, message: str) -> None:
-        bar.progress(min(max(fraction, 0.0), 1.0), text=message)
-
-    try:
-        summary = make_pipeline(project, on_progress).generate_complete_book()
-    except AIBookError as exc:
-        flash(f"{exc.user_message} Your progress is saved; press Resume to continue.", "error")
-    else:
-        st.session_state["export_summary"] = summary
-        flash(
-            f"Your book is ready ({summary.pages} PDF pages)."
-            + (f" {len(summary.warnings)} warning(s) need your attention." if summary.warnings else ""),
-            "success",
-        )
-    refresh()
+    controls(project, "plan")

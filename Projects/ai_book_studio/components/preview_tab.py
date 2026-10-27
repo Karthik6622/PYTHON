@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import current_project, image_if_exists
+from components.state import current_project, go_to, image_if_exists
 from models.book_models import BookProject
 from services.chapter_writer import author_page_text
 from utils.text_utils import chapter_label, count_words, estimate_pdf_pages, label
@@ -44,6 +44,8 @@ def render() -> None:
 
     words = [count_words(text) for text in project.chapters.values()]
     st.subheader(plan.title)
+    if project.status.stage == "completed":
+        st.button("📤 Looks good: go to Export and download", on_click=go_to, args=("export",), type="primary")
     if plan.subtitle:
         st.caption(plan.subtitle)
     m1, m2, m3, m4 = st.columns(4)

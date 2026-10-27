@@ -31,7 +31,14 @@ from utils.validation_utils import collect_warnings, screen_request, validate_bo
 
 LOGGER = logging.getLogger("ai_book_studio.pipeline")
 ProgressCallback = Callable[[float, str], None]
+ChapterEventCallback = Callable[[int, str], None]
 REVIEW_UNAVAILABLE = "Review unavailable."
+
+
+class GenerationStopped(AIBookError):
+    """The user asked to stop; progress is saved and generation can continue later."""
+
+    default_message = "Generation was stopped. Your progress is saved; press Continue to carry on."
 
 
 @dataclass
@@ -55,6 +62,8 @@ class BookPipeline:
         image_generator: ImageGenerator | None = None,
         progress: ProgressCallback | None = None,
         llm_factory: Callable[[], LLMClient] | None = None,
+        chapter_event: ChapterEventCallback | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> None:
         self.project = project
         self.storage = storage
@@ -62,6 +71,8 @@ class BookPipeline:
         self._llm_factory = llm_factory
         self._image_generator = image_generator
         self._progress = progress
+        self._chapter_event = chapter_event
+        self._should_stop = should_stop
         self._total = 1
         self._done = 0
 
@@ -88,6 +99,15 @@ class BookPipeline:
 
     def _finish(self) -> None:
         self._done += 1
+
+    def _note(self, number: int, phase: str) -> None:
+        """Tell the interface which phase a chapter is in (writing, testing, revising, summarising, illustrating, done)."""
+        if self._chapter_event:
+            self._chapter_event(number, phase)
+
+    def _check_stop(self) -> None:
+        if self._should_stop and self._should_stop():
+            raise GenerationStopped()
 
     def _sync_status(self) -> None:
         status = self.project.status
@@ -145,20 +165,27 @@ class BookPipeline:
         try:
             self._ensure_bible()
             for key in front_keys:
+                self._check_stop()
                 self._ensure_section(key)
             for chapter in plan.chapters:
                 number = chapter.chapter_number
+                self._check_stop()
                 self._begin(f"Writing {chapter_label(number, plan.language)}: {chapter.title}")
                 if not self.project.chapter_done(number):
                     self.process_chapter(number)
                 self._finish()
                 if chapter.requires_image:
+                    self._check_stop()
                     self._begin(f"Creating illustration for {chapter_label(number, plan.language)}")
                     if not self.storage.image_file(self.project, f"chapter_{number:02d}"):
+                        self._note(number, "illustrating")
                         self.generate_chapter_image(number)
                     self._finish()
+                self._note(number, "done")
             for key in back_keys:
+                self._check_stop()
                 self._ensure_section(key)
+            self._check_stop()
             self._begin("Creating the front cover...")
             if not (self.storage.image_file(self.project, "cover_art") and "cover" in self.project.images):
                 self.generate_cover()
@@ -166,6 +193,9 @@ class BookPipeline:
             self._begin("Building the PDF and DOCX files...")
             summary = self.assemble_exports()
             self._finish()
+        except GenerationStopped as exc:
+            self._set_stage("stopped", exc.user_message)
+            raise
         except AIBookError as exc:
             LOGGER.error("Generation stopped: %s", type(exc).__name__)
             self._fail(exc.user_message)
@@ -208,24 +238,32 @@ class BookPipeline:
             raise AIBookError(f"Chapter {number} does not exist in the plan.")
         project = self.project
         if force or not project.chapters.get(number, "").strip():
+            self._note(number, "writing")
             project.chapters[number] = write_chapter(self.llm, project, chapter)
             project.summaries.pop(number, None)
             project.reviews.pop(number, None)
             self.storage.save_chapter(project, number)
         text = project.chapters[number]
         if number not in project.reviews:
+            self._check_stop()
+            self._note(number, "testing")
             report = review_chapter(self.llm, project, chapter, text)
             revisions = 0
             while not report.passed and revisions < MAX_REVISIONS and report.editor_summary != REVIEW_UNAVAILABLE:
                 revisions += 1
+                self._check_stop()
+                self._note(number, f"revising {revisions}")
                 text = revise_chapter(self.llm, project, chapter, text, report)
                 project.chapters[number] = text
                 self.storage.save_chapter(project, number)
+                self._note(number, "testing")
                 report = review_chapter(self.llm, project, chapter, text)
             report.revisions = revisions
             project.reviews[number] = report
             self.storage.save_chapter(project, number)
         if number not in project.summaries:
+            self._check_stop()
+            self._note(number, "summarising")
             project.summaries[number] = summarize_chapter(self.llm, project, chapter, project.chapters[number])
             self.storage.save_chapter(project, number)
         self._sync_status()

@@ -11,9 +11,12 @@ st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide", initi
 load_dotenv(ROOT_DIR / ".env")
 
 from components import chapters_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
+from components.progress_panel import render_sidebar_status  # noqa: E402
 from components.state import (  # noqa: E402
+    NAV_LABELS,
     current_project,
     delete_project,
+    finalize_job,
     get_storage,
     init_state,
     new_book,
@@ -24,12 +27,13 @@ from components.state import (  # noqa: E402
 )
 from components.styles import apply_styles, pill, render_header  # noqa: E402
 
-_STAGE_PILLS = {
-    "new": ("Not started", "info"),
-    "planned": ("Plan ready", "info"),
-    "running": ("Running / paused", "warn"),
-    "failed": ("Stopped - resume available", "bad"),
-    "completed": ("Completed", "ok"),
+_SECTIONS = {
+    "create": create_tab,
+    "plan": plan_tab,
+    "chapters": chapters_tab,
+    "images": images_tab,
+    "preview": preview_tab,
+    "export": export_tab,
 }
 
 
@@ -53,20 +57,7 @@ def render_sidebar() -> None:
 
         st.divider()
         st.markdown("### Generation status")
-        if project is None:
-            st.caption("No book open.")
-        else:
-            text, kind = _STAGE_PILLS.get(project.status.stage, ("Unknown", "info"))
-            st.markdown(pill(text, kind), unsafe_allow_html=True)
-            st.progress(min(max(project.status.progress, 0.0), 1.0))
-            if project.status.message:
-                st.caption(project.status.message)
-            if project.status.total_chapters:
-                st.caption(f"Chapters complete: {len(project.status.completed_chapters)} / {project.status.total_chapters}")
-            if project.status.error:
-                st.error(project.status.error)
-            if project.status.stage in {"running", "failed"}:
-                st.caption("Open the Plan tab and press **Resume Generation** to continue.")
+        render_sidebar_status()
 
         st.divider()
         st.markdown("### Saved projects")
@@ -98,15 +89,17 @@ def main() -> None:
     setup_logging()
     init_state()
     apply_styles()
+    finalize_job()
     sync_mirrors(current_project())
     render_sidebar()
     render_header()
     render_flash()
 
-    tabs = st.tabs(["✍️ Create", "🗺️ Plan", "📖 Chapters", "🖼️ Images", "👁️ Preview", "📤 Export"])
-    for tab, module in zip(tabs, (create_tab, plan_tab, chapters_tab, images_tab, preview_tab, export_tab)):
-        with tab:
-            module.render()
+    target = st.session_state.pop("nav_target", None)
+    if target in NAV_LABELS:
+        st.session_state["nav"] = target
+    section = st.radio("Section", list(NAV_LABELS), format_func=NAV_LABELS.get, key="nav", horizontal=True, label_visibility="collapsed")
+    _SECTIONS[section].render()
 
 
 main()

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import bump_content, current_project, flash, get_storage, guarded, make_pipeline, refresh
+from components.progress_panel import render_live
+from components.state import bump_content, current_project, flash, get_storage, guarded, job_running, make_pipeline, refresh
 from models.book_models import BookProject
 from utils.text_utils import count_words
 
@@ -16,27 +17,9 @@ def render() -> None:
         return
     plan = project.plan
     st.subheader("Chapters")
+    render_live()
     if not project.chapters:
-        st.info("No chapters yet. Press **Generate Complete Book** on the Plan tab.")
         return
-
-    rows = []
-    for chapter in plan.chapters:
-        n = chapter.chapter_number
-        review = project.reviews.get(n)
-        rows.append(
-            {
-                "Chapter": n,
-                "Title": chapter.title,
-                "Words": count_words(project.chapters.get(n, "")),
-                "Target": chapter.target_words,
-                "Quality score": review.score if review else None,
-                "Passed": ("Yes" if review.passed else "No") if review else "-",
-                "Revisions": review.revisions if review else None,
-                "Summary": "Yes" if n in project.summaries else "No",
-            }
-        )
-    st.dataframe(rows, hide_index=True, width="stretch")
 
     numbers = [c.chapter_number for c in plan.chapters]
     chosen = st.selectbox(
@@ -77,20 +60,23 @@ def _chapter_editor(project: BookProject, number: int) -> None:
     st.caption(f"{count_words(edited):,} words")
 
     a, b, c = st.columns(3)
-    if a.button("💾 Save Edits", key=f"save_{number}", width="stretch", disabled=not text or edited == text):
+    locked = job_running(project)
+    if locked:
+        st.caption("Editing is locked while the book is being generated.")
+    if a.button("💾 Save Edits", key=f"save_{number}", width="stretch", disabled=locked or not text or edited == text):
         project.chapters[number] = edited.strip()
         storage.save_chapter(project, number)
         bump_content()
         flash(f"Chapter {number} saved. Use “Review Chapter Again” to refresh the quality check.", "success")
         refresh()
-    if b.button("🔁 Regenerate Chapter", key=f"regen_{number}", width="stretch"):
+    if b.button("🔁 Regenerate Chapter", key=f"regen_{number}", width="stretch", disabled=locked):
         with guarded(f"Regenerating chapter {number}"):
             with st.spinner(f"Rewriting chapter {number}..."):
                 make_pipeline(project).regenerate_chapter(number)
             bump_content()
             flash(f"Chapter {number} was rewritten, reviewed and summarised.", "success")
             refresh()
-    if c.button("🔍 Review Chapter Again", key=f"review_{number}", width="stretch", disabled=not text):
+    if c.button("🔍 Review Chapter Again", key=f"review_{number}", width="stretch", disabled=locked or not text):
         with guarded(f"Reviewing chapter {number}"):
             with st.spinner("The editor is reading the chapter..."):
                 make_pipeline(project).review_again(number)

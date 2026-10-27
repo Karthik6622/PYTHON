@@ -19,6 +19,7 @@ from config import (
 )
 from models.book_models import BookInput, BookProject
 from services.book_pipeline import BookPipeline
+from services.job_runner import GenerationJob
 from services.nvidia_client import NvidiaClient
 from services.project_storage import ProjectStorage
 from utils.retry_utils import AIBookError, redact
@@ -42,6 +43,7 @@ MIRROR_DEFAULTS: dict[str, Any] = {
     "current_error": None,
 }
 _LABEL_BY_KEY = {key: label for label, key in CONTENT_OPTIONS.items()}
+_KEEP_PREFIXES = ("in_", "p_", "ct_", "co_", "cs_", "ck_", "cw_", "ci_", "cc_")
 
 
 # --------------------------------------------------------------------------------------
@@ -66,6 +68,91 @@ def setup_logging() -> bool:
 @st.cache_resource
 def get_storage() -> ProjectStorage:
     return ProjectStorage()
+
+
+NAV_LABELS: dict[str, str] = {
+    "create": "✍️ Create",
+    "plan": "🗺️ Plan",
+    "chapters": "📖 Chapters",
+    "images": "🖼️ Images",
+    "preview": "👁️ Preview",
+    "export": "📤 Export",
+}
+
+
+@st.cache_resource
+def _job_registry() -> dict[str, GenerationJob]:
+    """Background jobs live here, outside any one session, so they survive reruns and reconnects."""
+    return {}
+
+
+def job_for(project: BookProject | None) -> GenerationJob | None:
+    return _job_registry().get(project.project_id) if project else None
+
+
+def job_running(project: BookProject | None) -> bool:
+    job = job_for(project)
+    return bool(job and job.running)
+
+
+def go_to(section: str) -> None:
+    """Open a section (a key of NAV_LABELS) on the next run."""
+    st.session_state["nav_target"] = section
+
+
+def start_generation(project: BookProject) -> bool:
+    """Start (or continue) generation in the background and open the Chapters section."""
+    if job_running(project):
+        return True
+
+    def build(progress, chapter_event, should_stop) -> BookPipeline:
+        return BookPipeline(
+            project,
+            get_storage(),
+            llm_factory=NvidiaClient,
+            progress=progress,
+            chapter_event=chapter_event,
+            should_stop=should_stop,
+        )
+
+    job = GenerationJob(build)
+    try:
+        job.start()
+    except AIBookError as exc:
+        st.error(exc.user_message)
+        return False
+    job.handled = False  # type: ignore[attr-defined]
+    _job_registry()[project.project_id] = job
+    project.status.stage = "running"
+    project.status.error = None
+    go_to("chapters")
+    return True
+
+
+def stop_generation(project: BookProject) -> None:
+    job = job_for(project)
+    if job and job.running:
+        job.request_stop()
+
+
+def finalize_job() -> None:
+    """Once per finished job: refresh the mirrors, show the outcome and open Preview after success."""
+    project = current_project()
+    job = job_for(project)
+    if job is None or job.running or getattr(job, "handled", True):
+        return
+    job.handled = True  # type: ignore[attr-defined]
+    sync_mirrors(project)
+    bump_content()
+    if job.summary is not None:
+        st.session_state["export_summary"] = job.summary
+        extra = f" {len(job.summary.warnings)} warning(s) need your attention." if job.summary.warnings else ""
+        flash(f"Your book is ready ({job.summary.pages} PDF pages). Review it here, then download it on the Export tab.{extra}", "success")
+        go_to("preview")
+    elif job.stopped:
+        flash("Generation stopped. Your progress is saved; press Continue to carry on.", "warning")
+    elif job.error:
+        flash(f"{job.error} Your progress is saved; press Continue to carry on.", "error")
 
 
 # --------------------------------------------------------------------------------------
@@ -98,6 +185,11 @@ def init_state() -> None:
     st.session_state.setdefault("content_version", 0)
     st.session_state.setdefault("flash", [])
     st.session_state.setdefault("export_summary", None)
+    # Only the open section is drawn, and Streamlit forgets widgets that are not drawn.
+    # Re-assigning keeps the form and the unsaved plan edits when moving between sections.
+    for key in list(st.session_state.keys()):
+        if isinstance(key, str) and key.startswith(_KEEP_PREFIXES):
+            st.session_state[key] = st.session_state[key]
 
 
 def current_project() -> BookProject | None:
@@ -176,6 +268,9 @@ def open_project(project_id: str) -> None:
         flash(exc.user_message, "error")
         return
     populate_inputs(project.book_input)
+    live = job_for(project)
+    if live is not None and live.running and live.project is not None:
+        project = live.project  # attach to the generation that is still running
     set_project(project)
     flash(f"Loaded “{project.title}”.", "success")
 
