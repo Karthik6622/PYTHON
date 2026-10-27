@@ -51,3 +51,28 @@ def test_weather_lookup_failure_is_reported_honestly(monkeypatch):
     monkeypatch.setattr(live_info, "_fetch_weather", boom)
     note = live_info.weather_note(["weather in Paris"])
     assert note and "Do not invent weather" in note
+
+
+def test_fact_question_gets_live_reference(monkeypatch):
+    monkeypatch.setattr(live_info, "_wiki_lookup", lambda query, bucket: "Chief Minister of Tamil Nadu: Example Person is the CM.")
+    text = system_text(assistant.build_messages(convo("who is tamilnadu cm?"), {}))
+    assert "Live reference (Wikipedia" in text
+    assert "Example Person is the CM" in text
+
+
+def test_small_talk_skips_live_lookup(monkeypatch):
+    def should_not_run(query, bucket):
+        raise AssertionError("small talk must not trigger a lookup")
+
+    monkeypatch.setattr(live_info, "_wiki_lookup", should_not_run)
+    text = system_text(assistant.build_messages(convo("hi, how are you"), {}))
+    assert "Live reference" not in text
+
+
+def test_reference_lookup_failure_is_reported_honestly(monkeypatch):
+    def boom(query, bucket):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(live_info, "_wiki_lookup", boom)
+    text = system_text(assistant.build_messages(convo("which tamil movies released this year?"), {}))
+    assert "lookup failed" in text and "instead of guessing" in text

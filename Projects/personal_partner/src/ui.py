@@ -454,10 +454,11 @@ def _chat_header(conversation: dict[str, Any], romantic: bool) -> None:
     first_name = html.escape(str(st.session_state.get("display_name", "")).strip().split(" ")[0])
     title = html.escape(safe_conversation_title(str(conversation.get("title", "Conversation"))))
     hello = f"{_greeting()}, {first_name}" if first_name else _greeting()
-    chip = '<span class="ks-chip rose">Romantic mode</span>' if romantic else ""
+    chip = '<span class="ks-chip rose">♥ Romantic mode</span>' if romantic else ""
+    flag = '<div class="ks-romantic-flag"></div>' if romantic else ""
     st.markdown(
-        f'<div class="ks-chat-head"><div><div class="ks-eyebrow">{title}</div><h2>{hello}</h2>'
-        '<p>Talk it out, ask away, or just say hi. WithYou is an AI assistant.</p></div>'
+        f'{flag}<div class="ks-chat-head"><div><div class="ks-eyebrow">{title}</div><h2>{hello}</h2>'
+        '<p>Talk it out, ask away, or just say hi. WithYou is your AI companion.</p></div>'
         f'{chip}</div>',
         unsafe_allow_html=True,
     )

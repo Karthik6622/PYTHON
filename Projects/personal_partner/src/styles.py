@@ -177,11 +177,36 @@ hr { border-color: var(--ks-line); }
 .ks-chip { display: inline-block; max-width: 100%; padding: .28rem .7rem; border-radius: 999px; border: 1px solid var(--ks-line); background: var(--ks-soft); color: var(--ks-brand-dark);
   font-size: .8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ks-chip.rose { background: #fdeaf0; border-color: #f2c6d4; color: #7a2343; }
-[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { background: var(--ks-soft); border-color: #cfe3dd; }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { background: linear-gradient(135deg, #e9f6f2 0%, #dff0eb 100%); border-color: #cfe3dd; }
 .st-key-sidebar_chats [data-testid^="stBaseButton"] { justify-content: flex-start; text-align: left; }
 .st-key-sidebar_chats [data-testid^="stBaseButton"] p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [class*="st-key-ks_active_"] [data-testid^="stBaseButton"] { background: var(--ks-soft) !important; border-color: var(--ks-brand) !important; }
 [data-testid="stToggle"] label p, [data-testid="stCheckbox"] label p { color: var(--ks-ink) !important; }
+
+/* Romantic mode: the flag element renders only when the topic is on; the palette shifts via variables */
+.ks-romantic-flag { display: none; }
+.stApp:has(.ks-romantic-flag) {
+  --ks-paper: #fff5f8;
+  --ks-sidebar: #fdeaf1;
+  --ks-soft: #fde4ed;
+  --ks-line: #f5cfdc;
+  --ks-line-strong: #c97f98;
+  --ks-brand: #b0295a;
+  --ks-brand-dark: #861f44;
+  --ks-link: #9c2456;
+  --ks-accent: #f08fb0;
+  background: radial-gradient(900px 520px at 100% -10%, rgba(255,176,203,.55), transparent 62%), radial-gradient(760px 460px at -8% 105%, rgba(255,205,222,.6), transparent 60%), linear-gradient(180deg, #fff7fa 0%, #fdeaf1 100%) !important;
+}
+.stApp:has(.ks-romantic-flag) [data-testid="stAppViewContainer"],
+.stApp:has(.ks-romantic-flag) [data-testid="stMain"],
+.stApp:has(.ks-romantic-flag) [data-testid="stHeader"],
+.stApp:has(.ks-romantic-flag) [data-testid="stBottom"],
+.stApp:has(.ks-romantic-flag) [data-testid="stBottomBlockContainer"] { background: transparent !important; }
+.stApp:has(.ks-romantic-flag) .ks-chat-head { background: linear-gradient(135deg, #ffffff 0%, #ffe3ec 55%, #fff0f5 100%); border-color: #f4bfd0; box-shadow: 0 16px 34px -28px rgba(176,41,90,.7); }
+.stApp:has(.ks-romantic-flag) .ks-eyebrow { color: #b0295a; }
+.stApp:has(.ks-romantic-flag) [data-testid="stChatMessage"] { background: #ffffff; border-color: #f7d3df; box-shadow: 0 12px 26px -22px rgba(176,41,90,.7); }
+.stApp:has(.ks-romantic-flag) [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { background: linear-gradient(135deg, #ffe4ee 0%, #fdd6e4 100%); border-color: #f2b8cb; }
+.stApp:has(.ks-romantic-flag) [data-testid="stChatInput"] { border-color: #e7a6bd; box-shadow: 0 12px 28px -22px rgba(176,41,90,.8); }
 
 /* Login / Create account / Reset pages */
 .st-key-ks_authpage { max-width: 520px; margin: 0 auto; background: #fff; border: 1px solid var(--ks-line); border-radius: 28px;

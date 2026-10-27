@@ -141,3 +141,79 @@ def weather_note(user_texts: list[str], default_city: str = "") -> str | None:
         f"{report}\nUse these live numbers to answer in a friendly, natural way (convert units only if asked). "
         "Do not claim data you were not given."
     )
+
+
+_WIKI_API = "https://en.wikipedia.org/w/api.php"
+_FACT_INTENT = re.compile(
+    r"\b(who|what|which|when|where|list|name|latest|current|currently|recent|news|released|release|about|"
+    r"movie|movies|film|films|cinema|actor|actress|director|cm|chief minister|prime minister|president|"
+    r"governor|minister|leader|elected|winner|champion|population|capital|price)\b|\?",
+    re.IGNORECASE,
+)
+
+
+def wants_facts(text: str) -> bool:
+    """True for questions about facts that can change over time (officeholders, films, news)."""
+    return bool(_FACT_INTENT.search(text or "")) and not wants_weather(text)
+
+
+@lru_cache(maxsize=128)
+def _wiki_lookup(query: str, bucket: int) -> str:  # noqa: ARG001 - bucket only expires the cache
+    """Search Wikipedia (no API key) and return short intros of the top matching pages."""
+    headers = {"User-Agent": "WithYou-personal-app/1.0"}
+    with httpx.Client(timeout=8, verify=ssl.create_default_context(), headers=headers) as client:
+        search = client.get(
+            _WIKI_API,
+            params={"action": "query", "list": "search", "srsearch": query, "srlimit": 3, "format": "json", "utf8": 1},
+        )
+        search.raise_for_status()
+        titles = [hit["title"] for hit in search.json().get("query", {}).get("search", [])][:2]
+        if not titles:
+            return ""
+        pages = client.get(
+            _WIKI_API,
+            params={
+                "action": "query",
+                "prop": "extracts",
+                "explaintext": 1,
+                "exchars": 1200,
+                "redirects": 1,
+                "titles": "|".join(titles),
+                "format": "json",
+            },
+        )
+        pages.raise_for_status()
+    sections = []
+    for page in pages.json().get("query", {}).get("pages", {}).values():
+        extract = " ".join(str(page.get("extract", "")).split())
+        if extract:
+            sections.append(f"{page.get('title')}: {extract}")
+    return "\n".join(sections)
+
+
+def knowledge_note(user_texts: list[str]) -> str | None:
+    """Build a system note with a live reference lookup for fact questions, so answers are not stale."""
+    if not user_texts or not wants_facts(user_texts[-1]):
+        return None
+    query = " ".join(user_texts[-1].split())
+    if len(query.split()) < 4 and len(user_texts) > 1:
+        # Short follow-ups like "and before him?" need the previous question for context.
+        query = f"{user_texts[-2]} {query}"
+    query = query[:200]
+    stale_warning = (
+        "Your built-in knowledge has a cutoff date and may be out of date for recent events. "
+        "If you are not sure of the current answer, say so honestly instead of guessing."
+    )
+    try:
+        reference = _wiki_lookup(query, int(time.time() // 3600))
+    except Exception as exc:
+        LOGGER.warning("Reference lookup failed: %s: %s", type(exc).__name__, exc)
+        return f"A live reference lookup failed just now. {stale_warning}"
+    if not reference:
+        return f"A live reference lookup found nothing for this question. {stale_warning}"
+    return (
+        "Live reference (Wikipedia, fetched just now). It is newer than your built-in memory, so prefer it for facts "
+        "that change over time, such as who holds an office, recent films, and news. Use only the parts relevant to "
+        "the question, mention that it comes from Wikipedia when useful, and say so if it does not fully answer.\n"
+        f"{reference[:3000]}"
+    )
