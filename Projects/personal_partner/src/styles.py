@@ -147,7 +147,7 @@ hr { border-color: var(--ks-line); }
 .ks-hello { color: var(--ks-brand); font-weight: 600; margin: .5rem 0 0; }
 .ks-hero-art { position: relative; z-index: 1; display: flex; justify-content: center; }
 .ks-hero-art svg { width: 100%; max-width: 280px; height: auto; animation: ks-float 10s ease-in-out infinite; }
-.ks-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.1rem 0 1.25rem; }
+.ks-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.75rem 0 1.25rem; }
 .ks-feature { min-width: 0; padding: 1.25rem 1.25rem 1.35rem; border: 1px solid var(--ks-line); border-radius: 20px; background: #fff; color: var(--ks-ink);
   box-shadow: 0 10px 22px -20px rgba(16,47,50,.55); }
 .ks-feature-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--ks-soft); display: flex; align-items: center; justify-content: center; margin-bottom: .85rem; }
@@ -161,7 +161,7 @@ hr { border-color: var(--ks-line); }
 .ks-footer { text-align: center; color: var(--ks-muted); font-size: .85rem; margin-top: 1.25rem; }
 
 /* Welcome call-to-action area */
-.st-key-ks_auth { max-width: 640px; margin: 0 auto; background: #fff; border: 1px solid var(--ks-line); border-radius: 24px;
+.st-key-ks_auth { max-width: 640px; margin: 1.5rem auto 0; background: #fff; border: 1px solid var(--ks-line); border-radius: 24px;
   padding: clamp(1rem, 3vw, 1.6rem); box-shadow: 0 14px 30px -26px rgba(16,47,50,.6); }
 .st-key-welcome_login button { min-height: 3.1rem; font-size: 1.02rem; }
 .st-key-welcome_signup button { min-height: 3.1rem; font-size: 1.02rem; }
@@ -204,9 +204,14 @@ hr { border-color: var(--ks-line); }
 .st-key-ks_authlinks { margin-top: .6rem; align-items: center !important; gap: .1rem !important; }
 .st-key-ks_authlinks > [data-testid="stElementContainer"] { width: auto !important; }
 .st-key-ks_authlinks [data-testid="stButton"] { display: flex; justify-content: center; }
-.st-key-ks_authlinks [data-testid^="stBaseButton"] { background: transparent !important; border: 0 !important; box-shadow: none !important;
-  color: var(--ks-brand) !important; font-weight: 700; min-height: 2.4rem; text-decoration: underline; }
-.st-key-ks_authlinks [data-testid^="stBaseButton"]:hover { color: var(--ks-brand-dark) !important; background: var(--ks-soft) !important; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"] { background: transparent !important; border: 0 !important; box-shadow: none !important; outline: none;
+  color: var(--ks-brand) !important; font-weight: 700; min-height: 2.4rem; padding: .3rem 1.1rem; border-radius: 999px !important; text-decoration: none;
+  transition: background-color .15s ease, color .15s ease; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"]:hover, .st-key-ks_authlinks [data-testid^="stBaseButton"]:active {
+  color: var(--ks-brand-dark) !important; background: var(--ks-soft) !important; border: 0 !important; box-shadow: none !important; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"]:focus-visible { outline: 3px solid var(--ks-focus) !important; outline-offset: 1px; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"]:focus:not(:focus-visible) { box-shadow: none !important; outline: none !important; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"] p { color: inherit !important; background: transparent !important; }
 .ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .6rem; }
 .ks-authhead h1 a, .ks-hero h1 a { display: none !important; }
 
@@ -290,6 +295,11 @@ def welcome_html(display_name: str = "") -> str:
         '</div>'
         f'<div class="ks-hero-art">{_HERO_ART}</div>'
         '</section>'
+    )
+
+
+def welcome_features_html() -> str:
+    return (
         '<div class="ks-features">'
         + _feature(_ICON_LOCK, "Your conversations, your space", "Your chats stay connected to your account, so you can come back anytime and continue where you left off.")
         + _feature(_ICON_CHAT, "Always ready to talk", "Ask a question, share a thought, make a plan, or simply have a conversation whenever you need one.")

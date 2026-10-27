@@ -34,7 +34,7 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import APP_CSS, BRAND_HTML, auth_header_html, welcome_html
+from .styles import APP_CSS, BRAND_HTML, auth_header_html, welcome_features_html, welcome_html
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -126,7 +126,7 @@ def render_welcome() -> None:
     with st.container(key="ks_auth"):
         left, right = st.columns(2)
         with left:
-            if st.button("Log in", key="welcome_login", type="primary", use_container_width=True):
+            if st.button("Get started", key="welcome_login", type="primary", use_container_width=True):
                 st.session_state.view = "Login"
                 st.rerun()
         with right:
@@ -139,6 +139,7 @@ def render_welcome() -> None:
             'WithYou is an AI assistant, not a human, therapist, doctor, or emergency service.</div>',
             unsafe_allow_html=True,
         )
+    st.markdown(welcome_features_html(), unsafe_allow_html=True)
     st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion</div>', unsafe_allow_html=True)
 
 
