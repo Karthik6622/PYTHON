@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover
 
 
 # ----------------------------- configuration -----------------------------
-MODEL = os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4.1-flash")
+MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3.5-bolt-e4b")
 FALLBACK_MODEL = os.environ.get("NVIDIA_FALLBACK_MODEL", "")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 FIRST_TOKEN_DEADLINE = float(os.environ.get("FIRST_TOKEN_DEADLINE", "20"))  # seconds to wait for first answer text
@@ -36,7 +36,8 @@ MAX_FOLLOWUP_TOKENS = 700
 
 # Ways to switch off DeepSeek "thinking". The first one that works is remembered.
 VARIANTS = {
-    "thinking_off": {"extra_body": {"chat_template_kwargs": {"thinking": False}}},
+    "enable_thinking_off": {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}},  # Nemotron
+    "thinking_off": {"extra_body": {"chat_template_kwargs": {"thinking": False}}},  # DeepSeek
     "effort_none": {"reasoning_effort": "none"},
     "plain": {},
 }
@@ -202,6 +203,8 @@ def _discover_models(client) -> list[str]:
         low = model_id.lower()
         if any(word in low for word in skip):
             return None
+        if "nemotron" in low and "bolt" in low:
+            return 0
         if "deepseek" in low and "flash" in low:
             return 0
         if "deepseek" in low and ("v4" in low or "v3" in low):
@@ -565,7 +568,7 @@ def render_sidebar() -> tuple[str, dict, int, int, int]:
                 try:
                     ids = list_available_models()
                     st.success(f"API key works. {len(ids)} models available.")
-                    st.write([i for i in ids if "deepseek" in i.lower()] or "No DeepSeek models are listed right now.")
+                    st.write([i for i in ids if any(k in i.lower() for k in ("nemotron", "deepseek"))] or "No Nemotron/DeepSeek models are listed right now.")
                     st.caption("Set NVIDIA_MODEL to one of these IDs if the default is unavailable.")
                 except Exception as exc:  # noqa: BLE001
                     st.error(str(exc))
@@ -715,7 +718,7 @@ def handle_chat_request(
     try:
         with st.chat_message("assistant", avatar="✳"):
             status = st.empty()
-            status.caption("⏳ Connecting to DeepSeek… text will appear in a few seconds.")
+            status.caption("⏳ Connecting to the model… text will appear in a few seconds.")
             response_stream = (
                 build_initial_guide(
                     session["resume_text"], session["job_description"], project_count, coding_count
@@ -768,7 +771,7 @@ def main() -> None:
 
     session_id, session, total_count, project_count, coding_count = render_sidebar()
     st.title(session_title(session))
-    st.caption("Interviewer workspace · NVIDIA DeepSeek-V4.1-Flash")
+    st.caption("Interviewer workspace · NVIDIA Nemotron 3.5 Bolt")
     save_context_panel(session_id, session)
 
     if not session.get("resume_text") or not session.get("job_description"):
