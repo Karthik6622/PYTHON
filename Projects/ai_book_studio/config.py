@@ -144,7 +144,7 @@ DEFAULT_CONTENT_KEYS = [
 FICTION_TYPES = {"Fiction", "Fantasy", "Science Fiction", "Mystery", "Adventure", "Romance"}
 
 MIN_PAGES = 10
-MAX_PAGES = 200
+MAX_PAGES = 400
 DEFAULT_PAGES = 50
 
 # --------------------------------------------------------------------------------------
