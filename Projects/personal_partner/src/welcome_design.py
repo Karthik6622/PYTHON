@@ -27,17 +27,8 @@ WELCOME_CSS = """
 
 /* Navigation */
 .st-key-ks_nav { position: relative; z-index: 5; background: rgba(255,255,255,.72); border: 1px solid rgba(215,228,225,.9); border-radius: 999px;
-  padding: .55rem .6rem .55rem 1.2rem; box-shadow: 0 14px 34px -26px rgba(16,47,50,.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-.st-key-ks_nav [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; gap: .4rem !important; align-items: center; }
-.st-key-ks_nav .stColumn { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }
-.st-key-ks_nav .stColumn:first-child { flex: 1 1 auto !important; }
+  padding: .8rem 1.4rem; box-shadow: 0 14px 34px -26px rgba(16,47,50,.55); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 .st-key-ks_nav .ks-brand { font-size: 1.28rem; }
-.stApp .st-key-nav_login [data-testid^="stBaseButton"] { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ks-ink) !important;
-  min-height: 2.5rem; padding: 0 1rem; border-radius: 999px !important; font-weight: 600; }
-.stApp .st-key-nav_login [data-testid^="stBaseButton"]:hover { background: var(--ks-soft) !important; color: var(--ks-brand-dark) !important; }
-.stApp .st-key-nav_signup [data-testid^="stBaseButton"] { background: var(--ks-ink) !important; border: 1px solid var(--ks-ink) !important; color: #fff !important;
-  -webkit-text-fill-color: #fff; min-height: 2.5rem; padding: 0 1.3rem; border-radius: 999px !important; font-weight: 700; box-shadow: 0 10px 20px -12px rgba(16,47,50,.8); }
-.stApp .st-key-nav_signup [data-testid^="stBaseButton"]:hover { background: var(--ks-brand) !important; border-color: var(--ks-brand) !important; transform: translateY(-1px); }
 
 /* Hero */
 @media (min-width: 901px) {
@@ -125,8 +116,7 @@ WELCOME_CSS = """
   .ks-w-chip.c2 { right: -.2rem; }
 }
 @media (max-width: 640px) {
-  .st-key-nav_signup { display: none; }
-  .st-key-ks_nav { padding: .45rem .5rem .45rem 1rem; }
+  .st-key-ks_nav { padding: .65rem 1rem; }
   .ks-w-br { display: none; }
   .ks-w-mock { transform: none; }
   .ks-w-footer { flex-direction: column; text-align: center; }

@@ -198,7 +198,7 @@ hr { border-color: var(--ks-line); }
 .st-key-ks_authpage input { min-height: 3rem; }
 .st-key-ks_authpage [data-testid="stWidgetLabel"] p { font-weight: 600; }
 .st-key-ks_authpage [data-testid="stFormSubmitButton"] button { min-height: 3.1rem; font-size: 1.02rem; margin-top: .35rem; }
-.st-key-ks_authlinks { margin-top: .6rem; align-items: center !important; gap: .1rem !important; }
+.st-key-ks_authlinks { margin-top: 1.3rem; padding-top: 1.2rem; border-top: 1px solid var(--ks-line); align-items: center !important; gap: .35rem !important; }
 .st-key-ks_authlinks > [data-testid="stElementContainer"] { width: auto !important; }
 .st-key-ks_authlinks [data-testid="stButton"] { display: flex; justify-content: center; }
 .st-key-ks_authlinks [data-testid^="stBaseButton"] { background: transparent !important; border: 0 !important; box-shadow: none !important; outline: none;
@@ -209,7 +209,15 @@ hr { border-color: var(--ks-line); }
 .st-key-ks_authlinks [data-testid^="stBaseButton"]:focus-visible { outline: 3px solid var(--ks-focus) !important; outline-offset: 1px; }
 .st-key-ks_authlinks [data-testid^="stBaseButton"]:focus:not(:focus-visible) { box-shadow: none !important; outline: none !important; }
 .st-key-ks_authlinks [data-testid^="stBaseButton"] p { color: inherit !important; background: transparent !important; }
-.ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .6rem; }
+.ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .7rem; }
+.stApp .st-key-login_forgot [data-testid^="stBaseButton"] { font-size: .95rem; text-decoration: underline; text-decoration-color: rgba(11,93,85,.35); text-underline-offset: .22em; }
+.stApp :is(.st-key-create_to_login, .st-key-login_to_signup) [data-testid^="stBaseButton"] { background: #fff !important; border: 1.5px solid var(--ks-brand) !important;
+  min-width: min(100%, 240px); min-height: 2.8rem; color: var(--ks-brand) !important; box-shadow: 0 10px 22px -18px rgba(11,93,85,.7) !important; }
+.stApp :is(.st-key-create_to_login, .st-key-login_to_signup) [data-testid^="stBaseButton"]:hover { background: var(--ks-brand) !important; color: #fff !important; transform: translateY(-1px); }
+.stApp :is(.st-key-create_to_login, .st-key-login_to_signup) [data-testid^="stBaseButton"]:hover p { color: #fff !important; }
+.stApp :is(.st-key-create_back, .st-key-login_back) [data-testid^="stBaseButton"] { color: var(--ks-muted) !important; font-weight: 600; font-size: .92rem; margin-top: .3rem; }
+.stApp :is(.st-key-create_back, .st-key-login_back) [data-testid^="stBaseButton"] p::before { content: "\\2190"; margin-right: .45rem; }
+.stApp :is(.st-key-create_back, .st-key-login_back) [data-testid^="stBaseButton"]:hover { color: var(--ks-brand-dark) !important; }
 .ks-authhead h1 a, .ks-hero h1 a { display: none !important; }
 
 /* Welcome hero box: text on the left, action card on the right */

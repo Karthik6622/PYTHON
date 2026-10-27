@@ -138,17 +138,7 @@ def render_welcome() -> None:
     st.markdown(WELCOME_FONT_CSS + WELCOME_CSS, unsafe_allow_html=True)
     with st.container(key="ks_welcome"):
         with st.container(key="ks_nav"):
-            brand_col, login_col, signup_col = st.columns([6, 1.3, 2], vertical_alignment="center")
-            with brand_col:
-                st.markdown(nav_brand_html(), unsafe_allow_html=True)
-            with login_col:
-                if st.button("Log in", key="nav_login", type="tertiary"):
-                    st.session_state.view = "Login"
-                    st.rerun()
-            with signup_col:
-                if st.button("Create account", key="nav_signup"):
-                    st.session_state.view = "Create Account"
-                    st.rerun()
+            st.markdown(nav_brand_html(), unsafe_allow_html=True)
         with st.container(key="ks_hero"):
             left, right = st.columns([1.1, 0.9], vertical_alignment="center")
             with left:
