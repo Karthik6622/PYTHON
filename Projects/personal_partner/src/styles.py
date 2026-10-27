@@ -137,10 +137,7 @@ hr { border-color: var(--ks-line); }
 .ks-brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--ks-brand-dark); font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; }
 .ks-brand svg { width: 30px; height: 30px; flex: none; }
 .ks-topbar { display: flex; align-items: center; justify-content: space-between; padding: .15rem .1rem 1rem; }
-.ks-hero { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
-  align-items: center; gap: clamp(1rem, 4vw, 2.5rem); padding: clamp(1.4rem, 5vw, 3.25rem); border: 1px solid var(--ks-line); border-radius: 28px;
-  background: radial-gradient(120% 120% at 100% 0%, #dcefe9 0%, rgba(220,239,233,0) 55%), linear-gradient(135deg, #ffffff 0%, #eef7f4 55%, #f8f5ed 100%);
-  box-shadow: 0 22px 44px -32px rgba(11,93,85,.55); }
+.ks-hero { position: relative; }
 .ks-hero-text { position: relative; z-index: 2; min-width: 0; }
 .stApp .ks-hero h1 { color: var(--ks-ink); font-size: clamp(1.85rem, 4.6vw, 3.05rem); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; margin: .6rem 0 .95rem; padding: 0; overflow-wrap: anywhere; }
 .stApp .ks-hero p { color: var(--ks-muted); font-size: clamp(1rem, 1.9vw, 1.12rem); line-height: 1.65; max-width: 48ch; margin: 0; }
@@ -161,7 +158,7 @@ hr { border-color: var(--ks-line); }
 .ks-footer { text-align: center; color: var(--ks-muted); font-size: .85rem; margin-top: 1.25rem; }
 
 /* Welcome call-to-action area */
-.st-key-ks_auth { max-width: 640px; margin: 1.5rem auto 0; background: #fff; border: 1px solid var(--ks-line); border-radius: 24px;
+.st-key-ks_auth { width: 100%; margin: 0; background: #fff; border: 1px solid var(--ks-line); border-radius: 24px;
   padding: clamp(1rem, 3vw, 1.6rem); box-shadow: 0 14px 30px -26px rgba(16,47,50,.6); }
 .st-key-welcome_login button { min-height: 3.1rem; font-size: 1.02rem; }
 .st-key-welcome_signup button { min-height: 3.1rem; font-size: 1.02rem; }
@@ -214,6 +211,18 @@ hr { border-color: var(--ks-line); }
 .st-key-ks_authlinks [data-testid^="stBaseButton"] p { color: inherit !important; background: transparent !important; }
 .ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .6rem; }
 .ks-authhead h1 a, .ks-hero h1 a { display: none !important; }
+
+/* Welcome hero box: text on the left, action card on the right */
+.st-key-ks_herobox { position: relative; overflow: hidden; border: 1px solid var(--ks-line); border-radius: 28px; padding: clamp(1.1rem, 4vw, 2.75rem);
+  background: radial-gradient(120% 120% at 100% 0%, #dcefe9 0%, rgba(220,239,233,0) 55%), linear-gradient(135deg, #ffffff 0%, #eef7f4 55%, #f8f5ed 100%);
+  box-shadow: 0 22px 44px -32px rgba(11,93,85,.55); }
+.st-key-ks_herobox [data-testid="stHorizontalBlock"] { gap: clamp(1.25rem, 4vw, 3rem); align-items: center; }
+.st-key-ks_herobox .ks-note { margin-top: 1.4rem; max-width: 52ch; }
+.ks-card-art { display: flex; justify-content: center; margin: .1rem 0 .3rem; }
+.ks-card-art svg { width: 100%; max-width: 110px; height: auto; animation: ks-float 10s ease-in-out infinite; }
+.ks-card-title { text-align: center; color: var(--ks-ink); font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; }
+.ks-card-sub { text-align: center; color: var(--ks-muted); font-size: .93rem; margin: .15rem 0 .35rem; }
+.ks-footer strong { color: var(--ks-brand); font-weight: 700; }
 
 @media (max-width: 820px) {
   .ks-features { grid-template-columns: 1fr; }
@@ -280,21 +289,29 @@ def auth_header_html(badge: str, title: str, subtitle: str) -> str:
     )
 
 
-def welcome_html(display_name: str = "") -> str:
-    """Welcome page markup. No blank lines or indentation: Markdown would otherwise end the HTML block early."""
+def welcome_topbar_html() -> str:
+    return f'<div class="ks-topbar">{BRAND_HTML}</div>'
+
+
+def welcome_intro_html(display_name: str = "") -> str:
+    """Hero text. No blank lines or indentation: Markdown would otherwise end the HTML block early."""
     hello = f'<div class="ks-hello">Welcome back, {html.escape(display_name)}</div>' if display_name else ""
     return (
-        f'<div class="ks-topbar">{BRAND_HTML}</div>'
-        '<section class="ks-hero">'
-        '<div class="ks-hero-text">'
+        '<div class="ks-hero ks-hero-text">'
         '<div class="ks-eyebrow">Your personal space to talk, think &amp; grow</div>'
         f'{hello}'
         '<h1>Here for whatever<br> is on your mind.</h1>'
         '<p>WithYou is your personal AI companion for everyday conversations, questions, ideas, planning, reflection, '
         'and encouragement, all in one private space.</p>'
         '</div>'
-        f'<div class="ks-hero-art">{_HERO_ART}</div>'
-        '</section>'
+    )
+
+
+def welcome_card_head_html() -> str:
+    return (
+        f'<div class="ks-card-art">{_HERO_ART}</div>'
+        '<div class="ks-card-title">Ready when you are</div>'
+        '<div class="ks-card-sub">Log in or create an account to begin.</div>'
     )
 
 

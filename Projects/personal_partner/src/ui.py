@@ -34,7 +34,15 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import APP_CSS, BRAND_HTML, auth_header_html, welcome_features_html, welcome_html
+from .styles import (
+    APP_CSS,
+    BRAND_HTML,
+    auth_header_html,
+    welcome_card_head_html,
+    welcome_features_html,
+    welcome_intro_html,
+    welcome_topbar_html,
+)
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -82,13 +90,16 @@ def _notice_storage_issues() -> None:
         st.warning(notice)
 
 
-def _social_buttons(prefix: str, welcome: bool = False) -> None:
+def _social_buttons(prefix: str, welcome: bool = False, stacked: bool = False) -> None:
     if welcome:
         # Public landing page: only offer providers that are actually configured and never show setup hints.
         if not (google_is_configured() or github_is_configured()):
             return
     st.markdown('<div class="ks-or">or continue with</div>', unsafe_allow_html=True)
-    google_col, github_col = st.columns(2)
+    if stacked:
+        google_col = github_col = st.container()
+    else:
+        google_col, github_col = st.columns(2)
     with google_col:
         if google_is_configured():
             if st.button("Continue with Google", key=f"{prefix}_google", use_container_width=True):
@@ -122,25 +133,28 @@ def _show_social_error() -> None:
 
 def render_welcome() -> None:
     _show_social_error()
-    st.markdown(welcome_html(str(st.session_state.get("display_name") or "")), unsafe_allow_html=True)
-    with st.container(key="ks_auth"):
-        left, right = st.columns(2)
+    st.markdown(welcome_topbar_html(), unsafe_allow_html=True)
+    with st.container(key="ks_herobox"):
+        left, right = st.columns([1.15, 0.85], vertical_alignment="center")
         with left:
-            if st.button("Get started", key="welcome_login", type="primary", use_container_width=True):
-                st.session_state.view = "Login"
-                st.rerun()
+            st.markdown(
+                welcome_intro_html(str(st.session_state.get("display_name") or ""))
+                + '<div class="ks-note">Your conversations are connected to your account and designed to stay personal to you. '
+                'WithYou is an AI assistant, not a human, therapist, doctor, or emergency service.</div>',
+                unsafe_allow_html=True,
+            )
         with right:
-            if st.button("Create account", key="welcome_signup", use_container_width=True):
-                st.session_state.view = "Create Account"
-                st.rerun()
-        _social_buttons("welcome", welcome=True)
-        st.markdown(
-            '<div class="ks-note" style="margin-top:1rem">Your conversations are connected to your account and designed to stay personal to you. '
-            'WithYou is an AI assistant, not a human, therapist, doctor, or emergency service.</div>',
-            unsafe_allow_html=True,
-        )
+            with st.container(key="ks_auth"):
+                st.markdown(welcome_card_head_html(), unsafe_allow_html=True)
+                if st.button("Get started", key="welcome_login", type="primary", use_container_width=True):
+                    st.session_state.view = "Login"
+                    st.rerun()
+                if st.button("Create account", key="welcome_signup", use_container_width=True):
+                    st.session_state.view = "Create Account"
+                    st.rerun()
+                _social_buttons("welcome", welcome=True, stacked=True)
     st.markdown(welcome_features_html(), unsafe_allow_html=True)
-    st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion &middot; Powered by <strong>RK</strong></div>', unsafe_allow_html=True)
 
 
 def _auth_links(prompt: str, label: str, key: str, view: str) -> None:
