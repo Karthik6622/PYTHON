@@ -167,10 +167,10 @@ hr { border-color: var(--ks-line); }
 .st-key-welcome_signup button { min-height: 3.1rem; font-size: 1.02rem; }
 .ks-or { display: flex; align-items: center; gap: .8rem; color: var(--ks-muted); font-size: .9rem; margin: 1rem 0 .7rem; }
 .ks-or::before, .ks-or::after { content: ""; flex: 1; height: 1px; background: var(--ks-line); }
-.st-key-welcome_google button::before, .st-key-welcome_github a::before {
+:is(.st-key-welcome_google, .st-key-login_google, .st-key-signup_google) button::before, :is(.st-key-welcome_github, .st-key-login_github, .st-key-signup_github) a::before {
   content: ""; display: inline-block; flex: none; width: 18px; height: 18px; margin-right: .55rem; background-repeat: no-repeat; background-position: center; background-size: contain; }
-.st-key-welcome_google button::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z'/%3E%3Cpath fill='%23FBBC05' d='M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z'/%3E%3C/svg%3E"); }
-.st-key-welcome_github a::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23102F32' d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E"); }
+:is(.st-key-welcome_google, .st-key-login_google, .st-key-signup_google) button::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z'/%3E%3Cpath fill='%23FBBC05' d='M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z'/%3E%3C/svg%3E"); }
+:is(.st-key-welcome_github, .st-key-login_github, .st-key-signup_github) a::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23102F32' d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E"); }
 
 /* Signed-in chat */
 .ks-chat-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; padding: 1.1rem 1.3rem; margin-bottom: .6rem;
@@ -185,6 +185,30 @@ hr { border-color: var(--ks-line); }
 .st-key-sidebar_chats [data-testid^="stBaseButton"] p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [class*="st-key-ks_active_"] [data-testid^="stBaseButton"] { background: var(--ks-soft) !important; border-color: var(--ks-brand) !important; }
 [data-testid="stToggle"] label p, [data-testid="stCheckbox"] label p { color: var(--ks-ink) !important; }
+
+/* Login / Create account / Reset pages */
+.st-key-ks_authpage { max-width: 520px; margin: 0 auto; background: #fff; border: 1px solid var(--ks-line); border-radius: 28px;
+  padding: clamp(1rem, 4vw, 2rem); box-shadow: 0 22px 44px -32px rgba(11,93,85,.55); }
+.ks-authhead { text-align: center; padding: 1.5rem 1rem 1.35rem; margin-bottom: 1.1rem; border: 1px solid var(--ks-line); border-radius: 22px;
+  background: radial-gradient(120% 120% at 100% 0%, #dcefe9 0%, rgba(220,239,233,0) 55%), linear-gradient(135deg, #ffffff 0%, #eef7f4 55%, #f8f5ed 100%); }
+.ks-badge { display: inline-block; margin-top: 1rem; padding: .32rem 1.1rem; border-radius: 999px; background: var(--ks-brand); color: #fff;
+  font-weight: 800; font-size: .8rem; letter-spacing: .22em; text-transform: uppercase; }
+.stApp .ks-authhead h1 { color: var(--ks-ink); font-size: clamp(1.6rem, 5.5vw, 2.15rem); font-weight: 800; line-height: 1.15; letter-spacing: -.03em; margin: .8rem 0 .35rem; padding: 0; }
+.stApp .ks-authhead p { color: var(--ks-muted); margin: 0; font-size: 1rem; line-height: 1.55; }
+.st-key-ks_authpage [data-testid="stForm"] { border: 0; background: transparent; padding: 0; }
+.st-key-ks_authpage [data-baseweb="input"], .st-key-ks_authpage [data-baseweb="base-input"] { border-radius: 14px; background: var(--ks-paper); }
+.st-key-ks_authpage [data-baseweb="input"]:focus-within { border-color: var(--ks-brand); box-shadow: 0 0 0 3px rgba(11,93,85,.18); }
+.st-key-ks_authpage input { min-height: 3rem; }
+.st-key-ks_authpage [data-testid="stWidgetLabel"] p { font-weight: 600; }
+.st-key-ks_authpage [data-testid="stFormSubmitButton"] button { min-height: 3.1rem; font-size: 1.02rem; margin-top: .35rem; }
+.st-key-ks_authlinks { margin-top: .6rem; align-items: center !important; gap: .1rem !important; }
+.st-key-ks_authlinks > [data-testid="stElementContainer"] { width: auto !important; }
+.st-key-ks_authlinks [data-testid="stButton"] { display: flex; justify-content: center; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"] { background: transparent !important; border: 0 !important; box-shadow: none !important;
+  color: var(--ks-brand) !important; font-weight: 700; min-height: 2.4rem; text-decoration: underline; }
+.st-key-ks_authlinks [data-testid^="stBaseButton"]:hover { color: var(--ks-brand-dark) !important; background: var(--ks-soft) !important; }
+.ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .6rem; }
+.ks-authhead h1 a, .ks-hero h1 a { display: none !important; }
 
 @media (max-width: 820px) {
   .ks-features { grid-template-columns: 1fr; }
@@ -240,6 +264,15 @@ _ICON_SLIDERS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 
 
 def _feature(icon: str, title: str, text: str) -> str:
     return f'<div class="ks-feature"><div class="ks-feature-icon">{icon}</div><strong>{title}</strong><span>{text}</span></div>'
+
+
+def auth_header_html(badge: str, title: str, subtitle: str) -> str:
+    """Header banner for the Login / Create account / Reset pages."""
+    return (
+        f'<div class="ks-authhead">{BRAND_HTML}'
+        f'<div><span class="ks-badge">{html.escape(badge)}</span></div>'
+        f'<h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>'
+    )
 
 
 def welcome_html(display_name: str = "") -> str:

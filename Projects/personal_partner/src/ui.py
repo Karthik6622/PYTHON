@@ -34,7 +34,7 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import APP_CSS, BRAND_HTML, welcome_html
+from .styles import APP_CSS, BRAND_HTML, auth_header_html, welcome_html
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -87,9 +87,7 @@ def _social_buttons(prefix: str, welcome: bool = False) -> None:
         # Public landing page: only offer providers that are actually configured and never show setup hints.
         if not (google_is_configured() or github_is_configured()):
             return
-        st.markdown('<div class="ks-or">or continue with</div>', unsafe_allow_html=True)
-    else:
-        st.caption("Or continue with")
+    st.markdown('<div class="ks-or">or continue with</div>', unsafe_allow_html=True)
     google_col, github_col = st.columns(2)
     with google_col:
         if google_is_configured():
@@ -128,7 +126,7 @@ def render_welcome() -> None:
     with st.container(key="ks_auth"):
         left, right = st.columns(2)
         with left:
-            if st.button("Continue to your space", key="welcome_login", type="primary", use_container_width=True):
+            if st.button("Log in", key="welcome_login", type="primary", use_container_width=True):
                 st.session_state.view = "Login"
                 st.rerun()
         with right:
@@ -144,112 +142,134 @@ def render_welcome() -> None:
     st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion</div>', unsafe_allow_html=True)
 
 
+def _auth_links(prompt: str, label: str, key: str, view: str) -> None:
+    st.markdown(f'<div class="ks-authprompt">{html.escape(prompt)}</div>', unsafe_allow_html=True)
+    if st.button(label, key=key, type="tertiary"):
+        st.session_state.pop("reset_email", None)
+        st.session_state.view = view
+        st.rerun()
+
+
 def render_create_account() -> None:
     _show_social_error()
-    st.title("Create your account")
-    st.caption("A private space for your conversations.")
-    _social_buttons("signup")
-    st.divider()
-    with st.form("create_account_form", clear_on_submit=False):
-        display_name = st.text_input("Display name", max_chars=80, autocomplete="name")
-        email = st.text_input("Email", max_chars=254, autocomplete="email")
-        password = st.text_input("Password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
-        confirm_password = st.text_input("Confirm password", type="password", autocomplete="new-password")
-        accepted = st.checkbox("I have read the privacy notice and understand this is an AI assistant.")
-        submitted = st.form_submit_button("Create account", type="primary", use_container_width=True)
-    if submitted:
-        try:
-            user = create_account(display_name, "", email, password, confirm_password, accepted)
-            _set_authenticated(user)
-            st.success("Your account is ready.")
-            st.rerun()
-        except (AccountValidationError, ValueError) as exc:
-            st.error(str(exc))
-        except Exception:
-            LOGGER.exception("Account creation failed")
-            st.error("We couldn't create the account right now. Please try again.")
-    if st.button("Back to welcome", key="create_back"):
-        st.session_state.view = "Welcome"
-        st.rerun()
+    with st.container(key="ks_authpage"):
+        st.markdown(
+            auth_header_html("Sign up", "Create your account", "A private space for your conversations. It only takes a minute."),
+            unsafe_allow_html=True,
+        )
+        with st.form("create_account_form", clear_on_submit=False):
+            display_name = st.text_input("Display name", max_chars=80, autocomplete="name", placeholder="What should we call you?")
+            email = st.text_input("Email", max_chars=254, autocomplete="email", placeholder="you@example.com")
+            password = st.text_input("Password", type="password", autocomplete="new-password", placeholder="Create a strong password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
+            confirm_password = st.text_input("Confirm password", type="password", autocomplete="new-password", placeholder="Type it once more")
+            accepted = st.checkbox("I have read the privacy notice and understand this is an AI assistant.")
+            submitted = st.form_submit_button("Create account", type="primary", use_container_width=True)
+        if submitted:
+            try:
+                user = create_account(display_name, "", email, password, confirm_password, accepted)
+                _set_authenticated(user)
+                st.success("Your account is ready.")
+                st.rerun()
+            except (AccountValidationError, ValueError) as exc:
+                st.error(str(exc))
+            except Exception:
+                LOGGER.exception("Account creation failed")
+                st.error("We couldn't create the account right now. Please try again.")
+        _social_buttons("signup", welcome=True)
+        with st.container(key="ks_authlinks"):
+            _auth_links("Already have an account?", "Log in", "create_to_login", "Login")
+            if st.button("Back to welcome", key="create_back", type="tertiary"):
+                st.session_state.view = "Welcome"
+                st.rerun()
 
 
 def render_login() -> None:
     _show_social_error()
-    st.title("Welcome back")
-    if st.session_state.pop("password_reset_done", False):
-        st.success("Your password was updated. Log in with your new password.")
-    _social_buttons("login")
-    st.divider()
-    with st.form("login_form", clear_on_submit=True):
-        email = st.text_input("Email", autocomplete="email")
-        password = st.text_input("Password", type="password", autocomplete="current-password")
-        submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
-    if submitted:
-        locked = False
-        try:
-            user = authenticate_user(email, password)
-        except AccountLockedError as exc:
-            st.error(str(exc))
-            user = None
-            locked = True
-        except Exception:
-            LOGGER.exception("Login lookup failed")
-            user = None
-        if user:
-            _set_authenticated(user)
-            st.rerun()
-        if not locked:
-            st.error("Invalid email or password")
-    if st.button("Forgot password?", key="login_forgot"):
-        st.session_state.view = "Forgot Password"
-        st.rerun()
-    if st.button("Back to welcome", key="login_back"):
-        st.session_state.view = "Welcome"
-        st.rerun()
+    with st.container(key="ks_authpage"):
+        st.markdown(
+            auth_header_html("Login", "Welcome back", "Log in to pick up right where you left off."),
+            unsafe_allow_html=True,
+        )
+        if st.session_state.pop("password_reset_done", False):
+            st.success("Your password was updated. Log in with your new password.")
+        with st.form("login_form", clear_on_submit=True):
+            email = st.text_input("Email", autocomplete="email", placeholder="you@example.com")
+            password = st.text_input("Password", type="password", autocomplete="current-password", placeholder="Your password")
+            submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+        if submitted:
+            locked = False
+            try:
+                user = authenticate_user(email, password)
+            except AccountLockedError as exc:
+                st.error(str(exc))
+                user = None
+                locked = True
+            except Exception:
+                LOGGER.exception("Login lookup failed")
+                user = None
+            if user:
+                _set_authenticated(user)
+                st.rerun()
+            if not locked:
+                st.error("Invalid email or password")
+        _social_buttons("login", welcome=True)
+        with st.container(key="ks_authlinks"):
+            if st.button("Forgot password?", key="login_forgot", type="tertiary"):
+                st.session_state.view = "Forgot Password"
+                st.rerun()
+            _auth_links("New here?", "Create account", "login_to_signup", "Create Account")
+            if st.button("Back to welcome", key="login_back", type="tertiary"):
+                st.session_state.view = "Welcome"
+                st.rerun()
 
 
 def render_forgot_password() -> None:
-    st.title("Reset your password")
-    email = str(st.session_state.get("reset_email", ""))
-    if not email:
-        st.caption("Enter the email address on your account.")
-        with st.form("forgot_password_form", clear_on_submit=False):
-            typed = st.text_input("Email", max_chars=254, autocomplete="email")
-            submitted = st.form_submit_button("Continue", type="primary", use_container_width=True)
-        if submitted:
-            try:
-                if email_has_account(typed):
-                    st.session_state.reset_email = typed.strip()
+    with st.container(key="ks_authpage"):
+        st.markdown(
+            auth_header_html("Reset password", "Reset your password", "We'll get you back into your space."),
+            unsafe_allow_html=True,
+        )
+        email = str(st.session_state.get("reset_email", ""))
+        if not email:
+            st.caption("Enter the email address on your account.")
+            with st.form("forgot_password_form", clear_on_submit=False):
+                typed = st.text_input("Email", max_chars=254, autocomplete="email", placeholder="you@example.com")
+                submitted = st.form_submit_button("Continue", type="primary", use_container_width=True)
+            if submitted:
+                try:
+                    if email_has_account(typed):
+                        st.session_state.reset_email = typed.strip()
+                        st.rerun()
+                    st.error("No account exists with that email.")
+                except AccountValidationError as exc:
+                    st.error(str(exc))
+                except Exception:
+                    LOGGER.exception("Password reset lookup failed")
+                    st.error("We couldn't process that request right now. Please try again.")
+        else:
+            st.caption(f"Choose a new password for {email}.")
+            with st.form("reset_password_form", clear_on_submit=False):
+                password = st.text_input("New password", type="password", autocomplete="new-password", placeholder="Create a strong password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
+                confirm_password = st.text_input("Confirm new password", type="password", autocomplete="new-password", placeholder="Type it once more")
+                submitted = st.form_submit_button("Update password", type="primary", use_container_width=True)
+            if submitted:
+                try:
+                    reset_password_for_email(email, password, confirm_password)
+                    st.session_state.pop("reset_email", None)
+                    st.session_state.view = "Login"
+                    st.session_state.password_reset_done = True
                     st.rerun()
-                st.error("No account exists with that email.")
-            except AccountValidationError as exc:
-                st.error(str(exc))
-            except Exception:
-                LOGGER.exception("Password reset lookup failed")
-                st.error("We couldn't process that request right now. Please try again.")
-    else:
-        st.caption(f"Choose a new password for {email}.")
-        with st.form("reset_password_form", clear_on_submit=False):
-            password = st.text_input("New password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
-            confirm_password = st.text_input("Confirm new password", type="password", autocomplete="new-password")
-            submitted = st.form_submit_button("Update password", type="primary", use_container_width=True)
-        if submitted:
-            try:
-                reset_password_for_email(email, password, confirm_password)
+                except AccountValidationError as exc:
+                    st.error(str(exc))
+                except Exception:
+                    LOGGER.exception("Password reset failed")
+                    st.error("We couldn't update the password right now. Please try again.")
+        st.caption("Signed up with Google or GitHub? You can keep using those buttons on the log in page.")
+        with st.container(key="ks_authlinks"):
+            if st.button("Back to log in", key="forgot_back", type="tertiary"):
                 st.session_state.pop("reset_email", None)
                 st.session_state.view = "Login"
-                st.session_state.password_reset_done = True
                 st.rerun()
-            except AccountValidationError as exc:
-                st.error(str(exc))
-            except Exception:
-                LOGGER.exception("Password reset failed")
-                st.error("We couldn't update the password right now. Please try again.")
-    st.caption("Signed up with Google or GitHub? You can keep using those buttons on the log in page.")
-    if st.button("Back to log in", key="forgot_back"):
-        st.session_state.pop("reset_email", None)
-        st.session_state.view = "Login"
-        st.rerun()
 
 
 def _ensure_conversation(user_id: str) -> list[dict[str, Any]]:
