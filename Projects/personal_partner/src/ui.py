@@ -17,12 +17,10 @@ from .auth import (
     authenticate_social_user,
     authenticate_user,
     create_account,
-    password_reset_token_is_valid,
+    email_has_account,
     public_account,
-    request_password_reset,
-    reset_password,
+    reset_password_for_email,
 )
-from .mailer import email_service_problem
 from .model_client import ModelConfigurationError
 from .social_auth import (
     SocialLoginError,
@@ -201,54 +199,46 @@ def render_login() -> None:
 
 def render_forgot_password() -> None:
     st.title("Reset your password")
-    st.caption("Enter the email address on your account and we'll send you a reset link.")
-    problem = email_service_problem()
-    if problem:
-        st.error(problem)
-    with st.form("forgot_password_form", clear_on_submit=False):
-        email = st.text_input("Email", max_chars=254, autocomplete="email")
-        submitted = st.form_submit_button("Send reset link", type="primary", use_container_width=True, disabled=problem is not None)
-    if submitted:
-        try:
-            request_password_reset(email)
-            st.success("If an account exists for that email, a reset link is on its way. It expires in 30 minutes.")
-        except AccountValidationError as exc:
-            st.error(str(exc))
-        except Exception:
-            LOGGER.exception("Password reset request failed")
-            st.error("We couldn't process that request right now. Please try again.")
+    email = str(st.session_state.get("reset_email", ""))
+    if not email:
+        st.caption("Enter the email address on your account.")
+        with st.form("forgot_password_form", clear_on_submit=False):
+            typed = st.text_input("Email", max_chars=254, autocomplete="email")
+            submitted = st.form_submit_button("Continue", type="primary", use_container_width=True)
+        if submitted:
+            try:
+                if email_has_account(typed):
+                    st.session_state.reset_email = typed.strip()
+                    st.rerun()
+                st.error("No account exists with that email.")
+            except AccountValidationError as exc:
+                st.error(str(exc))
+            except Exception:
+                LOGGER.exception("Password reset lookup failed")
+                st.error("We couldn't process that request right now. Please try again.")
+    else:
+        st.caption(f"Choose a new password for {email}.")
+        with st.form("reset_password_form", clear_on_submit=False):
+            password = st.text_input("New password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
+            confirm_password = st.text_input("Confirm new password", type="password", autocomplete="new-password")
+            submitted = st.form_submit_button("Update password", type="primary", use_container_width=True)
+        if submitted:
+            try:
+                reset_password_for_email(email, password, confirm_password)
+                st.session_state.pop("reset_email", None)
+                st.session_state.view = "Login"
+                st.session_state.password_reset_done = True
+                st.rerun()
+            except AccountValidationError as exc:
+                st.error(str(exc))
+            except Exception:
+                LOGGER.exception("Password reset failed")
+                st.error("We couldn't update the password right now. Please try again.")
     st.caption("Signed up with Google or GitHub? You can keep using those buttons on the log in page.")
     if st.button("Back to log in", key="forgot_back"):
+        st.session_state.pop("reset_email", None)
         st.session_state.view = "Login"
         st.rerun()
-
-
-def render_reset_password() -> None:
-    token = str(st.session_state.get("reset_token", ""))
-    st.title("Choose a new password")
-    if not password_reset_token_is_valid(token):
-        st.error("This reset link is invalid or has expired. Request a new one.")
-        if st.button("Request a new link", type="primary", key="reset_request_new"):
-            st.session_state.pop("reset_token", None)
-            st.session_state.view = "Forgot Password"
-            st.rerun()
-        return
-    with st.form("reset_password_form", clear_on_submit=False):
-        password = st.text_input("New password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
-        confirm_password = st.text_input("Confirm new password", type="password", autocomplete="new-password")
-        submitted = st.form_submit_button("Update password", type="primary", use_container_width=True)
-    if submitted:
-        try:
-            reset_password(token, password, confirm_password)
-            st.session_state.pop("reset_token", None)
-            st.session_state.view = "Login"
-            st.session_state.password_reset_done = True
-            st.rerun()
-        except AccountValidationError as exc:
-            st.error(str(exc))
-        except Exception:
-            LOGGER.exception("Password reset failed")
-            st.error("We couldn't update the password right now. Please try again.")
 
 
 def _ensure_conversation(user_id: str) -> list[dict[str, Any]]:
@@ -466,17 +456,6 @@ def render_settings(user_id: str) -> None:
             st.error("We couldn't delete the account. Please try again.")
 
 
-def _handle_reset_link() -> None:
-    """Move a reset token from the URL into the session so it isn't left in the address bar."""
-    token = st.query_params.get("reset_token")
-    if token is None:
-        return
-    st.query_params.clear()
-    if not st.session_state.get("authenticated"):
-        st.session_state.reset_token = str(token)[:200]
-        st.session_state.view = "Reset Password"
-
-
 def _handle_social_callbacks() -> None:
     if st.query_params.get("code") is not None or st.query_params.get("state") is not None:
         try:
@@ -518,7 +497,6 @@ def _handle_social_callbacks() -> None:
 def render_app() -> None:
     apply_styles()
     _notice_storage_issues()
-    _handle_reset_link()
     _handle_social_callbacks()
     if not st.session_state.get("authenticated"):
         st.session_state.view = st.session_state.get("view", "Welcome")
@@ -529,8 +507,6 @@ def render_app() -> None:
             render_login()
         elif view == "Forgot Password":
             render_forgot_password()
-        elif view == "Reset Password":
-            render_reset_password()
         else:
             render_welcome()
         return

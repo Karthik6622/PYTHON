@@ -33,7 +33,7 @@ Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. Create a Go
 
 ## Forgot password and account security
 
-The log in page links to a password reset flow. A reset link is emailed through SMTP (set `APP_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` in `.env` or `.streamlit/secrets.toml`). Links are single-use, expire after 30 minutes, are stored only as SHA-256 hashes, and the request form gives the same answer whether or not the email exists. Accounts lock for 15 minutes after 5 failed passwords; a successful reset clears the lock. Sign-in, lockout, and reset events are written to the `kindspace.audit` log (no passwords or tokens).
+The log in page links to a password reset page. Enter the account email; if no account exists you get "No account exists with that email", otherwise you choose a new password on the same page. No email is sent and passwords are never shown (they are stored only as bcrypt hashes). Accounts lock for 15 minutes after 5 failed passwords; a successful reset clears the lock. Sign-in, lockout, and reset events are written to the `kindspace.audit` log (no passwords or tokens).
 
 ## Run tests
 

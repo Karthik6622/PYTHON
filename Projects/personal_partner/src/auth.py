@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import bcrypt
-import hashlib
 import logging
 import os
 import re
-import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from . import storage
-from .mailer import mail_is_configured, send_password_reset_email
 from .validation import (
     normalize_email,
     normalize_username,
@@ -135,51 +132,25 @@ def public_account(user: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _hash_reset_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def request_password_reset(email: str) -> None:
-    """Email a single-use reset link when the address belongs to an active account.
-
-    Callers must show the same confirmation regardless of the outcome so the form
-    cannot be used to discover which emails are registered.
-    """
+def email_has_account(email: str) -> bool:
     email = normalize_email(email)
     error = validate_email(email)
     if error:
         raise AccountValidationError(error)
     user = storage.find_user_by_email(email)
-    if not user or not user.get("active", False):
-        LOGGER.info("audit event=password_reset_requested result=no_account")
-        return
-    token = secrets.token_urlsafe(32)
-    if not storage.create_password_reset(str(user["user_id"]), _hash_reset_token(token)):
-        LOGGER.info("audit event=password_reset_requested result=throttled user_id=%s", user["user_id"])
-        return
-    sent = send_password_reset_email(email, str(user.get("display_name") or "there"), token, storage.RESET_TOKEN_MINUTES)
-    LOGGER.info("audit event=password_reset_requested result=%s user_id=%s", "sent" if sent else "send_failed", user["user_id"])
+    return bool(user and user.get("active", False))
 
 
-def password_reset_token_is_valid(token: str) -> bool:
-    return bool(token) and len(token) <= 200 and storage.password_reset_is_valid(_hash_reset_token(token))
-
-
-def reset_password(token: str, password: str, confirm_password: str) -> None:
+def reset_password_for_email(email: str, password: str, confirm_password: str) -> None:
     error = validate_password(password)
     if error:
         raise AccountValidationError(error)
     if password != confirm_password:
         raise AccountValidationError("Passwords do not match.")
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("ascii")
-    user = storage.consume_password_reset(_hash_reset_token(token), password_hash) if token and len(token) <= 200 else None
-    if not user:
-        raise AccountValidationError("This reset link is invalid or has expired. Request a new one.")
-    LOGGER.info("audit event=password_reset_completed user_id=%s", user["user_id"])
-
-
-def password_reset_available() -> bool:
-    return mail_is_configured()
+    if not storage.set_password_by_email(normalize_email(email), password_hash):
+        raise AccountValidationError("No account exists with that email.")
+    LOGGER.info("audit event=password_reset_completed")
 
 
 def authenticate_social_user(provider: str, subject: str, email: str, display_name: str) -> dict[str, Any]:
