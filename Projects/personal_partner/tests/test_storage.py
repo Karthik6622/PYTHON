@@ -71,3 +71,19 @@ def test_delete_all_user_data_removes_only_target(tmp_path, monkeypatch):
     assert storage.get_user_by_id(user_b) is not None
     assert not (conversations_dir / f"{user_a}.json").exists()
     assert (conversations_dir / f"{user_b}.json").exists()
+
+
+def test_social_identity_links_by_verified_email_and_is_idempotent(tmp_path, monkeypatch):
+    configure_storage(tmp_path, monkeypatch)
+    user = storage.create_or_link_social_user(
+        "google", "google-subject-1", "[REDACTED_EMAIL_ADDRESS_1]", "Ada", "$2b$12$random-hash"
+    )
+    linked = storage.create_or_link_social_user(
+        "github", "42", "[REDACTED_EMAIL_ADDRESS_1]", "Ada Lovelace", "$2b$12$another-hash"
+    )
+    assert linked["user_id"] == user["user_id"]
+    repeated = storage.create_or_link_social_user(
+        "github", "42", "[REDACTED_EMAIL_ADDRESS_1]", "Ada Lovelace", "$2b$12$another-hash"
+    )
+    assert repeated["user_id"] == user["user_id"]
+    assert len(storage.find_user_by_username(user["username"])["auth_identities"]) == 2

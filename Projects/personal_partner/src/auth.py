@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import bcrypt
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -91,3 +92,19 @@ def public_account(user: dict[str, Any]) -> dict[str, Any]:
         "display_name": str(user["display_name"]),
         "preferences": dict(user.get("preferences") or {}),
     }
+
+
+def authenticate_social_user(provider: str, subject: str, email: str, display_name: str) -> dict[str, Any]:
+    """Create or link a local account from a provider-verified identity."""
+    if not email or len(email) > 254 or not subject:
+        raise AccountValidationError("The identity provider did not return a verified email address.")
+    random_password = os.urandom(32)
+    password_hash = bcrypt.hashpw(random_password, bcrypt.gensalt(rounds=12)).decode("ascii")
+    user = storage.create_or_link_social_user(
+        provider=provider,
+        subject=subject,
+        email=email,
+        display_name=display_name or provider.title(),
+        password_hash=password_hash,
+    )
+    return public_account(user)

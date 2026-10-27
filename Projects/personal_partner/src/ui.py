@@ -11,8 +11,16 @@ import streamlit as st
 
 from . import storage
 from .assistant import stream_reply
-from .auth import AccountValidationError, authenticate_user, create_account, public_account
+from .auth import AccountValidationError, authenticate_social_user, authenticate_user, create_account, public_account
 from .model_client import ModelConfigurationError
+from .social_auth import (
+    SocialLoginError,
+    complete_github_callback,
+    github_authorization_url,
+    github_is_configured,
+    google_identity,
+    google_is_configured,
+)
 from .validation import safe_conversation_title, validate_message
 
 
@@ -55,6 +63,21 @@ def apply_styles() -> None:
         }
         .stButton > button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] {
           background: var(--ks-teal); border-color: var(--ks-teal); color: #fff;
+        }
+        [data-testid="stBaseButton-primary"], [data-testid="stFormSubmitButton"] [data-testid="stBaseButton-primary"] {
+          background: #145d54 !important; border-color: #145d54 !important; color: #fff !important;
+        }
+        [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-link"] {
+          background: #fff !important; border: 1px solid #78918b !important; color: #173238 !important;
+        }
+        [data-testid="stBaseButton-secondary"]:hover, [data-testid="stBaseButton-link"]:hover {
+          background: #e4f1ed !important; border-color: #145d54 !important; color: #103f3a !important;
+        }
+        [data-testid="stBaseButton-primary"]:hover {
+          background: #0c4d46 !important; border-color: #0c4d46 !important; color: #fff !important;
+        }
+        [data-testid="stBaseButton-primary"]:disabled, [data-testid="stBaseButton-secondary"]:disabled {
+          background: #e2e8e6 !important; border-color: #c3ceca !important; color: #52615d !important; opacity: 1 !important;
         }
         .stButton > button[kind="primary"]:hover, [data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
           background: var(--ks-teal-dark); border-color: var(--ks-teal-dark); color: #fff;
@@ -99,6 +122,11 @@ def _set_authenticated(user: dict[str, Any]) -> None:
 
 
 def _logout() -> None:
+    try:
+        if bool(st.user.is_logged_in):
+            st.logout()
+    except Exception:
+        pass
     for key in (
         "authenticated", "user_id", "username", "display_name", "user_preferences",
         "active_conversation_id", "pending_message_id", "pending_conversation_id",
@@ -114,7 +142,36 @@ def _notice_storage_issues() -> None:
         st.warning(notice)
 
 
+def _social_buttons(prefix: str) -> None:
+    st.caption("Or continue with")
+    google_col, github_col = st.columns(2)
+    with google_col:
+        if google_is_configured():
+            if st.button("Continue with Google", key=f"{prefix}_google", use_container_width=True):
+                st.login("google")
+        else:
+            st.button("Continue with Google", key=f"{prefix}_google", disabled=True, use_container_width=True)
+    with github_col:
+        url = github_authorization_url() if github_is_configured() else "#"
+        st.link_button(
+            "Continue with GitHub",
+            url,
+            key=f"{prefix}_github",
+            disabled=not github_is_configured(),
+            use_container_width=True,
+        )
+    if not google_is_configured() or not github_is_configured():
+        st.caption("To enable social sign-up, add the provider credentials from `.streamlit/secrets.toml.example` to your private secrets file.")
+
+
+def _show_social_error() -> None:
+    message = st.session_state.pop("social_login_error", None)
+    if message:
+        st.error(message)
+
+
 def render_welcome() -> None:
+    _show_social_error()
     st.markdown('<div class="ks-brand">KindSpace</div>', unsafe_allow_html=True)
     st.write("")
     st.markdown(
@@ -144,8 +201,11 @@ def render_welcome() -> None:
 
 
 def render_create_account() -> None:
+    _show_social_error()
     st.title("Create your account")
     st.caption("A private space for your conversations.")
+    _social_buttons("signup")
+    st.divider()
     with st.form("create_account_form", clear_on_submit=False):
         display_name = st.text_input("Display name", max_chars=80, autocomplete="name")
         username = st.text_input("Username", max_chars=30, autocomplete="username", help="3–30 characters: letters, numbers, periods, underscores.")
@@ -171,7 +231,10 @@ def render_create_account() -> None:
 
 
 def render_login() -> None:
+    _show_social_error()
     st.title("Welcome back")
+    _social_buttons("login")
+    st.divider()
     with st.form("login_form", clear_on_submit=True):
         username = st.text_input("Username", autocomplete="username")
         password = st.text_input("Password", type="password", autocomplete="current-password")
@@ -406,9 +469,48 @@ def render_settings(user_id: str) -> None:
             st.error("We couldn't delete the account. Please try again.")
 
 
+def _handle_social_callbacks() -> None:
+    if st.query_params.get("code") is not None or st.query_params.get("state") is not None:
+        try:
+            identity = complete_github_callback()
+            if identity:
+                user = authenticate_social_user(**identity)
+                _set_authenticated(user)
+        except (SocialLoginError, AccountValidationError, ValueError) as exc:
+            st.session_state.social_login_error = str(exc)
+        except Exception:
+            LOGGER.exception("GitHub sign-in failed")
+            st.session_state.social_login_error = "GitHub sign-in could not be completed. Please try again."
+        finally:
+            st.query_params.clear()
+        st.rerun()
+
+    if not st.session_state.get("authenticated"):
+        try:
+            identity = google_identity()
+            if identity:
+                user = authenticate_social_user(**identity)
+                _set_authenticated(user)
+                st.rerun()
+        except (SocialLoginError, AccountValidationError, ValueError) as exc:
+            st.session_state.social_login_error = str(exc)
+            try:
+                st.logout()
+            except Exception:
+                st.rerun()
+        except Exception:
+            LOGGER.exception("Google sign-in failed")
+            st.session_state.social_login_error = "Google sign-in could not be completed. Please try again."
+            try:
+                st.logout()
+            except Exception:
+                st.rerun()
+
+
 def render_app() -> None:
     apply_styles()
     _notice_storage_issues()
+    _handle_social_callbacks()
     if not st.session_state.get("authenticated"):
         st.session_state.view = st.session_state.get("view", "Welcome")
         view = st.session_state.view

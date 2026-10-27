@@ -156,6 +156,64 @@ def create_user(user: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key != "password_hash"}
 
 
+def create_or_link_social_user(
+    provider: str,
+    subject: str,
+    email: str,
+    display_name: str,
+    password_hash: str,
+) -> dict[str, Any]:
+    """Create or link a social identity after its provider verified the email."""
+    if provider not in {"google", "github"} or not subject or len(subject) > 255:
+        raise ValueError("The social account could not be verified.")
+    email = normalize_email(email)
+    identity = {"provider": provider, "subject": subject}
+    with FileLock(f"{USERS_FILE}.lock"):
+        users = _read_users_locked()
+        for user in users:
+            identities = user.get("auth_identities", [])
+            if isinstance(identities, list) and identity in identities:
+                if not user.get("active", False):
+                    raise ValueError("This account is inactive. Contact the app owner.")
+                return {key: value for key, value in user.items() if key != "password_hash"}
+
+        for user in users:
+            if normalize_email(str(user.get("email", ""))) == email:
+                if not user.get("active", False):
+                    raise ValueError("This account is inactive. Contact the app owner.")
+                identities = user.setdefault("auth_identities", [])
+                if not isinstance(identities, list):
+                    identities = []
+                    user["auth_identities"] = identities
+                identities.append(identity)
+                if not user.get("display_name"):
+                    user["display_name"] = display_name[:80]
+                _atomic_write(USERS_FILE, {"users": users})
+                return {key: value for key, value in user.items() if key != "password_hash"}
+
+        base_username = f"{provider}_{uuid.uuid5(uuid.NAMESPACE_URL, provider + ':' + subject).hex[:16]}"
+        username = base_username
+        suffix = 1
+        usernames = {normalize_username(str(user.get("username", ""))) for user in users}
+        while username in usernames:
+            suffix += 1
+            username = f"{base_username[:26]}{suffix}"
+        user = {
+            "user_id": uuid.uuid4().hex,
+            "username": username,
+            "display_name": str(display_name).strip()[:80] or username,
+            "email": email,
+            "password_hash": password_hash,
+            "created_at": _now(),
+            "preferences": {"tone": "Warm", "response_length": "Balanced", "topics": []},
+            "active": True,
+            "auth_identities": [identity],
+        }
+        users.append(user)
+        _atomic_write(USERS_FILE, {"users": users})
+        return {key: value for key, value in user.items() if key != "password_hash"}
+
+
 def find_user_by_username(username: str) -> dict[str, Any] | None:
     normalized = normalize_username(username)
     with FileLock(f"{USERS_FILE}.lock"):
