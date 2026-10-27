@@ -68,15 +68,10 @@ def _sender() -> str:
     return formataddr((name or "KindSpace", found.group(0)))
 
 
-def _open_connection() -> smtplib.SMTP:
-    host = _setting("SMTP_HOST")
-    port = int(_setting("SMTP_PORT", "587") or 587)
-    username = _setting("SMTP_USERNAME")
-    # Google shows app passwords in groups separated by spaces; they are not part of the password.
-    password = _setting("SMTP_PASSWORD").replace(" ", "")
+def _connect(host: str, port: int, username: str, password: str) -> smtplib.SMTP:
     context = ssl.create_default_context()
     client: smtplib.SMTP = (
-        smtplib.SMTP_SSL(host, port, timeout=15, context=context) if port == 465 else smtplib.SMTP(host, port, timeout=15)
+        smtplib.SMTP_SSL(host, port, timeout=20, context=context) if port == 465 else smtplib.SMTP(host, port, timeout=20)
     )
     try:
         client.ehlo()
@@ -91,6 +86,27 @@ def _open_connection() -> smtplib.SMTP:
     return client
 
 
+def _open_connection() -> smtplib.SMTP:
+    host = _setting("SMTP_HOST")
+    port = int(_setting("SMTP_PORT", "587") or 587)
+    username = _setting("SMTP_USERNAME")
+    # Google shows app passwords in groups separated by spaces; they are not part of the password.
+    password = _setting("SMTP_PASSWORD").replace(" ", "")
+    # Some hosts block STARTTLS on 587; fall back to implicit TLS on 465 before giving up.
+    ports = [port] + ([465] if port == 587 else [])
+    last_error: Exception | None = None
+    for candidate in ports:
+        try:
+            return _connect(host, candidate, username, password)
+        except smtplib.SMTPAuthenticationError:
+            raise
+        except (OSError, smtplib.SMTPException) as exc:
+            LOGGER.warning("SMTP connection to %s:%s failed: %s: %s", host, candidate, type(exc).__name__, exc)
+            last_error = exc
+    assert last_error is not None
+    raise last_error
+
+
 @st.cache_data(ttl=60, show_spinner=False)
 def email_service_problem() -> str | None:
     """Check the SMTP login without sending anything. Returns a safe, account-independent reason or None."""
@@ -102,9 +118,10 @@ def email_service_problem() -> str | None:
     except smtplib.SMTPAuthenticationError:
         LOGGER.error("SMTP login was rejected. Gmail requires a 16-character App Password, not the account password.")
         return "The mail server rejected the SMTP username/password. Gmail needs an App Password (Google Account > Security > 2-Step Verification > App passwords)."
-    except (OSError, smtplib.SMTPException, ValueError):
+    except (OSError, smtplib.SMTPException, ValueError) as exc:
         LOGGER.exception("Could not connect to the SMTP server")
-        return "Could not connect to the mail server. Check SMTP_HOST and SMTP_PORT."
+        detail = f"{type(exc).__name__}: {str(exc)[:160]}"
+        return f"Could not connect to the mail server ({detail}). Check SMTP_HOST and SMTP_PORT."
 
 
 def send_password_reset_email(to_address: str, display_name: str, token: str, valid_minutes: int) -> bool:
