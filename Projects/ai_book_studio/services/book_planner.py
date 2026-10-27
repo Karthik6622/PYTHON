@@ -34,6 +34,8 @@ def _selected_options(book_input: BookInput) -> str:
 def _validate_model_plan(data: dict[str, Any]) -> BookPlan:
     if data.get("refused"):
         raise ContentPolicyError(str(data.get("reason") or "The model declined this request."))
+    if not isinstance(data.get("chapters"), list) or not data["chapters"]:
+        raise ValueError("The plan has no chapters (the reply was probably cut off).")
     return BookPlan.model_validate(data)
 
 
@@ -56,7 +58,10 @@ def generate_plan(llm: LLMClient, book_input: BookInput, budget: PageBudget | No
         image_style=book_input.image_style,
         selected_content_options=_selected_options(book_input),
     )
-    plan: BookPlan = llm.generate_json(prompt, "planning", validator=_validate_model_plan)
+    plan_tokens = min(16000, max(6000, 3000 + 450 * budget.recommended_chapters))
+    plan: BookPlan = llm.generate_json(
+        prompt, "planning", max_tokens=plan_tokens, validator=_validate_model_plan
+    )
 
     # The user's selections always win over whatever the model echoed back.
     plan.author = book_input.author_name.strip()
