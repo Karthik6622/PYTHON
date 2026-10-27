@@ -31,6 +31,10 @@ The project uses the provider's OpenAI-compatible `/chat/completions` endpoint, 
 
 Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. Create a Google OAuth client and a GitHub OAuth App, then replace their example credentials. For local development, use `http://localhost:8501/oauth2callback` as Google's authorized redirect URI and `http://localhost:8501` as GitHub's callback URL. Set both callback URLs to your deployed app's absolute URL when hosting it elsewhere. Google uses Streamlit's OIDC login; GitHub uses OAuth authorization code flow. Both providers must return a verified email. Social identities are linked to an existing local account only when the verified email matches.
 
+## Forgot password and account security
+
+The log in page links to a password reset flow. A reset link is emailed through SMTP (set `APP_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` in `.env` or `.streamlit/secrets.toml`). Links are single-use, expire after 30 minutes, are stored only as SHA-256 hashes, and the request form gives the same answer whether or not the email exists. Accounts lock for 15 minutes after 5 failed passwords; a successful reset clears the lock. Sign-in, lockout, and reset events are written to the `kindspace.audit` log (no passwords or tokens).
+
 ## Run tests
 
 ```powershell

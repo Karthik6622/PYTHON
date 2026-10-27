@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -9,7 +10,7 @@ import re
 import shutil
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -26,10 +27,27 @@ CONVERSATIONS_DIR = DATA_DIR / "conversations"
 _NOTICE_LOCK = Lock()
 _STORAGE_NOTICES: list[str] = []
 _UUID_RE = re.compile(r"^[0-9a-f]{32}$")
+MAX_FAILED_LOGINS = 5
+LOCKOUT_MINUTES = 15
+RESET_TOKEN_MINUTES = 30
+RESET_REQUEST_COOLDOWN_SECONDS = 60
+_SENSITIVE_FIELDS = {"password_hash", "password_reset", "failed_logins", "locked_until"}
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _parse_time(value: Any) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _public_user(user: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in user.items() if key not in _SENSITIVE_FIELDS}
 
 
 def _notice(message: str) -> None:
@@ -153,7 +171,7 @@ def create_user(user: dict[str, Any]) -> dict[str, Any]:
         }
         users.append(record)
         _atomic_write(USERS_FILE, {"users": users})
-    return {key: value for key, value in record.items() if key != "password_hash"}
+    return _public_user(record)
 
 
 def create_or_link_social_user(
@@ -175,7 +193,7 @@ def create_or_link_social_user(
             if isinstance(identities, list) and identity in identities:
                 if not user.get("active", False):
                     raise ValueError("This account is inactive. Contact the app owner.")
-                return {key: value for key, value in user.items() if key != "password_hash"}
+                return _public_user(user)
 
         for user in users:
             if normalize_email(str(user.get("email", ""))) == email:
@@ -189,7 +207,7 @@ def create_or_link_social_user(
                 if not user.get("display_name"):
                     user["display_name"] = display_name[:80]
                 _atomic_write(USERS_FILE, {"users": users})
-                return {key: value for key, value in user.items() if key != "password_hash"}
+                return _public_user(user)
 
         base_username = f"{provider}_{uuid.uuid5(uuid.NAMESPACE_URL, provider + ':' + subject).hex[:16]}"
         username = base_username
@@ -211,7 +229,7 @@ def create_or_link_social_user(
         }
         users.append(user)
         _atomic_write(USERS_FILE, {"users": users})
-        return {key: value for key, value in user.items() if key != "password_hash"}
+        return _public_user(user)
 
 
 def find_user_by_username(username: str) -> dict[str, Any] | None:
@@ -227,7 +245,105 @@ def get_user_by_id(user_id: str) -> dict[str, Any] | None:
     with FileLock(f"{USERS_FILE}.lock"):
         for user in _read_users_locked():
             if str(user.get("user_id", "")) == str(user_id):
-                return {key: value for key, value in user.items() if key != "password_hash"}
+                return _public_user(user)
+    return None
+
+
+def find_user_by_email(email: str) -> dict[str, Any] | None:
+    normalized = normalize_email(email)
+    with FileLock(f"{USERS_FILE}.lock"):
+        for user in _read_users_locked():
+            if normalize_email(str(user.get("email", ""))) == normalized:
+                return _public_user(user)
+    return None
+
+
+def account_lock_remaining(user: dict[str, Any]) -> timedelta | None:
+    """Return the time left on a lockout, or None when the account is not locked."""
+    locked_until = _parse_time(user.get("locked_until"))
+    if locked_until is None:
+        return None
+    remaining = locked_until - datetime.now(timezone.utc)
+    return remaining if remaining > timedelta(0) else None
+
+
+def record_login_failure(user_id: str) -> None:
+    """Count a failed password attempt and lock the account after repeated failures."""
+    with FileLock(f"{USERS_FILE}.lock"):
+        users = _read_users_locked()
+        for user in users:
+            if str(user.get("user_id", "")) == str(user_id):
+                failures = int(user.get("failed_logins") or 0) + 1
+                user["failed_logins"] = failures
+                if failures >= MAX_FAILED_LOGINS:
+                    user["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)).isoformat(timespec="seconds")
+                    user["failed_logins"] = 0
+                    LOGGER.warning("audit event=account_locked user_id=%s", user_id)
+                _atomic_write(USERS_FILE, {"users": users})
+                return
+
+
+def clear_login_failures(user_id: str) -> None:
+    with FileLock(f"{USERS_FILE}.lock"):
+        users = _read_users_locked()
+        for user in users:
+            if str(user.get("user_id", "")) == str(user_id):
+                if user.get("failed_logins") or user.get("locked_until"):
+                    user.pop("failed_logins", None)
+                    user.pop("locked_until", None)
+                    _atomic_write(USERS_FILE, {"users": users})
+                return
+
+
+def create_password_reset(user_id: str, token_hash: str) -> bool:
+    """Store a hashed single-use reset token. Returns False when throttled or the user is missing."""
+    now = datetime.now(timezone.utc)
+    with FileLock(f"{USERS_FILE}.lock"):
+        users = _read_users_locked()
+        for user in users:
+            if str(user.get("user_id", "")) != str(user_id) or not user.get("active", False):
+                continue
+            existing = user.get("password_reset")
+            requested_at = _parse_time(existing.get("requested_at")) if isinstance(existing, dict) else None
+            if requested_at and (now - requested_at).total_seconds() < RESET_REQUEST_COOLDOWN_SECONDS:
+                return False
+            user["password_reset"] = {
+                "token_hash": token_hash,
+                "requested_at": now.isoformat(timespec="seconds"),
+                "expires_at": (now + timedelta(minutes=RESET_TOKEN_MINUTES)).isoformat(timespec="seconds"),
+            }
+            _atomic_write(USERS_FILE, {"users": users})
+            return True
+    return False
+
+
+def _reset_matches(user: dict[str, Any], token_hash: str) -> bool:
+    reset = user.get("password_reset")
+    if not isinstance(reset, dict) or not user.get("active", False):
+        return False
+    expires_at = _parse_time(reset.get("expires_at"))
+    if expires_at is None or expires_at <= datetime.now(timezone.utc):
+        return False
+    return hmac.compare_digest(str(reset.get("token_hash", "")), token_hash)
+
+
+def password_reset_is_valid(token_hash: str) -> bool:
+    with FileLock(f"{USERS_FILE}.lock"):
+        return any(_reset_matches(user, token_hash) for user in _read_users_locked())
+
+
+def consume_password_reset(token_hash: str, new_password_hash: str) -> dict[str, Any] | None:
+    """Set a new password if the token is valid, then invalidate the token and any lockout."""
+    with FileLock(f"{USERS_FILE}.lock"):
+        users = _read_users_locked()
+        for user in users:
+            if _reset_matches(user, token_hash):
+                user["password_hash"] = new_password_hash
+                for key in ("password_reset", "failed_logins", "locked_until"):
+                    user.pop(key, None)
+                user["password_changed_at"] = _now()
+                _atomic_write(USERS_FILE, {"users": users})
+                return _public_user(user)
     return None
 
 

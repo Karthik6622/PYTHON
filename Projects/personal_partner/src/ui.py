@@ -11,7 +11,18 @@ import streamlit as st
 
 from . import storage
 from .assistant import stream_reply
-from .auth import AccountValidationError, authenticate_social_user, authenticate_user, create_account, public_account
+from .auth import (
+    AccountLockedError,
+    AccountValidationError,
+    authenticate_social_user,
+    authenticate_user,
+    create_account,
+    password_reset_available,
+    password_reset_token_is_valid,
+    public_account,
+    request_password_reset,
+    reset_password,
+)
 from .model_client import ModelConfigurationError
 from .social_auth import (
     SocialLoginError,
@@ -22,6 +33,7 @@ from .social_auth import (
     google_is_configured,
 )
 from .validation import safe_conversation_title, validate_message
+from .styles import APP_CSS
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -32,81 +44,7 @@ def _now() -> str:
 
 
 def apply_styles() -> None:
-    st.markdown(
-        """
-        <style>
-        :root {
-          color-scheme: light;
-          --ks-ink: #173238; --ks-muted: #536a6d; --ks-line: #d5e1de;
-          --ks-paper: #f5f8f6; --ks-panel: #ffffff; --ks-teal: #176b61;
-          --ks-teal-dark: #10564e; --ks-soft: #e4f1ed; --ks-peach: #fff0e6;
-        }
-        html, body, [class*="css"] { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-        .stApp { background: var(--ks-paper); color: var(--ks-ink); }
-        .block-container { width: 100%; max-width: 980px; padding: clamp(1rem, 4vw, 2.5rem) clamp(.85rem, 4vw, 2rem) 2.5rem; }
-        h1, h2, h3 { color: var(--ks-ink); letter-spacing: -.025em; }
-        p, label, [data-testid="stCaptionContainer"] { color: var(--ks-muted); }
-        [data-testid="stSidebar"] { background: #edf4f1; border-right: 1px solid var(--ks-line); }
-        [data-testid="stSidebar"] .block-container { padding: 1.25rem .9rem; }
-        [data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea,
-        [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-        [data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
-          border-radius: 12px; border-color: #bdceca; background: #fff; color: var(--ks-ink);
-        }
-        [data-testid="stTextInput"] input:focus, [data-testid="stTextArea"] textarea:focus,
-        [data-testid="stSelectbox"] div[data-baseweb="select"]:focus-within {
-          border-color: var(--ks-teal); box-shadow: 0 0 0 2px rgba(23,107,97,.18);
-        }
-        .stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] button {
-          min-height: 2.75rem; border-radius: 12px; border: 1px solid var(--ks-line);
-          color: var(--ks-ink); background: #fff; font-weight: 600; transition: background-color .15s ease, border-color .15s ease;
-        }
-        .stButton > button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] {
-          background: var(--ks-teal); border-color: var(--ks-teal); color: #fff;
-        }
-        [data-testid="stBaseButton-primary"], [data-testid="stFormSubmitButton"] [data-testid="stBaseButton-primary"] {
-          background: #145d54 !important; border-color: #145d54 !important; color: #fff !important;
-        }
-        [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-link"] {
-          background: #fff !important; border: 1px solid #78918b !important; color: #173238 !important;
-        }
-        [data-testid="stBaseButton-secondary"]:hover, [data-testid="stBaseButton-link"]:hover {
-          background: #e4f1ed !important; border-color: #145d54 !important; color: #103f3a !important;
-        }
-        [data-testid="stBaseButton-primary"]:hover {
-          background: #0c4d46 !important; border-color: #0c4d46 !important; color: #fff !important;
-        }
-        [data-testid="stBaseButton-primary"]:disabled, [data-testid="stBaseButton-secondary"]:disabled {
-          background: #e2e8e6 !important; border-color: #c3ceca !important; color: #52615d !important; opacity: 1 !important;
-        }
-        .stButton > button[kind="primary"]:hover, [data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
-          background: var(--ks-teal-dark); border-color: var(--ks-teal-dark); color: #fff;
-        }
-        .stButton > button:focus-visible, .stDownloadButton > button:focus-visible,
-        [data-testid="stFormSubmitButton"] button:focus-visible { outline: 3px solid #e09665; outline-offset: 2px; }
-        [data-testid="stChatMessage"] { padding: .75rem 0; }
-        [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] { line-height: 1.65; }
-        [data-testid="stChatInput"] textarea { border-radius: 16px; min-height: 3.2rem; }
-        .ks-brand { color: var(--ks-teal-dark); font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; }
-        .ks-hero { padding: clamp(1.2rem, 4vw, 2.6rem); border: 1px solid var(--ks-line); border-radius: 24px; background: linear-gradient(135deg, #fff 8%, #edf6f2 100%); }
-        .ks-eyebrow { color: var(--ks-teal-dark); font-weight: 700; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
-        .ks-note { padding: .85rem 1rem; border-radius: 12px; border: 1px solid #f0d6c6; background: var(--ks-peach); color: #593f31; }
-        .ks-card { padding: 1rem; border: 1px solid var(--ks-line); border-radius: 16px; background: var(--ks-panel); }
-        @media (max-width: 640px) {
-          [data-testid="stSidebar"] { min-width: 0; }
-          [data-testid="stSidebar"] .block-container { padding: .8rem .65rem; }
-          .ks-hero { border-radius: 18px; }
-          [data-testid="stHorizontalBlock"] { gap: .65rem; }
-          [data-testid="stChatMessage"] { padding: .5rem 0; }
-          .stButton > button, [data-testid="stFormSubmitButton"] button { min-height: 2.9rem; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(APP_CSS, unsafe_allow_html=True)
 
 
 def _set_authenticated(user: dict[str, Any]) -> None:
@@ -233,6 +171,8 @@ def render_create_account() -> None:
 def render_login() -> None:
     _show_social_error()
     st.title("Welcome back")
+    if st.session_state.pop("password_reset_done", False):
+        st.success("Your password was updated. Log in with your new password.")
     _social_buttons("login")
     st.divider()
     with st.form("login_form", clear_on_submit=True):
@@ -240,17 +180,78 @@ def render_login() -> None:
         password = st.text_input("Password", type="password", autocomplete="current-password")
         submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
     if submitted:
+        locked = False
         try:
             user = authenticate_user(username, password)
+        except AccountLockedError as exc:
+            st.error(str(exc))
+            user = None
+            locked = True
         except Exception:
             LOGGER.exception("Login lookup failed")
             user = None
         if user:
             _set_authenticated(user)
             st.rerun()
-        st.error("Invalid username or password")
+        if not locked:
+            st.error("Invalid username or password")
+    if st.button("Forgot password?", key="login_forgot"):
+        st.session_state.view = "Forgot Password"
+        st.rerun()
     if st.button("Back to welcome", key="login_back"):
         st.session_state.view = "Welcome"
+        st.rerun()
+
+
+def render_forgot_password() -> None:
+    st.title("Reset your password")
+    st.caption("Enter the email address on your account and we'll send you a reset link.")
+    if not password_reset_available():
+        st.warning("Password reset email isn't set up on this server yet. Please contact your administrator.")
+    with st.form("forgot_password_form", clear_on_submit=False):
+        email = st.text_input("Email", max_chars=254, autocomplete="email")
+        submitted = st.form_submit_button("Send reset link", type="primary", use_container_width=True, disabled=not password_reset_available())
+    if submitted:
+        try:
+            request_password_reset(email)
+            st.success("If an account exists for that email, a reset link is on its way. It expires in 30 minutes.")
+        except AccountValidationError as exc:
+            st.error(str(exc))
+        except Exception:
+            LOGGER.exception("Password reset request failed")
+            st.error("We couldn't process that request right now. Please try again.")
+    st.caption("Signed up with Google or GitHub? You can keep using those buttons on the log in page.")
+    if st.button("Back to log in", key="forgot_back"):
+        st.session_state.view = "Login"
+        st.rerun()
+
+
+def render_reset_password() -> None:
+    token = str(st.session_state.get("reset_token", ""))
+    st.title("Choose a new password")
+    if not password_reset_token_is_valid(token):
+        st.error("This reset link is invalid or has expired. Request a new one.")
+        if st.button("Request a new link", type="primary", key="reset_request_new"):
+            st.session_state.pop("reset_token", None)
+            st.session_state.view = "Forgot Password"
+            st.rerun()
+        return
+    with st.form("reset_password_form", clear_on_submit=False):
+        password = st.text_input("New password", type="password", autocomplete="new-password", help="At least 10 characters with upper/lowercase, a number, and a special character.")
+        confirm_password = st.text_input("Confirm new password", type="password", autocomplete="new-password")
+        submitted = st.form_submit_button("Update password", type="primary", use_container_width=True)
+    if submitted:
+        try:
+            reset_password(token, password, confirm_password)
+            st.session_state.pop("reset_token", None)
+            st.session_state.view = "Login"
+            st.session_state.password_reset_done = True
+            st.rerun()
+        except AccountValidationError as exc:
+            st.error(str(exc))
+        except Exception:
+            LOGGER.exception("Password reset failed")
+            st.error("We couldn't update the password right now. Please try again."n_state.view = "Welcome"
         st.rerun()
 
 
@@ -469,6 +470,17 @@ def render_settings(user_id: str) -> None:
             st.error("We couldn't delete the account. Please try again.")
 
 
+def _handle_reset_link() -> None:
+    """Move a reset token from the URL into the session so it isn't left in the address bar."""
+    token = st.query_params.get("reset_token")
+    if token is None:
+        return
+    st.query_params.clear()
+    if not st.session_state.get("authenticated"):
+        st.session_state.reset_token = str(token)[:200]
+        st.session_state.view = "Reset Password"
+
+
 def _handle_social_callbacks() -> None:
     if st.query_params.get("code") is not None or st.query_params.get("state") is not None:
         try:
@@ -510,6 +522,7 @@ def _handle_social_callbacks() -> None:
 def render_app() -> None:
     apply_styles()
     _notice_storage_issues()
+    _handle_reset_link()
     _handle_social_callbacks()
     if not st.session_state.get("authenticated"):
         st.session_state.view = st.session_state.get("view", "Welcome")
@@ -518,6 +531,10 @@ def render_app() -> None:
             render_create_account()
         elif view == "Login":
             render_login()
+        elif view == "Forgot Password":
+            render_forgot_password()
+        elif view == "Reset Password":
+            render_reset_password()
         else:
             render_welcome()
         return

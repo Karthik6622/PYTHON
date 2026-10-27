@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import bcrypt
+import hashlib
+import logging
 import os
+import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from . import storage
+from .mailer import mail_is_configured, send_password_reset_email
 from .validation import (
     normalize_email,
     normalize_username,
@@ -19,8 +23,15 @@ from .validation import (
 )
 
 
+LOGGER = logging.getLogger("kindspace.audit")
+
+
 class AccountValidationError(ValueError):
     """Safe message suitable for display during account creation."""
+
+
+class AccountLockedError(AccountValidationError):
+    """Too many failed sign-ins; safe to show to the user."""
 
 
 _DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"not-a-real-password", bcrypt.gensalt(rounds=12))
@@ -67,6 +78,14 @@ def create_account(
 
 def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
     record = storage.find_user_by_username(normalize_username(username))
+    if record:
+        remaining = storage.account_lock_remaining(record)
+        if remaining is not None:
+            minutes = max(1, int(remaining.total_seconds() // 60) + 1)
+            LOGGER.warning("audit event=login_blocked user_id=%s", record.get("user_id"))
+            raise AccountLockedError(
+                f"Too many failed attempts. Try again in about {minutes} minute(s) or reset your password."
+            )
     stored_hash = _DUMMY_PASSWORD_HASH
     if record:
         try:
@@ -80,9 +99,16 @@ def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
         valid = bcrypt.checkpw(password.encode("utf-8")[:72], stored_hash)
     except (ValueError, TypeError):
         valid = False
-    if not record or not record.get("active", False) or not valid:
+    if not record or not record.get("active", False):
+        LOGGER.info("audit event=login_failed reason=unknown_or_inactive")
         return None
-    return {key: value for key, value in record.items() if key != "password_hash"}
+    if not valid:
+        storage.record_login_failure(str(record["user_id"]))
+        LOGGER.info("audit event=login_failed user_id=%s", record.get("user_id"))
+        return None
+    storage.clear_login_failures(str(record["user_id"]))
+    LOGGER.info("audit event=login_succeeded user_id=%s", record.get("user_id"))
+    return {key: value for key, value in record.items() if key not in {"password_hash", "password_reset", "failed_logins", "locked_until"}}
 
 
 def public_account(user: dict[str, Any]) -> dict[str, Any]:
@@ -92,6 +118,53 @@ def public_account(user: dict[str, Any]) -> dict[str, Any]:
         "display_name": str(user["display_name"]),
         "preferences": dict(user.get("preferences") or {}),
     }
+
+
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def request_password_reset(email: str) -> None:
+    """Email a single-use reset link when the address belongs to an active account.
+
+    Callers must show the same confirmation regardless of the outcome so the form
+    cannot be used to discover which emails are registered.
+    """
+    email = normalize_email(email)
+    error = validate_email(email)
+    if error:
+        raise AccountValidationError(error)
+    user = storage.find_user_by_email(email)
+    if not user or not user.get("active", False):
+        LOGGER.info("audit event=password_reset_requested result=no_account")
+        return
+    token = secrets.token_urlsafe(32)
+    if not storage.create_password_reset(str(user["user_id"]), _hash_reset_token(token)):
+        LOGGER.info("audit event=password_reset_requested result=throttled user_id=%s", user["user_id"])
+        return
+    sent = send_password_reset_email(email, str(user.get("display_name") or "there"), token, storage.RESET_TOKEN_MINUTES)
+    LOGGER.info("audit event=password_reset_requested result=%s user_id=%s", "sent" if sent else "send_failed", user["user_id"])
+
+
+def password_reset_token_is_valid(token: str) -> bool:
+    return bool(token) and len(token) <= 200 and storage.password_reset_is_valid(_hash_reset_token(token))
+
+
+def reset_password(token: str, password: str, confirm_password: str) -> None:
+    error = validate_password(password)
+    if error:
+        raise AccountValidationError(error)
+    if password != confirm_password:
+        raise AccountValidationError("Passwords do not match.")
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("ascii")
+    user = storage.consume_password_reset(_hash_reset_token(token), password_hash) if token and len(token) <= 200 else None
+    if not user:
+        raise AccountValidationError("This reset link is invalid or has expired. Request a new one.")
+    LOGGER.info("audit event=password_reset_completed user_id=%s", user["user_id"])
+
+
+def password_reset_available() -> bool:
+    return mail_is_configured()
 
 
 def authenticate_social_user(provider: str, subject: str, email: str, display_name: str) -> dict[str, Any]:
