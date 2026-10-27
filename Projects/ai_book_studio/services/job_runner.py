@@ -6,6 +6,7 @@ This module never imports Streamlit. The interface polls ``GenerationJob`` for l
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections import deque
@@ -21,8 +22,9 @@ PipelineFactory = Callable[[ProgressCallback, ChapterEventCallback, Callable[[],
 class GenerationJob:
     """One background generation run for one project."""
 
-    def __init__(self, build: PipelineFactory) -> None:
+    def __init__(self, build: PipelineFactory, task: str = "book") -> None:
         self._build = build
+        self.task = task  # "book" generates the whole book, "plan" only creates the plan
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -36,14 +38,19 @@ class GenerationJob:
         self.error: str | None = None
         self.stopped = False
         self.summary: ExportSummary | None = None
+        self.plan_ready = False
+        self.phase_started = 0.0
+        self.handled = True  # set to False by the interface when it must adopt the finished result
+        self.new_book = False  # True when the project was created only for this plan request
 
     # ------------------------------------------------------------------ control
     def start(self) -> None:
         """Create the pipeline (so a missing key is reported immediately) and start the thread."""
         self.pipeline = self._build(self._on_progress, self._on_chapter, self._stop.is_set)
         _ = self.pipeline.llm
-        _ = self.pipeline.images
-        self.started_at = time.time()
+        if self.task == "book":
+            _ = self.pipeline.images
+        self.started_at = self.phase_started = time.time()
         self._thread = threading.Thread(target=self._run, name="book-generation", daemon=True)
         self._thread.start()
 
@@ -74,7 +81,20 @@ class GenerationJob:
             self.fraction = fraction
             if message != self.message:
                 self.log.append(f"{time.strftime('%H:%M:%S')}  {message}")
+                self.phase_started = time.time()
             self.message = message
+
+    def estimated_fraction(self, ceiling: float, expected_seconds: float) -> float:
+        """Progress that creeps from the last reported value towards ``ceiling`` while one long model call runs.
+
+        It never reaches the ceiling, so the bar keeps moving without claiming the call has finished.
+        """
+        with self._lock:
+            base, started = self.fraction, self.phase_started
+        if not self.running or ceiling <= base:
+            return base
+        waited = max(time.time() - started, 0.0)
+        return base + (ceiling - base) * (1 - math.exp(-waited / max(expected_seconds, 1.0)))
 
     def _on_chapter(self, number: int, phase: str) -> None:
         with self._lock:
@@ -91,8 +111,13 @@ class GenerationJob:
     def _run(self) -> None:
         assert self.pipeline is not None
         try:
-            self.summary = self.pipeline.generate_complete_book()
-            self._on_progress(1.0, "Your book is ready.")
+            if self.task == "plan":
+                self.pipeline.create_plan()
+                self.plan_ready = True
+                self._on_progress(1.0, "Your book plan is ready.")
+            else:
+                self.summary = self.pipeline.generate_complete_book()
+                self._on_progress(1.0, "Your book is ready.")
         except GenerationStopped:
             self.stopped = True
             self._on_progress(self.fraction, "Stopped. Progress is saved.")

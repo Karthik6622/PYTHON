@@ -51,7 +51,7 @@ KEY TOPICS OR SCENES:
 {key_topics}
 
 TARGET LENGTH:
-Approximately {target_words} words.
+At least about {target_words} words. Go longer whenever the story or subject needs it; quality and completeness matter more than any exact length.
 
 Write the complete chapter.
 
@@ -119,7 +119,7 @@ Return JSON containing:
 Write the values in {language}. Return valid JSON only.
 Do not include Markdown or additional commentary."""
 
-REVISION_PROMPT = """You are revising a chapter based on an editor's quality report.
+REVISION_PROMPT = """You are the author revising one chapter after an editor's review. Fix exactly what the editor found and keep everything that already works.
 
 BOOK PLAN:
 {book_plan_json}
@@ -127,25 +127,32 @@ BOOK PLAN:
 BOOK BIBLE:
 {book_bible_json}
 
-ORIGINAL CHAPTER:
+PREVIOUS CHAPTER SUMMARIES:
+{previous_chapter_summaries}
+
+CHAPTER: number {chapter_number}, "{chapter_title}"
+CHAPTER OBJECTIVE: {chapter_objective}
+EXPECTED TOPICS OR SCENES: {key_topics}
+
+CURRENT CHAPTER:
 {chapter_content}
 
-EDITOR REPORT:
-{quality_report_json}
+WHY THE EDITOR DID NOT PASS IT:
+{editor_summary}
 
-Correct all listed problems while preserving the strongest parts of the original chapter.
+PROBLEMS FOUND AND CHANGES REQUIRED:
+{fix_list}
 
-Requirements:
+Method:
 
-- Maintain continuity.
-- Remove repetition.
-- Correct contradictions.
-- Complete missing topics or scenes.
-- Preserve the approved tone and writing style.
-- Write in {language}.
-- Do not include the chapter number or title.
-- Do not mention the editing or generation process.
-- Return only the revised chapter."""
+1. For every item above, find the passage involved and rewrite or add what is needed to resolve it properly. Add missing scenes or topics in full, remove or merge repeated parts, correct contradictions using the bible and the earlier summaries, finish incomplete passages and give the chapter a complete ending.
+2. Keep every passage that was not criticised exactly as it is.
+3. Length is not a problem: the chapter may become longer than before. Never cut good material just to be shorter.
+4. Maintain continuity and the approved tone and writing style.
+5. Write in {language}.
+6. Do not include the chapter number or title.
+7. Do not mention the editor, the review or the generation process.
+8. Return only the complete revised chapter."""
 
 FRONT_MATTER_PROMPT = """You are an experienced professional author writing the {section_name} of a complete book.
 

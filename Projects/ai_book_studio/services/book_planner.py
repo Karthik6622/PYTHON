@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from config import CONTENT_OPTIONS
@@ -39,8 +40,16 @@ def _validate_model_plan(data: dict[str, Any]) -> BookPlan:
     return BookPlan.model_validate(data)
 
 
-def generate_plan(llm: LLMClient, book_input: BookInput, budget: PageBudget | None = None) -> BookPlan:
-    """Ask the model for a plan, then enforce the user's choices and repair the structure."""
+def generate_plan(
+    llm: LLMClient,
+    book_input: BookInput,
+    budget: PageBudget | None = None,
+    on_step: Callable[[str], None] | None = None,
+) -> BookPlan:
+    """Ask the model for a plan, then enforce the user's choices and repair the structure.
+
+    ``on_step`` is told "designing" before the model call and "checking" after it.
+    """
     budget = budget or compute_budget(book_input)
     prompt = render_template(
         PLANNING_PROMPT,
@@ -59,9 +68,13 @@ def generate_plan(llm: LLMClient, book_input: BookInput, budget: PageBudget | No
         selected_content_options=_selected_options(book_input),
     )
     plan_tokens = min(16000, max(6000, 3000 + 450 * budget.recommended_chapters))
+    if on_step:
+        on_step("designing")
     plan: BookPlan = llm.generate_json(
         prompt, "planning", max_tokens=plan_tokens, validator=_validate_model_plan
     )
+    if on_step:
+        on_step("checking")
 
     # The user's selections always win over whatever the model echoed back.
     plan.author = book_input.author_name.strip()

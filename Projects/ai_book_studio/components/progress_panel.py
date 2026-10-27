@@ -17,6 +17,14 @@ _PHASE_TEXT = {
     "illustrating": "🖼️ Adding image",
 }
 
+# (progress fraction where the step starts, text) - must match the fractions reported by BookPipeline.create_plan
+_PLAN_STEPS = (
+    (0.0, "Checking your request"),
+    (0.15, "Designing the chapters, themes and illustration ideas with Nemotron"),
+    (0.85, "Checking and balancing the plan (chapter count, word targets, illustrations)"),
+    (0.95, "Saving the plan"),
+)
+
 
 def stage_pill(project: BookProject) -> str:
     stage = project.status.stage
@@ -98,7 +106,15 @@ def controls(project: BookProject, where: str) -> None:
             stop_generation(project)
         return
     if stage == "completed":
+        flagged = [n for n in project.chapter_numbers if not ((r := project.reviews.get(n)) and r.passed)]
+        if not flagged:
+            st.success("The book is complete and every chapter passed the quality check. Open the Preview and Export tabs.")
+            return
         st.success("The book is complete. Open the Preview and Export tabs.")
+        st.warning(f"{len(flagged)} chapter(s) did not pass the quality check yet.")
+        if st.button(f"🔧 Fix {len(flagged)} chapter(s) that need attention", key=f"{where}_improve", type="primary", width="stretch"):
+            if start_generation(project):
+                st.rerun()
         return
     started = bool(project.chapters) or stage in {"running", "stopped", "failed"}
     if started:
@@ -161,6 +177,42 @@ def render_live() -> None:
     project = current_project()
     interval = 2 if job_running(project) else None
     st.fragment(run_every=interval)(_live_body)()
+
+
+def _plan_checklist(fraction: float, finished: bool) -> str:
+    current = max(i for i, (start, _) in enumerate(_PLAN_STEPS) if fraction >= start)
+    lines = []
+    for i, (_, text) in enumerate(_PLAN_STEPS):
+        if finished or i < current:
+            mark = "✅"
+        elif i == current:
+            mark = "⏳"
+        else:
+            mark = "⬜"
+        lines.append(f"{mark} {text}")
+    return "\n\n".join(lines)
+
+
+def _plan_live_body(job: GenerationJob) -> None:
+    if not job.running and not job.handled:
+        st.rerun()  # the plan job just finished: refresh the page so it can be adopted
+    running = job.running
+    fraction = job.estimated_fraction(0.85, 90) if running else job.fraction
+    st.markdown("##### Creating the book plan")
+    if running:
+        st.progress(min(max(fraction, 0.0), 1.0), text=f"{job.message}  ({fraction * 100:.0f}%)")
+        st.caption(f"Running for {_clock(job.elapsed_seconds)}. The chapter design step is the longest; this page updates by itself.")
+    elif job.error:
+        st.error(job.error)
+    st.markdown(_plan_checklist(job.fraction, finished=job.plan_ready))
+    if running:
+        with st.expander("Activity log", expanded=False):
+            st.code("\n".join(reversed(job.log_lines())) or "Starting...", language=None)
+
+
+def render_plan_live(job: GenerationJob) -> None:
+    """Step-by-step status for a plan being created (refreshes every 2 seconds while it runs)."""
+    st.fragment(run_every=2 if job.running else None)(_plan_live_body)(job)
 
 
 def _sidebar_body() -> None:

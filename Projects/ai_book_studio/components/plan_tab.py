@@ -4,8 +4,19 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.progress_panel import controls
-from components.state import current_project, flash, get_storage, go_to, guarded, job_running, make_pipeline, refresh, set_project
+from components.progress_panel import controls, render_plan_live
+from components.state import (
+    current_project,
+    flash,
+    get_storage,
+    go_to,
+    guarded,
+    job_running,
+    plan_job_here,
+    plan_job_running_for,
+    refresh,
+    start_plan,
+)
 from models.book_models import BookProject
 from utils.text_utils import compute_budget
 from utils.validation_utils import validate_plan
@@ -19,6 +30,11 @@ def render() -> None:
     project = current_project()
     if project is None or project.plan is None:
         st.info("Create a book plan on the **Create** tab first.")
+        return
+    job = plan_job_here()
+    if job is not None and job.running and job.project is not None and job.project.project_id == project.project_id:
+        st.subheader("Book plan")
+        render_plan_live(job)
         return
     plan = project.plan
     budget = compute_budget(project.book_input)
@@ -54,7 +70,7 @@ def render() -> None:
             st.text_area("Illustration idea", chapter.image_concept, key=_key("cc", n), height=70)
 
     save_col, regen_col = st.columns(2)
-    locked = job_running(project)
+    locked = job_running(project) or plan_job_running_for(project)
     if save_col.button("💾 Save Plan Changes", width="stretch", disabled=locked):
         _save_plan(project, budget.target_words)
     with regen_col:
@@ -103,16 +119,11 @@ def _save_plan(project: BookProject, target_words: int) -> None:
 
 def _regenerate_plan(project: BookProject) -> None:
     storage = get_storage()
-    done = False
     with guarded("Regenerating the plan"):
         if project.chapters or project.images or project.bible:
             storage.clear_generated(project)
-        with st.spinner("Nemotron is designing a new plan..."):
-            make_pipeline(project).create_plan()
-        done = True
-    if done:
-        set_project(project)
-        flash("A new plan was created.", "success")
+        started = start_plan(project)
+    if started:
         st.rerun()
 
 

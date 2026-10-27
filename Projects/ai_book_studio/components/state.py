@@ -95,6 +95,22 @@ def job_running(project: BookProject | None) -> bool:
     return bool(job and job.running)
 
 
+@st.cache_resource
+def _plan_registry() -> dict[str, GenerationJob]:
+    """Background plan-creation jobs, keyed by project id."""
+    return {}
+
+
+def plan_job_here() -> GenerationJob | None:
+    """The plan job of the project this browser session is working on (if any)."""
+    return _plan_registry().get(st.session_state.get("plan_project_id") or "")
+
+
+def plan_job_running_for(project: BookProject) -> bool:
+    job = _plan_registry().get(project.project_id)
+    return bool(job and job.running)
+
+
 def go_to(section: str) -> None:
     """Open a section (a key of NAV_LABELS) on the next run."""
     st.session_state["nav_target"] = section
@@ -129,6 +145,60 @@ def start_generation(project: BookProject) -> bool:
     return True
 
 
+def start_plan(project: BookProject, new_book: bool = False) -> bool:
+    """Create the book plan in the background so the interface can show each step as it happens.
+
+    ``new_book`` means the project was created for this request and is deleted again if the plan fails.
+    """
+    if plan_job_running_for(project):
+        return True
+
+    def build(progress, chapter_event, should_stop) -> BookPipeline:
+        return BookPipeline(
+            project,
+            get_storage(),
+            llm_factory=NvidiaClient,
+            progress=progress,
+            chapter_event=chapter_event,
+            should_stop=should_stop,
+        )
+
+    job = GenerationJob(build, task="plan")
+    try:
+        job.start()
+    except AIBookError as exc:
+        st.error(exc.user_message)
+        return False
+    job.handled = False
+    job.new_book = new_book
+    _plan_registry()[project.project_id] = job
+    st.session_state["plan_project_id"] = project.project_id
+    return True
+
+
+def _finalize_plan_jobs() -> None:
+    """Once per finished plan job: adopt the new plan (or report the error) and forget the job."""
+    registry = _plan_registry()
+    for project_id, job in list(registry.items()):
+        if job.running or job.handled:
+            continue
+        job.handled = True
+        registry.pop(project_id, None)
+        project = job.project
+        if job.plan_ready and project is not None:
+            current = current_project()
+            if job.new_book or (current is not None and current.project_id == project_id):
+                set_project(project)
+            flash("Your book plan is ready. Review and edit it in the Plan tab, then generate the book.", "success")
+        else:
+            if job.new_book:
+                try:
+                    get_storage().delete_project(project_id)
+                except (AIBookError, OSError) as exc:
+                    LOGGER.warning("Could not remove the unfinished project: %s", redact(exc))
+            flash(job.error or "The book plan could not be created.", "error")
+
+
 def stop_generation(project: BookProject) -> None:
     job = job_for(project)
     if job and job.running:
@@ -137,6 +207,7 @@ def stop_generation(project: BookProject) -> None:
 
 def finalize_job() -> None:
     """Once per finished job: refresh the mirrors, show the outcome and open Preview after success."""
+    _finalize_plan_jobs()
     project = current_project()
     job = job_for(project)
     if job is None or job.running or getattr(job, "handled", True):

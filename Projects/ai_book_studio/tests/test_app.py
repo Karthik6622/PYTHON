@@ -29,6 +29,14 @@ def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
     next(b for b in at.button if "Create Book Plan" in b.label).click()
     at.run()
     assert not at.exception, [e.value for e in at.exception]
+
+    import time
+
+    deadline = time.time() + 60
+    while time.time() < deadline and at.session_state["book_plan"] is None:
+        time.sleep(0.2)
+        at.run()
+    assert not at.exception, [e.value for e in at.exception]
     assert at.session_state["book_plan"] is not None
     assert at.session_state["generation_status"] == "planned"
 

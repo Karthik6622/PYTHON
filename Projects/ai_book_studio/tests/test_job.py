@@ -40,6 +40,32 @@ def _wait(job: GenerationJob) -> None:
     assert not job.running
 
 
+def test_plan_job_reports_steps(storage, book_input):
+    project = storage.create_project(book_input)
+
+    def build(progress, chapter_event, should_stop):
+        return BookPipeline(
+            project,
+            storage,
+            llm=FakeLLM(),
+            image_generator=PlaceholderImageGenerator(),
+            progress=progress,
+            chapter_event=chapter_event,
+            should_stop=should_stop,
+        )
+
+    job = GenerationJob(build, task="plan")
+    job.start()
+    _wait(job)
+    assert job.plan_ready and job.error is None
+    assert project.plan is not None
+    assert project.status.stage == "planned"
+    log = "\n".join(job.log_lines())
+    for step in ("designing", "Checking and balancing", "Saving the plan"):
+        assert step in log
+    assert job.estimated_fraction(0.85, 60) == job.fraction
+
+
 def test_job_completes_with_phases(storage, book_input):
     phases: list[tuple[int, str]] = []
     job, project = _job(storage, book_input, phases)

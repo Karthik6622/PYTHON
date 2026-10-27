@@ -48,6 +48,7 @@ PRESETS: dict[str, SamplingPreset] = {
     "planning": SamplingPreset("planning", 0.4, 0.9, 6000),
     "bible": SamplingPreset("bible", 0.3, 0.9, 6000),
     "chapter": SamplingPreset("chapter", 0.75, 0.95, 0),
+    "revision": SamplingPreset("revision", 0.5, 0.9, 0),
     "front_matter": SamplingPreset("front_matter", 0.7, 0.95, 2500),
     "review": SamplingPreset("review", 0.2, 0.8, 2500),
     "summary": SamplingPreset("summary", 0.2, 0.8, 2500),

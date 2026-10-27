@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import current_project, flash, get_storage, guarded, make_pipeline, set_project
+from components.progress_panel import render_plan_live
+from components.state import current_project, get_storage, guarded, plan_job_here, start_plan
 from config import (
     AUDIENCES,
     BOOK_TYPES,
@@ -50,6 +51,10 @@ def collect_input() -> BookInput:
 def render() -> None:
     st.subheader("Describe your book")
     st.markdown('<p class="section-note">Tell us the idea; the app plans, writes, reviews and illustrates the book.</p>', unsafe_allow_html=True)
+
+    job = plan_job_here()
+    if job is not None:
+        render_plan_live(job)
 
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -98,7 +103,8 @@ def render() -> None:
     if budget.clamped:
         st.warning("The selected front and back matter use most of the pages. Remove some options or add pages.")
 
-    if st.button("✨ Create Book Plan", type="primary", width="stretch"):
+    busy = job is not None and job.running
+    if st.button("✨ Create Book Plan", type="primary", width="stretch", disabled=busy):
         problems = validate_book_input(book_input)
         if problems:
             for problem in problems:
@@ -111,21 +117,18 @@ def _create_plan(book_input: BookInput) -> None:
     storage = get_storage()
     project = current_project()
     created = False
-    if project is not None and not project.chapters:
-        project.book_input = book_input
-        storage.save_project_meta(project)
-    else:
-        project = storage.create_project(book_input)
-        created = True
-    succeeded = False
+    started = False
     with guarded("Creating the plan"):
-        with st.spinner("Nemotron is designing your book plan..."):
-            make_pipeline(project).create_plan()
-        succeeded = True
-    if not succeeded:
+        if project is not None and not project.chapters:
+            project.book_input = book_input
+            storage.save_project_meta(project)
+        else:
+            project = storage.create_project(book_input)
+            created = True
+        started = start_plan(project, new_book=created)
+    if not started:
         if created:
-            storage.delete_project(project.project_id)
+            with guarded("Removing the unfinished project"):
+                storage.delete_project(project.project_id)
         return
-    set_project(project)
-    flash("Your book plan is ready. Review and edit it in the Plan tab, then generate the book.", "success")
     st.rerun()

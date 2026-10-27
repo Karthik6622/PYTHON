@@ -74,6 +74,27 @@ def test_failure_then_resume_does_not_repeat_finished_work(storage, book_input):
     assert resumed.llm.chapter_requests == 2  # chapter 1 was not written again
 
 
+def test_failed_chapter_is_fixed_on_continue_without_rewriting(storage, book_input):
+    pipeline = _pipeline(storage, book_input, FakeLLM(fail_first_review=False))
+    pipeline.create_plan()
+    pipeline.generate_complete_book()
+    project = pipeline.project
+    original = project.chapters[2]
+    project.reviews[2].passed = False
+    project.reviews[2].score = 50
+    project.reviews[2].issues = ["The ending is abrupt"]
+    project.reviews[2].corrections_required = ["Add a closing scene"]
+
+    llm = FakeLLM(fail_first_review=False)
+    again = BookPipeline(project, storage, llm=llm, image_generator=PlaceholderImageGenerator())
+    again.generate_complete_book()
+    assert llm.chapter_requests == 0  # nothing was rewritten from scratch
+    assert project.reviews[2].passed
+    assert project.reviews[1].revisions == 0  # chapters that already passed were left alone
+    assert llm.calls.count("revision") == 1  # only the failing chapter was revised
+    assert project.chapters[2] != original
+
+
 def test_missing_chapter_blocks_export(storage, book_input):
     pipeline = _pipeline(storage, book_input)
     pipeline.create_plan()

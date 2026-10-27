@@ -62,6 +62,8 @@ class FakeLLM:
                 raise ModelRequestError("simulated failure")
             body = "\n\n".join([PARAGRAPH * 6] * 3)
             return ChatResult(f"## A Heading\n\n{body}\n\n- first point\n- second point\n\n1. step one\n\n> A quote\n\n***\n\n{body}")
+        if name == "revision":
+            return ChatResult(f"## A Heading\n\n{PARAGRAPH * 20}")
         if name == "front_matter":
             return ChatResult(PARAGRAPH * 5)
         if name == "image_prompt":

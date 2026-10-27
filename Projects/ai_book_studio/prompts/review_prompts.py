@@ -1,8 +1,6 @@
 """Chapter quality-check prompt."""
 
-REVIEW_PROMPT = """You are a strict book editor.
-
-Evaluate the current chapter against the approved book plan and continuity bible.
+REVIEW_PROMPT = """You are a fair, experienced book editor. Decide whether the chapter below is ready to publish and, if it is not, tell the author exactly what to fix.
 
 BOOK PLAN:
 {book_plan_json}
@@ -20,22 +18,32 @@ EXPECTED TOPICS OR SCENES: {key_topics}
 CURRENT CHAPTER:
 {chapter_content}
 
-Check:
+{recheck_block}
 
-1. Chapter objective completion
-2. Coverage of expected topics or scenes
-3. Continuity
-4. Character consistency
-5. Timeline consistency
-6. Terminology consistency
-7. Repetition
-8. Contradictions
-9. Writing quality
-10. Age and audience suitability
-11. Incomplete paragraphs
-12. Abrupt ending
-13. Unnecessary filler
-14. Content that belongs in another chapter
+What to check:
+
+1. The chapter fulfils its objective and covers the expected topics or scenes.
+2. Continuity, character, timeline and terminology agree with the bible and the earlier chapters.
+3. No harmful repetition, contradictions, filler or content that clearly belongs to another chapter.
+4. Paragraphs are complete and the chapter ends properly (no cut-off text or abrupt ending).
+5. Writing quality and suitability for the audience.
+
+How to judge:
+
+- Judge quality, never length. The chapter may be shorter or LONGER than any word target. Do not lower the score or list an issue because of its length.
+- Report only problems a reader would really notice. Do not penalise personal taste, small wording choices or details the plan leaves open.
+- List at most 6 issues, most important first. For each issue say where it is (quote a short phrase) and what is wrong.
+- For every issue give one concrete change in "corrections_required" that would resolve it.
+- A critical problem is a clear contradiction of established facts or a chapter that misses its objective altogether.
+
+Scoring guide:
+
+- 90-100: excellent.
+- 80-89: good and publishable with only minor polish (minor polish alone is not a reason to fail).
+- 60-79: real problems that must be fixed (list them).
+- Below 60: serious problems such as off-topic, incomplete or contradictory content.
+
+The chapter passes (passed = true) only when the score is 80 or above and there is no critical problem.
 
 Return JSON only:
 
@@ -47,6 +55,10 @@ Return JSON only:
   "editor_summary": ""
 }
 
-Use an integer score from 0 to 100.
+Use an integer score from 0 to 100. "editor_summary" is one or two sentences explaining the verdict."""
 
-A chapter passes only when its score is 80 or above and there are no critical continuity errors."""
+RECHECK_BLOCK = """THIS IS A RE-CHECK. The chapter was revised after you asked for these changes:
+
+{required_changes}
+
+First verify each change. A problem that was fixed must not be reported again and must not lower the score. Report a new problem only if it is serious (a real contradiction, a missing objective or an incomplete passage); do not add new stylistic preferences. If the requested changes were made and nothing serious remains, the chapter should pass with a score of 80 or above."""

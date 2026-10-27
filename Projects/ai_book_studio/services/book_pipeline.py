@@ -135,16 +135,32 @@ class BookPipeline:
         return self.project.plan
 
     # ------------------------------------------------------------------ steps 1-3: plan
+    def _plan_step(self, fraction: float, message: str) -> None:
+        self.project.status.message = message
+        self.project.status.progress = fraction
+        if self._progress:
+            self._progress(fraction, message)
+
     def create_plan(self):
         """Validate the request, ask Nemotron for a plan and save it."""
         book_input = self.project.book_input
         problems = validate_book_input(book_input)
         if problems:
             raise AIBookError(" ".join(problems))
+        self._plan_step(0.02, "Checking your request...")
         screen_request(book_input)
         self._total, self._done = 1, 0
-        self._begin("Creating the book plan...")
-        plan = generate_plan(self.llm, book_input, compute_budget(book_input))
+        steps = {
+            "designing": (0.15, "Nemotron is designing the chapters, themes and illustrations..."),
+            "checking": (0.85, "Checking and balancing the plan (chapters, word counts, illustrations)..."),
+        }
+        plan = generate_plan(
+            self.llm,
+            book_input,
+            compute_budget(book_input),
+            on_step=lambda step: self._plan_step(*steps[step]),
+        )
+        self._plan_step(0.95, "Saving the plan...")
         self.project.plan = plan
         self.storage.save_plan(self.project)
         self.project.status = GenerationStatus(stage="planned", message="Plan ready for review.", progress=0.0)
@@ -170,9 +186,15 @@ class BookPipeline:
             for chapter in plan.chapters:
                 number = chapter.chapter_number
                 self._check_stop()
-                self._begin(f"Writing {chapter_label(number, plan.language)}: {chapter.title}")
+                review = self.project.reviews.get(number)
                 if not self.project.chapter_done(number):
+                    self._begin(f"Writing {chapter_label(number, plan.language)}: {chapter.title}")
                     self.process_chapter(number)
+                elif review is None or not review.passed:
+                    self._begin(f"Improving {chapter_label(number, plan.language)}: {chapter.title}")
+                    self.improve_chapter(number)
+                else:
+                    self._begin(f"{chapter_label(number, plan.language)}: {chapter.title} is already complete")
                 self._finish()
                 if chapter.requires_image:
                     self._check_stop()
@@ -248,19 +270,52 @@ class BookPipeline:
             self._check_stop()
             self._note(number, "testing")
             report = review_chapter(self.llm, project, chapter, text)
-            revisions = 0
-            while not report.passed and revisions < MAX_REVISIONS and report.editor_summary != REVIEW_UNAVAILABLE:
-                revisions += 1
-                self._check_stop()
-                self._note(number, f"revising {revisions}")
-                text = revise_chapter(self.llm, project, chapter, text, report)
-                project.chapters[number] = text
-                self.storage.save_chapter(project, number)
-                self._note(number, "testing")
-                report = review_chapter(self.llm, project, chapter, text)
-            report.revisions = revisions
-            project.reviews[number] = report
+            self._quality_loop(number, chapter, report)
+        if number not in project.summaries:
+            self._check_stop()
+            self._note(number, "summarising")
+            project.summaries[number] = summarize_chapter(self.llm, project, chapter, project.chapters[number])
             self.storage.save_chapter(project, number)
+        self._sync_status()
+        self.storage.save_status(project)
+
+    def _quality_loop(self, number: int, chapter, report, prior_revisions: int = 0) -> None:
+        """Fix what the editor found, then re-check, up to MAX_REVISIONS times. Length is never a reason to fail."""
+        project = self.project
+        history = []
+        revisions = 0
+        while not report.passed and revisions < MAX_REVISIONS and report.editor_summary != REVIEW_UNAVAILABLE:
+            revisions += 1
+            self._check_stop()
+            self._note(number, f"revising {revisions}")
+            revised = revise_chapter(self.llm, project, chapter, project.chapters[number], report, history)
+            project.chapters[number] = revised
+            project.summaries.pop(number, None)  # the text changed, so the continuity summary is rebuilt
+            self.storage.save_chapter(project, number)
+            history.append(report)
+            self._check_stop()
+            self._note(number, "testing")
+            report = review_chapter(self.llm, project, chapter, revised, previous=report)
+        report.revisions = prior_revisions + revisions
+        project.reviews[number] = report
+        self.storage.save_chapter(project, number)
+
+    def improve_chapter(self, number: int) -> None:
+        """Re-test a finished chapter that did not pass and fix only the problems found."""
+        plan = self._require_plan()
+        chapter = plan.chapter(number)
+        if chapter is None or not self.project.chapters.get(number, "").strip():
+            raise AIBookError(f"Chapter {number} has no text to improve.")
+        project = self.project
+        report = project.reviews.get(number)
+        prior = report.revisions if report else 0
+        if report is None or report.editor_summary == REVIEW_UNAVAILABLE:
+            self._check_stop()
+            self._note(number, "testing")
+            report = review_chapter(self.llm, project, chapter, project.chapters[number])
+            prior = 0
+        if not report.passed:
+            self._quality_loop(number, chapter, report, prior)
         if number not in project.summaries:
             self._check_stop()
             self._note(number, "summarising")
