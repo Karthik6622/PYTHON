@@ -209,7 +209,9 @@ hr { border-color: var(--ks-line); }
 .st-key-ks_authlinks [data-testid^="stBaseButton"]:focus-visible { outline: 3px solid var(--ks-focus) !important; outline-offset: 1px; }
 .st-key-ks_authlinks [data-testid^="stBaseButton"]:focus:not(:focus-visible) { box-shadow: none !important; outline: none !important; }
 .st-key-ks_authlinks [data-testid^="stBaseButton"] p { color: inherit !important; background: transparent !important; }
-.ks-authprompt { text-align: center; color: var(--ks-muted); font-size: .95rem; margin-top: .7rem; }
+.st-key-ks_authlinks [data-testid="stElementContainer"]:has(.ks-authprompt) [data-testid="stMarkdownContainer"] { margin: 0 !important; }
+.st-key-ks_authlinks [data-testid="stElementContainer"]:has(.ks-authprompt) [data-testid="stMarkdown"] { height: auto !important; min-height: 0 !important; }
+.ks-authprompt { display: flow-root; text-align: center; color: var(--ks-muted); font-size: .95rem; line-height: 1.5; padding-top: .7rem; margin: 0; }
 .stApp .st-key-login_forgot [data-testid^="stBaseButton"] { font-size: .95rem; text-decoration: underline; text-decoration-color: rgba(11,93,85,.35); text-underline-offset: .22em; }
 .stApp :is(.st-key-create_to_login, .st-key-login_to_signup) [data-testid^="stBaseButton"] { background: #fff !important; border: 1.5px solid var(--ks-brand) !important;
   min-width: min(100%, 240px); min-height: 2.8rem; color: var(--ks-brand) !important; box-shadow: 0 10px 22px -18px rgba(11,93,85,.7) !important; }
