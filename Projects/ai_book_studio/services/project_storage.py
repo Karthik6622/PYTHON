@@ -99,7 +99,7 @@ class ProjectStorage:
     # ------------------------------------------------------------------ create / list / delete
     def create_project(self, book_input: BookInput) -> BookProject:
         project_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
-        project = BookProject(project_id=project_id, book_input=book_input)
+        project = BookProject(project_id=project_id, book_input=book_input.model_dump())
         for folder in (self.chapters_dir(project_id), self.images_dir(project_id), self.exports_dir(project_id)):
             folder.mkdir(parents=True, exist_ok=True)
         self.save_project_meta(project)
