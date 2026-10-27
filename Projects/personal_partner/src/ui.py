@@ -251,8 +251,7 @@ def render_reset_password() -> None:
             st.error(str(exc))
         except Exception:
             LOGGER.exception("Password reset failed")
-            st.error("We couldn't update the password right now. Please try again."n_state.view = "Welcome"
-        st.rerun()
+            st.error("We couldn't update the password right now. Please try again.")
 
 
 def _ensure_conversation(user_id: str) -> list[dict[str, Any]]:
