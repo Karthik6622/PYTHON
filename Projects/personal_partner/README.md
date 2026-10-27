@@ -22,7 +22,19 @@ py -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Set `NVIDIA_API_KEY` in `.env` or `.streamlit/secrets.toml`. The default model is `nvidia/nemotron-3.5-bolt-e4b`, matching Interview Studio. You can override it with `LLM_MODEL` or `NVIDIA_MODEL`; `LLM_BASE_URL` defaults to NVIDIA's OpenAI-compatible endpoint. Generic `LLM_API_KEY` remains supported. Secrets take precedence over environment variables. Never commit real keys.
+Set `NVIDIA_API_KEY` and `TAVILY_API_KEY` in `.env` or `.streamlit/secrets.toml`.
+
+### How questions are routed
+
+```
+User -> question classifier (src/classifier.py) -> needs current info?
+  NO:  NVIDIA Nemotron -> answer
+  YES: Tavily search (src/web_search.py) -> current web results -> NVIDIA Nemotron -> answer
+```
+
+Current-information questions (for example, who holds an office, latest films or news, today's weather, prices, scores, and anything with "current", "latest", "recent", or the current year) are searched with Tavily first. Every other question goes straight to Nemotron. Date and time questions are answered from the local clock. If `TAVILY_API_KEY` is missing or a search fails, the assistant says so instead of guessing. Search results are cached for 15 minutes.
+
+The default model is `nvidia/nemotron-3.5-bolt-e4b`, matching Interview Studio. You can override it with `LLM_MODEL` or `NVIDIA_MODEL`; `LLM_BASE_URL` defaults to NVIDIA's OpenAI-compatible endpoint. Generic `LLM_API_KEY` remains supported. Secrets take precedence over environment variables. Never commit real keys.
 
 Start the app:
 

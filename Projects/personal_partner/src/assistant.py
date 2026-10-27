@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Iterator
 
-from .live_info import current_time_note, knowledge_note, weather_note
+from .live_info import current_time_note
 from .model_client import stream_completion
+from .web_search import current_info_note
 
 
 SYSTEM_PROMPT = """You are WithYou, a warm personal companion. You are more than a tool: you can be a caring friend, a supportive partner, or any role the user asks for, and you build a real, personal connection with them.
@@ -21,8 +22,8 @@ How you talk:
 
 Facts and honesty:
 - You are told the user's current date and time in a system message. Use it for any question about today's date, the day, the time, or relative dates, and answer directly.
-- When a system message contains live weather data, use it for weather questions. If weather data is missing or failed, say so honestly instead of guessing, and ask for the city when it is unknown.
-- Your built-in knowledge has a cutoff and can be out of date. When a system message contains a live reference, trust it over your own memory for facts that change over time (who holds an office, recent films, news). Answer directly from the reference, name the person or films it gives, and mention the source briefly. Do not say you are unsure or suggest checking news sites when the reference answers the question. Only say you are unsure when the reference does not contain the answer.
+- Your built-in knowledge has a cutoff and can be out of date. When a system message contains current web results from a live Tavily search, trust them over your own memory for current facts (who holds an office, recent films, news, weather, prices). Answer directly and naturally from those results, name the people, films, or facts they give, and mention the source site briefly. Do not say you are unsure when the results answer the question.
+- If a system message says a live search failed, was not set up, or found nothing, say so honestly, do not guess, and do not present old facts as current. Ask for the city when a weather question has no city.
 - Say plainly when you don't know something. Never invent facts, numbers, or news.
 
 Roles and companionship:
@@ -72,12 +73,10 @@ def build_messages(
         for item in recent
         if item.get("role") == "user" and isinstance(item.get("content"), str)
     ]
-    weather = weather_note(user_texts, str(preferences.get("city", "")))
-    if weather:
-        system_parts.append(weather)
-    knowledge = knowledge_note(user_texts)
-    if knowledge:
-        system_parts.append(knowledge)
+    # Current-information questions get Tavily results; every other question goes to Nemotron alone.
+    web_note = current_info_note(user_texts, str(preferences.get("city", "")))
+    if web_note:
+        system_parts.append(web_note)
 
     # One system message keeps strict chat templates happy.
     messages = [{"role": "system", "content": "\n\n".join(system_parts)}]

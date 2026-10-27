@@ -1,4 +1,4 @@
-from src import assistant, live_info
+from src import assistant, live_info, web_search
 
 
 def convo(text):
@@ -30,49 +30,73 @@ def test_romantic_topic_adds_romantic_style():
     assert "never sexually explicit" in romantic
 
 
-def test_weather_without_city_asks_instead_of_guessing():
-    text = system_text(assistant.build_messages(convo("what's the weather today?"), {}))
-    assert "no city is known" in text
+def use_key(monkeypatch, key="tvly-test-key"):
+    monkeypatch.setattr(web_search, "tavily_api_key", lambda: key)
 
 
-def test_weather_city_detection_and_saved_city(monkeypatch):
-    assert live_info.extract_city("weather in New York today?") == "New York"
-    assert live_info.extract_city("weather today") is None
-    monkeypatch.setattr(live_info, "_fetch_weather", lambda city, bucket: f"Live weather for {city}")
-    note = live_info.weather_note(["how is the weather today?"], default_city="Chennai")
-    assert note and "Live weather for Chennai" in note
-    assert live_info.weather_note(["tell me a joke"], default_city="Chennai") is None
-
-
-def test_weather_lookup_failure_is_reported_honestly(monkeypatch):
-    def boom(city, bucket):
-        raise RuntimeError("offline")
-
-    monkeypatch.setattr(live_info, "_fetch_weather", boom)
-    note = live_info.weather_note(["weather in Paris"])
-    assert note and "Do not invent weather" in note
-
-
-def test_fact_question_gets_live_reference(monkeypatch):
-    monkeypatch.setattr(live_info, "_wiki_lookup", lambda query, bucket: "Chief Minister of Tamil Nadu: Example Person is the CM.")
+def test_current_question_gets_tavily_results(monkeypatch):
+    use_key(monkeypatch)
+    monkeypatch.setattr(
+        web_search,
+        "_search_cached",
+        lambda query, bucket: ({"title": "CM page", "url": "https://example.org/cm", "content": "Example Person is the CM.", "published": ""},),
+    )
     text = system_text(assistant.build_messages(convo("who is tamilnadu cm?"), {}))
-    assert "Live reference (Wikipedia" in text
+    assert "Current web results" in text
     assert "Example Person is the CM" in text
 
 
-def test_small_talk_skips_live_lookup(monkeypatch):
+def test_non_current_question_skips_search(monkeypatch):
     def should_not_run(query, bucket):
-        raise AssertionError("small talk must not trigger a lookup")
+        raise AssertionError("non-current questions must not trigger a web search")
 
-    monkeypatch.setattr(live_info, "_wiki_lookup", should_not_run)
+    monkeypatch.setattr(web_search, "_search_cached", should_not_run)
+    text = system_text(assistant.build_messages(convo("what is the capital of France?"), {}))
+    assert "Current web results" not in text
+
+
+def test_small_talk_skips_search(monkeypatch):
+    def should_not_run(query, bucket):
+        raise AssertionError("small talk must not trigger a search")
+
+    monkeypatch.setattr(web_search, "_search_cached", should_not_run)
     text = system_text(assistant.build_messages(convo("hi, how are you"), {}))
-    assert "Live reference" not in text
+    assert "Current web results" not in text
 
 
-def test_reference_lookup_failure_is_reported_honestly(monkeypatch):
+def test_search_failure_is_reported_honestly(monkeypatch):
+    use_key(monkeypatch)
+
     def boom(query, bucket):
         raise RuntimeError("offline")
 
-    monkeypatch.setattr(live_info, "_wiki_lookup", boom)
+    monkeypatch.setattr(web_search, "_search_cached", boom)
     text = system_text(assistant.build_messages(convo("which tamil movies released this year?"), {}))
-    assert "lookup failed" in text and "instead of guessing" in text
+    assert "failed just now" in text and "Do not guess" in text
+
+
+def test_missing_key_is_reported_honestly(monkeypatch):
+    use_key(monkeypatch, key="")
+    text = system_text(assistant.build_messages(convo("what's the weather today?"), {}))
+    assert "TAVILY_API_KEY is missing" in text
+
+
+def test_follow_up_inherits_current_routing(monkeypatch):
+    use_key(monkeypatch)
+    seen = []
+
+    def fake_search(query, bucket):
+        seen.append(query)
+        return ({"title": "t", "url": "https://example.org", "content": "c", "published": ""},)
+
+    monkeypatch.setattr(web_search, "_search_cached", fake_search)
+    conversation = {
+        "messages": [
+            {"role": "user", "content": "who is tamilnadu cm?"},
+            {"role": "assistant", "content": "Example Person."},
+            {"role": "user", "content": "and before him?"},
+        ]
+    }
+    text = system_text(assistant.build_messages(conversation, {}))
+    assert "Current web results" in text
+    assert seen and "who is tamilnadu cm?" in seen[0]
