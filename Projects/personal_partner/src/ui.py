@@ -17,12 +17,12 @@ from .auth import (
     authenticate_social_user,
     authenticate_user,
     create_account,
-    password_reset_available,
     password_reset_token_is_valid,
     public_account,
     request_password_reset,
     reset_password,
 )
+from .mailer import email_service_problem
 from .model_client import ModelConfigurationError
 from .social_auth import (
     SocialLoginError,
@@ -202,11 +202,12 @@ def render_login() -> None:
 def render_forgot_password() -> None:
     st.title("Reset your password")
     st.caption("Enter the email address on your account and we'll send you a reset link.")
-    if not password_reset_available():
-        st.warning("Password reset email isn't set up on this server yet. Please contact your administrator.")
+    problem = email_service_problem()
+    if problem:
+        st.error(problem)
     with st.form("forgot_password_form", clear_on_submit=False):
         email = st.text_input("Email", max_chars=254, autocomplete="email")
-        submitted = st.form_submit_button("Send reset link", type="primary", use_container_width=True, disabled=not password_reset_available())
+        submitted = st.form_submit_button("Send reset link", type="primary", use_container_width=True, disabled=problem is not None)
     if submitted:
         try:
             request_password_reset(email)
