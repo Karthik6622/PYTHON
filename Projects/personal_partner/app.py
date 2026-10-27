@@ -1,4 +1,4 @@
-"""KindSpace Personal Assistant Streamlit entry point."""
+"""WithYou (Personal Partner) Streamlit entry point."""
 
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 
 def main() -> None:
-    st.set_page_config(page_title="KindSpace Personal Assistant", page_icon="🌿", layout="centered")
+    st.set_page_config(page_title="WithYou", page_icon="🌿", layout="centered")
     try:
         initialize_storage()
     except Exception:
         logging.getLogger("kindspace.app").exception("Could not initialize local storage")
-        st.error("KindSpace could not prepare its local data folder. Check folder permissions and try again.")
+        st.error("WithYou could not prepare its local data folder. Check folder permissions and try again.")
         st.stop()
     render_app()
 

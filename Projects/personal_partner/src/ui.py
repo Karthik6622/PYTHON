@@ -1,7 +1,8 @@
-"""Responsive Streamlit views for KindSpace."""
+"""Responsive Streamlit views for WithYou."""
 
 from __future__ import annotations
 
+import html
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -21,6 +22,7 @@ from .auth import (
     public_account,
     reset_password_for_email,
 )
+from .live_info import resolve_timezone
 from .model_client import ModelConfigurationError
 from .social_auth import (
     SocialLoginError,
@@ -32,7 +34,7 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
-from .styles import APP_CSS, WELCOME_HERO_HTML
+from .styles import APP_CSS, BRAND_HTML, welcome_html
 
 
 LOGGER = logging.getLogger("kindspace.ui")
@@ -80,8 +82,14 @@ def _notice_storage_issues() -> None:
         st.warning(notice)
 
 
-def _social_buttons(prefix: str) -> None:
-    st.caption("Or continue with")
+def _social_buttons(prefix: str, welcome: bool = False) -> None:
+    if welcome:
+        # Public landing page: only offer providers that are actually configured and never show setup hints.
+        if not (google_is_configured() or github_is_configured()):
+            return
+        st.markdown('<div class="ks-or">or continue with</div>', unsafe_allow_html=True)
+    else:
+        st.caption("Or continue with")
     google_col, github_col = st.columns(2)
     with google_col:
         if google_is_configured():
@@ -98,6 +106,8 @@ def _social_buttons(prefix: str) -> None:
             disabled=not github_is_configured(),
             use_container_width=True,
         )
+    if welcome:
+        return
     missing = google_missing_settings()
     if missing:
         LOGGER.warning("Google sign-in is disabled; missing secrets: %s", ", ".join(missing))
@@ -114,23 +124,24 @@ def _show_social_error() -> None:
 
 def render_welcome() -> None:
     _show_social_error()
-    st.markdown('<div class="ks-brand">KindSpace</div>', unsafe_allow_html=True)
-    st.write("")
-    st.markdown(WELCOME_HERO_HTML, unsafe_allow_html=True)
-    st.write("")
-    left, right = st.columns(2)
-    with left:
-        if st.button("Log in", type="primary", use_container_width=True):
-            st.session_state.view = "Login"
-            st.rerun()
-    with right:
-        if st.button("Create account", use_container_width=True):
-            st.session_state.view = "Create Account"
-            st.rerun()
-    st.markdown(
-        '<div class="ks-note">KindSpace is an AI assistant, not a human, therapist, doctor, or emergency service. Your account and conversations are stored locally on this server.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(welcome_html(str(st.session_state.get("display_name") or "")), unsafe_allow_html=True)
+    with st.container(key="ks_auth"):
+        left, right = st.columns(2)
+        with left:
+            if st.button("Continue to your space", key="welcome_login", type="primary", use_container_width=True):
+                st.session_state.view = "Login"
+                st.rerun()
+        with right:
+            if st.button("Create account", key="welcome_signup", use_container_width=True):
+                st.session_state.view = "Create Account"
+                st.rerun()
+        _social_buttons("welcome", welcome=True)
+        st.markdown(
+            '<div class="ks-note" style="margin-top:1rem">Your conversations are connected to your account and designed to stay personal to you. '
+            'WithYou is an AI assistant, not a human, therapist, doctor, or emergency service.</div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown('<div class="ks-footer">WithYou &middot; a personal AI companion</div>', unsafe_allow_html=True)
 
 
 def render_create_account() -> None:
@@ -250,7 +261,7 @@ def _ensure_conversation(user_id: str) -> list[dict[str, Any]]:
         st.session_state.active_conversation_id = active.get("conversation_id")
     if active is None:
         active = storage.create_conversation(user_id)
-        greeting = f"Hi {st.session_state.display_name}, I’m KindSpace, an AI assistant. I’m here to help you think things through, plan, or explore a question. What’s on your mind?"
+        greeting = f"Hey {st.session_state.display_name}! I’m WithYou, your AI companion. Ask me anything, think out loud, or just chat. What’s on your mind?"
         storage.append_message(
             user_id,
             active["conversation_id"],
@@ -263,7 +274,7 @@ def _ensure_conversation(user_id: str) -> list[dict[str, Any]]:
 
 def _create_chat(user_id: str) -> None:
     conversation = storage.create_conversation(user_id)
-    greeting = f"Hi {st.session_state.display_name}, what would you like to talk through today?"
+    greeting = f"Hey {st.session_state.display_name}! What’s on your mind today?"
     storage.append_message(
         user_id,
         conversation["conversation_id"],
@@ -277,18 +288,24 @@ def _create_chat(user_id: str) -> None:
 
 def _conversation_sidebar(user_id: str, conversations: list[dict[str, Any]]) -> None:
     with st.sidebar:
-        st.markdown('<div class="ks-brand">KindSpace</div>', unsafe_allow_html=True)
-        if st.button("＋  New chat", type="primary", use_container_width=True):
+        st.markdown(BRAND_HTML, unsafe_allow_html=True)
+        st.write("")
+        if st.button("New chat", type="primary", icon=":material/add:", use_container_width=True):
             _create_chat(user_id)
-        st.caption("YOUR CONVERSATIONS")
-        for item in conversations:
-            conversation_id = str(item.get("conversation_id", ""))
-            title = safe_conversation_title(str(item.get("title", "Conversation")))
-            if st.button(title, key=f"conversation_{conversation_id}", use_container_width=True, help=title):
-                st.session_state.active_conversation_id = conversation_id
-                st.session_state.pop("pending_message_id", None)
-                st.session_state.pop("last_model_error", None)
-                st.rerun()
+        st.caption("RECENT CHATS")
+        active_chat_id = st.session_state.get("active_conversation_id")
+        with st.container(key="sidebar_chats"):
+            for item in conversations:
+                conversation_id = str(item.get("conversation_id", ""))
+                title = safe_conversation_title(str(item.get("title", "Conversation")))
+                is_active = conversation_id == active_chat_id
+                key = f"ks_active_{conversation_id}" if is_active else f"conversation_{conversation_id}"
+                icon = ":material/chat_bubble:" if is_active else ":material/chat_bubble_outline:"
+                if st.button(title, key=key, icon=icon, use_container_width=True, help=title):
+                    st.session_state.active_conversation_id = conversation_id
+                    st.session_state.pop("pending_message_id", None)
+                    st.session_state.pop("last_model_error", None)
+                    st.rerun()
         st.divider()
         with st.expander("Manage current chat"):
             active_id = st.session_state.get("active_conversation_id")
@@ -352,8 +369,8 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
         return
     try:
         with st.chat_message("assistant", avatar="🌿"):
-            with st.status("KindSpace is thinking…", expanded=False) as status:
-                response = st.write_stream(stream_reply(latest, st.session_state.get("user_preferences", {})))
+            with st.status("WithYou is typing…", expanded=False) as status:
+                response = st.write_stream(stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone()))
                 if not isinstance(response, str) or not response.strip():
                     raise RuntimeError("The assistant returned an empty response.")
                 status.update(label="Reply ready", state="complete", expanded=False)
@@ -375,6 +392,58 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
         st.rerun()
 
 
+def _browser_timezone() -> str | None:
+    try:
+        return str(st.context.timezone or "") or None
+    except Exception:
+        return None
+
+
+def _greeting() -> str:
+    tzinfo, _, _ = resolve_timezone(_browser_timezone())
+    hour = datetime.now(tzinfo).hour
+    if hour < 5:
+        return "Still up"
+    if hour < 12:
+        return "Good morning"
+    if hour < 17:
+        return "Good afternoon"
+    return "Good evening"
+
+
+def _chat_header(conversation: dict[str, Any], romantic: bool) -> None:
+    first_name = html.escape(str(st.session_state.get("display_name", "")).strip().split(" ")[0])
+    title = html.escape(safe_conversation_title(str(conversation.get("title", "Conversation"))))
+    hello = f"{_greeting()}, {first_name}" if first_name else _greeting()
+    chip = '<span class="ks-chip rose">Romantic mode</span>' if romantic else ""
+    st.markdown(
+        f'<div class="ks-chat-head"><div><div class="ks-eyebrow">{title}</div><h2>{hello}</h2>'
+        '<p>Talk it out, ask away, or just say hi. WithYou is an AI assistant.</p></div>'
+        f'{chip}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _romantic_toggle(user_id: str) -> bool:
+    preferences = dict(st.session_state.get("user_preferences", {}))
+    topics = [str(topic) for topic in preferences.get("topics", []) if isinstance(topic, str)]
+    current = "Romantic" in topics
+    chosen = st.toggle(
+        "Romantic mode",
+        value=current,
+        key=f"romantic_mode_{user_id}",
+        help="Replies turn sweet, affectionate and romantic. Switch it off any time.",
+    )
+    if chosen != current:
+        topics = [topic for topic in topics if topic != "Romantic"] + (["Romantic"] if chosen else [])
+        preferences["topics"] = topics
+        if storage.update_user_preferences(user_id, preferences):
+            st.session_state.user_preferences = preferences
+            return chosen
+        return current
+    return current
+
+
 def render_chat(user_id: str) -> None:
     conversations = _ensure_conversation(user_id)
     _conversation_sidebar(user_id, conversations)
@@ -383,8 +452,8 @@ def render_chat(user_id: str) -> None:
     if conversation is None:
         st.info("Choose a chat or start a new one.")
         return
-    st.title("Your space")
-    st.caption("A private conversation with an AI assistant.")
+    romantic_on = _romantic_toggle(user_id)
+    _chat_header(conversation, romantic_on)
     _show_conversation(conversation)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
@@ -399,7 +468,7 @@ def render_chat(user_id: str) -> None:
                 st.error("The message to retry could not be found.")
         return
 
-    prompt = st.chat_input("Write what’s on your mind…", max_chars=8_000)
+    prompt = st.chat_input("Message WithYou…", max_chars=8_000)
     if prompt:
         _send_message(user_id, conversation, prompt)
 
@@ -419,7 +488,7 @@ def render_profile(user_id: str) -> None:
         st.download_button(
             "Export selected conversation as Markdown",
             storage.export_conversation_as_markdown(active),
-            file_name="kindspace-conversation.md",
+            file_name="withyou-conversation.md",
             mime="text/markdown",
             use_container_width=True,
         )
@@ -433,10 +502,12 @@ def render_settings(user_id: str) -> None:
         length_options = ["Brief", "Balanced", "Detailed"]
         tone = st.selectbox("Reply tone", tone_options, index=tone_options.index(preferences.get("tone", "Warm")) if preferences.get("tone") in tone_options else 0)
         response_length = st.selectbox("Reply length", length_options, index=length_options.index(preferences.get("response_length", "Balanced")) if preferences.get("response_length") in length_options else 1)
-        topics = st.multiselect("Topics you often ask about", ["Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"], default=[value for value in preferences.get("topics", []) if value in {"Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"}])
+        topic_options = ["Romantic", "Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"]
+        topics = st.multiselect("Topics you often ask about", topic_options, default=[value for value in preferences.get("topics", []) if value in topic_options], help="Choose Romantic and replies will turn sweet and affectionate.")
+        city = st.text_input("Your city (optional)", value=str(preferences.get("city", "")), max_chars=60, help="Used only to look up the weather when you ask about it.")
         saved = st.form_submit_button("Save preferences", type="primary")
     if saved:
-        clean = {"tone": tone, "response_length": response_length, "topics": topics}
+        clean = {"tone": tone, "response_length": response_length, "topics": topics, "city": city.strip()}
         if storage.update_user_preferences(user_id, clean):
             st.session_state.user_preferences = clean
             st.success("Preferences saved.")

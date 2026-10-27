@@ -310,7 +310,7 @@ def set_password_by_email(email: str, new_password_hash: str) -> bool:
 
 
 def update_user_preferences(user_id: str, preferences: dict[str, Any]) -> bool:
-    allowed = {"tone", "response_length", "topics"}
+    allowed = {"tone", "response_length", "topics", "city"}
     clean_preferences = {key: value for key, value in preferences.items() if key in allowed}
     with FileLock(f"{USERS_FILE}.lock"):
         users = _read_users_locked()
@@ -410,7 +410,7 @@ def append_message(user_id: str, conversation_id: str, message: dict[str, Any]) 
 def export_conversation_as_markdown(conversation: dict[str, Any]) -> str:
     lines = [f"# {safe_conversation_title(str(conversation.get('title', 'Conversation')))}", ""]
     for message in conversation.get("messages", []):
-        label = "You" if message.get("role") == "user" else "KindSpace"
+        label = "You" if message.get("role") == "user" else "WithYou"
         lines.extend((f"## {label}", "", str(message.get("content", "")), ""))
     return "\n".join(lines).rstrip() + "\n"
 

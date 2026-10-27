@@ -23,7 +23,9 @@ def _mapping(value):
 
 def _root_secrets():
     try:
-        return _mapping(st.secrets)
+        root = _mapping(st.secrets)
+        root.get("auth")  # raises when no secrets file exists (e.g. a fresh local checkout)
+        return root
     except Exception:
         return {}
 
@@ -120,7 +122,7 @@ def complete_github_callback() -> dict[str, str] | None:
     if not code or not state or not _verify_github_state(str(state), client_secret):
         raise SocialLoginError("GitHub sign-in could not be verified. Please try again.")
 
-    headers = {"Accept": "application/json", "User-Agent": "KindSpace-Personal-Assistant"}
+    headers = {"Accept": "application/json", "User-Agent": "WithYou-Personal-Partner"}
     try:
         token_response = httpx.post(
             "https://github.com/login/oauth/access_token",

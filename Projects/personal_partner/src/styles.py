@@ -1,4 +1,4 @@
-"""Cross-browser, cross-device stylesheet for KindSpace.
+"""Cross-browser, cross-device stylesheet for WithYou.
 
 The palette is fixed (light) on purpose: Streamlit components inherit their colors
 from the browser/OS color scheme, which can produce light text on light surfaces
@@ -7,20 +7,25 @@ background, text color, and text-fill color explicitly. All text/background pair
 meet WCAG AA contrast (4.5:1) or better.
 """
 
+import html
+
 APP_CSS = """
 <style>
 :root {
   color-scheme: light;
-  --ks-ink: #14292e;        /* body text on paper/white: ~14:1 */
-  --ks-muted: #44595c;      /* secondary text on paper/white: ~7:1 */
-  --ks-line: #c9d8d4;
+  --ks-ink: #102f32;        /* body text on paper/white: ~14:1 */
+  --ks-muted: #536b6d;      /* secondary text on paper/white: ~5.5:1 */
+  --ks-line: #d7e4e1;
   --ks-line-strong: #6d8884;
-  --ks-paper: #f4f8f6;
+  --ks-paper: #f4f9f7;
   --ks-panel: #ffffff;
-  --ks-sidebar: #e9f2ee;
-  --ks-brand: #0f5f57;      /* white on brand: ~7.6:1 */
-  --ks-brand-dark: #0a4943;
-  --ks-soft: #e1efea;
+  --ks-sidebar: #edf5f2;
+  --ks-brand: #0b5d55;      /* white on brand: ~7.9:1 */
+  --ks-brand-dark: #08463f;
+  --ks-teal: #2b8c7e;
+  --ks-cream: #f8f5ed;
+  --ks-accent: #e9a06d;
+  --ks-soft: #e9f4f1;
   --ks-peach: #fff1e7;
   --ks-peach-ink: #4a3226;
   --ks-link: #0b5a8f;
@@ -39,7 +44,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 }
 [data-testid="stHeader"], [data-testid="stBottom"], [data-testid="stBottom"] > div,
 [data-testid="stBottomBlockContainer"] { background: var(--ks-paper); color: var(--ks-ink); }
-.block-container { width: 100%; max-width: 980px; padding: clamp(1rem, 4vw, 2.5rem) clamp(.85rem, 4vw, 2rem) 2.5rem; }
+.block-container { width: 100%; max-width: 980px; padding: clamp(3.75rem, 8vw, 4.5rem) clamp(.85rem, 4vw, 2rem) 2.5rem; }
 
 /* Text */
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: var(--ks-ink); letter-spacing: -.02em; }
@@ -69,7 +74,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 }
 [data-testid="stTextInput"] input:focus, [data-testid="stTextArea"] textarea:focus,
 [data-testid="stSelectbox"] div[data-baseweb="select"]:focus-within, div[data-baseweb="input"]:focus-within {
-  border-color: var(--ks-brand) !important; box-shadow: 0 0 0 2px rgba(15,95,87,.28);
+  border-color: var(--ks-brand) !important; box-shadow: 0 0 0 2px rgba(11,93,85,.28);
 }
 [data-testid="stTextInput"] button { background: transparent !important; color: var(--ks-ink) !important; border: 0 !important; }
 [data-testid="stSelectbox"] svg, [data-testid="stMultiSelect"] svg { fill: var(--ks-ink); color: var(--ks-ink); }
@@ -122,43 +127,77 @@ span[data-baseweb="tag"] * { color: #fff !important; -webkit-text-fill-color: #f
 [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * { color: var(--ks-ink) !important; }
 [data-testid="stChatInput"] { background: #fff; border: 1px solid var(--ks-line-strong); border-radius: 16px; }
 [data-testid="stChatInput"] textarea { min-height: 3.2rem; }
-[data-testid="stChatMessage"] { padding: .75rem 0; background: transparent; }
+[data-testid="stChatMessage"] { padding: .85rem 1rem; margin: .4rem 0; border: 1px solid var(--ks-line); border-radius: 18px; background: #fff; }
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] { line-height: 1.65; }
 [data-testid="stAlert"], [data-testid="stAlert"] * { color: var(--ks-ink) !important; }
 [data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: var(--ks-ink); }
 hr { border-color: var(--ks-line); }
 
 /* Brand components */
-.ks-brand { color: var(--ks-brand-dark); font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; }
-.ks-hero { position: relative; overflow: hidden; isolation: isolate; padding: clamp(1.4rem, 5vw, 3rem); border: 1px solid var(--ks-line); border-radius: 24px;
-  background: linear-gradient(120deg, #ffffff, #e6f3ee, #fdf1e8, #e6f3ee, #ffffff); background-size: 300% 300%; animation: ks-gradient 18s ease-in-out infinite; }
-.ks-hero h1 { color: var(--ks-ink); max-width: 16ch; }
-.ks-hero p { color: var(--ks-muted); max-width: 46ch; }
-.ks-hero-text { position: relative; z-index: 2; }
-.ks-orb { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .55; z-index: 0; pointer-events: none; animation: ks-float 14s ease-in-out infinite; }
-.ks-orb.one { width: 220px; height: 220px; right: -60px; top: -70px; background: radial-gradient(circle at 30% 30%, #bfe3d8, rgba(191,227,216,0) 70%); }
-.ks-orb.two { width: 180px; height: 180px; left: 38%; bottom: -80px; background: radial-gradient(circle at 30% 30%, #ffd9bf, rgba(255,217,191,0) 70%); animation-delay: -5s; }
-.ks-orb.three { width: 120px; height: 120px; left: -30px; top: 30%; background: radial-gradient(circle at 30% 30%, #cfe6f5, rgba(207,230,245,0) 70%); animation-delay: -9s; }
-.ks-art { position: absolute; right: clamp(.5rem, 4vw, 2.5rem); top: 50%; width: clamp(150px, 26vw, 260px); transform: translateY(-50%); z-index: 1; animation: ks-float 9s ease-in-out infinite; }
-.ks-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; margin-top: .9rem; }
-.ks-feature { padding: .9rem 1rem; border: 1px solid var(--ks-line); border-radius: 14px; background: var(--ks-panel); color: var(--ks-ink); }
-.ks-feature strong { display: block; color: var(--ks-brand-dark); margin-bottom: .2rem; }
-.ks-feature span { color: var(--ks-muted); font-size: .92rem; }
-@keyframes ks-gradient { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-@keyframes ks-float { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -14px, 0); } }
-@keyframes ks-art-float { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(calc(-50% - 12px)); } }.ks-art { animation-name: ks-art-float; }
-.ks-eyebrow { color: var(--ks-brand-dark); font-weight: 700; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
-.ks-note { padding: .85rem 1rem; border-radius: 12px; border: 1px solid #e3c7b4; background: var(--ks-peach); color: var(--ks-peach-ink) !important; }
+.ks-brand { display: inline-flex; align-items: center; gap: .55rem; color: var(--ks-brand-dark); font-weight: 800; font-size: 1.2rem; letter-spacing: -.02em; }
+.ks-brand svg { width: 30px; height: 30px; flex: none; }
+.ks-topbar { display: flex; align-items: center; justify-content: space-between; padding: .15rem .1rem 1rem; }
+.ks-hero { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  align-items: center; gap: clamp(1rem, 4vw, 2.5rem); padding: clamp(1.4rem, 5vw, 3.25rem); border: 1px solid var(--ks-line); border-radius: 28px;
+  background: radial-gradient(120% 120% at 100% 0%, #dcefe9 0%, rgba(220,239,233,0) 55%), linear-gradient(135deg, #ffffff 0%, #eef7f4 55%, #f8f5ed 100%);
+  box-shadow: 0 22px 44px -32px rgba(11,93,85,.55); }
+.ks-hero-text { position: relative; z-index: 2; min-width: 0; }
+.stApp .ks-hero h1 { color: var(--ks-ink); font-size: clamp(1.85rem, 4.6vw, 3.05rem); line-height: 1.1; font-weight: 800; letter-spacing: -.03em; margin: .6rem 0 .95rem; padding: 0; overflow-wrap: anywhere; }
+.stApp .ks-hero p { color: var(--ks-muted); font-size: clamp(1rem, 1.9vw, 1.12rem); line-height: 1.65; max-width: 48ch; margin: 0; }
+.ks-hello { color: var(--ks-brand); font-weight: 600; margin: .5rem 0 0; }
+.ks-hero-art { position: relative; z-index: 1; display: flex; justify-content: center; }
+.ks-hero-art svg { width: 100%; max-width: 280px; height: auto; animation: ks-float 10s ease-in-out infinite; }
+.ks-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.1rem 0 1.25rem; }
+.ks-feature { min-width: 0; padding: 1.25rem 1.25rem 1.35rem; border: 1px solid var(--ks-line); border-radius: 20px; background: #fff; color: var(--ks-ink);
+  box-shadow: 0 10px 22px -20px rgba(16,47,50,.55); }
+.ks-feature-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--ks-soft); display: flex; align-items: center; justify-content: center; margin-bottom: .85rem; }
+.ks-feature-icon svg { width: 22px; height: 22px; stroke: var(--ks-brand); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ks-feature strong { display: block; color: var(--ks-ink); font-size: 1.05rem; line-height: 1.3; margin-bottom: .35rem; }
+.ks-feature span { color: var(--ks-muted); font-size: .95rem; line-height: 1.55; }
+@keyframes ks-float { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -10px, 0); } }
+.ks-eyebrow { color: var(--ks-brand-dark); font-weight: 700; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+.ks-note { padding: .85rem 1rem; border-radius: 14px; border: 1px solid #ecd3c1; background: var(--ks-cream); color: #4a3a2c !important; font-size: .92rem; line-height: 1.55; }
 .ks-card { padding: 1rem; border: 1px solid var(--ks-line); border-radius: 16px; background: var(--ks-panel); color: var(--ks-ink); }
+.ks-footer { text-align: center; color: var(--ks-muted); font-size: .85rem; margin-top: 1.25rem; }
 
+/* Welcome call-to-action area */
+.st-key-ks_auth { max-width: 640px; margin: 0 auto; background: #fff; border: 1px solid var(--ks-line); border-radius: 24px;
+  padding: clamp(1rem, 3vw, 1.6rem); box-shadow: 0 14px 30px -26px rgba(16,47,50,.6); }
+.st-key-welcome_login button { min-height: 3.1rem; font-size: 1.02rem; }
+.st-key-welcome_signup button { min-height: 3.1rem; font-size: 1.02rem; }
+.ks-or { display: flex; align-items: center; gap: .8rem; color: var(--ks-muted); font-size: .9rem; margin: 1rem 0 .7rem; }
+.ks-or::before, .ks-or::after { content: ""; flex: 1; height: 1px; background: var(--ks-line); }
+.st-key-welcome_google button::before, .st-key-welcome_github a::before {
+  content: ""; display: inline-block; flex: none; width: 18px; height: 18px; margin-right: .55rem; background-repeat: no-repeat; background-position: center; background-size: contain; }
+.st-key-welcome_google button::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z'/%3E%3Cpath fill='%23FBBC05' d='M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z'/%3E%3C/svg%3E"); }
+.st-key-welcome_github a::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23102F32' d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E"); }
+
+/* Signed-in chat */
+.ks-chat-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; padding: 1.1rem 1.3rem; margin-bottom: .6rem;
+  border: 1px solid var(--ks-line); border-radius: 20px; background: linear-gradient(135deg, #ffffff 0%, #eef7f4 60%, #f8f5ed 100%); }
+.stApp .ks-chat-head h2 { margin: .1rem 0 0; padding: 0; font-size: clamp(1.3rem, 3.2vw, 1.7rem); font-weight: 800; line-height: 1.2; }
+.ks-chat-head p { margin: .2rem 0 0; color: var(--ks-muted); font-size: .95rem; }
+.ks-chip { display: inline-block; max-width: 100%; padding: .28rem .7rem; border-radius: 999px; border: 1px solid var(--ks-line); background: var(--ks-soft); color: var(--ks-brand-dark);
+  font-size: .8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ks-chip.rose { background: #fdeaf0; border-color: #f2c6d4; color: #7a2343; }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { background: var(--ks-soft); border-color: #cfe3dd; }
+.st-key-sidebar_chats [data-testid^="stBaseButton"] { justify-content: flex-start; text-align: left; }
+.st-key-sidebar_chats [data-testid^="stBaseButton"] p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[class*="st-key-ks_active_"] [data-testid^="stBaseButton"] { background: var(--ks-soft) !important; border-color: var(--ks-brand) !important; }
+[data-testid="stToggle"] label p, [data-testid="stCheckbox"] label p { color: var(--ks-ink) !important; }
+
+@media (max-width: 820px) {
+  .ks-features { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
   [data-testid="stSidebar"] { min-width: 0; }
   [data-testid="stSidebar"] .block-container { padding: .8rem .65rem; }
-  .ks-hero { border-radius: 18px; }
-  .ks-art { display: none; }
-  .ks-hero h1 { max-width: none; }
+  .ks-hero { grid-template-columns: 1fr; border-radius: 20px; }
+  .ks-hero-art svg { max-width: 190px; }
+  .ks-features { grid-template-columns: 1fr; }
+  .ks-hero h1 br { display: none; }
   [data-testid="stHorizontalBlock"] { gap: .65rem; }
-  [data-testid="stChatMessage"] { padding: .5rem 0; }
+  [data-testid="stChatMessage"] { padding: .65rem .75rem; }
   .stApp [data-testid^="stBaseButton"] { min-height: 2.9rem; }
 }
 @media (forced-colors: active) {
@@ -170,28 +209,57 @@ hr { border-color: var(--ks-line); }
 </style>
 """
 
-# No blank lines or indentation: Markdown would otherwise end the HTML block early.
-WELCOME_HERO_HTML = (
-    '<section class="ks-hero">'
-    '<span class="ks-orb one"></span><span class="ks-orb two"></span><span class="ks-orb three"></span>'
-    '<svg class="ks-art" viewBox="0 0 240 240" role="img" aria-label="A leaf growing from a small plant pot">'
-    '<circle cx="120" cy="120" r="108" fill="#ffffff" fill-opacity=".7"/>'
-    '<circle cx="120" cy="120" r="84" fill="#e1efea"/>'
-    '<path d="M120 178 C120 140 120 118 120 92" stroke="#0f5f57" stroke-width="6" stroke-linecap="round" fill="none"/>'
-    '<path d="M120 126 C86 126 66 104 64 80 C92 80 116 96 120 126 Z" fill="#0f5f57"/>'
-    '<path d="M120 108 C148 108 168 90 172 64 C144 64 122 80 120 108 Z" fill="#2f8f80"/>'
-    '<path d="M92 178 H148 L142 208 H98 Z" fill="#d98b5f"/>'
-    '<rect x="88" y="172" width="64" height="10" rx="5" fill="#c4764b"/>'
+BRAND_MARK_SVG = (
+    '<svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">'
+    '<circle cx="12" cy="16" r="9" fill="#0B5D55"/>'
+    '<circle cx="21" cy="16" r="9" fill="#E9A06D" fill-opacity=".9"/>'
+    '<path d="M16.5 9.4a9 9 0 0 1 0 13.2 9 9 0 0 1 0-13.2Z" fill="#2B8C7E"/>'
     '</svg>'
-    '<div class="ks-hero-text">'
-    '<div class="ks-eyebrow">A little space to think things through</div>'
-    '<h1>Meet you where you are.</h1>'
-    '<p>KindSpace is a private AI assistant for everyday questions, reflection, planning, and encouragement.</p>'
-    '</div>'
-    '</section>'
-    '<div class="ks-features">'
-    '<div class="ks-feature"><strong>Private by design</strong><span>Your conversations stay in your own account.</span></div>'
-    '<div class="ks-feature"><strong>Ready when you are</strong><span>Ask, plan, or reflect at any hour.</span></div>'
-    '<div class="ks-feature"><strong>Your pace, your tone</strong><span>Choose warm, direct, or encouraging replies.</span></div>'
-    '</div>'
 )
+
+BRAND_HTML = f'<span class="ks-brand">{BRAND_MARK_SVG}<span>WithYou</span></span>'
+
+_HERO_ART = (
+    '<svg viewBox="0 0 240 240" role="img" aria-label="A small leafy plant in a warm pot, surrounded by soft circles">'
+    '<circle cx="120" cy="120" r="112" fill="#ffffff" fill-opacity=".72"/>'
+    '<circle cx="120" cy="120" r="86" fill="#E9F4F1"/>'
+    '<circle cx="186" cy="62" r="16" fill="#E9A06D" fill-opacity=".55"/>'
+    '<circle cx="52" cy="176" r="10" fill="#2B8C7E" fill-opacity=".35"/>'
+    '<path d="M120 178 C120 140 120 118 120 92" stroke="#0B5D55" stroke-width="6" stroke-linecap="round" fill="none"/>'
+    '<path d="M120 126 C86 126 66 104 64 80 C92 80 116 96 120 126 Z" fill="#0B5D55"/>'
+    '<path d="M120 108 C148 108 168 90 172 64 C144 64 122 80 120 108 Z" fill="#2B8C7E"/>'
+    '<path d="M92 178 H148 L142 208 H98 Z" fill="#E9A06D"/>'
+    '<rect x="88" y="172" width="64" height="10" rx="5" fill="#D88B55"/>'
+    '</svg>'
+)
+
+_ICON_LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+_ICON_CHAT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>'
+_ICON_SLIDERS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
+
+
+def _feature(icon: str, title: str, text: str) -> str:
+    return f'<div class="ks-feature"><div class="ks-feature-icon">{icon}</div><strong>{title}</strong><span>{text}</span></div>'
+
+
+def welcome_html(display_name: str = "") -> str:
+    """Welcome page markup. No blank lines or indentation: Markdown would otherwise end the HTML block early."""
+    hello = f'<div class="ks-hello">Welcome back, {html.escape(display_name)}</div>' if display_name else ""
+    return (
+        f'<div class="ks-topbar">{BRAND_HTML}</div>'
+        '<section class="ks-hero">'
+        '<div class="ks-hero-text">'
+        '<div class="ks-eyebrow">Your personal space to talk, think &amp; grow</div>'
+        f'{hello}'
+        '<h1>Here for whatever<br> is on your mind.</h1>'
+        '<p>WithYou is your personal AI companion for everyday conversations, questions, ideas, planning, reflection, '
+        'and encouragement, all in one private space.</p>'
+        '</div>'
+        f'<div class="ks-hero-art">{_HERO_ART}</div>'
+        '</section>'
+        '<div class="ks-features">'
+        + _feature(_ICON_LOCK, "Your conversations, your space", "Your chats stay connected to your account, so you can come back anytime and continue where you left off.")
+        + _feature(_ICON_CHAT, "Always ready to talk", "Ask a question, share a thought, make a plan, or simply have a conversation whenever you need one.")
+        + _feature(_ICON_SLIDERS, "Made to feel personal", "Choose how you like to chat and enjoy responses that feel warm, natural, and helpful.")
+        + '</div>'
+    )

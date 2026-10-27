@@ -1,1 +1,1 @@
-"""KindSpace Personal Assistant application package."""
+"""WithYou (Personal Partner) application package."""

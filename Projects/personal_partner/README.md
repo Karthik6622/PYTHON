@@ -1,6 +1,11 @@
-# KindSpace Personal Assistant
+# WithYou (Personal Partner)
 
-KindSpace is a Streamlit personal AI assistant with local accounts and private, per-user conversation history. It uses an OpenAI-compatible streaming API and supports NVIDIA-hosted models through configuration. It is an AI assistant, not a human, romantic partner, therapist, doctor, or emergency service.
+WithYou is a Streamlit personal AI companion with local accounts and private, per-user conversation history. It uses an OpenAI-compatible streaming API and supports NVIDIA-hosted models through configuration. It is an AI assistant, not a human, therapist, doctor, or emergency service.
+
+## Features
+
+- Friendly, casual replies. Pick topics in Settings or use the chat toggle; the **Romantic** topic switches to a warm, affectionate (PG-13) tone while still being an AI.
+- Today's date and time come from the browser timezone (UTC fallback). Weather questions use the free Open-Meteo API; set an optional **Your city** in Settings so the assistant knows where you are.
 
 ## Requirements
 
