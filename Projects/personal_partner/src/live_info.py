@@ -157,17 +157,117 @@ def wants_facts(text: str) -> bool:
     return bool(_FACT_INTENT.search(text or "")) and not wants_weather(text)
 
 
+_INDIAN_STATES = (
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa", "Gujarat",
+    "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
+    "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Puducherry",
+)
+_CM_QUESTION = re.compile(r"\b(?:cm|chief minister)\b", re.IGNORECASE)
+_FILM_QUESTION = re.compile(
+    r"\b(tamil|telugu|malayalam|kannada|hindi|bengali|marathi|punjabi)\s+(?:films?|flims?|movies?|cinema)\b",
+    re.IGNORECASE,
+)
+_RECENT_WORDS = re.compile(r"\b(incumbent|current|currently|upcoming|latest)\b", re.IGNORECASE)
+_NOISE_LINE = re.compile(r"\b(?:from|till):|color:|\bsize=|\bpx\b|\btext:")
+
+
+def _state_name(text: str) -> str | None:
+    """Find an Indian state in text, tolerant of spacing and case (e.g. 'tamilnadu' -> 'Tamil Nadu')."""
+    compact = re.sub(r"[^a-z]", "", text.lower())
+    for name in _INDIAN_STATES:
+        if name.replace(" ", "").lower() in compact:
+            return name
+    return None
+
+
+def _hint_title(query: str, year: int) -> str | None:
+    """Wikipedia page that most directly answers a common question, checked before the generic search."""
+    if _CM_QUESTION.search(query):
+        state = _state_name(query)
+        if state:
+            return f"Chief Minister of {state}"
+    match = _FILM_QUESTION.search(query)
+    if match:
+        return f"List of {match.group(1).capitalize()} films of {year}"
+    return None
+
+
+def _plain_from_wikitext(raw: str) -> str:
+    """Turn Wikipedia wikitext into readable lines, keeping table and infobox rows that the plain extract drops."""
+    text = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    text = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>", "", text, flags=re.S | re.I)
+    text = re.sub(r"\[\[(?:File|Image):[^\[\]]*\]\]", "", text, flags=re.I)
+    previous = None
+    while previous != text:  # remove innermost templates first, then their parents
+        previous = text
+        text = re.sub(r"\{\{[^{}]*\}\}", "", text)
+    text = re.sub(r"\[\[(?:[^\[\]|]*\|)?([^\[\]]*)\]\]", r"\1", text)
+    text = re.sub(r"\[https?://\S+\s+([^\]]+)\]", r"\1", text)
+    text = re.sub(r"\[https?://\S+\]", "", text)
+    text = re.sub(r"'{2,}", "", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(("{|", "|}", "|-", "}}")):
+            continue
+        if line[0] in "|!":
+            inner = line[1:]
+            if "|" in inner and "=" in inner.split("|")[0]:
+                inner = inner.split("|")[-1]  # drop table cell attributes such as style="..."
+            line = inner.strip()
+        if line:
+            lines.append(" ".join(line.split()))
+    return "\n".join(lines)
+
+
+def _table_titles(raw: str, limit: int = 10) -> list[str]:
+    """Names from the first linked cell of each wikitable row, e.g. the film titles on a 'List of ... films' page."""
+    text = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    text = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>", "", text, flags=re.S | re.I)
+    names: list[str] = []
+    for row in text.split("\n|-")[1:]:
+        match = re.search(r"\[\[(?!File:|Image:)([^\]|#]+)(?:\|([^\]]+))?\]\]", row)
+        if match:
+            name = (match.group(2) or match.group(1)).strip().strip("'")
+            if name and name not in names:
+                names.append(name)
+        if len(names) >= limit:
+            break
+    return names
+
+
+def _recent_lines(plain: str, year: int, limit: int = 12) -> list[str]:
+    """Lines that mention the current year or words like 'incumbent' or 'upcoming'."""
+    picked: list[str] = []
+    for line in plain.splitlines():
+        if len(line) < 15 or _NOISE_LINE.search(line):
+            continue
+        if (str(year) in line or _RECENT_WORDS.search(line)) and line not in picked:
+            picked.append(line[:300])
+        if len(picked) >= limit:
+            break
+    return picked
+
+
 @lru_cache(maxsize=128)
 def _wiki_lookup(query: str, bucket: int) -> str:  # noqa: ARG001 - bucket only expires the cache
-    """Search Wikipedia (no API key) and return short intros of the top matching pages."""
+    """Search Wikipedia (no API key) and return intros plus recent details of the best matching pages."""
+    year = datetime.now().year
     headers = {"User-Agent": "WithYou-personal-app/1.0"}
     with httpx.Client(timeout=8, verify=ssl.create_default_context(), headers=headers) as client:
+        titles: list[str] = []
+        hint = _hint_title(query, year)
+        if hint:
+            titles.append(hint)
         search = client.get(
             _WIKI_API,
             params={"action": "query", "list": "search", "srsearch": query, "srlimit": 3, "format": "json", "utf8": 1},
         )
         search.raise_for_status()
-        titles = [hit["title"] for hit in search.json().get("query", {}).get("search", [])][:2]
+        titles += [hit["title"] for hit in search.json().get("query", {}).get("search", [])]
+        titles = list(dict.fromkeys(titles))[:2]
         if not titles:
             return ""
         pages = client.get(
@@ -183,11 +283,32 @@ def _wiki_lookup(query: str, bucket: int) -> str:  # noqa: ARG001 - bucket only 
             },
         )
         pages.raise_for_status()
+        intros = {page.get("title"): " ".join(str(page.get("extract", "")).split())
+                  for page in pages.json().get("query", {}).get("pages", {}).values()}
+        recent: dict[str, list[str]] = {}
+        listed: dict[str, list[str]] = {}
+        for title in titles:
+            response = client.get(
+                _WIKI_API,
+                params={"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main",
+                        "redirects": 1, "titles": title, "format": "json"},
+            )
+            response.raise_for_status()
+            for page in response.json().get("query", {}).get("pages", {}).values():
+                revisions = page.get("revisions") or [{}]
+                raw = revisions[0].get("slots", {}).get("main", {}).get("*", "")
+                recent[title] = _recent_lines(_plain_from_wikitext(raw), year)
+                if title.startswith("List of "):
+                    listed[title] = _table_titles(raw)
     sections = []
-    for page in pages.json().get("query", {}).get("pages", {}).values():
-        extract = " ".join(str(page.get("extract", "")).split())
-        if extract:
-            sections.append(f"{page.get('title')}: {extract}")
+    for title in titles:
+        intro = intros.get(title, "")
+        if intro:
+            sections.append(f"{title}: {intro}")
+        if listed.get(title):
+            sections.append(f"Titles in the tables on {title} (in page order): " + "; ".join(listed[title]))
+        if recent.get(title):
+            sections.append(f"Recent details from {title}: " + " | ".join(recent[title]))
     return "\n".join(sections)
 
 
@@ -215,5 +336,5 @@ def knowledge_note(user_texts: list[str]) -> str | None:
         "Live reference (Wikipedia, fetched just now). It is newer than your built-in memory, so prefer it for facts "
         "that change over time, such as who holds an office, recent films, and news. Use only the parts relevant to "
         "the question, mention that it comes from Wikipedia when useful, and say so if it does not fully answer.\n"
-        f"{reference[:3000]}"
+        f"{reference[:5000]}"
     )
