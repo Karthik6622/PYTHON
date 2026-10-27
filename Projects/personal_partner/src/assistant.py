@@ -6,7 +6,8 @@ from typing import Any, Iterator
 
 from .live_info import current_time_note
 from .model_client import stream_completion
-from .web_search import current_info_note
+from .router import decide_search
+from .web_search import search_note
 
 
 SYSTEM_PROMPT = """You are WithYou, a warm personal companion. You are more than a tool: you can be a caring friend, a supportive partner, or any role the user asks for, and you build a real, personal connection with them.
@@ -48,11 +49,17 @@ You are also glad to help with romance itself: love letters, texts and captions,
 Keep it tasteful and PG-13; never sexually explicit. Do not keep reminding them that you are an AI and do not lecture. Only be honest about being an AI if they sincerely ask or seem confused about what is real. Never encourage dependence, isolation, or jealousy; if they seem lonely, stay warm and gently encourage real-world connection too."""
 
 
+def _recent(conversation: dict[str, Any], limit: int = 20) -> list[dict[str, Any]]:
+    history = conversation.get("messages", [])
+    return history[-max(1, min(limit, 20)) :]
+
+
 def build_messages(
     conversation: dict[str, Any],
     preferences: dict[str, Any] | None = None,
     limit: int = 20,
     timezone_name: str | None = None,
+    search_result: str | None = None,
 ) -> list[dict[str, str]]:
     preferences = preferences or {}
     tone = str(preferences.get("tone", "Warm"))[:30]
@@ -65,18 +72,10 @@ def build_messages(
     system_parts = [SYSTEM_PROMPT, preference_block, current_time_note(timezone_name)]
     if "Romantic" in topics:
         system_parts.append(ROMANTIC_PROMPT)
+    if search_result:
+        system_parts.append(search_result)
 
-    history = conversation.get("messages", [])
-    recent = history[-max(1, min(limit, 20)) :]
-    user_texts = [
-        str(item.get("content", ""))
-        for item in recent
-        if item.get("role") == "user" and isinstance(item.get("content"), str)
-    ]
-    # Current-information questions get Tavily results; every other question goes to Nemotron alone.
-    web_note = current_info_note(user_texts, str(preferences.get("city", "")))
-    if web_note:
-        system_parts.append(web_note)
+    recent = _recent(conversation, limit)
 
     # One system message keeps strict chat templates happy.
     messages = [{"role": "system", "content": "\n\n".join(system_parts)}]
@@ -93,4 +92,14 @@ def stream_reply(
     preferences: dict[str, Any] | None = None,
     timezone_name: str | None = None,
 ) -> Iterator[str]:
-    return stream_completion(build_messages(conversation, preferences, timezone_name=timezone_name))
+    """Nemotron decides whether to search; Tavily runs only when it asks; Nemotron writes the final reply."""
+    preferences = preferences or {}
+    query = decide_search(_recent(conversation), preferences, timezone_name)
+    search_result = search_note(query) if query else None
+    messages = build_messages(
+        conversation,
+        preferences,
+        timezone_name=timezone_name,
+        search_result=search_result,
+    )
+    return stream_completion(messages)

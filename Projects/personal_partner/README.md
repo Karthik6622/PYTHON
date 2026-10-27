@@ -27,12 +27,12 @@ Set `NVIDIA_API_KEY` and `TAVILY_API_KEY` in `.env` or `.streamlit/secrets.toml`
 ### How questions are routed
 
 ```
-User -> question classifier (src/classifier.py) -> needs current info?
+User -> NVIDIA Nemotron decides (src/router.py) -> needs live web info?
   NO:  NVIDIA Nemotron -> answer
-  YES: Tavily search (src/web_search.py) -> current web results -> NVIDIA Nemotron -> answer
+  YES: Tavily search (src/web_search.py) with the query Nemotron wrote -> current web results -> NVIDIA Nemotron -> answer
 ```
 
-Current-information questions (for example, who holds an office, latest films or news, today's weather, prices, scores, and anything with "current", "latest", "recent", or the current year) are searched with Tavily first. Every other question goes straight to Nemotron. Date and time questions are answered from the local clock. If `TAVILY_API_KEY` is missing or a search fails, the assistant says so instead of guessing. Search results are cached for 15 minutes.
+There is no fixed keyword classifier. Nemotron reads the recent conversation and decides whether it can answer from its own knowledge or needs a live search. When it needs one, it also writes the search query, so follow-ups such as "and before him?" are searched in context. Date and time questions are answered from the local clock. If `TAVILY_API_KEY` is missing or a search fails, the assistant says so instead of guessing. Search results are cached for 15 minutes. Each message adds one routing call to Nemotron, so replies start slightly later.
 
 The default model is `nvidia/nemotron-3.5-bolt-e4b`, matching Interview Studio. You can override it with `LLM_MODEL` or `NVIDIA_MODEL`; `LLM_BASE_URL` defaults to NVIDIA's OpenAI-compatible endpoint. Generic `LLM_API_KEY` remains supported. Secrets take precedence over environment variables. Never commit real keys.
 

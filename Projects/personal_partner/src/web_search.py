@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import ssl
 import time
 from functools import lru_cache
@@ -12,8 +11,6 @@ from typing import Any
 
 import httpx
 import streamlit as st
-
-from .classifier import needs_current_info
 
 
 LOGGER = logging.getLogger("kindspace.web_search")
@@ -66,36 +63,15 @@ def _search_cached(query: str, bucket: int) -> tuple[dict[str, Any], ...]:  # no
     )
 
 
-def _with_city(query: str, default_city: str) -> str:
-    """Add the saved city to weather questions that do not name a place."""
-    city = default_city.strip()
-    if city and re.search(r"\b(weather|forecast|temperature)\b", query, re.IGNORECASE) and not re.search(
-        r"\bin\s+[a-z]", query, re.IGNORECASE
-    ):
-        return f"{query} in {city}"
-    return query
+def search_note(query: str) -> str:
+    """Run a Tavily search for the query Nemotron chose and return a system note with the results.
 
-
-def current_info_note(user_texts: list[str], default_city: str = "") -> str | None:
-    """Return a system note with Tavily results when the latest question needs current information.
-
-    Returns None for questions that Nemotron should answer alone.
+    When the search cannot run, the note tells Nemotron to answer honestly instead of guessing.
     """
-    if not user_texts:
-        return None
-    latest = " ".join(user_texts[-1].split())
-    previous = user_texts[-2] if len(user_texts) > 1 else None
-    if not needs_current_info(latest, previous):
-        return None
-
-    query = latest
-    if previous and len(latest.split()) < 5 and needs_current_info(previous):
-        query = f"{previous} {latest}"  # short follow-up: search with the earlier question for context
-    query = _with_city(query[:300], default_city)
-
+    query = " ".join(query.split())[:200]
     if not tavily_api_key():
         return (
-            "Live web search is not set up (TAVILY_API_KEY is missing). The user asked something that needs current "
+            "Live web search is not set up (TAVILY_API_KEY is missing). The user's latest message needs current "
             "information. Do not guess or present old facts as current; say honestly that you can't check live "
             "information right now."
         )

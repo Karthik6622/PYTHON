@@ -1,4 +1,4 @@
-from src import assistant, live_info, web_search
+from src import assistant, live_info, router, web_search
 
 
 def convo(text):
@@ -34,62 +34,91 @@ def use_key(monkeypatch, key="tvly-test-key"):
     monkeypatch.setattr(web_search, "tavily_api_key", lambda: key)
 
 
-def test_current_question_gets_tavily_results(monkeypatch):
+def fake_router(monkeypatch, reply):
+    """Stand in for Nemotron's routing decision and record what it was shown."""
+    seen = {}
+
+    def decide(messages, max_tokens=200):
+        seen["messages"] = messages
+        return reply
+
+    monkeypatch.setattr(router, "complete_text", decide)
+    return seen
+
+
+def fake_stream(monkeypatch):
+    sent = {}
+
+    def capture(messages):
+        sent["messages"] = messages
+        return iter(["ok"])
+
+    monkeypatch.setattr(assistant, "stream_completion", capture)
+    return sent
+
+
+def test_model_chooses_search_and_final_reply_uses_results(monkeypatch):
     use_key(monkeypatch)
-    monkeypatch.setattr(
-        web_search,
-        "_search_cached",
-        lambda query, bucket: ({"title": "CM page", "url": "https://example.org/cm", "content": "Example Person is the CM.", "published": ""},),
-    )
-    text = system_text(assistant.build_messages(convo("who is tamilnadu cm?"), {}))
-    assert "Current web results" in text
-    assert "Example Person is the CM" in text
+    fake_router(monkeypatch, '{"action": "SEARCH", "query": "chief damu"}')
+    queries = []
+
+    def fake_search(query, bucket):
+        queries.append(query)
+        return ({"title": "Damu page", "url": "https://example.org/damu", "content": "Damu is the chief of X.", "published": ""},)
+
+    monkeypatch.setattr(web_search, "_search_cached", fake_search)
+    sent = fake_stream(monkeypatch)
+    assert list(assistant.stream_reply(convo("who is chief damu?"), {})) == ["ok"]
+    assert queries == ["chief damu"]
+    text = system_text(sent["messages"])
+    assert "Current web results" in text and "Damu is the chief of X." in text
 
 
-def test_non_current_question_skips_search(monkeypatch):
+def test_model_answers_directly_without_search(monkeypatch):
+    fake_router(monkeypatch, '{"action": "ANSWER"}')
+
     def should_not_run(query, bucket):
-        raise AssertionError("non-current questions must not trigger a web search")
+        raise AssertionError("direct answers must not trigger a web search")
 
     monkeypatch.setattr(web_search, "_search_cached", should_not_run)
-    text = system_text(assistant.build_messages(convo("what is the capital of France?"), {}))
-    assert "Current web results" not in text
-
-
-def test_small_talk_skips_search(monkeypatch):
-    def should_not_run(query, bucket):
-        raise AssertionError("small talk must not trigger a search")
-
-    monkeypatch.setattr(web_search, "_search_cached", should_not_run)
-    text = system_text(assistant.build_messages(convo("hi, how are you"), {}))
-    assert "Current web results" not in text
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("what is the capital of France?"), {}))
+    assert "Current web results" not in system_text(sent["messages"])
 
 
 def test_search_failure_is_reported_honestly(monkeypatch):
     use_key(monkeypatch)
+    fake_router(monkeypatch, '{"action": "SEARCH", "query": "tamil movies released this year"}')
 
     def boom(query, bucket):
         raise RuntimeError("offline")
 
     monkeypatch.setattr(web_search, "_search_cached", boom)
-    text = system_text(assistant.build_messages(convo("which tamil movies released this year?"), {}))
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("which tamil movies released this year?"), {}))
+    text = system_text(sent["messages"])
     assert "failed just now" in text and "Do not guess" in text
 
 
 def test_missing_key_is_reported_honestly(monkeypatch):
     use_key(monkeypatch, key="")
-    text = system_text(assistant.build_messages(convo("what's the weather today?"), {}))
-    assert "TAVILY_API_KEY is missing" in text
+    fake_router(monkeypatch, '{"action": "SEARCH", "query": "weather in chennai today"}')
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("what's the weather today?"), {"city": "Chennai"}))
+    assert "TAVILY_API_KEY is missing" in system_text(sent["messages"])
 
 
-def test_follow_up_inherits_current_routing(monkeypatch):
+def test_router_sees_history_and_saved_city_and_writes_follow_up_query(monkeypatch):
     use_key(monkeypatch)
-    seen = []
+    seen = fake_router(monkeypatch, '{"action": "SEARCH", "query": "Tamil Nadu chief minister before the current one"}')
+    queries = []
 
     def fake_search(query, bucket):
-        seen.append(query)
+        queries.append(query)
         return ({"title": "t", "url": "https://example.org", "content": "c", "published": ""},)
 
     monkeypatch.setattr(web_search, "_search_cached", fake_search)
+    fake_stream(monkeypatch)
     conversation = {
         "messages": [
             {"role": "user", "content": "who is tamilnadu cm?"},
@@ -97,6 +126,8 @@ def test_follow_up_inherits_current_routing(monkeypatch):
             {"role": "user", "content": "and before him?"},
         ]
     }
-    text = system_text(assistant.build_messages(conversation, {}))
-    assert "Current web results" in text
-    assert seen and "who is tamilnadu cm?" in seen[0]
+    list(assistant.stream_reply(conversation, {"city": "Chennai"}))
+    router_input = seen["messages"]
+    assert "and before him?" in router_input[1]["content"]
+    assert "Chennai" in router_input[0]["content"]
+    assert queries == ["Tamil Nadu chief minister before the current one"]

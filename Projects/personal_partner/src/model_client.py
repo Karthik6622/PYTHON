@@ -56,26 +56,31 @@ def get_model_settings() -> ModelSettings:
     return ModelSettings(api_key, base_url, model, temperature, max_tokens)
 
 
-def stream_completion(messages: list[dict[str, str]]) -> Iterator[str]:
+_THINKING_OFF_VARIANTS = (
+    {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}},
+    {"extra_body": {"chat_template_kwargs": {"thinking": False}}},
+    {"reasoning_effort": "none"},
+    {},
+)
+
+
+def _openai_client(settings: ModelSettings):
     try:
         from openai import OpenAI
     except ImportError as exc:
         raise ModelConfigurationError("The OpenAI SDK is missing. Install the project requirements.") from exc
-
-    settings = get_model_settings()
-    client = OpenAI(
+    return OpenAI(
         api_key=settings.api_key,
         base_url=settings.base_url,
         max_retries=0,
     )
-    variants = (
-        {"extra_body": {"chat_template_kwargs": {"enable_thinking": False}}},
-        {"extra_body": {"chat_template_kwargs": {"thinking": False}}},
-        {"reasoning_effort": "none"},
-        {},
-    )
+
+
+def stream_completion(messages: list[dict[str, str]]) -> Iterator[str]:
+    settings = get_model_settings()
+    client = _openai_client(settings)
     errors: list[Exception] = []
-    for options in variants:
+    for options in _THINKING_OFF_VARIANTS:
         stream = None
         emitted = False
         try:
@@ -110,3 +115,28 @@ def stream_completion(messages: list[dict[str, str]]) -> Iterator[str]:
     if errors:
         raise errors[-1]
     raise RuntimeError("The configured model returned an empty response.")
+
+
+def complete_text(messages: list[dict[str, str]], max_tokens: int = 200) -> str:
+    """Return one non-streamed reply. Used by Nemotron for routing decisions."""
+    settings = get_model_settings()
+    client = _openai_client(settings)
+    errors: list[Exception] = []
+    for options in _THINKING_OFF_VARIANTS:
+        try:
+            response = client.chat.completions.create(
+                model=settings.model,
+                messages=messages,
+                temperature=0.0,
+                max_tokens=max_tokens,
+                stream=False,
+                **options,
+            )
+            content = response.choices[0].message.content if response.choices else None
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+        except Exception as exc:
+            errors.append(exc)
+    if errors:
+        raise errors[-1]
+    raise RuntimeError("The configured model returned an empty routing response.")
