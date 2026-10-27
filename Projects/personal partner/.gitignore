@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/secrets.toml
+data/users.json
+data/users.json.lock
+data/conversations/*.json
+data/conversations/*.lock
+data/**/*.corrupt-*.bak
+data/**/*.tmp

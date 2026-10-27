@@ -1,0 +1,6 @@
+streamlit>=1.36.0
+openai>=1.70.0
+bcrypt>=4.1.0
+python-dotenv>=1.0.1
+filelock>=3.13.0
+pytest>=8.0.0
