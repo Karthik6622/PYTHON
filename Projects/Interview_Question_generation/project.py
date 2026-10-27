@@ -24,9 +24,9 @@ except ImportError:  # pragma: no cover
 
 # ----------------------------- configuration -----------------------------
 MODEL = os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4.1-flash")
-FALLBACK_MODEL = os.environ.get("NVIDIA_FALLBACK_MODEL", "meta/llama-3.3-70b-instruct")
+FALLBACK_MODEL = os.environ.get("NVIDIA_FALLBACK_MODEL", "")
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-FIRST_TOKEN_DEADLINE = float(os.environ.get("FIRST_TOKEN_DEADLINE", "6"))  # seconds to wait for first answer text
+FIRST_TOKEN_DEADLINE = float(os.environ.get("FIRST_TOKEN_DEADLINE", "20"))  # seconds to wait for first answer text
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_TEXT_CHARS = 12_000          # stored per document
 PROMPT_RESUME_CHARS = 7_000      # sent to the model (smaller prompt = faster first token)
@@ -36,8 +36,8 @@ MAX_FOLLOWUP_TOKENS = 700
 
 # Ways to switch off DeepSeek "thinking". The first one that works is remembered.
 VARIANTS = {
-    "effort_none": {"reasoning_effort": "none"},
     "thinking_off": {"extra_body": {"chat_template_kwargs": {"thinking": False}}},
+    "effort_none": {"reasoning_effort": "none"},
     "plain": {},
 }
 _WORKING: dict[str, str] = {}
@@ -127,29 +127,42 @@ def get_nvidia_api_key() -> str:
     return str(api_key)
 
 
-def _stream_once(client, model: str, messages: list[dict], max_tokens: int, extra: dict):
-    """One streaming attempt. Raises if no answer text arrives within FIRST_TOKEN_DEADLINE."""
+def _stream_once(client, model: str, messages: list[dict], max_tokens: int, extra: dict, think_limit: float):
+    """One streaming attempt.
+
+    Waits up to FIRST_TOKEN_DEADLINE for the first byte (the free endpoint can queue), but gives up after
+    `think_limit` seconds once the model starts sending 'reasoning' tokens instead of answer text.
+    """
     start = time.monotonic()
     stream = client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=0.6,
-        top_p=0.9,
+        top_p=0.95,
         max_tokens=max_tokens,
         stream=True,
         **extra,
     )
-    got_text = False
+    got_text, thinking_since = False, None
     try:
         for chunk in stream:
             if not chunk.choices:
                 continue
-            piece = chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta
+            piece = delta.content
             if piece:
                 got_text = True
                 yield piece
-            elif not got_text and time.monotonic() - start > FIRST_TOKEN_DEADLINE:
-                raise TimeoutError(f"no answer text within {FIRST_TOKEN_DEADLINE:.0f}s (model is still 'thinking')")
+                continue
+            if got_text:
+                continue
+            now = time.monotonic()
+            if getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None):
+                thinking_since = thinking_since or now
+                if now - thinking_since > think_limit:
+                    raise TimeoutError("model is spending time 'thinking' instead of answering")
+            if now - start > FIRST_TOKEN_DEADLINE:
+                raise TimeoutError(f"no answer text within {FIRST_TOKEN_DEADLINE:.0f}s")
     finally:
         try:
             stream.close()
@@ -157,39 +170,103 @@ def _stream_once(client, model: str, messages: list[dict], max_tokens: int, extr
             pass
 
 
-def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_TOKENS, api_key: str | None = None):
-    """Yield answer text. Tries parameter variants, then a fallback model; never hangs."""
+_PREFERRED: dict[str, str] = {}  # last model that worked (including auto-discovered ones)
+
+
+def _make_client(api_key: str | None = None):
     if OpenAI is None or httpx is None:
         raise RuntimeError("The OpenAI SDK is missing. Run: py -m pip install -r requirements.txt")
-    client = OpenAI(
+    return OpenAI(
         api_key=api_key or get_nvidia_api_key(),
         base_url=NVIDIA_BASE_URL,
-        timeout=httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0),
+        timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
         max_retries=0,
     )
-    order = list(VARIANTS)
-    if _WORKING.get(MODEL) in order:
-        order.remove(_WORKING[MODEL])
-        order.insert(0, _WORKING[MODEL])
-    plan = [(MODEL, variant) for variant in order] + [(FALLBACK_MODEL, "plain")]
 
-    emitted, last_error = False, None
-    for model, variant in plan:
-        try:
-            for piece in _stream_once(client, model, messages, max_tokens, VARIANTS[variant]):
-                emitted = True
-                yield piece
-            if emitted:
-                if model == MODEL:
-                    _WORKING[MODEL] = variant
-                return
-            last_error = RuntimeError("empty response")
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-            if emitted:  # text was already shown, so never restart (it would duplicate)
-                yield "\n\n_(Response was cut short. Ask again to continue.)_"
-                return
-    raise RuntimeError(f"All model attempts failed. Last error: {last_error}")
+
+def list_available_models(client=None) -> list[str]:
+    """IDs of the models your NVIDIA key can currently use."""
+    client = client or _make_client()
+    return sorted(m.id for m in client.models.list())
+
+
+def _discover_models(client) -> list[str]:
+    """Pick live text models (DeepSeek first) when the configured ones are retired (HTTP 404/410)."""
+    try:
+        ids = list_available_models(client)
+    except Exception:  # noqa: BLE001
+        return []
+    skip = ("embed", "vision", "-vl", "guard", "reward", "rerank", "parse", "clip", "whisper", "tts")
+
+    def rank(model_id: str):
+        low = model_id.lower()
+        if any(word in low for word in skip):
+            return None
+        if "deepseek" in low and "flash" in low:
+            return 0
+        if "deepseek" in low and ("v4" in low or "v3" in low):
+            return 1
+        if "llama-3.3-70b" in low or "llama-3.1-70b" in low:
+            return 2
+        if "llama-3.1-8b" in low or "mistral" in low or "qwen" in low:
+            return 3
+        return None
+
+    ranked = sorted((i for i in ids if rank(i) is not None), reverse=True)  # newest names first
+    return sorted(ranked, key=rank)  # stable: keeps newest-first inside each rank
+
+
+def _status(exc: Exception):
+    return getattr(exc, "status_code", None)
+
+
+def stream_nvidia_model(messages: list[dict], *, max_tokens: int = MAX_FOLLOWUP_TOKENS, api_key: str | None = None):
+    """Yield answer text. Tries parameter variants, fallback models and auto-discovered live models."""
+    client = _make_client(api_key)
+    queue = [m for m in (_PREFERRED.get("model"), MODEL, FALLBACK_MODEL) if m]
+    tried: set[str] = set()
+    errors: list[str] = []
+    emitted, discovered = False, False
+
+    while queue:
+        model = queue.pop(0)
+        if model in tried:
+            continue
+        tried.add(model)
+        order = list(VARIANTS)
+        if _WORKING.get(model) in order:
+            order.remove(_WORKING[model])
+            order.insert(0, _WORKING[model])
+        for variant in order:
+            try:
+                think_limit = FIRST_TOKEN_DEADLINE if variant == "plain" else min(4.0, FIRST_TOKEN_DEADLINE)
+                for piece in _stream_once(client, model, messages, max_tokens, VARIANTS[variant], think_limit):
+                    emitted = True
+                    yield piece
+                if emitted:
+                    _WORKING[model] = variant
+                    _PREFERRED["model"] = model
+                    return
+                errors.append(f"{model}: empty response")
+            except Exception as exc:  # noqa: BLE001
+                code = _status(exc)
+                errors.append(f"{model} ({variant}): {'HTTP ' + str(code) + ' ' if code else ''}{str(exc)[:160]}")
+                if emitted:  # text was already shown, so never restart (it would duplicate)
+                    yield "\n\n_(Response was cut short. Ask again to continue.)_"
+                    return
+                if code in (401, 403):
+                    raise RuntimeError("NVIDIA rejected the API key (HTTP %s). Create a new key at build.nvidia.com." % code)
+                if code in (404, 410, 429):  # model retired / rate limited: other variants won't help
+                    break
+        if not queue and not discovered:  # everything configured failed: ask NVIDIA what is live now
+            discovered = True
+            queue.extend(m for m in _discover_models(client) if m not in tried)
+            queue[:] = queue[:3]
+
+    raise RuntimeError(
+        "All model attempts failed (see details below). "
+        "Open 'Connection check' in the sidebar, or set NVIDIA_MODEL to an available ID.\n- " + "\n- ".join(errors[-10:])
+    )
 
 
 # ----------------------------- first guide: parallel batches -----------------------------
@@ -482,6 +559,16 @@ def render_sidebar() -> tuple[str, dict, int, int, int]:
             '<div class="sidebar-note">Chats and candidate context stay in this browser tab session. A new tab or device starts fresh; refreshing or closing this tab clears its session.</div>',
             unsafe_allow_html=True,
         )
+        with st.expander("Connection check"):
+            st.caption(f"Model: {MODEL}")
+            if st.button("Check NVIDIA models", key="check_models"):
+                try:
+                    ids = list_available_models()
+                    st.success(f"API key works. {len(ids)} models available.")
+                    st.write([i for i in ids if "deepseek" in i.lower()] or "No DeepSeek models are listed right now.")
+                    st.caption("Set NVIDIA_MODEL to one of these IDs if the default is unavailable.")
+                except Exception as exc:  # noqa: BLE001
+                    st.error(str(exc))
         if settings_changed:
             update_time(session, active_id)
     return active_id, session, total_count, project_count, coding_count
