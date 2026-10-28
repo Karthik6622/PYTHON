@@ -83,8 +83,9 @@ Both `b64_json` and HTTPS `url` responses are supported. Without a key (or with 
 placeholder art is generated locally and the app clearly flags it as a placeholder. If a real provider fails, the image is replaced by
 a placeholder and a warning is shown.
 
-Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`) is preferred when `CLOUDFLARE_ACCOUNT_ID` and
-`CLOUDFLARE_API_TOKEN` are both set (`IMAGE_PROVIDER=cloudflare|api|placeholder` forces a choice).
+AI Horde (`AlbedoBase XL (SDXL)`) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
+Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. Options: `AI_HORDE_MODEL`,
+`AI_HORDE_TIMEOUT` (seconds to wait per image, default 900) and `AI_HORDE_CONCURRENCY` (images at once, default 3).
 
 **Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the
 full outline, plus the summaries of earlier chapters that have already finished. Use `1` for strictly sequential writing; lower it if you hit rate limits.

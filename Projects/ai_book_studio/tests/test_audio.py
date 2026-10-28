@@ -1,14 +1,13 @@
-"""Audiobook, parallel chapters and Cloudflare image tests (no network)."""
+"""Audiobook and parallel chapter tests (no network)."""
 
 from __future__ import annotations
 
-import base64
 import io
 import json
 import time
 import wave
 
-from config import TTS_SAMPLE_RATE, ImageSettings
+from config import TTS_SAMPLE_RATE
 from services.audio_book import (
     AudiobookBuilder,
     AudioJob,
@@ -21,7 +20,7 @@ from services.audio_book import (
     validate_voice_prompt,
 )
 from services.book_pipeline import BookPipeline
-from services.image_generator import CloudflareImageGenerator, PlaceholderImageGenerator
+from services.image_generator import PlaceholderImageGenerator
 
 from conftest import FakeLLM
 
@@ -115,70 +114,3 @@ def test_audio_job_completes_and_stops(storage, book_input, tmp_path):
     while stopped.running and time.time() < deadline:
         time.sleep(0.05)
     assert stopped.stopped and stopped.summary is None
-
-
-class _Response:
-    status_code = 200
-    ok = True
-    text = ""
-
-    def __init__(self, payload):
-        self._payload = payload
-
-    def json(self):
-        return self._payload
-
-
-class _Session:
-    def __init__(self, payload):
-        self.payload = payload
-        self.calls: list[dict] = []
-
-    def post(self, url, json=None, headers=None, timeout=None):  # noqa: A002
-        self.calls.append({"url": url, "json": json, "headers": headers})
-        return _Response(self.payload)
-
-
-def test_cloudflare_generator_decodes_image(tmp_path):
-    image = base64.b64encode(b"fake-image-bytes").decode()
-    session = _Session({"result": {"image": image}, "success": True})
-    settings = ImageSettings(api_key="", cloudflare_account_id="acct", cloudflare_token="tok")
-    path = CloudflareImageGenerator(settings, session).generate_image("a lantern", tmp_path / "x.jpg", "square")
-    assert path.read_bytes() == b"fake-image-bytes"
-    call = session.calls[0]
-    assert call["url"].endswith("/accounts/acct/ai/run/@cf/black-forest-labs/flux-1-schnell")
-    assert call["headers"]["Authorization"] == "Bearer tok"
-    assert call["json"]["prompt"] == "a lantern" and "seed" not in call["json"]
-    assert settings.use_cloudflare and settings.provider_label == "Cloudflare FLUX.1 schnell"
-
-
-class _Limited(_Session):
-    def post(self, url, json=None, headers=None, timeout=None):  # noqa: A002
-        self.calls.append({"url": url})
-        response = _Response({})
-        response.status_code, response.ok, response.headers = 429, False, {"Retry-After": "1"}
-        return response
-
-
-def test_cloudflare_rate_limit_waits_then_pauses(tmp_path):
-    import pytest
-
-    from utils.retry_utils import AIBookError
-
-    waits: list[float] = []
-    CloudflareImageGenerator._sleep = staticmethod(waits.append)
-    CloudflareImageGenerator._cooldown_until = 0.0
-    try:
-        session = _Limited({})
-        generator = CloudflareImageGenerator(ImageSettings(api_key="", cloudflare_account_id="a", cloudflare_token="t"), session)
-        with pytest.raises(AIBookError, match="too many image requests"):
-            generator.generate_image("a lantern", tmp_path / "x.jpg", "square")
-        assert len(session.calls) == 4 and waits == [15.0, 30.0, 60.0]
-        with pytest.raises(AIBookError, match="paused"):
-            generator.generate_image("again", tmp_path / "y.jpg", "square")
-        assert len(session.calls) == 4  # no new request while paused
-    finally:
-        import time as _time
-
-        CloudflareImageGenerator._sleep = staticmethod(_time.sleep)
-        CloudflareImageGenerator._cooldown_until = 0.0

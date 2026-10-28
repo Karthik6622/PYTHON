@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from config import ImageSettings, get_image_settings
+from config import AI_HORDE_URL, ImageSettings, get_image_settings
 from utils.image_utils import (
     COVER_SIZE,
     ORIENTATION_SIZES,
@@ -154,20 +154,7 @@ class ApiImageGenerator(ImageGenerator):
         raise ImageGenerationError("The image API response did not contain an image.")
 
     def _download(self, url: str) -> bytes:
-        if urlparse(url).scheme != "https":
-            raise _NonRetryable("The image API returned a non-HTTPS image URL, which was refused.")
-        try:
-            with self._session.get(url, timeout=self.settings.timeout, stream=True) as response:
-                response.raise_for_status()
-                chunks, total = [], 0
-                for chunk in response.iter_content(65536):
-                    total += len(chunk)
-                    if total > _MAX_DOWNLOAD_BYTES:
-                        raise _NonRetryable("The generated image is too large.")
-                    chunks.append(chunk)
-        except requests.RequestException as exc:
-            raise ImageGenerationError("The generated image could not be downloaded.") from exc
-        return b"".join(chunks)
+        return _download_image(self._session, url, self.settings.timeout)
 
 
 class _NonRetryable(AIBookError):
@@ -176,134 +163,151 @@ class _NonRetryable(AIBookError):
     default_message = "Image generation failed."
 
 
-class _RateLimited(AIBookError):
-    """HTTP 429: too many requests (or the daily free allowance is used up)."""
+def _download_image(session: requests.Session, url: str, timeout: float) -> bytes:
+    """Download an image over HTTPS with a size limit."""
+    if urlparse(url).scheme != "https":
+        raise _NonRetryable("The image service returned a non-HTTPS image URL, which was refused.")
+    try:
+        with session.get(url, timeout=timeout, stream=True) as response:
+            response.raise_for_status()
+            chunks, total = [], 0
+            for chunk in response.iter_content(65536):
+                total += len(chunk)
+                if total > _MAX_DOWNLOAD_BYTES:
+                    raise _NonRetryable("The generated image is too large.")
+                chunks.append(chunk)
+    except requests.RequestException as exc:
+        raise ImageGenerationError("The generated image could not be downloaded.") from exc
+    return b"".join(chunks)
 
-    default_message = "The image service rate limit was reached."
 
-    def __init__(self, message: str | None = None, retry_after: float = 0.0) -> None:
-        super().__init__(message)
-        self.retry_after = retry_after
+class AIHordeImageGenerator(ImageGenerator):
+    """AI Horde (https://aihorde.net) crowd-sourced Stable Diffusion provider.
 
-
-class CloudflareImageGenerator(ImageGenerator):
-    """Cloudflare Workers AI provider (``@cf/black-forest-labs/flux-1-schnell``).
-
-    Calls ``POST /accounts/{id}/ai/run/{model}`` with a bearer token. The reply is JSON with a base64 JPEG in
-    ``result.image``; it is converted to PNG by the caller. The token is sent only in the Authorization header.
+    Submits ``POST /generate/async``, polls ``/generate/check/{id}`` until done, reads ``/generate/status/{id}`` and
+    downloads the image. The API key is sent only in the ``apikey`` header. Requests wait in a shared queue, so one image
+    can take from seconds to several minutes.
     """
 
-    name = "Cloudflare FLUX.1 schnell"
-    _BASE = "https://api.cloudflare.com/client/v4/accounts"
-    _MAX_PROMPT = 2048
-    _STEPS = 8  # FLUX.1 schnell accepts 1-8 steps
-    _RATE_DELAYS = (15.0, 30.0, 60.0)  # waits after HTTP 429 before giving up
-    _COOLDOWN_SECONDS = 300.0  # after repeated 429s, skip Cloudflare for a while instead of waiting on every image
-    _slots = threading.BoundedSemaphore(2)  # at most two images are requested at the same time
-    _state_lock = threading.Lock()
-    _cooldown_until = 0.0
+    name = "AI Horde"
+    _MAX_PROMPT = 1000
+    _STEPS = 25
+    _POLL_SECONDS = 3.0
+    _DIMENSIONS = {"cover": (768, 1024), "portrait": (768, 1024), "landscape": (1024, 768), "square": (768, 768)}
     _sleep = staticmethod(time.sleep)
 
     def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
         self.settings = settings or get_image_settings()
         self._session = session or requests.Session()
+        self._slots = threading.BoundedSemaphore(max(1, self.settings.ai_horde_concurrency))
+        self._base = AI_HORDE_URL
 
     def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
-        if not (self.settings.cloudflare_account_id and self.settings.cloudflare_token):
-            raise ImageGenerationError("Cloudflare is not configured (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN).")
-        with self._state_lock:
-            remaining = type(self)._cooldown_until - time.time()
-        if remaining > 0:
-            raise _NonRetryable(
-                f"Cloudflare's image limit was reached (HTTP 429), so images are paused for about {int(remaining // 60) + 1} min. "
-                "The free plan has a daily allowance."
-            )
-        body = {
+        if not self.settings.ai_horde_key:
+            raise ImageGenerationError("The AI Horde API key is missing (AI_HORDE_API_KEY).")
+        width, height = self._DIMENSIONS.get(orientation, self._DIMENSIONS["square"])
+        payload = {
             "prompt": prompt[: self._MAX_PROMPT],
-            "steps": self._STEPS,
+            "params": {"width": width, "height": height, "steps": self._STEPS, "n": 1},
+            "models": [self.settings.ai_horde_model],
+            "nsfw": False,
+            "censor_nsfw": True,
         }
-        with self._slots:
-            payload = self._post_with_backoff(body)
-        data = self._extract_bytes(payload)
+        with self._slots:  # a few images at a time keeps within AI Horde's per-user limits
+            request_id = call_with_retries(lambda: self._submit(payload), retryable=(ImageGenerationError,))
+            try:
+                generation = self._wait(request_id)
+            except BaseException:
+                self._cancel(request_id)
+                raise
+        data = self._image_bytes(generation)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
 
-    def _post_with_backoff(self, body: dict) -> dict:
-        """Send the request; on HTTP 429 wait (honouring Retry-After) and try again, then pause Cloudflare for a while."""
-        for attempt in range(len(self._RATE_DELAYS) + 1):
-            try:
-                return call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
-            except _RateLimited as exc:
-                if attempt >= len(self._RATE_DELAYS):
-                    break
-                self._sleep(min(max(exc.retry_after, self._RATE_DELAYS[attempt]), 120.0))
-        with self._state_lock:
-            type(self)._cooldown_until = time.time() + self._COOLDOWN_SECONDS
-        raise _NonRetryable(
-            "Cloudflare says there were too many image requests (HTTP 429). The free plan has a daily allowance that resets "
-            "every day; the remaining images use placeholders. Run the book again later to replace them."
-        )
+    # ------------------------------------------------------------------ HTTP
+    def _headers(self) -> dict[str, str]:
+        return {"apikey": self.settings.ai_horde_key, "Client-Agent": "AI-Book-Studio:1.0", "Content-Type": "application/json"}
 
-    def _post(self, body: dict) -> dict:
-        url = f"{self._BASE}/{self.settings.cloudflare_account_id}/ai/run/{self.settings.cloudflare_model}"
+    @staticmethod
+    def _message(response) -> str:
         try:
-            response = self._session.post(
-                url,
-                json=body,
-                headers={"Authorization": f"Bearer {self.settings.cloudflare_token}", "Content-Type": "application/json"},
-                timeout=self.settings.timeout,
-            )
+            data = response.json()
+            return str(data.get("message", ""))[:300] if isinstance(data, dict) else ""
+        except ValueError:
+            return ""
+
+    def _request(self, method: str, path: str, **kwargs) -> dict:
+        try:
+            response = self._session.request(method, f"{self._base}{path}", headers=self._headers(), timeout=30, **kwargs)
         except requests.Timeout as exc:
-            raise ImageGenerationError("Cloudflare timed out while drawing the image.") from exc
+            raise ImageGenerationError("AI Horde timed out.") from exc
         except requests.RequestException as exc:
-            LOGGER.warning("Cloudflare network error: %s", redact(exc))
-            raise ImageGenerationError("Could not reach Cloudflare.") from exc
+            LOGGER.warning("AI Horde network error: %s", redact(exc))
+            raise ImageGenerationError("Could not reach AI Horde.") from exc
+        detail = self._message(response)
         if response.status_code in (401, 403):
-            raise _NonRetryable("Cloudflare authentication failed. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.")
-        if response.status_code == 429:
-            try:
-                retry_after = float(response.headers.get("Retry-After", 0))
-            except (TypeError, ValueError, AttributeError):
-                retry_after = 0.0
-            raise _RateLimited("Cloudflare is rate limiting image requests (HTTP 429).", retry_after)
-        if response.status_code in (500, 502, 503, 504):
-            raise ImageGenerationError(f"Cloudflare is busy or unavailable (HTTP {response.status_code}).")
+            raise _NonRetryable("AI Horde rejected the API key. Check AI_HORDE_API_KEY." + (f" ({redact(detail)})" if detail else ""))
+        if response.status_code in (429, 500, 502, 503, 504):
+            raise ImageGenerationError(f"AI Horde is busy or unavailable (HTTP {response.status_code}).")
         if not response.ok:
-            detail = self._error_detail(response)
-            LOGGER.warning("Cloudflare error %s: %s", response.status_code, redact(detail or response.text[:300]))
-            raise _NonRetryable(
-                f"Cloudflare rejected the image request (HTTP {response.status_code})" + (f": {redact(detail)}" if detail else ".")
-            )
+            LOGGER.warning("AI Horde error %s: %s", response.status_code, redact(detail or response.text[:300]))
+            raise _NonRetryable(f"AI Horde rejected the image request (HTTP {response.status_code})" + (f": {redact(detail)}" if detail else "."))
         try:
             data = response.json()
         except ValueError as exc:
-            raise ImageGenerationError("Cloudflare returned a response that is not JSON.") from exc
+            raise ImageGenerationError("AI Horde returned a response that is not JSON.") from exc
         if not isinstance(data, dict):
-            raise ImageGenerationError("Cloudflare returned an unexpected response.")
+            raise ImageGenerationError("AI Horde returned an unexpected response.")
         return data
 
-    @staticmethod
-    def _error_detail(response) -> str:
-        """Cloudflare's own explanation, e.g. {"errors": [{"code": 5006, "message": "..."}]}."""
-        try:
-            errors = response.json().get("errors") or []
-            messages = [f"{e.get('message', '')} (code {e.get('code', '?')})" for e in errors if isinstance(e, dict)]
-            return "; ".join(messages)[:300]
-        except (ValueError, AttributeError):
-            return ""
+    def _submit(self, payload: dict) -> str:
+        data = self._request("POST", "/generate/async", json=payload)
+        request_id = data.get("id")
+        if not isinstance(request_id, str) or not request_id:
+            raise ImageGenerationError("AI Horde did not accept the request.")
+        return request_id
 
-    @staticmethod
-    def _extract_bytes(payload: dict) -> bytes:
-        result = payload.get("result")
-        encoded = result.get("image") if isinstance(result, dict) else None
-        if not isinstance(encoded, str) or not encoded:
-            raise ImageGenerationError("The Cloudflare response did not contain an image.")
+    def _wait(self, request_id: str) -> dict:
+        """Poll the queue until the image is ready, then return the first generation."""
+        deadline = time.monotonic() + self.settings.ai_horde_timeout
+        while True:
+            status = call_with_retries(lambda: self._request("GET", f"/generate/check/{request_id}"), retryable=(ImageGenerationError,))
+            if status.get("faulted"):
+                raise ImageGenerationError("AI Horde could not draw this image.")
+            if status.get("done"):
+                break
+            if status.get("is_possible") is False:
+                raise _NonRetryable(f"No AI Horde worker is available for the model '{self.settings.ai_horde_model}'.")
+            if time.monotonic() >= deadline:
+                raise ImageGenerationError("AI Horde took too long (the shared queue is busy).")
+            self._sleep(self._POLL_SECONDS)
+        result = call_with_retries(lambda: self._request("GET", f"/generate/status/{request_id}"), retryable=(ImageGenerationError,))
+        generations = result.get("generations")
+        if not isinstance(generations, list) or not generations or not isinstance(generations[0], dict):
+            raise ImageGenerationError("AI Horde returned no image.")
+        return generations[0]
+
+    def _cancel(self, request_id: str) -> None:
+        """Best effort: free the queue slot when we stop waiting."""
         try:
-            return base64.b64decode(encoded.split(",", 1)[-1], validate=False)
+            self._session.delete(f"{self._base}/generate/status/{request_id}", headers=self._headers(), timeout=15)
+        except requests.RequestException:
+            pass
+
+    def _image_bytes(self, generation: dict) -> bytes:
+        if generation.get("censored"):
+            raise _NonRetryable("AI Horde's safety filter blocked this image.")
+        image = generation.get("img")
+        if not isinstance(image, str) or not image:
+            raise ImageGenerationError("AI Horde returned no image.")
+        if image.startswith("http"):
+            return _download_image(self._session, image, 60)
+        try:
+            return base64.b64decode(image.split(",", 1)[-1], validate=False)
         except ValueError as exc:
-            raise ImageGenerationError("The Cloudflare image could not be decoded.") from exc
+            raise ImageGenerationError("The AI Horde image could not be decoded.") from exc
 
 
 def generate_illustration(
@@ -331,8 +335,8 @@ def generate_illustration(
 
 
 def get_image_generator(settings: ImageSettings | None = None) -> ImageGenerator:
-    """Cloudflare FLUX when configured, else the OpenAI-compatible API, else the development placeholder."""
+    """AI Horde when configured, else the OpenAI-compatible API, else the development placeholder."""
     settings = settings or get_image_settings()
-    if settings.use_cloudflare:
-        return CloudflareImageGenerator(settings)
+    if settings.use_ai_horde:
+        return AIHordeImageGenerator(settings)
     return ApiImageGenerator(settings) if settings.use_api else PlaceholderImageGenerator()

@@ -36,7 +36,7 @@ def render() -> None:
         st.markdown(pill(f"{settings.provider_label} connected", "ok"), unsafe_allow_html=True)
     else:
         st.markdown(pill("Development placeholder images", "warn"), unsafe_allow_html=True)
-        st.caption("No image provider is configured, so abstract placeholder art is used. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to .streamlit/secrets.toml for real illustrations.")
+        st.caption("No image provider is configured, so abstract placeholder art is used. Add AI_HORDE_API_KEY to .streamlit/secrets.toml for real illustrations.")
 
     st.markdown("##### Front cover")
     cover_record = project.images.get("cover")

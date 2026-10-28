@@ -223,7 +223,8 @@ def get_nvidia_settings() -> NvidiaSettings:
 # --------------------------------------------------------------------------------------
 # Image provider
 # --------------------------------------------------------------------------------------
-CLOUDFLARE_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
+AI_HORDE_URL = "https://aihorde.net/api/v2"
+AI_HORDE_MODEL = "AlbedoBase XL (SDXL)"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {
@@ -240,19 +241,20 @@ class ImageSettings:
     api_key: str
     api_url: str = DEFAULT_IMAGE_API_URL
     model: str = DEFAULT_IMAGE_MODEL
-    provider: str = "auto"  # auto | api | placeholder
+    provider: str = "auto"  # auto | ai_horde | api | placeholder
     response_format: str = ""
     timeout: float = 180.0
     sizes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_IMAGE_SIZES))
     extra_body: dict[str, Any] = field(default_factory=dict)
-    cloudflare_account_id: str = ""
-    cloudflare_token: str = ""
-    cloudflare_model: str = CLOUDFLARE_IMAGE_MODEL
+    ai_horde_key: str = ""
+    ai_horde_model: str = AI_HORDE_MODEL
+    ai_horde_timeout: float = 900.0  # seconds to wait in the AI Horde queue for one image
+    ai_horde_concurrency: int = 3
 
     @property
-    def use_cloudflare(self) -> bool:
-        """True when Cloudflare Workers AI (FLUX.1 schnell) should draw the images."""
-        return self.provider in {"auto", "cloudflare"} and bool(self.cloudflare_account_id and self.cloudflare_token)
+    def use_ai_horde(self) -> bool:
+        """True when AI Horde should draw the images."""
+        return self.provider in {"auto", "ai_horde"} and bool(self.ai_horde_key)
 
     @property
     def use_api(self) -> bool:
@@ -261,12 +263,12 @@ class ImageSettings:
 
     @property
     def configured(self) -> bool:
-        return self.use_cloudflare or self.use_api
+        return self.use_ai_horde or self.use_api
 
     @property
     def provider_label(self) -> str:
-        if self.use_cloudflare:
-            return "Cloudflare FLUX.1 schnell"
+        if self.use_ai_horde:
+            return f"AI Horde ({self.ai_horde_model})"
         if self.use_api:
             return "Image API"
         return "Placeholder images"
@@ -288,6 +290,12 @@ def get_image_settings() -> ImageSettings:
         override = get_setting(f"IMAGE_API_SIZE_{orientation.upper()}")
         if override:
             sizes[orientation] = override
+    def _number(name: str, default: float, low: float, high: float) -> float:
+        try:
+            return max(low, min(float(get_setting(name, str(default))), high))
+        except ValueError:
+            return default
+
     return ImageSettings(
         api_key=get_secret("IMAGE_API_KEY"),
         api_url=get_setting("IMAGE_API_URL", DEFAULT_IMAGE_API_URL),
@@ -296,9 +304,10 @@ def get_image_settings() -> ImageSettings:
         response_format=get_setting("IMAGE_API_RESPONSE_FORMAT"),
         sizes=sizes,
         extra_body=extra,
-        cloudflare_account_id=get_secret("CLOUDFLARE_ACCOUNT_ID"),
-        cloudflare_token=get_secret("CLOUDFLARE_API_TOKEN"),
-        cloudflare_model=get_setting("CLOUDFLARE_IMAGE_MODEL", CLOUDFLARE_IMAGE_MODEL),
+        ai_horde_key=get_secret("AI_HORDE_API_KEY"),
+        ai_horde_model=get_setting("AI_HORDE_MODEL", AI_HORDE_MODEL),
+        ai_horde_timeout=_number("AI_HORDE_TIMEOUT", 900.0, 60.0, 3600.0),
+        ai_horde_concurrency=int(_number("AI_HORDE_CONCURRENCY", 3, 1, 10)),
     )
 
 
