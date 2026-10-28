@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -167,6 +168,14 @@ class _NoWorker(_NonRetryable):
     """No AI Horde worker can serve the request as submitted."""
 
 
+class _KudosLimit(_NonRetryable):
+    """AI Horde wants kudos for a request this large. ``pixels`` is the no-kudos size limit when the message names it."""
+
+    pixels: int | None = None
+
+
+_KUDOS_SIZE = re.compile(r"over\s+(\d+)\s*x\s*(\d+)", re.IGNORECASE)
+
 def _download_image(session: requests.Session, url: str, timeout: float) -> bytes:
     """Download an image over HTTPS with a size limit."""
     if urlparse(url).scheme != "https":
@@ -196,8 +205,10 @@ class AIHordeImageGenerator(ImageGenerator):
     name = "AI Horde"
     _MAX_PROMPT = 1000
     _POLL_SECONDS = 3.0
-    # Kept under 836x836 pixels in total: AI Horde asks for kudos above that, which accounts without kudos cannot pay.
-    _DIMENSIONS = {"cover": (640, 960), "portrait": (640, 960), "landscape": (960, 640), "square": (768, 768)}
+    # AI Horde asks for kudos above a size limit that changes with demand (836x836, 774x774, ...), and accounts
+    # without kudos cannot pay. These sizes are small enough for today's limit; the real limit is learned from the
+    # error message and applied to later images (see ``_fit``).
+    _DIMENSIONS = {"cover": (640, 896), "portrait": (640, 896), "landscape": (896, 640), "square": (768, 768)}
     _sleep = staticmethod(time.sleep)
 
     def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
@@ -205,30 +216,57 @@ class AIHordeImageGenerator(ImageGenerator):
         self._session = session or requests.Session()
         self._slots = threading.BoundedSemaphore(max(1, self.settings.ai_horde_concurrency))
         self._base = AI_HORDE_URL
+        self._pixel_limit: int | None = None  # largest width*height AI Horde accepted without kudos, once known
+        self._steps_cap: int | None = None
+
+    def _fit(self, width: int, height: int) -> tuple[int, int]:
+        """Shrink a size (keeping its shape, in steps of 64) to fit the learned no-kudos pixel limit."""
+        limit = self._pixel_limit
+        if not limit or width * height <= limit * 0.95:
+            return width, height
+        scale = (limit * 0.95 / (width * height)) ** 0.5
+        return max(384, int(width * scale) // 64 * 64), max(384, int(height * scale) // 64 * 64)
+
+    def _learn_limit(self, error: _KudosLimit, width: int, height: int, steps: int) -> None:
+        self._pixel_limit = error.pixels or int(width * height * 0.8)
+        self._steps_cap = max(12, steps - 4)
 
     def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
         if not self.settings.ai_horde_key:
             raise ImageGenerationError("The AI Horde API key is missing (AI_HORDE_API_KEY).")
-        width, height = self._DIMENSIONS.get(orientation, self._DIMENSIONS["square"])
+        base_width, base_height = self._DIMENSIONS.get(orientation, self._DIMENSIONS["square"])
         with self._slots:  # a few images at a time keeps within AI Horde's per-user limits
-            try:
-                generation = self._draw(prompt, width, height, fast_only=self.settings.ai_horde_fast_only)
-            except _NoWorker:
-                if not self.settings.ai_horde_fast_only:
-                    raise
-                LOGGER.info("No fast AI Horde worker for these models; allowing slow workers.")
-                generation = self._draw(prompt, width, height, fast_only=False)
+            for attempt in range(3):
+                width, height = self._fit(base_width, base_height)
+                steps = min(self.settings.ai_horde_steps, self._steps_cap or 999)
+                try:
+                    generation = self._draw_with_fallback(prompt, width, height, steps)
+                    break
+                except _KudosLimit as exc:
+                    if attempt == 2:
+                        raise
+                    self._learn_limit(exc, width, height, steps)
+                    LOGGER.info("AI Horde wants kudos for %sx%s; retrying smaller (%s pixels allowed).", width, height, self._pixel_limit)
         data = self._image_bytes(generation)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
 
-    def _payload(self, prompt: str, width: int, height: int, fast_only: bool) -> dict:
+    def _draw_with_fallback(self, prompt: str, width: int, height: int, steps: int) -> dict:
+        try:
+            return self._draw(prompt, width, height, steps, fast_only=self.settings.ai_horde_fast_only)
+        except _NoWorker:
+            if not self.settings.ai_horde_fast_only:
+                raise
+            LOGGER.info("No fast AI Horde worker for these models; allowing slow workers.")
+            return self._draw(prompt, width, height, steps, fast_only=False)
+
+    def _payload(self, prompt: str, width: int, height: int, steps: int, fast_only: bool) -> dict:
         models = self.settings.ai_horde_models
-        params: dict = {"width": width, "height": height, "steps": self.settings.ai_horde_steps, "n": 1}
+        params: dict = {"width": width, "height": height, "steps": steps, "n": 1}
         if all("flux" in name.lower() for name in models):
-            params.update({"steps": min(self.settings.ai_horde_steps, 8), "cfg_scale": 1, "sampler_name": "k_euler"})
+            params.update({"steps": min(steps, 8), "cfg_scale": 1, "sampler_name": "k_euler"})
         return {
             "prompt": prompt[: self._MAX_PROMPT],
             "params": params,
@@ -238,8 +276,8 @@ class AIHordeImageGenerator(ImageGenerator):
             "slow_workers": not fast_only,
         }
 
-    def _draw(self, prompt: str, width: int, height: int, fast_only: bool) -> dict:
-        payload = self._payload(prompt, width, height, fast_only)
+    def _draw(self, prompt: str, width: int, height: int, steps: int, fast_only: bool) -> dict:
+        payload = self._payload(prompt, width, height, steps, fast_only)
         request_id = call_with_retries(lambda: self._submit(payload), retryable=(ImageGenerationError,))
         try:
             return self._wait(request_id)
@@ -270,10 +308,14 @@ class AIHordeImageGenerator(ImageGenerator):
         detail = self._message(response)
         if response.status_code in (401, 403):
             if "kudos" in detail.lower():
-                raise _NonRetryable(
-                    "AI Horde needs more kudos for this request. Use a smaller image or fewer steps (AI_HORDE_STEPS), "
+                error = _KudosLimit(
+                    "AI Horde needs kudos for this image size even after shrinking it. Lower AI_HORDE_STEPS, "
                     "or earn kudos by registering and running a worker. " + f"({redact(detail)})"
                 )
+                match = _KUDOS_SIZE.search(detail)
+                if match:
+                    error.pixels = int(match.group(1)) * int(match.group(2))
+                raise error
             raise _NonRetryable("AI Horde rejected the API key. Check AI_HORDE_API_KEY." + (f" ({redact(detail)})" if detail else ""))
         if response.status_code in (429, 500, 502, 503, 504):
             raise ImageGenerationError(f"AI Horde is busy or unavailable (HTTP {response.status_code}).")

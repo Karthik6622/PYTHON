@@ -81,8 +81,8 @@ def test_ai_horde_generates_image(tmp_path):
     assert (method, url) == ("POST", "https://aihorde.net/api/v2/generate/async")
     assert headers["apikey"] == "horde-key" and headers["Client-Agent"].startswith("AI-Book-Studio")
     assert body["prompt"] == "a lantern" and body["models"] == ["AlbedoBase XL (SDXL)", "AlbedoBase XL 3.1"]
-    assert body["params"]["width"] == 640 and body["params"]["height"] == 960 and body["censor_nsfw"] is True
-    assert all(w * h <= 836 * 836 for w, h in AIHordeImageGenerator._DIMENSIONS.values())
+    assert body["params"]["width"] == 640 and body["params"]["height"] == 896 and body["censor_nsfw"] is True
+    assert all(w * h <= 774 * 774 for w, h in AIHordeImageGenerator._DIMENSIONS.values())
     assert body["params"]["steps"] == 20 and body["slow_workers"] is False
     assert session.checks == 2
 
@@ -110,6 +110,30 @@ def test_ai_horde_falls_back_to_slow_workers(tmp_path):
     _horde(session).generate_image("p", tmp_path / "s.webp", "square")
     submitted = [call[3] for call in session.calls if call[0] == "POST"]
     assert [body["slow_workers"] for body in submitted] == [False, True]
+
+
+def test_ai_horde_shrinks_when_kudos_are_required(tmp_path):
+    message = "for requests over 500x500 or over the applicable first-order-equivalent sampler work budget the client needs kudos."
+
+    class KudosLimited(_HordeSession):
+        def request(self, method, url, headers=None, timeout=None, json=None):
+            if json is not None and url.endswith("/generate/async"):
+                self.calls.append((method, url, headers, json))
+                if json["params"]["width"] * json["params"]["height"] > 500 * 500:
+                    return _Response({"message": message}, 403)
+                return _Response({"id": "req-1"})
+            return super().request(method, url, headers=headers, timeout=timeout, json=json)
+
+    session = KudosLimited()
+    generator = _horde(session)
+    generator.generate_image("p", tmp_path / "k.webp", "portrait")
+    sizes = [(c[3]["params"]["width"], c[3]["params"]["height"]) for c in session.calls if c[0] == "POST"]
+    assert sizes[0] == (640, 896) and sizes[-1][0] * sizes[-1][1] <= 500 * 500
+    assert generator._pixel_limit == 500 * 500
+
+    later = [c for c in session.calls if c[0] == "POST"]
+    generator.generate_image("p", tmp_path / "k2.webp", "portrait")
+    assert len([c for c in session.calls if c[0] == "POST"]) == len(later) + 1  # learned the limit: no failed attempt
 
 
 def test_ai_horde_settings():
