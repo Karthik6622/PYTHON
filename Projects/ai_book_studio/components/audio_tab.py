@@ -16,6 +16,7 @@ from services.audio_book import (
     existing_audio,
     language_code_for,
     make_engine,
+    merge_audio,
     split_for_speech,
     voices_for,
 )
@@ -39,6 +40,12 @@ def _clock(seconds: float) -> str:
 
 def _folder(project: BookProject):
     return audio_dir(get_storage().project_dir(project.project_id))
+
+
+def _file_stem(project: BookProject) -> str:
+    title = project.plan.title if project.plan else "book"
+    stem = "".join(ch if ch.isalnum() else "_" for ch in title).strip("_")
+    return stem[:60] or "book"
 
 
 def _start(project: BookProject, include_front: bool, include_back: bool, voice: str) -> bool:
@@ -90,7 +97,21 @@ def _library(project: BookProject) -> None:
         return
     st.markdown("##### Listen and download")
     total = sum(item.seconds for item in files)
-    st.caption(f"{len(files)} sections, about {_clock(total)} in total. Each section is a separate WAV file.")
+    st.caption(f"{len(files)} sections, about {_clock(total)} in total. Download the whole audiobook as one file, or a single section.")
+    full = None
+    with guarded("Joining the audio sections"):
+        full = merge_audio(_folder(project))
+    if full is not None:
+        size_mb = full.path.stat().st_size / 1_048_576
+        st.download_button(
+            f"⬇️ Download full audiobook (WAV, {_clock(full.seconds)}, {size_mb:.0f} MB)",
+            full.path.read_bytes(),
+            file_name=f"{_file_stem(project)}_audiobook.wav",
+            mime="audio/wav",
+            type="primary",
+            key="ab_dl_full",
+            width="stretch",
+        )
     st.dataframe(
         [{"Section": item.title, "Length": _clock(item.seconds), "Size (MB)": round(item.path.stat().st_size / 1_048_576, 1)} for item in files],
         hide_index=True,

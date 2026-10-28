@@ -97,7 +97,7 @@ def _setup_styles(document, language: str) -> str:
         style.paragraph_format.space_after = Pt(after)
         style.paragraph_format.keep_with_next = True
     document.styles["Heading 1"].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    document.styles["Heading 1"].paragraph_format.page_break_before = True
+    # Page breaks are set on each heading paragraph (see ``_heading``), not on the style, so every viewer starts chapters on a new page.
     document.styles["Heading 1"].paragraph_format.space_before = Pt(60)
 
     body = document.styles.add_style("BookBody", WD_STYLE_TYPE.PARAGRAPH)
@@ -156,8 +156,42 @@ def _add_picture(document, path: Path, max_width: float = 4.4, max_height: float
     document.paragraphs[-1].paragraph_format.space_after = Pt(12)
 
 
-def _page_start(paragraph) -> None:
-    paragraph.paragraph_format.page_break_before = True
+class _Flow:
+    """Tracks whether the next paragraph is the first one on a fresh page (after a section break)."""
+
+    def __init__(self) -> None:
+        self.at_start = True
+
+    def starts_page(self, paragraph) -> None:
+        """Make ``paragraph`` start a new page, unless it already begins one (a page break there would leave a blank page)."""
+        paragraph.paragraph_format.page_break_before = not self.at_start
+        self.at_start = False
+
+    def reset(self) -> None:
+        self.at_start = True
+
+
+def _heading(document, flow: _Flow, text: str):
+    paragraph = document.add_paragraph(remove_control_chars(text), style="Heading 1")
+    flow.starts_page(paragraph)
+    return paragraph
+
+
+def _section_break(document) -> None:
+    """End the current section after the last paragraph, without the empty paragraph python-docx adds for it.
+
+    ``add_section`` appends a new empty paragraph that carries the section properties. That paragraph can spill onto a
+    page of its own (a blank page, especially after the full-page cover), so the properties move into the last real paragraph.
+    """
+    last = document.paragraphs[-1]
+    document.add_section(WD_SECTION.NEW_PAGE)
+    holder = document.paragraphs[-1]
+    properties = holder._p.pPr
+    section_properties = properties.find(qn("w:sectPr")) if properties is not None else None
+    if section_properties is None or holder._p is last._p:
+        return
+    last._p.get_or_add_pPr().append(section_properties)
+    holder._p.getparent().remove(holder._p)
 
 
 def _centered(document, text: str, size: int, colour: RGBColor, bold: bool = False, italic: bool = False, before: int = 0, after: int = 6):
@@ -173,10 +207,9 @@ def _centered(document, text: str, size: int, colour: RGBColor, bold: bool = Fal
     return paragraph
 
 
-def _add_toc(document, entries: list[str], heading: str) -> None:
+def _add_toc(document, flow: _Flow, entries: list[str], heading: str) -> None:
     """Table of contents field with static entries as fallback (right-click > Update Field in Word adds page numbers)."""
-    title = document.add_paragraph(remove_control_chars(heading), style="Heading 1")
-    title.paragraph_format.page_break_before = True
+    title = _heading(document, flow, heading)
     # Not a real heading in the TOC: use outline level body text so it is not listed itself.
     title_pr = title._p.get_or_add_pPr()
     outline = OxmlElement("w:outlineLvl")
@@ -211,47 +244,37 @@ def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) ->
         document.core_properties.author = remove_control_chars(plan.author)
         document.core_properties.comments = "Created with AI Book Studio"
 
-        # Cover: full-bleed section without margins.
-        cover_section = document.sections[0]
-        cover_section.page_width, cover_section.page_height = _PAGE_W, _PAGE_H
-        for side in ("left_margin", "right_margin", "top_margin", "bottom_margin", "header_distance", "footer_distance"):
-            setattr(cover_section, side, Inches(0))
+        # Cover: its own full-bleed section without margins. The picture is a little smaller than the page and its line
+        # is one point high, so the page never overflows into a blank second page.
+        flow = _Flow()
         if assets.cover_path and Path(assets.cover_path).exists():
             paragraph = document.paragraphs[0] if document.paragraphs else document.add_paragraph()
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            paragraph.paragraph_format.space_before = Pt(0)
             paragraph.paragraph_format.space_after = Pt(0)
             paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-            paragraph.add_run().add_picture(str(assets.cover_path), width=Inches(5.98), height=Inches(8.96))
+            with PILImage.open(assets.cover_path) as cover_picture:
+                cover_w, cover_h = cover_picture.size
+            scale = min(5.9 / cover_w, 8.85 / cover_h)
+            run = paragraph.add_run()
+            run.font.size = Pt(1)
+            run.add_picture(str(assets.cover_path), width=Inches(cover_w * scale), height=Inches(cover_h * scale))
         else:
-            document.add_paragraph(remove_control_chars(plan.title))
+            paragraph = document.add_paragraph(remove_control_chars(plan.title))
+            paragraph.paragraph_format.space_before = Pt(0)
             warnings.append("The DOCX has no cover image.")
+        _section_break(document)  # the front pages (no page numbers) or the body start in the next section
 
-        body_section = document.add_section(WD_SECTION.NEW_PAGE)
-        body_section.page_width, body_section.page_height = _PAGE_W, _PAGE_H
-        body_section.left_margin = body_section.right_margin = _MARGIN
-        body_section.top_margin = Inches(0.9)
-        body_section.bottom_margin = Inches(0.85)
-        body_section.header_distance = Inches(0.4)
-        body_section.footer_distance = Inches(0.4)
-        body_section.footer.is_linked_to_previous = False
-        footer_paragraph = body_section.footer.paragraphs[0]
-        _add_page_number(footer_paragraph)
-
-        first_page = True
-
-        def start_page(paragraph) -> None:
-            nonlocal first_page
-            if not first_page:
-                _page_start(paragraph)
-            first_page = False
-
+        has_dedication = options.has("dedication") and bool(project.front_matter.get("dedication", "").strip())
+        has_front = options.has("title_page") or options.has("copyright_page") or has_dedication
         if options.has("title_page"):
-            start_page(_centered(document, "", 8, GREY, before=110, after=0))
+            flow.starts_page(_centered(document, "", 8, GREY, before=110, after=0))
             _centered(document, plan.title, 30, NAVY, bold=True, before=0, after=10)
             if plan.subtitle:
                 _centered(document, plan.subtitle, 15, GREY, italic=True, after=18)
             _centered(document, plan.author, 15, INDIGO, bold=True, before=14)
         if options.has("copyright_page"):
-            start_page(_centered(document, "", 8, GREY, before=260, after=0))
+            flow.starts_page(_centered(document, "", 8, GREY, before=260, after=0))
             for line in (
                 f"Copyright © {datetime.now().year} {plan.author}",
                 "All rights reserved.",
@@ -261,41 +284,55 @@ def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) ->
                 run = paragraph.add_run(remove_control_chars(line))
                 run.font.size = Pt(9)
                 run.font.color.rgb = GREY
-        if options.has("dedication") and project.front_matter.get("dedication", "").strip():
-            start_page(_centered(document, "", 8, GREY, before=150, after=0))
+        if has_dedication:
+            flow.starts_page(_centered(document, "", 8, GREY, before=150, after=0))
             _centered(document, project.front_matter["dedication"].strip(), 12, NAVY, italic=True)
+        if has_front:
+            _section_break(document)  # the numbered body starts in a new section
+            flow.reset()
 
         def text_section(key: str, text: str) -> None:
-            document.add_paragraph(remove_control_chars(label(key, language)), style="Heading 1")
+            _heading(document, flow, label(key, language))
             _add_body(document, text)
 
         for key in ("preface", "introduction"):
             if options.has(key) and project.front_matter.get(key, "").strip():
                 text_section(key, project.front_matter[key])
-                first_page = False
 
         chapters = [c for c in plan.chapters if project.chapters.get(c.chapter_number, "").strip()]
         if options.has("table_of_contents"):
             entries = [f"{chapter_label(c.chapter_number, language)}: {c.title}" for c in chapters]
-            _add_toc(document, entries, label("table_of_contents", language))
-            first_page = False
+            _add_toc(document, flow, entries, label("table_of_contents", language))
 
         for chapter in chapters:
             number = chapter.chapter_number
-            document.add_paragraph(
-                remove_control_chars(f"{chapter_label(number, language)}: {chapter.title}"), style="Heading 1"
-            )
+            _heading(document, flow, f"{chapter_label(number, language)}: {chapter.title}")
             image_path = assets.chapter_images.get(number)
             if image_path and Path(image_path).exists():
                 _add_picture(document, Path(image_path))
             _add_body(document, project.chapters[number])
-            first_page = False
 
         for key in ("conclusion", "glossary"):
             if options.has(key) and project.front_matter.get(key, "").strip():
                 text_section(key, project.front_matter[key])
         if options.has("author_page"):
             text_section("author_page", author_page_text(project))
+
+        # Page set-up for every section: the cover has no margins, the others share the book margins.
+        for index, section in enumerate(document.sections):
+            section.page_width, section.page_height = _PAGE_W, _PAGE_H
+            if index == 0:
+                for side in ("left_margin", "right_margin", "top_margin", "bottom_margin", "header_distance", "footer_distance"):
+                    setattr(section, side, Inches(0))
+                continue
+            section.left_margin = section.right_margin = _MARGIN
+            section.top_margin = Inches(0.9)
+            section.bottom_margin = Inches(0.85)
+            section.header_distance = Inches(0.4)
+            section.footer_distance = Inches(0.45)
+        body_section = document.sections[-1]
+        body_section.footer.is_linked_to_previous = False
+        _add_page_number(body_section.footer.paragraphs[0])  # numbers run through the whole book, cover = page 1 (as in the PDF)
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -57,6 +57,33 @@ def test_full_book_exports_pdf_and_docx(storage, book_input):
     assert "dedication" in reloaded.front_matter
 
 
+def test_docx_layout_has_no_blank_pages_or_split_headings(storage, book_input):
+    pipeline = _pipeline(storage, book_input)
+    pipeline.create_plan()
+    summary = pipeline.generate_complete_book()
+    document = Document(str(summary.docx_path))
+    body = document.element.body
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+    # Section breaks live in real paragraphs: no empty holder paragraph that can spill onto a blank page.
+    for paragraph in body.iter(f"{ns}p"):
+        if paragraph.find(f"{ns}pPr/{ns}sectPr") is not None:
+            assert "".join(paragraph.itertext()).strip() or paragraph.find(f".//{ns}drawing") is not None
+    # Every chapter heading carries its own explicit page break, except right after a section break.
+    chapter_headings = [p for p in document.paragraphs if p.style.name == "Heading 1"]
+    assert chapter_headings
+    explicit = [p.paragraph_format.page_break_before for p in chapter_headings]
+    assert explicit.count(True) >= len(chapter_headings) - 1
+    # Only the last section prints page numbers, centred.
+    sections = document.sections
+    assert len(sections) >= 2
+    assert sections[0].footer.is_linked_to_previous  # the cover has no footer
+    footer = sections[-1].footer
+    assert not footer.is_linked_to_previous
+    assert "PAGE" in "".join(footer._element.xpath(".//w:instrText/text()"))
+    assert footer.paragraphs[0].alignment == 1
+
+
 def test_failure_then_resume_does_not_repeat_finished_work(storage, book_input):
     llm = FakeLLM(fail_first_review=False, fail_on_chapter=2)
     pipeline = _pipeline(storage, book_input, llm)

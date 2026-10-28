@@ -473,10 +473,13 @@ class BookPipeline:
         )
 
     # ------------------------------------------------------------------ step 17: export
-    def assemble_exports(self) -> ExportSummary:
-        """Validate the book and create the PDF and DOCX files."""
+    def assemble_exports(self, progress: ProgressCallback | None = None) -> ExportSummary:
+        """Validate the book and create the PDF and DOCX files. ``progress(fraction, message)`` reports each stage."""
+        report_progress = progress or (lambda fraction, message: None)
         self._require_plan()
+        report_progress(0.05, "Composing the front cover...")
         cover = self.recompose_cover()
+        report_progress(0.15, "Checking the book before export...")
         report = validate_project_for_export(self.project, self.storage)
         if not report.ok:
             raise ExportError("The book cannot be exported yet: " + " ".join(report.errors))
@@ -486,9 +489,13 @@ class BookPipeline:
             if found:
                 chapter_images[number] = found
         assets = ExportAssets(cover_path=cover, chapter_images=chapter_images)
+        report_progress(0.25, "Building the PDF (laying out pages and the table of contents)...")
         pdf = build_pdf(self.project, assets, self.storage.export_path(self.project, "pdf"))
+        report_progress(0.7, f"PDF ready ({pdf.pages} pages). Building the DOCX...")
         docx = build_docx(self.project, assets, self.storage.export_path(self.project, "docx"))
+        report_progress(0.95, "Saving the export report...")
         warnings = list(dict.fromkeys(report.warnings + pdf.warnings + docx.warnings))
         self.project.status.warnings = warnings
         self.storage.save_status(self.project)
+        report_progress(1.0, "PDF and DOCX are ready.")
         return ExportSummary(pdf_path=pdf.path, docx_path=docx.path, pages=pdf.pages, warnings=warnings)

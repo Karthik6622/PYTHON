@@ -307,6 +307,9 @@ class AIHordeImageGenerator(ImageGenerator):
     # without kudos cannot pay. These sizes are small enough for today's limit; the real limit is learned from the
     # error message and applied to later images (see ``_fit``).
     _DIMENSIONS = {"cover": (640, 896), "portrait": (640, 896), "landscape": (896, 640), "square": (768, 768)}
+    # FLUX takes time in proportion to the pixels, and the page art is fitted to the page afterwards, so FLUX gets smaller sizes.
+    _FLUX_DIMENSIONS = {"cover": (576, 768), "portrait": (576, 768), "landscape": (768, 576), "square": (640, 640)}
+    _FLUX_STEPS = 4  # FLUX schnell is built for 4 steps; more adds time, not quality
     _sleep = staticmethod(time.sleep)
 
     def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
@@ -316,6 +319,9 @@ class AIHordeImageGenerator(ImageGenerator):
         self._base = AI_HORDE_URL
         self._pixel_limit: int | None = None  # largest width*height AI Horde accepted without kudos, once known
         self._steps_cap: int | None = None
+
+    def _flux_only(self) -> bool:
+        return all("flux" in name.lower() for name in self.settings.ai_horde_models)
 
     def _fit(self, width: int, height: int) -> tuple[int, int]:
         """Shrink a size (keeping its shape, in steps of 64) to fit the learned no-kudos pixel limit."""
@@ -332,7 +338,9 @@ class AIHordeImageGenerator(ImageGenerator):
     def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
         if not self.settings.ai_horde_key:
             raise ImageGenerationError("The AI Horde API key is missing (AI_HORDE_API_KEY).")
-        base_width, base_height = self._DIMENSIONS.get(orientation, self._DIMENSIONS["square"])
+        base_width, base_height = (self._FLUX_DIMENSIONS if self._flux_only() else self._DIMENSIONS).get(
+            orientation, self._DIMENSIONS["square"]
+        )
         with self._slots:  # a few images at a time keeps within AI Horde's per-user limits
             for attempt in range(3):
                 width, height = self._fit(base_width, base_height)
@@ -363,8 +371,8 @@ class AIHordeImageGenerator(ImageGenerator):
     def _payload(self, prompt: str, width: int, height: int, steps: int, fast_only: bool) -> dict:
         models = self.settings.ai_horde_models
         params: dict = {"width": width, "height": height, "steps": steps, "n": 1}
-        if all("flux" in name.lower() for name in models):
-            params.update({"steps": min(steps, 8), "cfg_scale": 1, "sampler_name": "k_euler"})
+        if self._flux_only():
+            params.update({"steps": min(steps, self._FLUX_STEPS), "cfg_scale": 1, "sampler_name": "k_euler"})
         return {
             "prompt": prompt[: self._MAX_PROMPT],
             "params": params,

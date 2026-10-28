@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 
 import streamlit as st
 
@@ -29,8 +30,20 @@ def render() -> None:
         st.warning("These chapters have no text yet: " + ", ".join(map(str, missing)) + ". Generate or resume the book first.")
     if st.button("🛠️ Build PDF and DOCX", type="primary", width="stretch", disabled=bool(missing)):
         with guarded("Building the export files"):
-            with st.spinner("Composing the cover and building the PDF and DOCX..."):
-                summary = make_pipeline(project).assemble_exports()
+            started = time.time()
+            with st.status("Building the PDF and DOCX...", expanded=True) as status:
+                bar = st.progress(0.0, text="Starting...")
+
+                def on_progress(fraction: float, message: str) -> None:
+                    bar.progress(min(max(fraction, 0.0), 1.0), text=f"{message}  ({fraction * 100:.0f}%)")
+                    st.write(f"{time.time() - started:4.0f}s  {message}")
+
+                try:
+                    summary = make_pipeline(project).assemble_exports(progress=on_progress)
+                except BaseException:
+                    status.update(label="The export failed", state="error", expanded=True)
+                    raise
+                status.update(label=f"PDF and DOCX built in {time.time() - started:.0f}s", state="complete", expanded=False)
             st.session_state["export_summary"] = summary
             flash(f"The files were built. The PDF has {summary.pages} pages.", "success")
             refresh()

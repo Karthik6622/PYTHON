@@ -70,6 +70,7 @@ def _no_waiting(monkeypatch):
 
 
 def _horde(session, **settings):
+    settings.setdefault("ai_horde_model", "SDXL 1.0, AlbedoBase XL 3.1, AlbedoBase XL (SDXL)")  # the SDXL path; FLUX is the default
     return AIHordeImageGenerator(ImageSettings(api_key="", ai_horde_key="horde-key", **settings), session)
 
 
@@ -93,7 +94,16 @@ def test_ai_horde_flux_uses_flux_parameters(tmp_path):
     AIHordeImageGenerator(settings, session).generate_image("p", tmp_path / "f.webp", "square")
     body = session.calls[0][3]
     assert body["models"] == ["Flux.1-Schnell fp8 (Compact)"]
-    assert body["params"]["steps"] == 8 and body["params"]["cfg_scale"] == 1
+    assert body["params"]["steps"] == 4 and body["params"]["cfg_scale"] == 1
+    assert (body["params"]["width"], body["params"]["height"]) == (640, 640)
+
+
+def test_ai_horde_defaults_to_flux_with_small_fast_images(tmp_path):
+    session = _HordeSession()
+    AIHordeImageGenerator(ImageSettings(api_key="", ai_horde_key="k"), session).generate_image("p", tmp_path / "d.webp", "portrait")
+    params = session.calls[0][3]["params"]
+    assert session.calls[0][3]["models"] == ["Flux.1-Schnell fp8 (Compact)"]
+    assert (params["width"], params["height"], params["steps"]) == (576, 768, 4)
 
 
 def test_ai_horde_falls_back_to_slow_workers(tmp_path):

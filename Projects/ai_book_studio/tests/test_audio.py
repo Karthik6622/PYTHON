@@ -22,6 +22,7 @@ from services.audio_book import (
     existing_audio,
     language_code_for,
     make_engine,
+    merge_audio,
     split_for_speech,
     strip_markdown,
     voices_for,
@@ -243,6 +244,28 @@ def test_audiobook_builds_and_resumes(storage, book_input, tmp_path):
 
     AudiobookBuilder(project, folder, engine, "en-US", sections, voice="other").build(lambda f, m: None, lambda: False)
     assert len(engine.calls) == first_calls * 2  # a new voice narrates everything again
+
+
+def test_full_audiobook_joins_all_sections_in_order(storage, book_input, tmp_path):
+    project = _book(storage, book_input)
+    sections = build_sections(project)
+    folder = audio_dir(tmp_path)
+    assert merge_audio(folder) is None  # nothing narrated yet
+    summary = AudiobookBuilder(project, folder, FakeTTS(), "en-US", sections, voice="v").build(lambda f, m: None, lambda: False)
+
+    full = merge_audio(folder, pause_seconds=1.0)
+    assert full is not None and full.path.name == "full_audiobook.wav"
+    with wave.open(str(full.path), "rb") as joined:
+        frames, rate = joined.getnframes(), joined.getframerate()
+    expected = 0
+    for item in summary.files:
+        with wave.open(str(item.path), "rb") as part:
+            expected += part.getnframes()
+    expected += rate * (len(summary.files) - 1)  # one second between sections
+    assert frames == expected
+    assert abs(full.seconds - frames / rate) < 0.01
+    assert len(existing_audio(folder)) == len(sections)  # the joined file is not listed as a section
+    assert merge_audio(folder).path.stat().st_mtime == full.path.stat().st_mtime  # not rebuilt when nothing changed
 
 
 def test_audio_job_completes_and_stops(storage, book_input, tmp_path):

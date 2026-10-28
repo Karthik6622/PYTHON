@@ -425,6 +425,56 @@ def existing_audio(folder: Path) -> list[AudioFile]:
     return found
 
 
+FULL_AUDIO_NAME = "full_audiobook.wav"
+
+
+def merge_audio(folder: Path, pause_seconds: float = 1.0) -> AudioFile | None:
+    """Join all narrated sections, in reading order, into one WAV file (rebuilt only when a section changed)."""
+    files = existing_audio(folder)
+    if not files:
+        return None
+    target = folder / FULL_AUDIO_NAME
+    newest = max(item.path.stat().st_mtime for item in files)
+    if target.exists() and target.stat().st_size > 0 and target.stat().st_mtime >= newest:
+        try:
+            with wave.open(str(target), "rb") as done:
+                return AudioFile("full_audiobook", "Full audiobook", target, done.getnframes() / done.getframerate())
+        except (wave.Error, EOFError):
+            pass  # damaged: build it again
+    temp = target.with_name(target.stem + ".tmp.wav")
+    frames = 0
+    rate = 0
+    try:
+        with wave.open(str(temp), "wb") as out:
+            for index, item in enumerate(files):
+                with wave.open(str(item.path), "rb") as part:
+                    if index == 0:
+                        rate = part.getframerate()
+                        out.setnchannels(part.getnchannels())
+                        out.setsampwidth(part.getsampwidth())
+                        out.setframerate(rate)
+                    elif part.getframerate() != rate:
+                        raise AudioError("The sections use different sample rates, so they cannot be joined. Create the audiobook again.")
+                    if index:
+                        gap = b"\x00" * (int(rate * pause_seconds) * out.getsampwidth() * out.getnchannels())
+                        out.writeframes(gap)
+                        frames += len(gap) // (out.getsampwidth() * out.getnchannels())
+                    while True:
+                        chunk = part.readframes(65536)
+                        if not chunk:
+                            break
+                        out.writeframes(chunk)
+                        frames += len(chunk) // (part.getsampwidth() * part.getnchannels())
+        temp.replace(target)
+    except (OSError, wave.Error, EOFError) as exc:
+        temp.unlink(missing_ok=True)
+        raise AudioError(f"Could not join the audio sections: {type(exc).__name__}.") from exc
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
+    return AudioFile("full_audiobook", "Full audiobook", target, frames / rate)
+
+
 def voices_for(language_code: str, provider: str = "fal") -> list[str]:
     """Voices offered for a language code (empty when the language is not supported)."""
     if provider == "pollinations":
