@@ -42,19 +42,23 @@ def render_sidebar() -> None:
     project = current_project()
     storage = get_storage()
     with st.sidebar:
-        st.markdown(f"## {APP_ICON} {APP_NAME}")
         nvidia, image = get_nvidia_settings(), get_image_settings()
         st.markdown(
-            pill("NVIDIA key found", "ok") if nvidia.configured else pill("NVIDIA key missing", "bad"),
-            unsafe_allow_html=True,
-        )
-        st.caption(f"Text model: {nvidia.model}")
-        st.markdown(
-            pill(f"Images: {image.provider_label}", "ok") if image.configured else pill("Placeholder images", "warn"),
+            f"""
+<div class="side-brand">
+  <div class="logo">{APP_ICON}</div>
+  <div class="name">{APP_NAME}</div>
+  <div class="tag">Your ideas, written and illustrated as a real book.</div>
+  <span class="chip">Write</span><span class="chip">Illustrate</span><span class="chip">Export</span><span class="chip">Listen</span>
+</div>
+""",
             unsafe_allow_html=True,
         )
         if not nvidia.configured:
+            st.markdown(pill("Text writing not set up", "bad"), unsafe_allow_html=True)
             st.warning("Add NVIDIA_API_KEY to .streamlit/secrets.toml or .env to generate text.")
+        if not image.configured:
+            st.markdown(pill("Placeholder images", "warn"), unsafe_allow_html=True)
 
         st.divider()
         st.markdown("### Generation status")

@@ -51,6 +51,17 @@ _CSS = f"""
 .pill-bad {{ background: #FEE2E2; color: #B91C1C; }}
 .pill-info {{ background: #E0E7FF; color: #3730A3; }}
 .section-note {{ color: #64748B; font-size: .92rem; }}
+.side-brand {{
+    background: linear-gradient(135deg, {NAVY} 0%, #4F46E5 60%, #7C3AED 100%); color: #FFFFFF; border-radius: 16px;
+    padding: 18px 18px 16px 18px; margin-bottom: 8px; box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25);
+}}
+.side-brand .logo {{ font-size: 2rem; line-height: 1; }}
+.side-brand .name {{ font-size: 1.3rem; font-weight: 800; margin: 6px 0 2px 0; letter-spacing: .2px; }}
+.side-brand .tag {{ font-size: .85rem; opacity: .85; margin-bottom: 12px; }}
+.side-brand .chip {{
+    display: inline-block; background: rgba(255, 255, 255, 0.16); border-radius: 999px; padding: 2px 10px;
+    font-size: .74rem; font-weight: 600; margin: 0 4px 4px 0;
+}}
 </style>
 """
 
