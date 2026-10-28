@@ -225,7 +225,7 @@ def get_nvidia_settings() -> NvidiaSettings:
 # --------------------------------------------------------------------------------------
 AI_HORDE_URL = "https://aihorde.net/api/v2"
 # One or more models, comma separated. AI Horde gives the job to whichever listed model has a free worker first.
-AI_HORDE_MODEL = "AlbedoBase XL (SDXL), AlbedoBase XL 3.1"
+AI_HORDE_MODEL = "Flux.1-Schnell fp8 (Compact)"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {

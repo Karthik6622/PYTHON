@@ -83,11 +83,11 @@ Both `b64_json` and HTTPS `url` responses are supported. Without a key (or with 
 placeholder art is generated locally and the app clearly flags it as a placeholder. If a real provider fails, the image is replaced by
 a placeholder and a warning is shown.
 
-AI Horde (`AlbedoBase XL (SDXL)`, with `AlbedoBase XL 3.1` as a same-family backup) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
-Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. To keep it short, images use 20 steps.
-Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20), `AI_HORDE_FAST_ONLY` (default false; true needs upfront kudos),
+AI Horde (`Flux.1-Schnell fp8 (Compact)`) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
+Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. FLUX uses at most 8 steps.
+Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20, used by SDXL-type models), `AI_HORDE_FAST_ONLY` (default false; true needs upfront kudos),
 `AI_HORDE_TIMEOUT` (seconds to wait per image, default 900) and `AI_HORDE_CONCURRENCY` (images at once, default 3).
-FLUX is available as `AI_HORDE_MODEL=Flux.1-Schnell fp8 (Compact)`, but it has far fewer workers, so its queue is often longer.
+To use SDXL instead, set `AI_HORDE_MODEL=AlbedoBase XL (SDXL)`. FLUX has far fewer workers on AI Horde, so its queue can be longer than SDXL's.
 
 **Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the
 full outline, plus the summaries of earlier chapters that have already finished. Use `1` for strictly sequential writing; lower it if you hit rate limits.
