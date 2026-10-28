@@ -148,5 +148,5 @@ def test_cloudflare_generator_decodes_image(tmp_path):
     call = session.calls[0]
     assert call["url"].endswith("/accounts/acct/ai/run/@cf/black-forest-labs/flux-1-schnell")
     assert call["headers"]["Authorization"] == "Bearer tok"
-    assert call["json"]["prompt"] == "a lantern" and "seed" in call["json"]
+    assert call["json"]["prompt"] == "a lantern" and "seed" not in call["json"]
     assert settings.use_cloudflare and settings.provider_label == "Cloudflare FLUX.1 schnell"

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -197,7 +196,6 @@ class CloudflareImageGenerator(ImageGenerator):
         body = {
             "prompt": prompt[: self._MAX_PROMPT],
             "steps": self._STEPS,
-            "seed": random.randint(1, 1_000_000),
         }
         payload = call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
         data = self._extract_bytes(payload)
