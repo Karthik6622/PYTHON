@@ -407,8 +407,8 @@ class AIHordeImageGenerator(ImageGenerator):
         if response.status_code in (401, 403):
             if "kudos" in detail.lower():
                 error = _KudosLimit(
-                    "AI Horde needs kudos for this image size even after shrinking it. Lower AI_HORDE_STEPS, "
-                    "or earn kudos by registering and running a worker. " + f"({redact(detail)})"
+                    "AI Horde needs kudos for this request even after shrinking it. Lower AI_HORDE_STEPS, remove step-limited models "
+                    "(such as DreamShaper XL) from AI_HORDE_MODEL, or earn kudos by registering and running a worker. " + f"({redact(detail)})"
                 )
                 match = _KUDOS_SIZE.search(detail)
                 if match:

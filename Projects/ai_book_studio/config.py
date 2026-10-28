@@ -225,8 +225,9 @@ def get_nvidia_settings() -> NvidiaSettings:
 # --------------------------------------------------------------------------------------
 AI_HORDE_URL = "https://aihorde.net/api/v2"
 # One or more models, comma separated. AI Horde gives the job to whichever listed model has a free worker first,
-# so several SDXL models with many workers keep the wait short. FLUX has few workers on AI Horde and a long queue.
-AI_HORDE_MODEL = "SDXL 1.0, DreamShaper XL, AlbedoBase XL 3.1"
+# so several SDXL models with many workers keep the wait short. Every listed model must accept the requested steps:
+# step-limited models (for example DreamShaper XL, a 3-6 step Lightning model) make AI Horde demand upfront kudos.
+AI_HORDE_MODEL = "SDXL 1.0, AlbedoBase XL 3.1, AlbedoBase XL (SDXL)"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {

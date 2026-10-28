@@ -80,7 +80,7 @@ def test_ai_horde_generates_image(tmp_path):
     method, url, headers, body = session.calls[0]
     assert (method, url) == ("POST", "https://aihorde.net/api/v2/generate/async")
     assert headers["apikey"] == "horde-key" and headers["Client-Agent"].startswith("AI-Book-Studio")
-    assert body["prompt"] == "a lantern" and body["models"] == ["SDXL 1.0", "DreamShaper XL", "AlbedoBase XL 3.1"]
+    assert body["prompt"] == "a lantern" and body["models"] == ["SDXL 1.0", "AlbedoBase XL 3.1", "AlbedoBase XL (SDXL)"]
     assert body["params"]["width"] == 640 and body["params"]["height"] == 896 and body["censor_nsfw"] is True
     assert all(w * h <= 774 * 774 for w, h in AIHordeImageGenerator._DIMENSIONS.values())
     assert body["params"]["steps"] == 16 and "cfg_scale" not in body["params"] and body["slow_workers"] is True  # fast-only would demand upfront kudos
