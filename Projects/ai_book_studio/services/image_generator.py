@@ -196,7 +196,8 @@ class AIHordeImageGenerator(ImageGenerator):
     name = "AI Horde"
     _MAX_PROMPT = 1000
     _POLL_SECONDS = 3.0
-    _DIMENSIONS = {"cover": (768, 1024), "portrait": (768, 1024), "landscape": (1024, 768), "square": (768, 768)}
+    # Kept under 836x836 pixels in total: AI Horde asks for kudos above that, which accounts without kudos cannot pay.
+    _DIMENSIONS = {"cover": (640, 960), "portrait": (640, 960), "landscape": (960, 640), "square": (768, 768)}
     _sleep = staticmethod(time.sleep)
 
     def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
@@ -268,6 +269,11 @@ class AIHordeImageGenerator(ImageGenerator):
             raise ImageGenerationError("Could not reach AI Horde.") from exc
         detail = self._message(response)
         if response.status_code in (401, 403):
+            if "kudos" in detail.lower():
+                raise _NonRetryable(
+                    "AI Horde needs more kudos for this request. Use a smaller image or fewer steps (AI_HORDE_STEPS), "
+                    "or earn kudos by registering and running a worker. " + f"({redact(detail)})"
+                )
             raise _NonRetryable("AI Horde rejected the API key. Check AI_HORDE_API_KEY." + (f" ({redact(detail)})" if detail else ""))
         if response.status_code in (429, 500, 502, 503, 504):
             raise ImageGenerationError(f"AI Horde is busy or unavailable (HTTP {response.status_code}).")

@@ -81,7 +81,8 @@ def test_ai_horde_generates_image(tmp_path):
     assert (method, url) == ("POST", "https://aihorde.net/api/v2/generate/async")
     assert headers["apikey"] == "horde-key" and headers["Client-Agent"].startswith("AI-Book-Studio")
     assert body["prompt"] == "a lantern" and body["models"] == ["AlbedoBase XL (SDXL)", "AlbedoBase XL 3.1"]
-    assert body["params"]["width"] == 768 and body["params"]["height"] == 1024 and body["censor_nsfw"] is True
+    assert body["params"]["width"] == 640 and body["params"]["height"] == 960 and body["censor_nsfw"] is True
+    assert all(w * h <= 836 * 836 for w, h in AIHordeImageGenerator._DIMENSIONS.values())
     assert body["params"]["steps"] == 20 and body["slow_workers"] is False
     assert session.checks == 2
 
