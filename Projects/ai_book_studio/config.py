@@ -224,8 +224,9 @@ def get_nvidia_settings() -> NvidiaSettings:
 # Image provider
 # --------------------------------------------------------------------------------------
 AI_HORDE_URL = "https://aihorde.net/api/v2"
-# One or more models, comma separated. AI Horde gives the job to whichever listed model has a free worker first.
-AI_HORDE_MODEL = "Flux.1-Schnell fp8 (Compact)"
+# One or more models, comma separated. AI Horde gives the job to whichever listed model has a free worker first,
+# so several SDXL models with many workers keep the wait short. FLUX has few workers on AI Horde and a long queue.
+AI_HORDE_MODEL = "SDXL 1.0, DreamShaper XL, AlbedoBase XL 3.1"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {
@@ -254,7 +255,7 @@ class ImageSettings:
     ai_horde_model: str = AI_HORDE_MODEL
     ai_horde_timeout: float = 900.0  # seconds to wait in the AI Horde queue for one image
     ai_horde_concurrency: int = 3
-    ai_horde_steps: int = 20  # sampling steps for SDXL-type models; fewer steps = faster
+    ai_horde_steps: int = 16  # sampling steps for SDXL-type models; fewer steps = faster
     ai_horde_fast_only: bool = False  # fast workers only: AI Horde demands upfront kudos for such requests
 
     @property
@@ -329,7 +330,7 @@ def get_image_settings() -> ImageSettings:
         ai_horde_model=get_setting("AI_HORDE_MODEL", AI_HORDE_MODEL),
         ai_horde_timeout=_number("AI_HORDE_TIMEOUT", 900.0, 60.0, 3600.0),
         ai_horde_concurrency=int(_number("AI_HORDE_CONCURRENCY", 3, 1, 10)),
-        ai_horde_steps=int(_number("AI_HORDE_STEPS", 20, 4, 50)),
+        ai_horde_steps=int(_number("AI_HORDE_STEPS", 16, 4, 50)),
         ai_horde_fast_only=get_setting("AI_HORDE_FAST_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"},
     )
 
