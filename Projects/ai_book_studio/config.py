@@ -252,7 +252,7 @@ class ImageSettings:
     ai_horde_timeout: float = 900.0  # seconds to wait in the AI Horde queue for one image
     ai_horde_concurrency: int = 3
     ai_horde_steps: int = 20  # sampling steps for SDXL-type models; fewer steps = faster
-    ai_horde_fast_only: bool = True  # skip slow workers (falls back to any worker if no fast one exists)
+    ai_horde_fast_only: bool = False  # fast workers only: AI Horde demands upfront kudos for such requests
 
     @property
     def ai_horde_models(self) -> list[str]:
@@ -317,7 +317,7 @@ def get_image_settings() -> ImageSettings:
         ai_horde_timeout=_number("AI_HORDE_TIMEOUT", 900.0, 60.0, 3600.0),
         ai_horde_concurrency=int(_number("AI_HORDE_CONCURRENCY", 3, 1, 10)),
         ai_horde_steps=int(_number("AI_HORDE_STEPS", 20, 4, 50)),
-        ai_horde_fast_only=get_setting("AI_HORDE_FAST_ONLY", "true").strip().lower() not in {"0", "false", "no", "off"},
+        ai_horde_fast_only=get_setting("AI_HORDE_FAST_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"},
     )
 
 

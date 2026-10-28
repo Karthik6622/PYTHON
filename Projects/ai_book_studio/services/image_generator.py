@@ -256,10 +256,10 @@ class AIHordeImageGenerator(ImageGenerator):
     def _draw_with_fallback(self, prompt: str, width: int, height: int, steps: int) -> dict:
         try:
             return self._draw(prompt, width, height, steps, fast_only=self.settings.ai_horde_fast_only)
-        except _NoWorker:
+        except (_NoWorker, _KudosLimit):
             if not self.settings.ai_horde_fast_only:
                 raise
-            LOGGER.info("No fast AI Horde worker for these models; allowing slow workers.")
+            LOGGER.info("Fast-only AI Horde request not possible (no fast worker or kudos needed); allowing slow workers.")
             return self._draw(prompt, width, height, steps, fast_only=False)
 
     def _payload(self, prompt: str, width: int, height: int, steps: int, fast_only: bool) -> dict:

@@ -84,8 +84,8 @@ placeholder art is generated locally and the app clearly flags it as a placehold
 a placeholder and a warning is shown.
 
 AI Horde (`AlbedoBase XL (SDXL)`, with `AlbedoBase XL 3.1` as a same-family backup) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
-Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. To keep it short, images use 20 steps and fast workers only.
-Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20), `AI_HORDE_FAST_ONLY` (default true),
+Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. To keep it short, images use 20 steps.
+Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20), `AI_HORDE_FAST_ONLY` (default false; true needs upfront kudos),
 `AI_HORDE_TIMEOUT` (seconds to wait per image, default 900) and `AI_HORDE_CONCURRENCY` (images at once, default 3).
 FLUX is available as `AI_HORDE_MODEL=Flux.1-Schnell fp8 (Compact)`, but it has far fewer workers, so its queue is often longer.
 

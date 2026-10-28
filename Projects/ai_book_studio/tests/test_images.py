@@ -69,8 +69,8 @@ def _no_waiting(monkeypatch):
     monkeypatch.setattr(AIHordeImageGenerator, "_sleep", staticmethod(lambda seconds: None))
 
 
-def _horde(session):
-    return AIHordeImageGenerator(ImageSettings(api_key="", ai_horde_key="horde-key"), session)
+def _horde(session, **settings):
+    return AIHordeImageGenerator(ImageSettings(api_key="", ai_horde_key="horde-key", **settings), session)
 
 
 def test_ai_horde_generates_image(tmp_path):
@@ -83,7 +83,7 @@ def test_ai_horde_generates_image(tmp_path):
     assert body["prompt"] == "a lantern" and body["models"] == ["AlbedoBase XL (SDXL)", "AlbedoBase XL 3.1"]
     assert body["params"]["width"] == 640 and body["params"]["height"] == 896 and body["censor_nsfw"] is True
     assert all(w * h <= 774 * 774 for w, h in AIHordeImageGenerator._DIMENSIONS.values())
-    assert body["params"]["steps"] == 20 and body["slow_workers"] is False
+    assert body["params"]["steps"] == 20 and body["slow_workers"] is True  # fast-only would demand upfront kudos
     assert session.checks == 2
 
 
@@ -107,7 +107,21 @@ def test_ai_horde_falls_back_to_slow_workers(tmp_path):
             return super().request(method, url, headers=headers, timeout=timeout, json=json)
 
     session = NoFastWorkers()
-    _horde(session).generate_image("p", tmp_path / "s.webp", "square")
+    _horde(session, ai_horde_fast_only=True).generate_image("p", tmp_path / "s.webp", "square")
+    submitted = [call[3] for call in session.calls if call[0] == "POST"]
+    assert [body["slow_workers"] for body in submitted] == [False, True]
+
+
+def test_ai_horde_fast_only_needing_kudos_falls_back_to_slow_workers(tmp_path):
+    class FastNeedsKudos(_HordeSession):
+        def request(self, method, url, headers=None, timeout=None, json=None):
+            if json is not None and url.endswith("/generate/async") and json.get("slow_workers") is False:
+                self.calls.append((method, url, headers, json))
+                return _Response({"message": "the client needs to already have the required kudos"}, 403)
+            return super().request(method, url, headers=headers, timeout=timeout, json=json)
+
+    session = FastNeedsKudos()
+    _horde(session, ai_horde_fast_only=True).generate_image("p", tmp_path / "fk.webp", "square")
     submitted = [call[3] for call in session.calls if call[0] == "POST"]
     assert [body["slow_workers"] for body in submitted] == [False, True]
 
