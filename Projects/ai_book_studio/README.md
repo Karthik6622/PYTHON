@@ -94,8 +94,9 @@ To use FLUX on AI Horde, set `AI_HORDE_MODEL=Flux.1-Schnell fp8 (Compact)`. It h
 **Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the
 full outline, plus the summaries of earlier chapters that have already finished. Use `1` for strictly sequential writing; lower it if you hit rate limits.
 
-**Audiobook.** The Audio tab narrates the finished chapters with Kokoro text-to-speech on fal.ai (English, Spanish, French).
-Set `FAL_KEY` in `.streamlit/secrets.toml` or the environment. Optional: `FAL_TTS_VOICE` and `FAL_TTS_WORKERS` (parallel requests, 1-6); the voice can also be chosen in the tab.
+**Audiobook.** The Audio tab narrates the finished chapters with OpenAI `tts-1` on Pollinations (any book language).
+Set `POLLINATIONS_API_KEY` in `.streamlit/secrets.toml` or the environment; the key must allow the audio models and the account needs Pollen. Optional: `POLLINATIONS_TTS_MODEL` (`openai/tts-1` or `openai/tts-1-hd`), `TTS_VOICE` and `TTS_WORKERS` (parallel requests, 1-6); the voice can also be chosen in the tab.
+Kokoro on fal.ai (English, Spanish, French) remains available: set `FAL_KEY` instead (or `TTS_PROVIDER=fal`).
 fal bills per request. Each section is saved as a WAV file under the project's `audio` folder and finished sections are reused.
 
 ## 8. Nemotron settings

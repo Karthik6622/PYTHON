@@ -1,4 +1,4 @@
-"""Audio tab: narrate the written book with Kokoro text-to-speech on fal.ai. It is separate from writing and exporting the book."""
+"""Audio tab: narrate the written book with text-to-speech (Pollinations tts-1 by default). It is separate from writing and exporting the book."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from models.book_models import BookProject
 from services.audio_book import (
     AudiobookBuilder,
     AudioJob,
-    FalTTS,
     audio_dir,
     build_sections,
     existing_audio,
     language_code_for,
+    make_engine,
     split_for_speech,
     voices_for,
 )
@@ -43,8 +43,8 @@ def _folder(project: BookProject):
 
 def _start(project: BookProject, include_front: bool, include_back: bool, voice: str) -> bool:
     settings = get_tts_settings()
-    code = language_code_for(project.plan.language)
-    engine = FalTTS(settings, voice=voice)
+    code = language_code_for(project.plan.language, settings.active_provider)
+    engine = make_engine(settings, voice=voice)
     sections = build_sections(project, include_front, include_back)
     builder = AudiobookBuilder(
         project,
@@ -109,10 +109,11 @@ def render() -> None:
         return
     plan = project.plan
     settings = get_tts_settings()
-    code = language_code_for(plan.language)
+    code = language_code_for(plan.language, settings.active_provider)
     st.subheader("Audiobook")
+    engine_note = "OpenAI tts-1 on Pollinations" if settings.active_provider != "fal" else "Kokoro on fal.ai"
     st.markdown(
-        '<p class="section-note">Narrates your book with Kokoro text-to-speech on fal.ai using your fal key. '
+        f'<p class="section-note">Narrates your book with {engine_note} using your API key. '
         "It is separate from the PDF and DOCX export, so you can create it whenever you like.</p>",
         unsafe_allow_html=True,
     )
@@ -129,7 +130,10 @@ def render() -> None:
         return
     if not settings.configured:
         st.markdown(pill("Speech not configured", "warn"), unsafe_allow_html=True)
-        st.info("Add your fal.ai key to `.streamlit/secrets.toml` as `FAL_KEY` (or set the `FAL_KEY` environment variable), then reload.")
+        st.info(
+            "Add your Pollinations key to `.streamlit/secrets.toml` as `POLLINATIONS_API_KEY` (or set it as an environment variable), then reload. "
+            "The key needs access to the audio model `openai/tts-1`, and the account needs Pollen."
+        )
         _library(project)
         return
 
@@ -137,7 +141,7 @@ def render() -> None:
     if job_running(project):
         st.info("The book is still being generated. Create the audiobook when it has finished.")
         running = True
-    voices = voices_for(code)
+    voices = voices_for(code, settings.active_provider)
     preferred = settings.voice if settings.voice in voices else voices[0]
     voice = st.selectbox("Voice", voices, index=voices.index(preferred), key="ab_voice", disabled=running)
 

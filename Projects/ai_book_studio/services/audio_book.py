@@ -1,8 +1,8 @@
-"""Audiobook: turns the written book into spoken audio with Kokoro text-to-speech on fal.ai.
+"""Audiobook: turns the written book into spoken audio with text-to-speech.
 
+The default engine is OpenAI ``tts-1`` on Pollinations; Kokoro on fal.ai (English, Spanish, French) is the alternative.
 The book is cut into sentence-aligned pieces that are narrated in parallel (several requests at a time) and
-joined into one WAV file per section (title, front matter, every chapter, conclusion). Kokoro speaks English,
-Spanish and French here.
+joined into one WAV file per section (title, front matter, every chapter, conclusion).
 
 This module never imports Streamlit. The interface polls ``AudioJob`` for live status.
 """
@@ -26,7 +26,7 @@ from typing import Protocol
 
 import requests
 
-from config import TTS_SAMPLE_RATE, TTSSettings
+from config import POLLINATIONS_TTS_URL, TTS_SAMPLE_RATE, TTSSettings
 from models.book_models import BookProject
 from utils.retry_utils import AIBookError, call_with_retries, redact
 from utils.text_utils import chapter_label, label
@@ -48,6 +48,7 @@ VOICES = {
     "es": ["ef_dora", "em_alex", "em_santa"],
     "fr": ["ff_siwis"],
 }
+POLLINATIONS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]  # OpenAI tts-1 voices
 MAX_CHARS = 800  # characters per speech request (about a minute of speech)
 PAUSE_SECONDS = 0.25
 _WRITTEN_BY = {"English": "Written by", "Spanish": "Escrito por", "French": "Écrit par"}
@@ -67,9 +68,15 @@ class AudioStopped(AIBookError):
     default_message = "Audio generation was stopped. Finished sections are saved; press Continue to carry on."
 
 
-def language_code_for(language: str) -> str | None:
-    """Short language code for a book language, or ``None`` when audio is not available for it."""
-    return LANGUAGE_CODES.get(language)
+def language_code_for(language: str, provider: str = "fal") -> str | None:
+    """Short language code for a book language, or ``None`` when audio is not available for it.
+
+    Pollinations ``tts-1`` detects the language itself, so every book language can be narrated with it.
+    """
+    code = LANGUAGE_CODES.get(language)
+    if code is None and provider == "pollinations":
+        return re.sub(r"[^a-z]", "", language.lower())[:12] or "xx"
+    return code
 
 
 # --------------------------------------------------------------------------------------
@@ -289,6 +296,88 @@ class FalTTS:
         return AudioError(f"The speech service failed ({type(exc).__name__}).")
 
 
+class PollinationsTTS:
+    """OpenAI ``tts-1`` text-to-speech on Pollinations (``POST /v1/audio/speech``, OpenAI compatible).
+
+    The reply is a WAV file (24 kHz, mono, 16-bit) whose PCM data is handed to the builder.
+    The API key is sent as a Bearer token and never logged or shown.
+    """
+
+    _MAX_BYTES = 60 * 1024 * 1024
+    _pcm = FalTTS._pcm  # same WAV check and sample-rate consistency as the fal engine
+
+    def __init__(self, settings: TTSSettings, voice: str = "", session: requests.Session | None = None) -> None:
+        if not settings.pollinations_key:
+            raise AudioError("The Pollinations API key is missing. Add POLLINATIONS_API_KEY to .streamlit/secrets.toml or your environment.")
+        self.settings = settings
+        self.voice = voice or settings.voice
+        self.sample_rate = TTS_SAMPLE_RATE
+        self._session = session or requests.Session()
+        self._lock = threading.Lock()
+        self._rate_set = False
+
+    def synthesize(self, text: str, language_code: str) -> bytes:
+        voice = self.voice if self.voice in POLLINATIONS_VOICES else POLLINATIONS_VOICES[0]
+        return call_with_retries(lambda: self._once(text, voice), retryable=(TransientAudioError,))
+
+    def _once(self, text: str, voice: str) -> bytes:
+        payload = {"model": self.settings.pollinations_model, "input": text, "voice": voice, "response_format": "wav"}
+        headers = {"Authorization": f"Bearer {self.settings.pollinations_key}", "Content-Type": "application/json"}
+        try:
+            response = self._session.post(POLLINATIONS_TTS_URL, json=payload, headers=headers, timeout=(10, 180))
+        except requests.RequestException as exc:
+            LOGGER.warning("Pollinations request failed: %s", type(exc).__name__)
+            raise TransientAudioError() from exc
+        if response.status_code != 200:
+            raise self._translate(response)
+        data = response.content
+        if len(data) > self._MAX_BYTES:
+            raise AudioError("The generated audio is too large.")
+        if not data:
+            raise TransientAudioError("The speech service returned no audio.")
+        return self._pcm(data)
+
+    def _detail(self, response) -> str:
+        try:
+            body = response.json()
+            error = body.get("error", body) if isinstance(body, dict) else body
+            text = error.get("message", "") if isinstance(error, dict) else str(error)
+        except ValueError:
+            text = response.text or ""
+        text = redact(text)
+        key = self.settings.pollinations_key
+        if len(key) >= 6:
+            text = text.replace(key, "***")
+        return " ".join(text.split())[:200]
+
+    def _translate(self, response) -> AIBookError:
+        status = response.status_code
+        detail = self._detail(response)
+        LOGGER.warning("Pollinations speech request failed (%s): %s", status, detail)
+        suffix = f" (Pollinations says: {detail})" if detail else ""
+        if status == 401:
+            return AudioError(f"Pollinations rejected the API key. Check POLLINATIONS_API_KEY.{suffix}")
+        if status == 402:
+            return AudioError(f"Pollinations has no Pollen left for this key or account. Top up at enter.pollinations.ai.{suffix}")
+        if status == 403:
+            return AudioError(
+                "Pollinations denied access. The key must be allowed to use the audio model "
+                f"({self.settings.pollinations_model}); check its permissions at enter.pollinations.ai.{suffix}"
+            )
+        if status in (429, 500, 502, 503, 504):
+            return TransientAudioError()
+        if status in (400, 422):
+            return AudioError(f"The speech service rejected the text.{suffix}")
+        return AudioError(f"The speech service failed (HTTP {status}).{suffix}")
+
+
+def make_engine(settings: TTSSettings, voice: str = "") -> TTSEngine:
+    """The speech engine chosen by the settings (Pollinations first, fal as the alternative)."""
+    if settings.active_provider == "pollinations":
+        return PollinationsTTS(settings, voice=voice)
+    return FalTTS(settings, voice=voice)
+
+
 # --------------------------------------------------------------------------------------
 # Narration
 # --------------------------------------------------------------------------------------
@@ -336,8 +425,10 @@ def existing_audio(folder: Path) -> list[AudioFile]:
     return found
 
 
-def voices_for(language_code: str) -> list[str]:
+def voices_for(language_code: str, provider: str = "fal") -> list[str]:
     """Voices offered for a language code (empty when the language is not supported)."""
+    if provider == "pollinations":
+        return list(POLLINATIONS_VOICES) if language_code else []
     return list(VOICES.get(language_code, []))
 
 

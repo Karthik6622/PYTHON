@@ -16,10 +16,12 @@ from services.audio_book import (
     AudioError,
     AudioJob,
     FalTTS,
+    PollinationsTTS,
     audio_dir,
     build_sections,
     existing_audio,
     language_code_for,
+    make_engine,
     split_for_speech,
     strip_markdown,
     voices_for,
@@ -154,6 +156,65 @@ def test_fal_tts_errors_do_not_leak_and_are_clear():
     refused = FalTTS(TTSSettings(api_key="k"), client=_FakeFal({"audio": {"url": "http://example.com/a.wav"}}), session=_FakeSession(_wav()))
     with pytest.raises(AudioError):
         refused.synthesize("Hi.", "en")
+
+
+class _FakePost:
+    def __init__(self, status: int = 200, content: bytes = b"", body: dict | None = None) -> None:
+        self.status_code, self.content, self._body = status, content, body
+        self.text = json.dumps(body) if body is not None else ""
+
+    def json(self):
+        if self._body is None:
+            raise ValueError("no json")
+        return self._body
+
+
+class _FakePostSession:
+    def __init__(self, response: _FakePost) -> None:
+        self.response = response
+        self.calls: list[dict] = []
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.calls.append({"url": url, "json": json, "headers": headers})
+        return self.response
+
+
+def test_pollinations_tts_posts_openai_request_and_returns_pcm():
+    session = _FakePostSession(_FakePost(content=_wav(rate=24000, seconds=0.5)))
+    engine = PollinationsTTS(TTSSettings(pollinations_key="sk_abcdefghijkl"), voice="nova", session=session)
+    pcm = engine.synthesize("Hello there.", "en")
+    assert len(pcm) == 24000 // 2 * 2 and engine.sample_rate == 24000
+    call = session.calls[0]
+    assert call["url"] == "https://gen.pollinations.ai/v1/audio/speech"
+    assert call["json"] == {"model": "openai/tts-1", "input": "Hello there.", "voice": "nova", "response_format": "wav"}
+    assert call["headers"]["Authorization"] == "Bearer sk_abcdefghijkl"
+
+
+def test_pollinations_tts_unknown_voice_falls_back_and_errors_are_clear():
+    key = "sk_abcdefghijkl"
+    ok = _FakePostSession(_FakePost(content=_wav()))
+    PollinationsTTS(TTSSettings(pollinations_key=key), voice="af_heart", session=ok).synthesize("Hi.", "en")
+    assert ok.calls[0]["json"]["voice"] == "alloy"
+
+    for status, expected in ((401, "rejected the API key"), (402, "Pollen"), (403, "denied access"), (400, "rejected the text")):
+        session = _FakePostSession(_FakePost(status, body={"error": {"message": f"problem {key}"}}))
+        with pytest.raises(AudioError) as info:
+            PollinationsTTS(TTSSettings(pollinations_key=key), session=session).synthesize("Hi.", "en")
+        assert expected in str(info.value) and key not in str(info.value) and "problem" in str(info.value)
+    with pytest.raises(AudioError):
+        PollinationsTTS(TTSSettings(pollinations_key=""))
+    with pytest.raises(AudioError):
+        PollinationsTTS(TTSSettings(pollinations_key=key), session=_FakePostSession(_FakePost(content=b"ID3mp3"))).synthesize("Hi.", "en")
+
+
+def test_tts_provider_selection_and_languages():
+    both = TTSSettings(api_key="fal", pollinations_key="sk_abcdefghijkl")
+    assert both.active_provider == "pollinations" and isinstance(make_engine(both), PollinationsTTS)
+    assert TTSSettings(api_key="fal").active_provider == "fal"
+    assert TTSSettings(api_key="fal", pollinations_key="sk_abcdefghijkl", provider="fal").active_provider == "fal"
+    assert not TTSSettings().configured
+    assert language_code_for("German", "pollinations") == "german" and language_code_for("German") is None
+    assert voices_for("german", "pollinations")[0] == "alloy"
 
 
 def test_parallel_chapters_complete(storage, book_input):

@@ -353,31 +353,59 @@ def get_chapter_workers() -> int:
 
 
 # --------------------------------------------------------------------------------------
-# Audiobook (Kokoro text-to-speech on fal.ai)
+# Audiobook (text-to-speech: Pollinations ``openai/tts-1`` by default, Kokoro on fal.ai as an alternative)
 # --------------------------------------------------------------------------------------
-TTS_SAMPLE_RATE = 24000  # Kokoro's native rate; the real rate is read from each reply
+TTS_SAMPLE_RATE = 24000  # both engines speak at 24 kHz; the real rate is read from each reply
+POLLINATIONS_TTS_URL = "https://gen.pollinations.ai/v1/audio/speech"
+DEFAULT_POLLINATIONS_TTS_MODEL = "openai/tts-1"
 
 
 @dataclass(frozen=True)
 class TTSSettings:
-    """Settings for the fal.ai text-to-speech models."""
+    """Settings for the text-to-speech engines.
 
-    api_key: str
-    voice: str = ""  # empty = the first voice of the book's language
+    ``api_key`` is the fal.ai key (Kokoro). ``pollinations_key`` is the Pollinations key (OpenAI ``tts-1``).
+    ``provider`` is ``auto`` (Pollinations when its key is set, otherwise fal), ``pollinations`` or ``fal``.
+    """
+
+    api_key: str = ""
+    voice: str = ""  # empty = the first voice of the active engine
     workers: int = 3
+    pollinations_key: str = ""
+    pollinations_model: str = DEFAULT_POLLINATIONS_TTS_MODEL
+    provider: str = "auto"
+
+    @property
+    def active_provider(self) -> str:
+        """``pollinations``, ``fal`` or an empty string when no usable key is set."""
+        wanted = self.provider if self.provider in ("pollinations", "fal") else "auto"
+        if wanted in ("auto", "pollinations") and self.pollinations_key:
+            return "pollinations"
+        if wanted in ("auto", "fal") and self.api_key:
+            return "fal"
+        return ""
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.active_provider)
+
+    @property
+    def provider_label(self) -> str:
+        return {"pollinations": "Pollinations (tts-1)", "fal": "fal.ai Kokoro"}.get(self.active_provider, "not set")
 
 
 def get_tts_settings() -> TTSSettings:
     try:
-        workers = int(get_setting("FAL_TTS_WORKERS", "3"))
+        workers = int(get_setting("TTS_WORKERS") or get_setting("FAL_TTS_WORKERS", "3"))
     except ValueError:
         workers = 3
+    provider = get_setting("TTS_PROVIDER", "auto").strip().lower()
+    voice = get_setting("TTS_VOICE") or get_setting("POLLINATIONS_TTS_VOICE") or get_setting("FAL_TTS_VOICE")
     return TTSSettings(
         api_key=get_secret("FAL_KEY"),
-        voice=get_setting("FAL_TTS_VOICE"),
+        voice=voice,
         workers=max(1, min(workers, 6)),
+        pollinations_key=get_secret("POLLINATIONS_API_KEY"),
+        pollinations_model=get_setting("POLLINATIONS_TTS_MODEL", DEFAULT_POLLINATIONS_TTS_MODEL) or DEFAULT_POLLINATIONS_TTS_MODEL,
+        provider=provider,
     )
