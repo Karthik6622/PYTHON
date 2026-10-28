@@ -32,11 +32,11 @@ def render() -> None:
     version = st.session_state["content_version"]
     settings = get_image_settings()
     st.subheader("Images")
-    if settings.use_api:
-        st.markdown(pill("Image API connected", "ok"), unsafe_allow_html=True)
+    if settings.configured:
+        st.markdown(pill(f"{settings.provider_label} connected", "ok"), unsafe_allow_html=True)
     else:
         st.markdown(pill("Development placeholder images", "warn"), unsafe_allow_html=True)
-        st.caption("No IMAGE_API_KEY is configured, so abstract placeholder art is used. Add the key to .streamlit/secrets.toml for real illustrations.")
+        st.caption("No image provider is configured, so abstract placeholder art is used. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to .streamlit/secrets.toml for real illustrations.")
 
     st.markdown("##### Front cover")
     cover_record = project.images.get("cover")

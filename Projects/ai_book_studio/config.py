@@ -223,6 +223,7 @@ def get_nvidia_settings() -> NvidiaSettings:
 # --------------------------------------------------------------------------------------
 # Image provider
 # --------------------------------------------------------------------------------------
+CLOUDFLARE_IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {
@@ -244,11 +245,31 @@ class ImageSettings:
     timeout: float = 180.0
     sizes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_IMAGE_SIZES))
     extra_body: dict[str, Any] = field(default_factory=dict)
+    cloudflare_account_id: str = ""
+    cloudflare_token: str = ""
+    cloudflare_model: str = CLOUDFLARE_IMAGE_MODEL
+
+    @property
+    def use_cloudflare(self) -> bool:
+        """True when Cloudflare Workers AI (FLUX.1 schnell) should draw the images."""
+        return self.provider in {"auto", "cloudflare"} and bool(self.cloudflare_account_id and self.cloudflare_token)
 
     @property
     def use_api(self) -> bool:
-        """True when the real image API should be called."""
-        return self.provider != "placeholder" and bool(self.api_key)
+        """True when the OpenAI-compatible image API should be called."""
+        return self.provider in {"auto", "api"} and bool(self.api_key)
+
+    @property
+    def configured(self) -> bool:
+        return self.use_cloudflare or self.use_api
+
+    @property
+    def provider_label(self) -> str:
+        if self.use_cloudflare:
+            return "Cloudflare FLUX.1 schnell"
+        if self.use_api:
+            return "Image API"
+        return "Placeholder images"
 
 
 def get_image_settings() -> ImageSettings:
@@ -275,4 +296,60 @@ def get_image_settings() -> ImageSettings:
         response_format=get_setting("IMAGE_API_RESPONSE_FORMAT"),
         sizes=sizes,
         extra_body=extra,
+        cloudflare_account_id=get_secret("CLOUDFLARE_ACCOUNT_ID"),
+        cloudflare_token=get_secret("CLOUDFLARE_API_TOKEN"),
+        cloudflare_model=get_setting("CLOUDFLARE_IMAGE_MODEL", CLOUDFLARE_IMAGE_MODEL),
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Parallel chapter writing
+# --------------------------------------------------------------------------------------
+DEFAULT_CHAPTER_WORKERS = 4
+MAX_CHAPTER_WORKERS = 8
+
+
+def get_chapter_workers() -> int:
+    """How many chapters are written at the same time (CHAPTER_WORKERS, 1 = one after another)."""
+    try:
+        value = int(get_setting("CHAPTER_WORKERS", str(DEFAULT_CHAPTER_WORKERS)))
+    except ValueError:
+        value = DEFAULT_CHAPTER_WORKERS
+    return max(1, min(value, MAX_CHAPTER_WORKERS))
+
+
+# --------------------------------------------------------------------------------------
+# Audiobook (NVIDIA Magpie TTS Zeroshot, served over gRPC)
+# --------------------------------------------------------------------------------------
+NVIDIA_TTS_SERVER = "grpc.nvcf.nvidia.com:443"
+NVIDIA_TTS_VOICE = "Magpie-ZeroShot.Female-1"
+TTS_SAMPLE_RATE = 22050
+
+
+@dataclass(frozen=True)
+class TTSSettings:
+    """Connection settings for the hosted Magpie TTS Zeroshot endpoint. It uses the same NVIDIA API key as the text model."""
+
+    api_key: str
+    function_id: str
+    server: str = NVIDIA_TTS_SERVER
+    voice: str = NVIDIA_TTS_VOICE
+    workers: int = 3
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.api_key and self.function_id)
+
+
+def get_tts_settings() -> TTSSettings:
+    try:
+        workers = int(get_setting("NVIDIA_TTS_WORKERS", "3"))
+    except ValueError:
+        workers = 3
+    return TTSSettings(
+        api_key=get_secret("NVIDIA_API_KEY"),
+        function_id=get_setting("NVIDIA_TTS_FUNCTION_ID"),
+        server=get_setting("NVIDIA_TTS_SERVER", NVIDIA_TTS_SERVER),
+        voice=get_setting("NVIDIA_TTS_VOICE", NVIDIA_TTS_VOICE),
+        workers=max(1, min(workers, 6)),
     )

@@ -16,6 +16,7 @@ from config import (
     DEFAULT_CONTENT_KEYS,
     DEFAULT_PAGES,
     ROOT_DIR,
+    get_chapter_workers,
 )
 from models.book_models import BookInput, BookProject
 from services.book_pipeline import BookPipeline
@@ -43,7 +44,7 @@ MIRROR_DEFAULTS: dict[str, Any] = {
     "current_error": None,
 }
 _LABEL_BY_KEY = {key: label for label, key in CONTENT_OPTIONS.items()}
-_KEEP_PREFIXES = ("in_", "p_", "ct_", "co_", "cs_", "ck_", "cw_", "ci_", "cc_")
+_KEEP_PREFIXES = ("in_", "p_", "ct_", "co_", "cs_", "ck_", "cw_", "ci_", "cc_", "au_")
 
 
 # --------------------------------------------------------------------------------------
@@ -77,6 +78,7 @@ NAV_LABELS: dict[str, str] = {
     "images": "🖼️ Images",
     "preview": "👁️ Preview",
     "export": "📤 Export",
+    "audio": "🎧 Audio",
 }
 
 
@@ -129,8 +131,10 @@ def start_generation(project: BookProject) -> bool:
             progress=progress,
             chapter_event=chapter_event,
             should_stop=should_stop,
+            chapter_workers=workers,
         )
 
+    workers = get_chapter_workers()
     job = GenerationJob(build)
     try:
         job.start()
@@ -173,6 +177,9 @@ def start_plan(project: BookProject, new_book: bool = False) -> bool:
     job.new_book = new_book
     _plan_registry()[project.project_id] = job
     st.session_state["plan_project_id"] = project.project_id
+    if new_book:
+        set_project(project)  # open it now so the Plan tab and the sidebar can show the live status
+    go_to("plan")
     return True
 
 
@@ -185,17 +192,22 @@ def _finalize_plan_jobs() -> None:
         job.handled = True
         registry.pop(project_id, None)
         project = job.project
+        current = current_project()
+        is_current = current is not None and current.project_id == project_id
         if job.plan_ready and project is not None:
-            current = current_project()
-            if job.new_book or (current is not None and current.project_id == project_id):
+            if job.new_book or is_current:
                 set_project(project)
-            flash("Your book plan is ready. Review and edit it in the Plan tab, then generate the book.", "success")
+            flash("Your book plan is ready. Review and edit it below, then generate the book.", "success")
+            go_to("plan")
         else:
             if job.new_book:
                 try:
                     get_storage().delete_project(project_id)
                 except (AIBookError, OSError) as exc:
                     LOGGER.warning("Could not remove the unfinished project: %s", redact(exc))
+                if is_current:
+                    set_project(None)
+                go_to("create")
             flash(job.error or "The book plan could not be created.", "error")
 
 

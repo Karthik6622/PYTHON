@@ -20,7 +20,7 @@ def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
 
     at = AppTest.from_file(APP, default_timeout=60).run()
     assert not at.exception
-    assert len(at.radio(key="nav").options) == 6
+    assert len(at.radio(key="nav").options) == 7
     assert any("Create Book Plan" in b.label for b in at.button)
 
     at.session_state["in_idea"] = "A lighthouse keeper protects a fishing village from a great storm."
@@ -33,7 +33,7 @@ def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
     import time
 
     deadline = time.time() + 60
-    while time.time() < deadline and at.session_state["book_plan"] is None:
+    while time.time() < deadline and not (at.session_state["book_plan"] is not None and at.session_state["generation_status"] == "planned"):
         time.sleep(0.2)
         at.run()
     assert not at.exception, [e.value for e in at.exception]

@@ -10,7 +10,7 @@ from config import APP_ICON, APP_NAME, ROOT_DIR, get_image_settings, get_nvidia_
 st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide", initial_sidebar_state="expanded")
 load_dotenv(ROOT_DIR / ".env")
 
-from components import chapters_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
+from components import audio_tab, chapters_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
 from components.progress_panel import render_sidebar_status  # noqa: E402
 from components.state import (  # noqa: E402
     NAV_LABELS,
@@ -34,6 +34,7 @@ _SECTIONS = {
     "images": images_tab,
     "preview": preview_tab,
     "export": export_tab,
+    "audio": audio_tab,
 }
 
 
@@ -49,7 +50,7 @@ def render_sidebar() -> None:
         )
         st.caption(f"Text model: {nvidia.model}")
         st.markdown(
-            pill("Image API configured", "ok") if image.use_api else pill("Placeholder images", "warn"),
+            pill(f"Images: {image.provider_label}", "ok") if image.configured else pill("Placeholder images", "warn"),
             unsafe_allow_html=True,
         )
         if not nvidia.configured:

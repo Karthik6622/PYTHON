@@ -7,7 +7,9 @@ This module never imports Streamlit; the interface passes a progress callback in
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -64,6 +66,7 @@ class BookPipeline:
         llm_factory: Callable[[], LLMClient] | None = None,
         chapter_event: ChapterEventCallback | None = None,
         should_stop: Callable[[], bool] | None = None,
+        chapter_workers: int = 1,
     ) -> None:
         self.project = project
         self.storage = storage
@@ -73,6 +76,9 @@ class BookPipeline:
         self._progress = progress
         self._chapter_event = chapter_event
         self._should_stop = should_stop
+        self._workers = max(1, int(chapter_workers))
+        self._lock = threading.RLock()  # guards the counters and the shared status/images files
+        self._abort = threading.Event()  # set when one chapter worker fails so the others stop at their next step
         self._total = 1
         self._done = 0
 
@@ -91,14 +97,16 @@ class BookPipeline:
 
     # ------------------------------------------------------------------ progress and status
     def _begin(self, message: str) -> None:
-        fraction = min(self._done / max(self._total, 1), 0.99)
-        self.project.status.message = message
-        self.project.status.progress = fraction
+        with self._lock:
+            fraction = min(self._done / max(self._total, 1), 0.99)
+            self.project.status.message = message
+            self.project.status.progress = fraction
         if self._progress:
             self._progress(fraction, message)
 
     def _finish(self) -> None:
-        self._done += 1
+        with self._lock:
+            self._done += 1
 
     def _note(self, number: int, phase: str) -> None:
         """Tell the interface which phase a chapter is in (writing, testing, revising, summarising, illustrating, done)."""
@@ -106,8 +114,13 @@ class BookPipeline:
             self._chapter_event(number, phase)
 
     def _check_stop(self) -> None:
-        if self._should_stop and self._should_stop():
+        if self._abort.is_set() or (self._should_stop and self._should_stop()):
             raise GenerationStopped()
+
+    def _save_status(self) -> None:
+        with self._lock:
+            self._sync_status()
+            self.storage.save_status(self.project)
 
     def _sync_status(self) -> None:
         status = self.project.status
@@ -183,27 +196,7 @@ class BookPipeline:
             for key in front_keys:
                 self._check_stop()
                 self._ensure_section(key)
-            for chapter in plan.chapters:
-                number = chapter.chapter_number
-                self._check_stop()
-                review = self.project.reviews.get(number)
-                if not self.project.chapter_done(number):
-                    self._begin(f"Writing {chapter_label(number, plan.language)}: {chapter.title}")
-                    self.process_chapter(number)
-                elif review is None or not review.passed:
-                    self._begin(f"Improving {chapter_label(number, plan.language)}: {chapter.title}")
-                    self.improve_chapter(number)
-                else:
-                    self._begin(f"{chapter_label(number, plan.language)}: {chapter.title} is already complete")
-                self._finish()
-                if chapter.requires_image:
-                    self._check_stop()
-                    self._begin(f"Creating illustration for {chapter_label(number, plan.language)}")
-                    if not self.storage.image_file(self.project, f"chapter_{number:02d}"):
-                        self._note(number, "illustrating")
-                        self.generate_chapter_image(number)
-                    self._finish()
-                self._note(number, "done")
+            self._run_chapters(plan.chapters)
             for key in back_keys:
                 self._check_stop()
                 self._ensure_section(key)
@@ -232,6 +225,59 @@ class BookPipeline:
         if self._progress:
             self._progress(1.0, "Your book is ready.")
         return summary
+
+    def _chapter_job(self, chapter) -> None:
+        """Everything one chapter needs: text, quality loop, summary and illustration (runs in a worker thread when parallel)."""
+        plan = self._require_plan()
+        number = chapter.chapter_number
+        name = f"{chapter_label(number, plan.language)}: {chapter.title}"
+        self._check_stop()
+        review = self.project.reviews.get(number)
+        if not self.project.chapter_done(number):
+            self._begin(f"Writing {name}")
+            self.process_chapter(number)
+        elif review is None or not review.passed:
+            self._begin(f"Improving {name}")
+            self.improve_chapter(number)
+        else:
+            self._begin(f"{name} is already complete")
+        self._finish()
+        if chapter.requires_image:
+            self._check_stop()
+            self._begin(f"Creating illustration for {chapter_label(number, plan.language)}")
+            if not self.storage.image_file(self.project, f"chapter_{number:02d}"):
+                self._note(number, "illustrating")
+                self.generate_chapter_image(number)
+            self._finish()
+        self._note(number, "done")
+
+    def _run_chapters(self, chapters) -> None:
+        """Run every chapter, several at a time when ``chapter_workers`` > 1.
+
+        A chapter that fails (or a Stop request) makes the other workers stop at their next step; everything that
+        finished is already saved, so Continue resumes with only the missing chapters.
+        """
+        chapters = list(chapters)
+        if self._workers <= 1 or len(chapters) <= 1:
+            for chapter in chapters:
+                self._chapter_job(chapter)
+            return
+        self._abort.clear()
+        first_error: BaseException | None = None
+        with ThreadPoolExecutor(max_workers=min(self._workers, len(chapters)), thread_name_prefix="chapter") as pool:
+            futures = [pool.submit(self._chapter_job, chapter) for chapter in chapters]
+            for future in as_completed(futures):
+                if future.cancelled():
+                    continue
+                error = future.exception()
+                if error is not None and first_error is None:
+                    first_error = error
+                    self._abort.set()
+                    for pending in futures:
+                        pending.cancel()  # chapters that have not started never start
+        self._abort.clear()
+        if first_error is not None:
+            raise first_error
 
     def _ensure_bible(self) -> None:
         self._begin("Creating the book bible...")
@@ -276,8 +322,7 @@ class BookPipeline:
             self._note(number, "summarising")
             project.summaries[number] = summarize_chapter(self.llm, project, chapter, project.chapters[number])
             self.storage.save_chapter(project, number)
-        self._sync_status()
-        self.storage.save_status(project)
+        self._save_status()
 
     def _quality_loop(self, number: int, chapter, report, prior_revisions: int = 0) -> None:
         """Fix what the editor found, then re-check, up to MAX_REVISIONS times. Length is never a reason to fail."""
@@ -321,8 +366,7 @@ class BookPipeline:
             self._note(number, "summarising")
             project.summaries[number] = summarize_chapter(self.llm, project, chapter, project.chapters[number])
             self.storage.save_chapter(project, number)
-        self._sync_status()
-        self.storage.save_status(project)
+        self._save_status()
 
     def regenerate_chapter(self, number: int) -> None:
         """Rewrite one chapter from scratch with a fresh review and summary."""
@@ -375,9 +419,9 @@ class BookPipeline:
             entry.warning = exc.user_message
             LOGGER.warning("Chapter %s image failed: %s", number, type(exc).__name__)
         self.project.images[key] = entry
-        self.storage.save_images(self.project)
-        self._sync_status()
-        self.storage.save_status(self.project)
+        with self._lock:
+            self.storage.save_images(self.project)
+        self._save_status()
         return entry
 
     def generate_cover(self, new_prompt: bool = False, prompt: str | None = None) -> IllustrationPlan:

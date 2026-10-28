@@ -83,6 +83,16 @@ Both `b64_json` and HTTPS `url` responses are supported. Without a key (or with 
 placeholder art is generated locally and the app clearly flags it as a placeholder. If a real provider fails, the image is replaced by
 a placeholder and a warning is shown.
 
+Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`) is preferred when `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` are both set (`IMAGE_PROVIDER=cloudflare|api|placeholder` forces a choice).
+
+**Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the
+full outline, plus the summaries of earlier chapters that have already finished. Use `1` for strictly sequential writing; lower it if you hit rate limits.
+
+**Audiobook.** The Audio tab narrates the finished chapters with NVIDIA Magpie TTS Zeroshot (English, Spanish, French) using `NVIDIA_API_KEY`.
+Set `NVIDIA_TTS_FUNCTION_ID` (build.nvidia.com, magpie-tts-zeroshot, Python example, the `function-id` value). Optional:
+`NVIDIA_TTS_VOICE`, `NVIDIA_TTS_WORKERS`, and a short WAV voice sample uploaded in the tab. Each section is saved as a WAV file under the project's `audio` folder and finished sections are reused.
+
 ## 8. Nemotron settings
 
 Streaming is always on. Only the answer text is kept; reasoning text is discarded. Thinking is off by default for speed and cost:

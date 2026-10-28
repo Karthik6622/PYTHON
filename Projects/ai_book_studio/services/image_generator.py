@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -174,6 +175,78 @@ class _NonRetryable(AIBookError):
     default_message = "Image generation failed."
 
 
+class CloudflareImageGenerator(ImageGenerator):
+    """Cloudflare Workers AI provider (``@cf/black-forest-labs/flux-1-schnell``).
+
+    Calls ``POST /accounts/{id}/ai/run/{model}`` with a bearer token. The reply is JSON with a base64 JPEG in
+    ``result.image``; it is converted to PNG by the caller. The token is sent only in the Authorization header.
+    """
+
+    name = "Cloudflare FLUX.1 schnell"
+    _BASE = "https://api.cloudflare.com/client/v4/accounts"
+    _MAX_PROMPT = 2048
+    _STEPS = 8  # FLUX.1 schnell accepts 1-8 steps
+
+    def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
+        self.settings = settings or get_image_settings()
+        self._session = session or requests.Session()
+
+    def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
+        if not (self.settings.cloudflare_account_id and self.settings.cloudflare_token):
+            raise ImageGenerationError("Cloudflare is not configured (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN).")
+        body = {
+            "prompt": prompt[: self._MAX_PROMPT],
+            "steps": self._STEPS,
+            "seed": random.randint(1, 1_000_000),
+        }
+        payload = call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
+        data = self._extract_bytes(payload)
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def _post(self, body: dict) -> dict:
+        url = f"{self._BASE}/{self.settings.cloudflare_account_id}/ai/run/{self.settings.cloudflare_model}"
+        try:
+            response = self._session.post(
+                url,
+                json=body,
+                headers={"Authorization": f"Bearer {self.settings.cloudflare_token}", "Content-Type": "application/json"},
+                timeout=self.settings.timeout,
+            )
+        except requests.Timeout as exc:
+            raise ImageGenerationError("Cloudflare timed out while drawing the image.") from exc
+        except requests.RequestException as exc:
+            LOGGER.warning("Cloudflare network error: %s", redact(exc))
+            raise ImageGenerationError("Could not reach Cloudflare.") from exc
+        if response.status_code in (401, 403):
+            raise _NonRetryable("Cloudflare authentication failed. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.")
+        if response.status_code in (429, 500, 502, 503, 504):
+            raise ImageGenerationError(f"Cloudflare is busy or unavailable (HTTP {response.status_code}).")
+        if not response.ok:
+            LOGGER.warning("Cloudflare error %s: %s", response.status_code, redact(response.text[:300]))
+            raise _NonRetryable(f"Cloudflare rejected the image request (HTTP {response.status_code}).")
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ImageGenerationError("Cloudflare returned a response that is not JSON.") from exc
+        if not isinstance(data, dict):
+            raise ImageGenerationError("Cloudflare returned an unexpected response.")
+        return data
+
+    @staticmethod
+    def _extract_bytes(payload: dict) -> bytes:
+        result = payload.get("result")
+        encoded = result.get("image") if isinstance(result, dict) else None
+        if not isinstance(encoded, str) or not encoded:
+            raise ImageGenerationError("The Cloudflare response did not contain an image.")
+        try:
+            return base64.b64decode(encoded.split(",", 1)[-1], validate=False)
+        except ValueError as exc:
+            raise ImageGenerationError("The Cloudflare image could not be decoded.") from exc
+
+
 def generate_illustration(
     generator: ImageGenerator, prompt: str, output_path: str | Path, orientation: str
 ) -> ImageResult:
@@ -199,6 +272,8 @@ def generate_illustration(
 
 
 def get_image_generator(settings: ImageSettings | None = None) -> ImageGenerator:
-    """Return the API provider when configured, otherwise the development placeholder provider."""
+    """Cloudflare FLUX when configured, else the OpenAI-compatible API, else the development placeholder."""
     settings = settings or get_image_settings()
+    if settings.use_cloudflare:
+        return CloudflareImageGenerator(settings)
     return ApiImageGenerator(settings) if settings.use_api else PlaceholderImageGenerator()

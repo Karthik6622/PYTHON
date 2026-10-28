@@ -28,13 +28,13 @@ def _key(name: str, *parts: object) -> str:
 
 def render() -> None:
     project = current_project()
-    if project is None or project.plan is None:
-        st.info("Create a book plan on the **Create** tab first.")
-        return
     job = plan_job_here()
-    if job is not None and job.running and job.project is not None and job.project.project_id == project.project_id:
+    if job is not None and (job.running or not job.handled):
         st.subheader("Book plan")
         render_plan_live(job)
+        return
+    if project is None or project.plan is None:
+        st.info("Create a book plan on the **Create** tab first.")
         return
     plan = project.plan
     budget = compute_budget(project.book_input)

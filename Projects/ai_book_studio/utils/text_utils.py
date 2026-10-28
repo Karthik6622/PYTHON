@@ -304,6 +304,7 @@ def format_previous_summaries(summaries: "dict[int, ChapterSummary]", before: in
     """Format the summaries of chapters before ``before``, newest first until ``limit`` characters."""
     entries: list[str] = []
     used = 0
+    summaries = dict(summaries)  # snapshot: other chapter workers may add summaries while this runs
     for number in sorted((n for n in summaries if n < before), reverse=True):
         summary = summaries[number]
         text = (

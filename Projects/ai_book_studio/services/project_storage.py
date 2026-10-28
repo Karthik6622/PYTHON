@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -33,10 +34,16 @@ from utils.retry_utils import ProjectLoadError
 LOGGER = logging.getLogger("ai_book_studio.storage")
 _PROJECT_ID = re.compile(r"^[A-Za-z0-9_\-]{6,64}$")
 _CHAPTER_FILE = re.compile(r"^chapter_(\d+)\.md$")
+_WRITE_LOCK = threading.RLock()  # chapters are saved from several worker threads; replacing a file must not overlap
 
 
 def atomic_write(path: Path, data: str | bytes) -> None:
     """Write a file by writing a temporary file and renaming it, so a crash cannot corrupt the target."""
+    with _WRITE_LOCK:
+        _atomic_write(path, data)
+
+
+def _atomic_write(path: Path, data: str | bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = "wb" if isinstance(data, bytes) else "w"
     kwargs: dict[str, Any] = {} if isinstance(data, bytes) else {"encoding": "utf-8", "newline": "\n"}
@@ -190,7 +197,7 @@ class ProjectStorage:
         )
 
     def save_images(self, project: BookProject) -> None:
-        payload = {key: image.model_dump(mode="json") for key, image in project.images.items()}
+        payload = {key: image.model_dump(mode="json") for key, image in list(project.images.items())}
         self._write_json(self.project_dir(project.project_id) / "images.json", payload)
         self.save_project_meta(project)
 

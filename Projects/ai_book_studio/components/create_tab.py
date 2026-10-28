@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.progress_panel import render_plan_live
 from components.state import current_project, get_storage, guarded, plan_job_here, start_plan
 from config import (
     AUDIENCES,
@@ -53,8 +52,8 @@ def render() -> None:
     st.markdown('<p class="section-note">Tell us the idea; the app plans, writes, reviews and illustrates the book.</p>', unsafe_allow_html=True)
 
     job = plan_job_here()
-    if job is not None:
-        render_plan_live(job)
+    if job is not None and job.running:
+        st.info("Your book plan is being created. Watch the live status on the **Plan** tab or in the sidebar.")
 
     left, right = st.columns([3, 2], gap="large")
     with left:

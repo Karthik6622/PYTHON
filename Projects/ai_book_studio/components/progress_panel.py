@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.state import current_project, image_if_exists, job_for, job_running, start_generation, stop_generation
+from components.state import current_project, image_if_exists, job_for, job_running, plan_job_here, start_generation, stop_generation
 from components.styles import pill
 from models.book_models import BookProject
 from services.job_runner import GenerationJob
@@ -215,7 +215,23 @@ def render_plan_live(job: GenerationJob) -> None:
     st.fragment(run_every=2 if job.running else None)(_plan_live_body)(job)
 
 
+def _sidebar_plan_body(job: GenerationJob) -> None:
+    fraction = job.estimated_fraction(0.85, 90)
+    st.markdown(pill("Creating the plan...", "warn"), unsafe_allow_html=True)
+    st.progress(min(max(fraction, 0.0), 1.0))
+    st.caption(job.message)
+    st.caption(_plan_checklist(job.fraction, finished=False).replace("\n\n", " · "))
+    st.caption(f"Running for {_clock(job.elapsed_seconds)}")
+
+
 def _sidebar_body() -> None:
+    plan_job = plan_job_here()
+    if plan_job is not None:
+        if plan_job.running:
+            _sidebar_plan_body(plan_job)
+            return
+        if not plan_job.handled:
+            st.rerun()  # the plan just finished: refresh the page once so it is adopted
     project = current_project()
     if project is None:
         st.caption("No book open.")
@@ -243,6 +259,6 @@ def _sidebar_body() -> None:
 
 
 def render_sidebar_status() -> None:
-    project = current_project()
-    interval = 2 if job_running(project) else None
+    plan_job = plan_job_here()
+    interval = 2 if (job_running(current_project()) or (plan_job is not None and plan_job.running)) else None
     st.fragment(run_every=interval)(_sidebar_body)()
