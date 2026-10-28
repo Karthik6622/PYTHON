@@ -225,8 +225,11 @@ class CloudflareImageGenerator(ImageGenerator):
         if response.status_code in (429, 500, 502, 503, 504):
             raise ImageGenerationError(f"Cloudflare is busy or unavailable (HTTP {response.status_code}).")
         if not response.ok:
-            LOGGER.warning("Cloudflare error %s: %s", response.status_code, redact(response.text[:300]))
-            raise _NonRetryable(f"Cloudflare rejected the image request (HTTP {response.status_code}).")
+            detail = self._error_detail(response)
+            LOGGER.warning("Cloudflare error %s: %s", response.status_code, redact(detail or response.text[:300]))
+            raise _NonRetryable(
+                f"Cloudflare rejected the image request (HTTP {response.status_code})" + (f": {redact(detail)}" if detail else ".")
+            )
         try:
             data = response.json()
         except ValueError as exc:
@@ -234,6 +237,16 @@ class CloudflareImageGenerator(ImageGenerator):
         if not isinstance(data, dict):
             raise ImageGenerationError("Cloudflare returned an unexpected response.")
         return data
+
+    @staticmethod
+    def _error_detail(response) -> str:
+        """Cloudflare's own explanation, e.g. {"errors": [{"code": 5006, "message": "..."}]}."""
+        try:
+            errors = response.json().get("errors") or []
+            messages = [f"{e.get('message', '')} (code {e.get('code', '?')})" for e in errors if isinstance(e, dict)]
+            return "; ".join(messages)[:300]
+        except (ValueError, AttributeError):
+            return ""
 
     @staticmethod
     def _extract_bytes(payload: dict) -> bytes:
