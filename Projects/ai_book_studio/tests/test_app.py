@@ -50,7 +50,7 @@ def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
     import time
 
     deadline = time.time() + 60
-    while time.time() < deadline and at.session_state["project"].status.stage != "completed":
+    while time.time() < deadline and not (at.session_state["project"].status.stage == "completed" and at.session_state["nav"] == "preview"):
         time.sleep(0.2)
         at.run()
     assert at.session_state["project"].status.stage == "completed"

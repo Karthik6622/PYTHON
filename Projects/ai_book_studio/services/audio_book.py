@@ -1,8 +1,8 @@
-"""Audiobook: turns the written book into spoken audio with NVIDIA Magpie TTS Zeroshot.
+"""Audiobook: turns the written book into spoken audio with Kokoro text-to-speech on fal.ai.
 
-The model is served over gRPC (Riva) and uses the same NVIDIA API key as the text model. It speaks at most about
-20 seconds per request, so the book is cut into short, sentence-aligned pieces that are narrated in parallel and
-joined into one WAV file per section (title, front matter, every chapter, conclusion).
+The book is cut into sentence-aligned pieces that are narrated in parallel (several requests at a time) and
+joined into one WAV file per section (title, front matter, every chapter, conclusion). Kokoro speaks English,
+Spanish and French here.
 
 This module never imports Streamlit. The interface polls ``AudioJob`` for live status.
 """
@@ -10,6 +10,7 @@ This module never imports Streamlit. The interface polls ``AudioJob`` for live s
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 import re
@@ -23,18 +24,32 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+import requests
+
 from config import TTS_SAMPLE_RATE, TTSSettings
 from models.book_models import BookProject
-from utils.retry_utils import AIBookError, NvidiaKeyMissingError, call_with_retries, redact
+from utils.retry_utils import AIBookError, call_with_retries, redact
 from utils.text_utils import chapter_label, label
 
 LOGGER = logging.getLogger("ai_book_studio.audio")
 
-# Languages the Magpie TTS Zeroshot model can speak, mapped to its language codes.
-LANGUAGE_CODES = {"English": "en-US", "Spanish": "es-US", "French": "fr-FR"}
-MAX_CHARS = 220  # about 15 seconds of speech, safely under the model's 20 second limit per request
+# Book languages that can be narrated, with their short codes, fal endpoints and Kokoro voices.
+LANGUAGE_CODES = {"English": "en", "Spanish": "es", "French": "fr"}
+ENDPOINTS = {
+    "en": "fal-ai/kokoro/american-english",
+    "es": "fal-ai/kokoro/spanish",
+    "fr": "fal-ai/kokoro/french",
+}
+VOICES = {
+    "en": [
+        "af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah",
+        "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "am_santa",
+    ],
+    "es": ["ef_dora", "em_alex", "em_santa"],
+    "fr": ["ff_siwis"],
+}
+MAX_CHARS = 800  # characters per speech request (about a minute of speech)
 PAUSE_SECONDS = 0.25
-VOICE_PROMPT_NAME = "voice_prompt.wav"
 _WRITTEN_BY = {"English": "Written by", "Spanish": "Escrito por", "French": "Écrit par"}
 
 
@@ -53,7 +68,7 @@ class AudioStopped(AIBookError):
 
 
 def language_code_for(language: str) -> str | None:
-    """Magpie language code for a book language, or ``None`` when the model cannot speak it."""
+    """Short language code for a book language, or ``None`` when audio is not available for it."""
     return LANGUAGE_CODES.get(language)
 
 
@@ -164,77 +179,107 @@ def build_sections(project: BookProject, include_front: bool = True, include_bac
 # Speech engines
 # --------------------------------------------------------------------------------------
 class TTSEngine(Protocol):
-    """Turns a short text into raw 16-bit mono PCM audio at ``TTS_SAMPLE_RATE``."""
+    """Turns a short text into raw 16-bit mono PCM audio. ``sample_rate`` (optional) is the rate of that audio."""
 
     def synthesize(self, text: str, language_code: str) -> bytes: ...
 
 
-class MagpieTTS:
-    """NVIDIA Magpie TTS Zeroshot through the hosted gRPC endpoint (``nvidia-riva-client``)."""
+class FalTTS:
+    """Kokoro text-to-speech on fal.ai (``fal-ai/kokoro/*``) through the ``fal-client`` package.
 
-    def __init__(self, settings: TTSSettings, voice_prompt: Path | None = None) -> None:
+    Each request returns a WAV file URL; the WAV is downloaded and its PCM data handed to the builder.
+    The API key is passed to the client and never logged.
+    """
+
+    _MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
+
+    def __init__(self, settings: TTSSettings, voice: str = "", client=None, session: requests.Session | None = None) -> None:
         if not settings.api_key:
-            raise NvidiaKeyMissingError()
-        if not settings.function_id:
-            raise AudioError(
-                "The Magpie TTS function id is missing. Copy it from build.nvidia.com (magpie-tts-zeroshot, Python example, "
-                "'function-id') into NVIDIA_TTS_FUNCTION_ID in .streamlit/secrets.toml."
-            )
+            raise AudioError("The fal API key is missing. Add FAL_KEY to .streamlit/secrets.toml or your environment.")
         self.settings = settings
-        self.voice_prompt = voice_prompt if voice_prompt and voice_prompt.exists() else None
-        self._service = None
+        self.voice = voice or settings.voice
+        self.sample_rate = TTS_SAMPLE_RATE
+        self._client = client
+        self._session = session or requests.Session()
         self._lock = threading.Lock()
+        self._rate_set = False
 
-    def _get_service(self):
+    def _get_client(self):
         with self._lock:
-            if self._service is None:
+            if self._client is None:
                 try:
-                    import riva.client
+                    import fal_client
                 except ImportError as exc:
-                    raise AudioError("The speech client is not installed. Run: pip install nvidia-riva-client") from exc
-                auth = riva.client.Auth(
-                    use_ssl=True,
-                    uri=self.settings.server,
-                    metadata_args=[["function-id", self.settings.function_id], ["authorization", f"Bearer {self.settings.api_key}"]],
-                )
-                self._service = riva.client.SpeechSynthesisService(auth)
-            return self._service
+                    raise AudioError("The fal client is not installed. Run: pip install fal-client") from exc
+                self._client = fal_client.SyncClient(key=self.settings.api_key, default_timeout=180.0)
+            return self._client
 
     def synthesize(self, text: str, language_code: str) -> bytes:
-        return call_with_retries(lambda: self._once(text, language_code), retryable=(TransientAudioError,))
+        endpoint = ENDPOINTS.get(language_code)
+        if endpoint is None:
+            raise AudioError("This language is not available for audio.")
+        voices = VOICES[language_code]
+        voice = self.voice if self.voice in voices else voices[0]
+        return call_with_retries(lambda: self._once(endpoint, text, voice), retryable=(TransientAudioError,))
 
-    def _once(self, text: str, language_code: str) -> bytes:
-        import grpc
-        import riva.client
-
-        service = self._get_service()
-        kwargs: dict = {
-            "voice_name": self.settings.voice,
-            "language_code": language_code,
-            "encoding": riva.client.AudioEncoding.LINEAR_PCM,
-            "sample_rate_hz": TTS_SAMPLE_RATE,
-        }
-        if self.voice_prompt is not None:
-            kwargs["zero_shot_audio_prompt_file"] = str(self.voice_prompt)
+    def _once(self, endpoint: str, text: str, voice: str) -> bytes:
+        client = self._get_client()
         try:
-            response = service.synthesize(text, **kwargs)
-        except grpc.RpcError as exc:
+            result = client.subscribe(endpoint, arguments={"prompt": text, "voice": voice})
+        except Exception as exc:  # noqa: BLE001 - translated below
             raise self._translate(exc) from exc
-        if not response.audio:
+        url = ((result or {}).get("audio") or {}).get("url") if isinstance(result, dict) else None
+        if not isinstance(url, str) or not url:
             raise TransientAudioError("The speech service returned no audio.")
-        return bytes(response.audio)
+        return self._pcm(self._download(url))
+
+    def _download(self, url: str) -> bytes:
+        if not url.startswith("https://"):
+            raise AudioError("The speech service returned a non-HTTPS audio URL, which was refused.")
+        try:
+            with self._session.get(url, timeout=60, stream=True) as response:
+                response.raise_for_status()
+                chunks, total = [], 0
+                for chunk in response.iter_content(65536):
+                    total += len(chunk)
+                    if total > self._MAX_DOWNLOAD_BYTES:
+                        raise AudioError("The generated audio is too large.")
+                    chunks.append(chunk)
+        except requests.RequestException as exc:
+            raise TransientAudioError("The generated audio could not be downloaded.") from exc
+        return b"".join(chunks)
+
+    def _pcm(self, wav_bytes: bytes) -> bytes:
+        try:
+            with wave.open(io.BytesIO(wav_bytes)) as wav:
+                channels, width, rate = wav.getnchannels(), wav.getsampwidth(), wav.getframerate()
+                frames = wav.readframes(wav.getnframes())
+        except (wave.Error, EOFError) as exc:
+            raise AudioError("The speech service returned audio that is not a PCM WAV file.") from exc
+        if channels != 1 or width != 2:
+            raise AudioError("The speech service returned audio in an unexpected format (expected mono 16-bit WAV).")
+        with self._lock:
+            if not self._rate_set:
+                self.sample_rate, self._rate_set = rate, True
+            elif rate != self.sample_rate:
+                raise AudioError("The speech service changed the audio sample rate in the middle of a book.")
+        return frames
 
     @staticmethod
-    def _translate(exc) -> AIBookError:
-        code = exc.code().name if hasattr(exc, "code") and exc.code() else "UNKNOWN"
-        LOGGER.warning("Speech request failed (%s): %s", code, redact(exc.details() if hasattr(exc, "details") else exc))
-        if code in {"UNAUTHENTICATED", "PERMISSION_DENIED"}:
-            return AudioError("Speech authentication failed. Check NVIDIA_API_KEY and that it has access to Magpie TTS Zeroshot.")
-        if code in {"UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "INTERNAL", "ABORTED"}:
+    def _translate(exc: Exception) -> AIBookError:
+        status = getattr(exc, "status_code", None)
+        LOGGER.warning("Speech request failed (%s %s): %s", type(exc).__name__, status, redact(exc))
+        if status == 401:
+            return AudioError("fal authentication failed. Check FAL_KEY.")
+        if status == 403:
+            return AudioError("fal denied access. Check that FAL_KEY is valid and that your fal account has credit.")
+        if status in (429, 500, 502, 503, 504):
             return TransientAudioError()
-        if code == "NOT_FOUND":
-            return AudioError("The speech function was not found. Check NVIDIA_TTS_FUNCTION_ID.")
-        return AudioError(f"The speech service rejected the request ({code}).")
+        if status in (400, 422):
+            return AudioError(f"The speech service rejected the text ({redact(exc)[:200]}).")
+        if isinstance(exc, (TimeoutError, ConnectionError)) or any(word in type(exc).__name__ for word in ("Timeout", "Transport", "Connect", "Network")):
+            return TransientAudioError()
+        return AudioError(f"The speech service failed ({type(exc).__name__}).")
 
 
 # --------------------------------------------------------------------------------------
@@ -284,29 +329,9 @@ def existing_audio(folder: Path) -> list[AudioFile]:
     return found
 
 
-def voice_tag(voice: str, prompt: Path | None) -> str:
-    """Changes when the voice or the voice sample changes, so old audio is not reused."""
-    if prompt is not None and prompt.exists():
-        return f"{voice}|{hashlib.sha256(prompt.read_bytes()).hexdigest()[:16]}"
-    return voice
-
-
-def validate_voice_prompt(data: bytes) -> str | None:
-    """Return a problem description for an unusable voice sample, or ``None`` when it looks fine."""
-    import io
-
-    if len(data) > 8 * 1024 * 1024:
-        return "The voice sample is larger than 8 MB."
-    try:
-        with wave.open(io.BytesIO(data)) as sample:
-            seconds = sample.getnframes() / max(sample.getframerate(), 1)
-    except (wave.Error, EOFError):
-        return "The voice sample must be a PCM WAV file."
-    if seconds < 2:
-        return "The voice sample is too short. Use 3 to 10 seconds of clear speech."
-    if seconds > 30:
-        return "The voice sample is too long. Use 3 to 10 seconds of clear speech."
-    return None
+def voices_for(language_code: str) -> list[str]:
+    """Voices offered for a language code (empty when the language is not supported)."""
+    return list(VOICES.get(language_code, []))
 
 
 class AudiobookBuilder:
@@ -356,7 +381,7 @@ class AudiobookBuilder:
                 progress(min((base + count) / total, 0.99), f"Narrating {title} ({count} of {len(chunks)} parts)")
 
             pcm = self._narrate(chunks, should_stop, on_chunk)
-            seconds = self._write_wav(path, pcm)
+            seconds = self._write_wav(path, pcm, int(getattr(self.engine, "sample_rate", TTS_SAMPLE_RATE)))
             done += len(chunks)
             manifest[section.key] = {"title": section.title, "sha": digest, "seconds": seconds}
             _manifest_path(self.folder).write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -382,14 +407,14 @@ class AudiobookBuilder:
         return results
 
     @staticmethod
-    def _write_wav(path: Path, parts: list[bytes]) -> float:
-        silence = b"\x00\x00" * int(TTS_SAMPLE_RATE * PAUSE_SECONDS)
+    def _write_wav(path: Path, parts: list[bytes], rate: int) -> float:
+        silence = b"\x00\x00" * int(rate * PAUSE_SECONDS)
         temp = path.with_name(path.stem + ".tmp.wav")
         frames = 0
         with wave.open(str(temp), "wb") as out:
             out.setnchannels(1)
             out.setsampwidth(2)
-            out.setframerate(TTS_SAMPLE_RATE)
+            out.setframerate(rate)
             for index, part in enumerate(parts):
                 if index:
                     out.writeframes(silence)
@@ -397,7 +422,7 @@ class AudiobookBuilder:
                 out.writeframes(part)
                 frames += len(part) // 2
         temp.replace(path)
-        return frames / TTS_SAMPLE_RATE
+        return frames / rate
 
 
 class AudioJob:

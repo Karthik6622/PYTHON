@@ -1,4 +1,4 @@
-"""Audio tab: narrate the written book with NVIDIA Magpie TTS Zeroshot. It is separate from writing and exporting the book."""
+"""Audio tab: narrate the written book with Kokoro text-to-speech on fal.ai. It is separate from writing and exporting the book."""
 
 from __future__ import annotations
 
@@ -9,17 +9,15 @@ from components.styles import pill
 from config import get_tts_settings
 from models.book_models import BookProject
 from services.audio_book import (
-    VOICE_PROMPT_NAME,
     AudiobookBuilder,
     AudioJob,
-    MagpieTTS,
+    FalTTS,
     audio_dir,
     build_sections,
     existing_audio,
     language_code_for,
     split_for_speech,
-    validate_voice_prompt,
-    voice_tag,
+    voices_for,
 )
 from utils.text_utils import count_words
 
@@ -43,20 +41,18 @@ def _folder(project: BookProject):
     return audio_dir(get_storage().project_dir(project.project_id))
 
 
-def _start(project: BookProject, include_front: bool, include_back: bool) -> bool:
+def _start(project: BookProject, include_front: bool, include_back: bool, voice: str) -> bool:
     settings = get_tts_settings()
     code = language_code_for(project.plan.language)
-    folder = _folder(project)
-    prompt = folder / VOICE_PROMPT_NAME
-    engine = MagpieTTS(settings, prompt)
+    engine = FalTTS(settings, voice=voice)
     sections = build_sections(project, include_front, include_back)
     builder = AudiobookBuilder(
         project,
-        folder,
+        _folder(project),
         engine,
         code,
         sections,
-        voice=voice_tag(settings.voice, prompt if prompt.exists() else None),
+        voice=voice,
         workers=settings.workers,
     )
     job = AudioJob(builder)
@@ -88,31 +84,6 @@ def _show_result(job: AudioJob) -> None:
         st.error(f"{job.error} Finished sections are saved; press Continue to carry on.")
 
 
-def _voice_sample_section(project: BookProject) -> None:
-    folder = _folder(project)
-    prompt = folder / VOICE_PROMPT_NAME
-    with st.expander("Voice (optional): speak in a voice from a short sample", expanded=prompt.exists()):
-        st.caption(
-            "Magpie TTS Zeroshot can copy a voice from a short, clear recording of about 5 seconds "
-            "(WAV, mono, 16-bit, 22.05 kHz or higher). Only use recordings of voices you have the right to use."
-        )
-        if prompt.exists():
-            st.audio(prompt.read_bytes(), format="audio/wav")
-            if st.button("Remove the voice sample", key="ab_remove_sample"):
-                prompt.unlink(missing_ok=True)
-                st.rerun()
-        upload = st.file_uploader("Voice sample (WAV)", type=["wav"], key="up_sample")
-        if upload is not None and st.button("Use this voice sample", key="ab_save_sample"):
-            data = upload.getvalue()
-            problem = validate_voice_prompt(data)
-            if problem:
-                st.error(problem)
-            else:
-                folder.mkdir(parents=True, exist_ok=True)
-                prompt.write_bytes(data)
-                st.rerun()
-
-
 def _library(project: BookProject) -> None:
     files = existing_audio(_folder(project))
     if not files:
@@ -141,7 +112,7 @@ def render() -> None:
     code = language_code_for(plan.language)
     st.subheader("Audiobook")
     st.markdown(
-        '<p class="section-note">Narrates your book with NVIDIA Magpie TTS Zeroshot using your NVIDIA API key. '
+        '<p class="section-note">Narrates your book with Kokoro text-to-speech on fal.ai using your fal key. '
         "It is separate from the PDF and DOCX export, so you can create it whenever you like.</p>",
         unsafe_allow_html=True,
     )
@@ -153,24 +124,22 @@ def render() -> None:
         st.fragment(run_every=2 if job.running else None)(_live_body)(job)
 
     if code is None:
-        st.warning(f"Magpie TTS Zeroshot speaks English, Spanish and French. {plan.language} audio is not available.")
+        st.warning(f"The audiobook voices speak English, Spanish and French. {plan.language} audio is not available.")
         _library(project)
         return
     if not settings.configured:
         st.markdown(pill("Speech not configured", "warn"), unsafe_allow_html=True)
-        st.info(
-            "Add the Magpie function id to `.streamlit/secrets.toml` as `NVIDIA_TTS_FUNCTION_ID` "
-            "(build.nvidia.com, magpie-tts-zeroshot, Python example, the value after `function-id`). "
-            "The same `NVIDIA_API_KEY` as the text model is used."
-        )
+        st.info("Add your fal.ai key to `.streamlit/secrets.toml` as `FAL_KEY` (or set the `FAL_KEY` environment variable), then reload.")
         _library(project)
         return
 
-    st.markdown(pill(f"Voice: {settings.voice}", "ok"), unsafe_allow_html=True)
     running = bool(job and job.running)
     if job_running(project):
         st.info("The book is still being generated. Create the audiobook when it has finished.")
         running = True
+    voices = voices_for(code)
+    preferred = settings.voice if settings.voice in voices else voices[0]
+    voice = st.selectbox("Voice", voices, index=voices.index(preferred), key="ab_voice", disabled=running)
 
     c1, c2 = st.columns(2)
     include_front = c1.checkbox("Read the dedication, preface and introduction", value=True, key="au_front", disabled=running)
@@ -189,9 +158,8 @@ def render() -> None:
     if st.button(label, type="primary", width="stretch", disabled=running or not sections, key="ab_start"):
         started = False
         with guarded("Starting the audiobook"):
-            started = _start(project, include_front, include_back)
+            started = _start(project, include_front, include_back, voice)
         if started:
             st.rerun()
 
-    _voice_sample_section(project)
     _library(project)

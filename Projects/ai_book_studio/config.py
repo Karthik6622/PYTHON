@@ -224,7 +224,8 @@ def get_nvidia_settings() -> NvidiaSettings:
 # Image provider
 # --------------------------------------------------------------------------------------
 AI_HORDE_URL = "https://aihorde.net/api/v2"
-AI_HORDE_MODEL = "AlbedoBase XL (SDXL)"
+# One or more models, comma separated. AI Horde gives the job to whichever listed model has a free worker first.
+AI_HORDE_MODEL = "AlbedoBase XL (SDXL), AlbedoBase XL 3.1"
 DEFAULT_IMAGE_API_URL = "https://api.openai.com/v1/images/generations"
 DEFAULT_IMAGE_MODEL = "gpt-image-1"
 DEFAULT_IMAGE_SIZES = {
@@ -250,6 +251,13 @@ class ImageSettings:
     ai_horde_model: str = AI_HORDE_MODEL
     ai_horde_timeout: float = 900.0  # seconds to wait in the AI Horde queue for one image
     ai_horde_concurrency: int = 3
+    ai_horde_steps: int = 20  # sampling steps for SDXL-type models; fewer steps = faster
+    ai_horde_fast_only: bool = True  # skip slow workers (falls back to any worker if no fast one exists)
+
+    @property
+    def ai_horde_models(self) -> list[str]:
+        names = [name.strip() for name in self.ai_horde_model.split(",") if name.strip()]
+        return names or [part.strip() for part in AI_HORDE_MODEL.split(",")]
 
     @property
     def use_ai_horde(self) -> bool:
@@ -268,7 +276,7 @@ class ImageSettings:
     @property
     def provider_label(self) -> str:
         if self.use_ai_horde:
-            return f"AI Horde ({self.ai_horde_model})"
+            return f"AI Horde ({self.ai_horde_models[0]})"
         if self.use_api:
             return "Image API"
         return "Placeholder images"
@@ -308,6 +316,8 @@ def get_image_settings() -> ImageSettings:
         ai_horde_model=get_setting("AI_HORDE_MODEL", AI_HORDE_MODEL),
         ai_horde_timeout=_number("AI_HORDE_TIMEOUT", 900.0, 60.0, 3600.0),
         ai_horde_concurrency=int(_number("AI_HORDE_CONCURRENCY", 3, 1, 10)),
+        ai_horde_steps=int(_number("AI_HORDE_STEPS", 20, 4, 50)),
+        ai_horde_fast_only=get_setting("AI_HORDE_FAST_ONLY", "true").strip().lower() not in {"0", "false", "no", "off"},
     )
 
 
@@ -328,37 +338,31 @@ def get_chapter_workers() -> int:
 
 
 # --------------------------------------------------------------------------------------
-# Audiobook (NVIDIA Magpie TTS Zeroshot, served over gRPC)
+# Audiobook (Kokoro text-to-speech on fal.ai)
 # --------------------------------------------------------------------------------------
-NVIDIA_TTS_SERVER = "grpc.nvcf.nvidia.com:443"
-NVIDIA_TTS_VOICE = "Magpie-ZeroShot.Female-1"
-TTS_SAMPLE_RATE = 22050
+TTS_SAMPLE_RATE = 24000  # Kokoro's native rate; the real rate is read from each reply
 
 
 @dataclass(frozen=True)
 class TTSSettings:
-    """Connection settings for the hosted Magpie TTS Zeroshot endpoint. It uses the same NVIDIA API key as the text model."""
+    """Settings for the fal.ai text-to-speech models."""
 
     api_key: str
-    function_id: str
-    server: str = NVIDIA_TTS_SERVER
-    voice: str = NVIDIA_TTS_VOICE
+    voice: str = ""  # empty = the first voice of the book's language
     workers: int = 3
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key and self.function_id)
+        return bool(self.api_key)
 
 
 def get_tts_settings() -> TTSSettings:
     try:
-        workers = int(get_setting("NVIDIA_TTS_WORKERS", "3"))
+        workers = int(get_setting("FAL_TTS_WORKERS", "3"))
     except ValueError:
         workers = 3
     return TTSSettings(
-        api_key=get_secret("NVIDIA_API_KEY"),
-        function_id=get_setting("NVIDIA_TTS_FUNCTION_ID"),
-        server=get_setting("NVIDIA_TTS_SERVER", NVIDIA_TTS_SERVER),
-        voice=get_setting("NVIDIA_TTS_VOICE", NVIDIA_TTS_VOICE),
+        api_key=get_secret("FAL_KEY"),
+        voice=get_setting("FAL_TTS_VOICE"),
         workers=max(1, min(workers, 6)),
     )

@@ -83,16 +83,18 @@ Both `b64_json` and HTTPS `url` responses are supported. Without a key (or with 
 placeholder art is generated locally and the app clearly flags it as a placeholder. If a real provider fails, the image is replaced by
 a placeholder and a warning is shown.
 
-AI Horde (`AlbedoBase XL (SDXL)`) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
-Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. Options: `AI_HORDE_MODEL`,
+AI Horde (`AlbedoBase XL (SDXL)`, with `AlbedoBase XL 3.1` as a same-family backup) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
+Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. To keep it short, images use 20 steps and fast workers only.
+Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20), `AI_HORDE_FAST_ONLY` (default true),
 `AI_HORDE_TIMEOUT` (seconds to wait per image, default 900) and `AI_HORDE_CONCURRENCY` (images at once, default 3).
+FLUX is available as `AI_HORDE_MODEL=Flux.1-Schnell fp8 (Compact)`, but it has far fewer workers, so its queue is often longer.
 
 **Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the
 full outline, plus the summaries of earlier chapters that have already finished. Use `1` for strictly sequential writing; lower it if you hit rate limits.
 
-**Audiobook.** The Audio tab narrates the finished chapters with NVIDIA Magpie TTS Zeroshot (English, Spanish, French) using `NVIDIA_API_KEY`.
-Set `NVIDIA_TTS_FUNCTION_ID` (build.nvidia.com, magpie-tts-zeroshot, Python example, the `function-id` value). Optional:
-`NVIDIA_TTS_VOICE`, `NVIDIA_TTS_WORKERS`, and a short WAV voice sample uploaded in the tab. Each section is saved as a WAV file under the project's `audio` folder and finished sections are reused.
+**Audiobook.** The Audio tab narrates the finished chapters with Kokoro text-to-speech on fal.ai (English, Spanish, French).
+Set `FAL_KEY` in `.streamlit/secrets.toml` or the environment. Optional: `FAL_TTS_VOICE` and `FAL_TTS_WORKERS` (parallel requests, 1-6); the voice can also be chosen in the tab.
+fal bills per request. Each section is saved as a WAV file under the project's `audio` folder and finished sections are reused.
 
 ## 8. Nemotron settings
 

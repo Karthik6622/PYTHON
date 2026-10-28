@@ -163,6 +163,10 @@ class _NonRetryable(AIBookError):
     default_message = "Image generation failed."
 
 
+class _NoWorker(_NonRetryable):
+    """No AI Horde worker can serve the request as submitted."""
+
+
 def _download_image(session: requests.Session, url: str, timeout: float) -> bytes:
     """Download an image over HTTPS with a size limit."""
     if urlparse(url).scheme != "https":
@@ -191,7 +195,6 @@ class AIHordeImageGenerator(ImageGenerator):
 
     name = "AI Horde"
     _MAX_PROMPT = 1000
-    _STEPS = 25
     _POLL_SECONDS = 3.0
     _DIMENSIONS = {"cover": (768, 1024), "portrait": (768, 1024), "landscape": (1024, 768), "square": (768, 768)}
     _sleep = staticmethod(time.sleep)
@@ -206,25 +209,42 @@ class AIHordeImageGenerator(ImageGenerator):
         if not self.settings.ai_horde_key:
             raise ImageGenerationError("The AI Horde API key is missing (AI_HORDE_API_KEY).")
         width, height = self._DIMENSIONS.get(orientation, self._DIMENSIONS["square"])
-        payload = {
-            "prompt": prompt[: self._MAX_PROMPT],
-            "params": {"width": width, "height": height, "steps": self._STEPS, "n": 1},
-            "models": [self.settings.ai_horde_model],
-            "nsfw": False,
-            "censor_nsfw": True,
-        }
         with self._slots:  # a few images at a time keeps within AI Horde's per-user limits
-            request_id = call_with_retries(lambda: self._submit(payload), retryable=(ImageGenerationError,))
             try:
-                generation = self._wait(request_id)
-            except BaseException:
-                self._cancel(request_id)
-                raise
+                generation = self._draw(prompt, width, height, fast_only=self.settings.ai_horde_fast_only)
+            except _NoWorker:
+                if not self.settings.ai_horde_fast_only:
+                    raise
+                LOGGER.info("No fast AI Horde worker for these models; allowing slow workers.")
+                generation = self._draw(prompt, width, height, fast_only=False)
         data = self._image_bytes(generation)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
+
+    def _payload(self, prompt: str, width: int, height: int, fast_only: bool) -> dict:
+        models = self.settings.ai_horde_models
+        params: dict = {"width": width, "height": height, "steps": self.settings.ai_horde_steps, "n": 1}
+        if all("flux" in name.lower() for name in models):
+            params.update({"steps": min(self.settings.ai_horde_steps, 8), "cfg_scale": 1, "sampler_name": "k_euler"})
+        return {
+            "prompt": prompt[: self._MAX_PROMPT],
+            "params": params,
+            "models": models,
+            "nsfw": False,
+            "censor_nsfw": True,
+            "slow_workers": not fast_only,
+        }
+
+    def _draw(self, prompt: str, width: int, height: int, fast_only: bool) -> dict:
+        payload = self._payload(prompt, width, height, fast_only)
+        request_id = call_with_retries(lambda: self._submit(payload), retryable=(ImageGenerationError,))
+        try:
+            return self._wait(request_id)
+        except BaseException:
+            self._cancel(request_id)
+            raise
 
     # ------------------------------------------------------------------ HTTP
     def _headers(self) -> dict[str, str]:
@@ -279,7 +299,7 @@ class AIHordeImageGenerator(ImageGenerator):
             if status.get("done"):
                 break
             if status.get("is_possible") is False:
-                raise _NonRetryable(f"No AI Horde worker is available for the model '{self.settings.ai_horde_model}'.")
+                raise _NoWorker(f"No AI Horde worker is available for the model(s) '{', '.join(self.settings.ai_horde_models)}'.")
             if time.monotonic() >= deadline:
                 raise ImageGenerationError("AI Horde took too long (the shared queue is busy).")
             self._sleep(self._POLL_SECONDS)

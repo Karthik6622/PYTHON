@@ -80,9 +80,35 @@ def test_ai_horde_generates_image(tmp_path):
     method, url, headers, body = session.calls[0]
     assert (method, url) == ("POST", "https://aihorde.net/api/v2/generate/async")
     assert headers["apikey"] == "horde-key" and headers["Client-Agent"].startswith("AI-Book-Studio")
-    assert body["prompt"] == "a lantern" and body["models"] == ["AlbedoBase XL (SDXL)"]
+    assert body["prompt"] == "a lantern" and body["models"] == ["AlbedoBase XL (SDXL)", "AlbedoBase XL 3.1"]
     assert body["params"]["width"] == 768 and body["params"]["height"] == 1024 and body["censor_nsfw"] is True
+    assert body["params"]["steps"] == 20 and body["slow_workers"] is False
     assert session.checks == 2
+
+
+def test_ai_horde_flux_uses_flux_parameters(tmp_path):
+    session = _HordeSession()
+    settings = ImageSettings(api_key="", ai_horde_key="k", ai_horde_model="Flux.1-Schnell fp8 (Compact)", ai_horde_steps=25)
+    AIHordeImageGenerator(settings, session).generate_image("p", tmp_path / "f.webp", "square")
+    body = session.calls[0][3]
+    assert body["models"] == ["Flux.1-Schnell fp8 (Compact)"]
+    assert body["params"]["steps"] == 8 and body["params"]["cfg_scale"] == 1
+
+
+def test_ai_horde_falls_back_to_slow_workers(tmp_path):
+    class NoFastWorkers(_HordeSession):
+        def request(self, method, url, headers=None, timeout=None, json=None):
+            if json is not None and url.endswith("/generate/async") and json.get("slow_workers") is False:
+                self.calls.append((method, url, headers, json))
+                return _Response({"id": "fast-only"})
+            if url.endswith("/generate/check/fast-only"):
+                return _Response({"done": False, "is_possible": False})
+            return super().request(method, url, headers=headers, timeout=timeout, json=json)
+
+    session = NoFastWorkers()
+    _horde(session).generate_image("p", tmp_path / "s.webp", "square")
+    submitted = [call[3] for call in session.calls if call[0] == "POST"]
+    assert [body["slow_workers"] for body in submitted] == [False, True]
 
 
 def test_ai_horde_settings():
