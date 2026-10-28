@@ -83,7 +83,9 @@ Both `b64_json` and HTTPS `url` responses are supported. Without a key (or with 
 placeholder art is generated locally and the app clearly flags it as a placeholder. If a real provider fails, the image is replaced by
 a placeholder and a warning is shown.
 
-AI Horde (`Flux.1-Schnell fp8 (Compact)`) is preferred when `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=ai_horde|api|placeholder` forces a choice).
+Cloudflare FLUX (`@cf/black-forest-labs/flux-1-schnell`) is used first when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set: it runs on dedicated GPUs and takes seconds per image.
+Its free plan has a daily allowance; when it runs out (HTTP 429) the app switches to AI Horde for the following images and tries Cloudflare again later. `CLOUDFLARE_STEPS` (1-8, default 6) sets the quality.
+AI Horde (`Flux.1-Schnell fp8 (Compact)`) is used as the backup, or on its own when only `AI_HORDE_API_KEY` is set (`IMAGE_PROVIDER=cloudflare|ai_horde|api|placeholder` forces a choice).
 Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. FLUX uses at most 8 steps.
 Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 20, used by SDXL-type models), `AI_HORDE_FAST_ONLY` (default false; true needs upfront kudos),
 `AI_HORDE_TIMEOUT` (seconds to wait per image, default 900) and `AI_HORDE_CONCURRENCY` (images at once, default 3).

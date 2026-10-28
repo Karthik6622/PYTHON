@@ -242,7 +242,10 @@ class ImageSettings:
     api_key: str
     api_url: str = DEFAULT_IMAGE_API_URL
     model: str = DEFAULT_IMAGE_MODEL
-    provider: str = "auto"  # auto | ai_horde | api | placeholder
+    provider: str = "auto"  # auto | cloudflare | ai_horde | api | placeholder
+    cloudflare_account_id: str = ""
+    cloudflare_token: str = ""
+    cloudflare_steps: int = 6  # FLUX schnell on Cloudflare accepts 1-8 steps
     response_format: str = ""
     timeout: float = 180.0
     sizes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_IMAGE_SIZES))
@@ -260,6 +263,11 @@ class ImageSettings:
         return names or [part.strip() for part in AI_HORDE_MODEL.split(",")]
 
     @property
+    def use_cloudflare(self) -> bool:
+        """True when Cloudflare Workers AI (FLUX schnell) should draw the images."""
+        return self.provider in {"auto", "cloudflare"} and bool(self.cloudflare_account_id and self.cloudflare_token)
+
+    @property
     def use_ai_horde(self) -> bool:
         """True when AI Horde should draw the images."""
         return self.provider in {"auto", "ai_horde"} and bool(self.ai_horde_key)
@@ -271,10 +279,12 @@ class ImageSettings:
 
     @property
     def configured(self) -> bool:
-        return self.use_ai_horde or self.use_api
+        return self.use_cloudflare or self.use_ai_horde or self.use_api
 
     @property
     def provider_label(self) -> str:
+        if self.use_cloudflare:
+            return "Cloudflare FLUX (AI Horde backup)" if self.use_ai_horde else "Cloudflare FLUX"
         if self.use_ai_horde:
             return f"AI Horde ({self.ai_horde_models[0]})"
         if self.use_api:
@@ -309,6 +319,9 @@ def get_image_settings() -> ImageSettings:
         api_url=get_setting("IMAGE_API_URL", DEFAULT_IMAGE_API_URL),
         model=get_setting("IMAGE_API_MODEL", DEFAULT_IMAGE_MODEL),
         provider=get_setting("IMAGE_PROVIDER", "auto").lower(),
+        cloudflare_account_id=get_secret("CLOUDFLARE_ACCOUNT_ID"),
+        cloudflare_token=get_secret("CLOUDFLARE_API_TOKEN"),
+        cloudflare_steps=int(_number("CLOUDFLARE_STEPS", 6, 1, 8)),
         response_format=get_setting("IMAGE_API_RESPONSE_FORMAT"),
         sizes=sizes,
         extra_body=extra,

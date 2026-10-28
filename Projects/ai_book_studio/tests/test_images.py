@@ -166,3 +166,61 @@ def test_ai_horde_rejected_key(tmp_path):
     session = _HordeSession(submit_status=401, submit_payload={"message": "bad"})
     with pytest.raises(AIBookError, match="API key"):
         _horde(session).generate_image("p", tmp_path / "b.webp", "square")
+
+
+# ---------------------------------------------------------------- Cloudflare + fallback
+class _CloudflareSession:
+    def __init__(self, status=200, payload=None):
+        self.status = status
+        self.payload = payload if payload is not None else {"success": True, "result": {"image": "aGVsbG8="}}
+        self.calls: list[tuple] = []
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.calls.append((url, json, headers))
+        return _Response(self.payload, self.status)
+
+
+def _cloudflare(session, **settings):
+    from services.image_generator import CloudflareImageGenerator
+
+    return CloudflareImageGenerator(ImageSettings(api_key="", cloudflare_account_id="acc", cloudflare_token="tok", **settings), session)
+
+
+def test_cloudflare_generates_image(tmp_path):
+    session = _CloudflareSession()
+    path = _cloudflare(session).generate_image("a lantern", tmp_path / "c.png", "portrait")
+    assert path.read_bytes() == b"hello"
+    url, body, headers = session.calls[0]
+    assert url.endswith("/accounts/acc/ai/run/@cf/black-forest-labs/flux-1-schnell")
+    assert body == {"prompt": "a lantern", "steps": 6}  # no seed or size fields: Cloudflare rejects them
+    assert headers["Authorization"] == "Bearer tok"
+
+
+def test_cloudflare_limit_switches_to_ai_horde_and_skips_cloudflare_afterwards(tmp_path):
+    from services.image_generator import FallbackImageGenerator
+
+    limited = _CloudflareSession(status=429)
+    horde_session = _HordeSession()
+    generator = FallbackImageGenerator(_cloudflare(limited), _horde(horde_session))
+    generator.generate_image("p", tmp_path / "f1.webp", "square")
+    generator.generate_image("p", tmp_path / "f2.webp", "square")
+    assert len(limited.calls) == 1  # second image goes straight to AI Horde
+    assert len([c for c in horde_session.calls if c[0] == "POST"]) == 2
+
+
+def test_cloudflare_used_first_when_available(tmp_path):
+    from services.image_generator import FallbackImageGenerator
+
+    horde_session = _HordeSession()
+    FallbackImageGenerator(_cloudflare(_CloudflareSession()), _horde(horde_session)).generate_image("p", tmp_path / "g.png", "square")
+    assert horde_session.calls == []
+
+
+def test_provider_selection_prefers_cloudflare_with_horde_backup():
+    from services.image_generator import AIHordeImageGenerator, CloudflareImageGenerator, FallbackImageGenerator, get_image_generator
+
+    both = ImageSettings(api_key="", ai_horde_key="k", cloudflare_account_id="a", cloudflare_token="t")
+    assert isinstance(get_image_generator(both), FallbackImageGenerator) and both.provider_label == "Cloudflare FLUX (AI Horde backup)"
+    only_cf = ImageSettings(api_key="", cloudflare_account_id="a", cloudflare_token="t")
+    assert isinstance(get_image_generator(only_cf), CloudflareImageGenerator)
+    assert isinstance(get_image_generator(ImageSettings(api_key="", ai_horde_key="k")), AIHordeImageGenerator)

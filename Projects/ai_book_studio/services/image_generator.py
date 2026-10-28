@@ -194,6 +194,104 @@ def _download_image(session: requests.Session, url: str, timeout: float) -> byte
     return b"".join(chunks)
 
 
+class _Unavailable(_NonRetryable):
+    """A provider that should be skipped for ``cooldown`` seconds (daily limit reached, bad credentials)."""
+
+    cooldown: float = 300.0
+
+
+class CloudflareImageGenerator(ImageGenerator):
+    """Cloudflare Workers AI ``@cf/black-forest-labs/flux-1-schnell``: dedicated GPUs, seconds per image.
+
+    The free plan has a daily allowance; when it is used up Cloudflare answers HTTP 429 and ``FallbackImageGenerator``
+    hands the images to AI Horde. The API token is sent only in the Authorization header.
+    """
+
+    name = "Cloudflare FLUX"
+    _MODEL = "@cf/black-forest-labs/flux-1-schnell"
+    _MAX_PROMPT = 2048
+
+    def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
+        self.settings = settings or get_image_settings()
+        self._session = session or requests.Session()
+
+    def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
+        if not (self.settings.cloudflare_account_id and self.settings.cloudflare_token):
+            raise ImageGenerationError("Cloudflare credentials are missing (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN).")
+        # The model takes no size or seed fields (it returns a square image; normalize_png fits it to the page later).
+        body = {"prompt": prompt[: self._MAX_PROMPT], "steps": self.settings.cloudflare_steps}
+        payload = call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
+        image = (payload.get("result") or {}).get("image") if isinstance(payload.get("result"), dict) else None
+        if not isinstance(image, str) or not image:
+            raise ImageGenerationError("Cloudflare returned no image.")
+        try:
+            data = base64.b64decode(image.split(",", 1)[-1], validate=False)
+        except ValueError as exc:
+            raise ImageGenerationError("The Cloudflare image could not be decoded.") from exc
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def _post(self, body: dict) -> dict:
+        url = f"https://api.cloudflare.com/client/v4/accounts/{self.settings.cloudflare_account_id}/ai/run/{self._MODEL}"
+        try:
+            response = self._session.post(
+                url,
+                json=body,
+                headers={"Authorization": f"Bearer {self.settings.cloudflare_token}", "Content-Type": "application/json"},
+                timeout=90,
+            )
+        except requests.Timeout as exc:
+            raise ImageGenerationError("Cloudflare timed out.") from exc
+        except requests.RequestException as exc:
+            LOGGER.warning("Cloudflare network error: %s", redact(exc))
+            raise ImageGenerationError("Could not reach Cloudflare.") from exc
+        if response.status_code in (401, 403):
+            error = _Unavailable("Cloudflare authentication failed. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.")
+            error.cooldown = 3600.0
+            raise error
+        if response.status_code == 429:
+            raise _Unavailable("Cloudflare's image allowance is used up for now (HTTP 429).")
+        if response.status_code in (500, 502, 503, 504):
+            raise ImageGenerationError(f"Cloudflare is unavailable (HTTP {response.status_code}).")
+        if not response.ok:
+            LOGGER.warning("Cloudflare error %s: %s", response.status_code, redact(response.text[:300]))
+            raise _NonRetryable(f"Cloudflare rejected the image request (HTTP {response.status_code}).")
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ImageGenerationError("Cloudflare returned a response that is not JSON.") from exc
+        if not isinstance(data, dict):
+            raise ImageGenerationError("Cloudflare returned an unexpected response.")
+        return data
+
+
+class FallbackImageGenerator(ImageGenerator):
+    """Try the fast ``primary`` provider first; use ``backup`` when it fails or is out of allowance.
+
+    After the primary reports it is unavailable (daily limit, bad token) it is skipped for a cooldown period so
+    the remaining images do not each wait for a refusal.
+    """
+
+    def __init__(self, primary: ImageGenerator, backup: ImageGenerator) -> None:
+        self.primary = primary
+        self.backup = backup
+        self.name = f"{primary.name} (backup: {backup.name})"
+        self._skip_until = 0.0
+
+    def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
+        if time.monotonic() >= self._skip_until:
+            try:
+                return self.primary.generate_image(prompt, output_path, orientation)
+            except _Unavailable as exc:
+                self._skip_until = time.monotonic() + exc.cooldown
+                LOGGER.info("%s; using %s for the next %.0f s.", exc.user_message, self.backup.name, exc.cooldown)
+            except AIBookError as exc:
+                LOGGER.info("%s failed (%s); using %s for this image.", self.primary.name, exc.user_message, self.backup.name)
+        return self.backup.generate_image(prompt, output_path, orientation)
+
+
 class AIHordeImageGenerator(ImageGenerator):
     """AI Horde (https://aihorde.net) crowd-sourced Stable Diffusion provider.
 
@@ -403,8 +501,11 @@ def generate_illustration(
 
 
 def get_image_generator(settings: ImageSettings | None = None) -> ImageGenerator:
-    """AI Horde when configured, else the OpenAI-compatible API, else the development placeholder."""
+    """Cloudflare FLUX (fast) with AI Horde as backup, else AI Horde, else the OpenAI-compatible API, else the placeholder."""
     settings = settings or get_image_settings()
+    if settings.use_cloudflare:
+        cloudflare = CloudflareImageGenerator(settings)
+        return FallbackImageGenerator(cloudflare, AIHordeImageGenerator(settings)) if settings.use_ai_horde else cloudflare
     if settings.use_ai_horde:
         return AIHordeImageGenerator(settings)
     return ApiImageGenerator(settings) if settings.use_api else PlaceholderImageGenerator()
