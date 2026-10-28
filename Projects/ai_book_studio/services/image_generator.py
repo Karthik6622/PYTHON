@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import base64
 import logging
+import threading
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -174,6 +176,16 @@ class _NonRetryable(AIBookError):
     default_message = "Image generation failed."
 
 
+class _RateLimited(AIBookError):
+    """HTTP 429: too many requests (or the daily free allowance is used up)."""
+
+    default_message = "The image service rate limit was reached."
+
+    def __init__(self, message: str | None = None, retry_after: float = 0.0) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class CloudflareImageGenerator(ImageGenerator):
     """Cloudflare Workers AI provider (``@cf/black-forest-labs/flux-1-schnell``).
 
@@ -185,6 +197,12 @@ class CloudflareImageGenerator(ImageGenerator):
     _BASE = "https://api.cloudflare.com/client/v4/accounts"
     _MAX_PROMPT = 2048
     _STEPS = 8  # FLUX.1 schnell accepts 1-8 steps
+    _RATE_DELAYS = (15.0, 30.0, 60.0)  # waits after HTTP 429 before giving up
+    _COOLDOWN_SECONDS = 300.0  # after repeated 429s, skip Cloudflare for a while instead of waiting on every image
+    _slots = threading.BoundedSemaphore(2)  # at most two images are requested at the same time
+    _state_lock = threading.Lock()
+    _cooldown_until = 0.0
+    _sleep = staticmethod(time.sleep)
 
     def __init__(self, settings: ImageSettings | None = None, session: requests.Session | None = None) -> None:
         self.settings = settings or get_image_settings()
@@ -193,16 +211,40 @@ class CloudflareImageGenerator(ImageGenerator):
     def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
         if not (self.settings.cloudflare_account_id and self.settings.cloudflare_token):
             raise ImageGenerationError("Cloudflare is not configured (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN).")
+        with self._state_lock:
+            remaining = type(self)._cooldown_until - time.time()
+        if remaining > 0:
+            raise _NonRetryable(
+                f"Cloudflare's image limit was reached (HTTP 429), so images are paused for about {int(remaining // 60) + 1} min. "
+                "The free plan has a daily allowance."
+            )
         body = {
             "prompt": prompt[: self._MAX_PROMPT],
             "steps": self._STEPS,
         }
-        payload = call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
+        with self._slots:
+            payload = self._post_with_backoff(body)
         data = self._extract_bytes(payload)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
+
+    def _post_with_backoff(self, body: dict) -> dict:
+        """Send the request; on HTTP 429 wait (honouring Retry-After) and try again, then pause Cloudflare for a while."""
+        for attempt in range(len(self._RATE_DELAYS) + 1):
+            try:
+                return call_with_retries(lambda: self._post(body), retryable=(ImageGenerationError,))
+            except _RateLimited as exc:
+                if attempt >= len(self._RATE_DELAYS):
+                    break
+                self._sleep(min(max(exc.retry_after, self._RATE_DELAYS[attempt]), 120.0))
+        with self._state_lock:
+            type(self)._cooldown_until = time.time() + self._COOLDOWN_SECONDS
+        raise _NonRetryable(
+            "Cloudflare says there were too many image requests (HTTP 429). The free plan has a daily allowance that resets "
+            "every day; the remaining images use placeholders. Run the book again later to replace them."
+        )
 
     def _post(self, body: dict) -> dict:
         url = f"{self._BASE}/{self.settings.cloudflare_account_id}/ai/run/{self.settings.cloudflare_model}"
@@ -220,7 +262,13 @@ class CloudflareImageGenerator(ImageGenerator):
             raise ImageGenerationError("Could not reach Cloudflare.") from exc
         if response.status_code in (401, 403):
             raise _NonRetryable("Cloudflare authentication failed. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.")
-        if response.status_code in (429, 500, 502, 503, 504):
+        if response.status_code == 429:
+            try:
+                retry_after = float(response.headers.get("Retry-After", 0))
+            except (TypeError, ValueError, AttributeError):
+                retry_after = 0.0
+            raise _RateLimited("Cloudflare is rate limiting image requests (HTTP 429).", retry_after)
+        if response.status_code in (500, 502, 503, 504):
             raise ImageGenerationError(f"Cloudflare is busy or unavailable (HTTP {response.status_code}).")
         if not response.ok:
             detail = self._error_detail(response)

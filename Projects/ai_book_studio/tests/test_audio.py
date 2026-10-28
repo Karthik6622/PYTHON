@@ -150,3 +150,35 @@ def test_cloudflare_generator_decodes_image(tmp_path):
     assert call["headers"]["Authorization"] == "Bearer tok"
     assert call["json"]["prompt"] == "a lantern" and "seed" not in call["json"]
     assert settings.use_cloudflare and settings.provider_label == "Cloudflare FLUX.1 schnell"
+
+
+class _Limited(_Session):
+    def post(self, url, json=None, headers=None, timeout=None):  # noqa: A002
+        self.calls.append({"url": url})
+        response = _Response({})
+        response.status_code, response.ok, response.headers = 429, False, {"Retry-After": "1"}
+        return response
+
+
+def test_cloudflare_rate_limit_waits_then_pauses(tmp_path):
+    import pytest
+
+    from utils.retry_utils import AIBookError
+
+    waits: list[float] = []
+    CloudflareImageGenerator._sleep = staticmethod(waits.append)
+    CloudflareImageGenerator._cooldown_until = 0.0
+    try:
+        session = _Limited({})
+        generator = CloudflareImageGenerator(ImageSettings(api_key="", cloudflare_account_id="a", cloudflare_token="t"), session)
+        with pytest.raises(AIBookError, match="too many image requests"):
+            generator.generate_image("a lantern", tmp_path / "x.jpg", "square")
+        assert len(session.calls) == 4 and waits == [15.0, 30.0, 60.0]
+        with pytest.raises(AIBookError, match="paused"):
+            generator.generate_image("again", tmp_path / "y.jpg", "square")
+        assert len(session.calls) == 4  # no new request while paused
+    finally:
+        import time as _time
+
+        CloudflareImageGenerator._sleep = staticmethod(_time.sleep)
+        CloudflareImageGenerator._cooldown_until = 0.0
