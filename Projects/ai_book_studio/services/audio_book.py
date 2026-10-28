@@ -265,18 +265,25 @@ class FalTTS:
                 raise AudioError("The speech service changed the audio sample rate in the middle of a book.")
         return frames
 
-    @staticmethod
-    def _translate(exc: Exception) -> AIBookError:
+    def _translate(self, exc: Exception) -> AIBookError:
         status = getattr(exc, "status_code", None)
-        LOGGER.warning("Speech request failed (%s %s): %s", type(exc).__name__, status, redact(exc))
+        detail = redact(exc)
+        for part in {self.settings.api_key, *self.settings.api_key.split(":")}:
+            if len(part) >= 6:
+                detail = detail.replace(part, "***")
+        detail = detail[:200]
+        LOGGER.warning("Speech request failed (%s %s): %s", type(exc).__name__, status, detail)
         if status == 401:
-            return AudioError("fal authentication failed. Check FAL_KEY.")
+            return AudioError(f"fal authentication failed. Check FAL_KEY. (fal says: {detail})")
         if status == 403:
-            return AudioError("fal denied access. Check that FAL_KEY is valid and that your fal account has credit.")
+            return AudioError(
+                "fal denied access. Check that FAL_KEY is valid, allows the fal-ai/kokoro models and that your fal account has credit. "
+                f"(fal says: {detail})"
+            )
         if status in (429, 500, 502, 503, 504):
             return TransientAudioError()
         if status in (400, 422):
-            return AudioError(f"The speech service rejected the text ({redact(exc)[:200]}).")
+            return AudioError(f"The speech service rejected the text ({detail}).")
         if isinstance(exc, (TimeoutError, ConnectionError)) or any(word in type(exc).__name__ for word in ("Timeout", "Transport", "Connect", "Network")):
             return TransientAudioError()
         return AudioError(f"The speech service failed ({type(exc).__name__}).")

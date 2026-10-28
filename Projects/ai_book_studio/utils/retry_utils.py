@@ -95,6 +95,7 @@ _SECRET_PATTERNS = (
     re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{8,}"),
     re.compile(r"(?i)(api[_-]?key|token|secret)(\"?\s*[:=]\s*\"?)[A-Za-z0-9._\-]{8,}"),
     re.compile(r"sk-[A-Za-z0-9_\-]{12,}"),
+    re.compile(r"fal_sk_[A-Za-z0-9]+(?::[A-Za-z0-9]+)?"),
 )
 
 

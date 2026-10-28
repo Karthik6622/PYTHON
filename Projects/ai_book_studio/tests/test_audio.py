@@ -125,6 +125,18 @@ def test_fal_tts_falls_back_to_a_valid_voice_for_the_language():
     assert client.calls[0] == ("fal-ai/kokoro/french", {"prompt": "Bonjour.", "voice": "ff_siwis"})
 
 
+def test_fal_tts_403_shows_fals_reason_without_the_key():
+    class Denied(Exception):
+        status_code = 403
+
+    key = "keyid123456:keysecret654321"
+    engine = FalTTS(TTSSettings(api_key=key), client=_FakeFal(error=Denied(f"User is locked. Exhausted balance ({key})")), session=_FakeSession(b""))
+    with pytest.raises(AudioError) as info:
+        engine.synthesize("Hi.", "en")
+    text = str(info.value)
+    assert "Exhausted balance" in text and "keyid123456" not in text and "keysecret654321" not in text
+
+
 def test_fal_tts_errors_do_not_leak_and_are_clear():
     class Boom(Exception):
         status_code = 401
