@@ -92,6 +92,12 @@ The artwork must include:
 - Genre-appropriate mood
 - Space in the composition where the application can later add title and author text
 
+Composition rules (important):
+
+- The main character or focal subject must be centred in the middle of the frame, with the head and face fully visible, sharp and unobstructed.
+- Keep the top 25% of the image and the bottom 12% free of faces and key details (calm sky, soft background or plain scenery), because title and author bands are added there.
+- Show the character from the waist or knees up, not cropped at the head, and facing the viewer or in a three-quarter view.
+- One clear focal point; no clutter around the face.
 Requirements:
 
 - Do not render the book title.
