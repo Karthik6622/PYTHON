@@ -8,8 +8,7 @@ import time
 
 import streamlit as st
 from PIL import Image
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
+from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
@@ -30,20 +29,26 @@ def _cover_jpg_bytes(path) -> bytes:
 
 
 def _cover_pdf_bytes(path, title: str) -> bytes:
-    """Place the cover on a single A4 page, centred, with print-safe margins and no distortion."""
+    """Full-bleed 13.632 x 9.250 in landscape wrap cover: back and spine on the left, front artwork on the right.
+
+    The artwork keeps its aspect ratio (scaled to the full page height, flush with the right edge). The rest of the page
+    is filled with the cover's own dark background colour, so there are no white margins and nothing leaves the canvas.
+    """
     if not path:
         return b""
-    page_w, page_h = A4
-    margin = 15 * mm
+    page_w, page_h = 13.632 * inch, 9.250 * inch
     with Image.open(path) as image:
         rgb = image.convert("RGB")
     img_w, img_h = rgb.size
-    scale = min((page_w - 2 * margin) / img_w, (page_h - 2 * margin) / img_h)
-    draw_w, draw_h = img_w * scale, img_h * scale
+    scale = page_h / img_h
+    draw_w = img_w * scale
+    background = tuple(c / 255 for c in rgb.getpixel((2, 2)))
     buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf = canvas.Canvas(buffer, pagesize=(page_w, page_h))
     pdf.setTitle(f"{title} - Cover")
-    pdf.drawImage(ImageReader(rgb), (page_w - draw_w) / 2, (page_h - draw_h) / 2, draw_w, draw_h)
+    pdf.setFillColorRGB(*background)
+    pdf.rect(0, 0, page_w, page_h, stroke=0, fill=1)
+    pdf.drawImage(ImageReader(rgb), page_w - draw_w, 0, draw_w, page_h)
     pdf.showPage()
     pdf.save()
     return buffer.getvalue()
