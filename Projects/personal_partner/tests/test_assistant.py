@@ -39,8 +39,29 @@ def test_romantic_mode_is_a_human_partner_not_an_assistant():
 
 def test_english_correction_mode_adds_correction_rules():
     text = system_text(assistant.build_messages(convo("i goed home"), {"mode": "English correction"}))
-    assert "English correction mode is ON" in text and "No correction needed" in text
+    assert "English correction mode is ON" in text and "Your sentence is correct" in text
     assert "Romantic mode is ON" not in text
+
+
+def test_correct_sentence_gets_only_a_confirmation():
+    rules = assistant.ENGLISH_PROMPT
+    assert "Case A" in rules and "ONE short line only" in rules
+    assert "Do not repeat the user's sentence" in rules and "Do not write \"What changed\"" in rules
+    assert "No correction needed" not in rules
+
+
+def test_tone_and_length_preferences_reach_the_system_message():
+    text = system_text(assistant.build_messages(convo("hi"), {"tone": "Direct", "response_length": "Brief"}))
+    assert assistant.TONE_GUIDES["Direct"] in text
+    assert assistant.LENGTH_GUIDES["Brief"] in text
+    assert assistant.TONE_GUIDES["Warm"] not in text and assistant.LENGTH_GUIDES["Detailed"] not in text
+
+
+def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
+    assert assistant.reply_token_cap({"response_length": "Brief"}) == assistant.LENGTH_TOKEN_CAPS["Brief"]
+    assert assistant.reply_token_cap({"response_length": "Balanced"}) is None
+    assert assistant.reply_token_cap({"response_length": "Detailed"}) is None
+    assert assistant.reply_token_cap({}) is None
 
 
 def test_normal_mode_and_legacy_romantic_topic():
@@ -112,8 +133,9 @@ def fake_router(monkeypatch, reply):
 def fake_stream(monkeypatch):
     sent = {}
 
-    def capture(messages):
+    def capture(messages, max_tokens=None):
         sent["messages"] = messages
+        sent["max_tokens"] = max_tokens
         return iter(["ok"])
 
     monkeypatch.setattr(assistant, "stream_completion", capture)

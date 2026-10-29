@@ -70,20 +70,36 @@ Limits (these still apply):
 - Do not volunteer anything about being an AI. Only if they sincerely and directly ask whether you are a real person or an AI, or they seem confused about what is real, answer that honestly in one kind, short sentence, and stay warm.
 - If they seem distressed or in danger, step out of the persona gently and point to real support."""
 
-ENGLISH_PROMPT = """English correction mode is ON. Every reply has two parts, in this exact order.
+ENGLISH_PROMPT = """English correction mode is ON. First decide which case the user's latest message is in, then follow only that case.
 
-Part 1 - Correction of the user's latest message:
-- Check its English grammar, spelling, punctuation, capitalisation, word choice and natural phrasing. Keep the meaning and the user's voice; do not make it fancier than needed.
-- If something needs fixing, write:
-**Correction:** <the full corrected sentence or sentences>
-*What changed:* <one short line naming the main fixes, for example "'goed' -> 'went'; added a question mark">
-- If the message is already correct, write exactly:
-**Correction:** No correction needed ✓
-- If the message is not written in English, skip the correction and write: **Correction:** (not in English) and then answer normally.
+Case A - the message is already correct English (no spelling, grammar, punctuation, capitalisation or word-choice mistake):
+- Reply with ONE short line only, exactly in this form: **Correction:** Your sentence is correct ✓
+- Do not repeat the user's sentence. Do not write "What changed". Do not answer, comment or add anything after that line.
 
-Part 2 - Put a line with --- and then answer the question or reply to the message normally, as a helpful assistant, in a friendly tone. Answer the corrected meaning of the sentence. If the message was only a greeting or a statement, reply naturally to it.
+Case B - the message has English mistakes:
+- Part 1: **Correction:** <the full corrected sentence or sentences>
+- Then on a new line: *What changed:* <one short line naming the main fixes, for example "'goed' -> 'went'; added a question mark">
+- Part 2: a line with --- and then answer the question or reply to the message normally, as a helpful assistant, in a friendly tone. Answer the corrected meaning. Keep the correction and the answer clearly separate.
 
-Never skip Part 1, and never mix the correction into the answer. Keep Part 1 short."""
+Case C - the message is not written in English: write **Correction:** (not in English) and then reply normally.
+
+Keep the meaning and the user's voice when correcting; do not make it fancier than needed."""
+
+TONE_GUIDES = {
+    "Warm": "Tone: warm, caring and friendly, like a close friend.",
+    "Direct": "Tone: direct and to the point. Skip filler, pleasantries and emotional padding.",
+    "Encouraging": "Tone: upbeat and encouraging. Notice what is going well and offer gentle motivation.",
+    "Neutral": "Tone: calm, neutral and factual, without emotional language.",
+}
+
+LENGTH_GUIDES = {
+    "Brief": "Length: reply in one to three short sentences. Do not use lists or long explanations unless the user explicitly asks for detail.",
+    "Balanced": "Length: keep replies to a few short paragraphs at most. Be concise but complete.",
+    "Detailed": "Length: give a thorough reply with clear explanation, steps or examples where they help. Stay easy to read.",
+}
+
+# Brief replies get a hard token ceiling as well as the instruction above, so they stay short.
+LENGTH_TOKEN_CAPS = {"Brief": 300}
 
 MODES = ("Normal", "Romantic", "English correction")
 
@@ -209,7 +225,8 @@ def build_messages(
         topics = []
     topics = [str(topic)[:40] for topic in topics[:8]]
     preference_block = f"User preferences: tone={tone}; response length={response_length}; interests={', '.join(topics) or 'not specified'}."
-    system_parts = [SYSTEM_PROMPT, preference_block, current_time_note(timezone_name)]
+    style_lines = [TONE_GUIDES.get(tone, TONE_GUIDES["Warm"]), LENGTH_GUIDES.get(response_length, LENGTH_GUIDES["Balanced"])]
+    system_parts = [SYSTEM_PROMPT, preference_block, "\n".join(style_lines), current_time_note(timezone_name)]
     mode = chat_mode(preferences)
     recent = _recent(conversation, limit, mode)
     if mode == "Romantic":
@@ -232,6 +249,12 @@ def build_messages(
     return messages
 
 
+def reply_token_cap(preferences: dict[str, Any] | None) -> int | None:
+    """Optional token ceiling for the chosen reply length (None keeps the configured maximum)."""
+    response_length = str((preferences or {}).get("response_length", "Balanced"))
+    return LENGTH_TOKEN_CAPS.get(response_length)
+
+
 def stream_reply(
     conversation: dict[str, Any],
     preferences: dict[str, Any] | None = None,
@@ -247,4 +270,4 @@ def stream_reply(
         timezone_name=timezone_name,
         search_result=search_result,
     )
-    return stream_completion(messages)
+    return stream_completion(messages, max_tokens=reply_token_cap(preferences))

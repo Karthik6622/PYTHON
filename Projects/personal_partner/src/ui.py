@@ -36,6 +36,7 @@ from .social_auth import (
 from .validation import safe_conversation_title, validate_message
 from .voice import VoiceError, synthesize_speech, transcribe_audio, voice_for
 from .styles import APP_CSS, BRAND_HTML, auth_header_html
+from .futuristic import FUTURISTIC_CSS
 from .welcome_design import (
     WELCOME_CSS,
     WELCOME_FONT_CSS,
@@ -57,6 +58,7 @@ def _now() -> str:
 
 def apply_styles() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
+    st.markdown(FUTURISTIC_CSS, unsafe_allow_html=True)
 
 
 def _set_authenticated(user: dict[str, Any]) -> None:
@@ -137,6 +139,7 @@ def _show_social_error() -> None:
 def render_welcome() -> None:
     _show_social_error()
     st.markdown(WELCOME_FONT_CSS + WELCOME_CSS, unsafe_allow_html=True)
+    st.markdown(FUTURISTIC_CSS, unsafe_allow_html=True)
     with st.container(key="ks_welcome"):
         with st.container(key="ks_nav"):
             st.markdown(nav_brand_html(), unsafe_allow_html=True)

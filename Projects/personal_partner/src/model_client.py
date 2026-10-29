@@ -76,9 +76,11 @@ def _openai_client(settings: ModelSettings):
     )
 
 
-def stream_completion(messages: list[dict[str, str]]) -> Iterator[str]:
+def stream_completion(messages: list[dict[str, str]], max_tokens: int | None = None) -> Iterator[str]:
+    """Stream a reply. max_tokens, when given, can only lower the configured LLM_MAX_TOKENS limit."""
     settings = get_model_settings()
     client = _openai_client(settings)
+    token_limit = settings.max_tokens if max_tokens is None else min(settings.max_tokens, max(64, max_tokens))
     errors: list[Exception] = []
     for options in _THINKING_OFF_VARIANTS:
         stream = None
@@ -89,7 +91,7 @@ def stream_completion(messages: list[dict[str, str]]) -> Iterator[str]:
                 messages=messages,
                 temperature=settings.temperature,
                 top_p=0.95,
-                max_tokens=settings.max_tokens,
+                max_tokens=token_limit,
                 stream=True,
                 **options,
             )
