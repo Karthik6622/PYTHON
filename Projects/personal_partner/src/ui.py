@@ -11,7 +11,7 @@ from typing import Any
 import streamlit as st
 
 from . import storage
-from .assistant import MODES, chat_mode, stream_reply
+from .assistant import MODES, chat_mode, messages_for_mode, stream_reply
 from .auth import (
     AccountLockedError,
     AccountValidationError,
@@ -371,12 +371,16 @@ def _conversation_sidebar(user_id: str, conversations: list[dict[str, Any]]) -> 
             _logout()
 
 
-def _show_conversation(conversation: dict[str, Any]) -> None:
-    for message in conversation.get("messages", []):
+def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> None:
+    visible = messages_for_mode(conversation, mode)
+    if mode == "Romantic" and not visible:
+        st.caption("♥ This chat is just for the two of you. It stays here and never shows up in the other modes. Say hi!")
+    for message in visible:
         role = str(message.get("role", "assistant"))
         if role not in {"user", "assistant"}:
             continue
-        with st.chat_message(role, avatar="🙂" if role == "user" else "🌿"):
+        avatar = "🙂" if role == "user" else ("❤️" if mode == "Romantic" else "🌿")
+        with st.chat_message(role, avatar=avatar):
             st.markdown(str(message.get("content", "")))
 
 
@@ -386,14 +390,16 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
         st.error(error)
         return
     conversation_id = str(conversation["conversation_id"])
+    mode = chat_mode(st.session_state.get("user_preferences", {}))
+    mode_tag = {"mode": "Romantic"} if mode == "Romantic" else {}
     if message_id is None:
         message_id = uuid.uuid4().hex
         storage.append_message(
             user_id,
             conversation_id,
-            {"message_id": message_id, "role": "user", "content": content.strip(), "created_at": _now()},
+            {"message_id": message_id, "role": "user", "content": content.strip(), "created_at": _now(), **mode_tag},
         )
-        if len(conversation.get("messages", [])) <= 1:
+        if mode != "Romantic" and len(messages_for_mode(conversation, mode)) <= 1:
             storage.rename_conversation(user_id, conversation_id, safe_conversation_title(content))
     st.session_state.pending_message_id = message_id
     st.session_state.pending_conversation_id = conversation_id
@@ -407,8 +413,8 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
         st.error("This conversation is no longer available. Start a new chat.")
         return
     try:
-        with st.chat_message("assistant", avatar="🌿"):
-            with st.status("WithYou is typing…", expanded=False) as status:
+        with st.chat_message("assistant", avatar="❤️" if mode == "Romantic" else "🌿"):
+            with st.status("Typing…" if mode == "Romantic" else "WithYou is typing…", expanded=False) as status:
                 response = st.write_stream(stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone()))
                 if not isinstance(response, str) or not response.strip():
                     raise RuntimeError("The assistant returned an empty response.")
@@ -416,7 +422,7 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
         storage.append_message(
             user_id,
             conversation_id,
-            {"message_id": uuid.uuid4().hex, "role": "assistant", "content": response.strip(), "created_at": _now()},
+            {"message_id": uuid.uuid4().hex, "role": "assistant", "content": response.strip(), "created_at": _now(), **mode_tag},
         )
         st.session_state.pop("pending_message_id", None)
         st.session_state.pop("pending_conversation_id", None)
@@ -504,7 +510,7 @@ def render_chat(user_id: str) -> None:
         return
     mode = _mode_selector(user_id)
     _chat_header(conversation, mode)
-    _show_conversation(conversation)
+    _show_conversation(conversation, mode)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
     if pending_id and pending_conversation == active_id:
@@ -537,7 +543,7 @@ def render_profile(user_id: str) -> None:
         active = next((item for item in conversations if item.get("conversation_id") == st.session_state.get("active_conversation_id")), conversations[0])
         st.download_button(
             "Export selected conversation as Markdown",
-            storage.export_conversation_as_markdown(active),
+            storage.export_conversation_as_markdown({**active, "messages": messages_for_mode(active, "Normal")}),
             file_name="withyou-conversation.md",
             mime="text/markdown",
             use_container_width=True,

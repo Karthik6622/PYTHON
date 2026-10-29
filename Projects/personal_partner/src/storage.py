@@ -392,6 +392,8 @@ def append_message(user_id: str, conversation_id: str, message: dict[str, Any]) 
         "content": str(message.get("content", ""))[:8_000],
         "created_at": str(message.get("created_at") or _now()),
     }
+    if message.get("mode") == "Romantic":
+        safe_message["mode"] = "Romantic"
     path = _conversation_path(user_id)
     with FileLock(f"{path}.lock"):
         _, conversations = _read_conversations_locked(user_id)

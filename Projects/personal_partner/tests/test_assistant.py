@@ -51,6 +51,48 @@ def test_normal_mode_and_legacy_romantic_topic():
     assert "mode is ON" not in plain
 
 
+def _msg(role, text, when, mode=None):
+    item = {"role": role, "content": text, "created_at": when}
+    if mode:
+        item["mode"] = mode
+    return item
+
+
+def test_romantic_messages_are_isolated_from_other_modes():
+    conversation = {
+        "messages": [
+            _msg("user", "normal question", "2026-10-29T10:00:00+00:00"),
+            _msg("assistant", "normal answer", "2026-10-29T10:00:05+00:00"),
+            _msg("user", "good morning love", "2026-10-29T10:01:00+00:00", "Romantic"),
+            _msg("assistant", "morning baby", "2026-10-29T10:01:05+00:00", "Romantic"),
+        ]
+    }
+    romantic = assistant.build_messages(conversation, {"mode": "Romantic"})[1:]
+    other = assistant.build_messages(conversation, {"mode": "English correction"})[1:]
+    assert [m["content"] for m in romantic] == ["good morning love", "morning baby"]
+    assert [m["content"] for m in other] == ["normal question", "normal answer"]
+
+
+def test_romantic_mode_notes_how_long_the_user_was_away():
+    conversation = {
+        "messages": [
+            _msg("user", "hi", "2026-10-29T10:00:00+00:00", "Romantic"),
+            _msg("assistant", "hey you", "2026-10-29T10:00:05+00:00", "Romantic"),
+            _msg("user", "i'm back", "2026-10-29T11:30:00+00:00", "Romantic"),
+        ]
+    }
+    text = system_text(assistant.build_messages(conversation, {"mode": "Romantic"}, timezone_name="Asia/Kolkata"))
+    assert "away for 1 hour 29 minutes" in text and "ask where they have been" in text
+    quick = {
+        "messages": [
+            _msg("assistant", "hey", "2026-10-29T10:00:00+00:00", "Romantic"),
+            _msg("user", "hi", "2026-10-29T10:00:30+00:00", "Romantic"),
+        ]
+    }
+    assert "Do not mention any gap" in system_text(assistant.build_messages(quick, {"mode": "Romantic"}))
+    assert "Message timing" not in system_text(assistant.build_messages(conversation, {"mode": "Normal"}))
+
+
 def use_key(monkeypatch, key="tvly-test-key"):
     monkeypatch.setattr(web_search, "tavily_api_key", lambda: key)
 
