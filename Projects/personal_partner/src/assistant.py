@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from .live_info import current_time_note, resolve_timezone
-from .model_client import stream_completion
+from .model_client import complete_text, stream_completion
 from .router import decide_search
 from .web_search import search_note
 
@@ -216,6 +216,7 @@ def build_messages(
     limit: int = 20,
     timezone_name: str | None = None,
     search_result: str | None = None,
+    extra_note: str | None = None,
 ) -> list[dict[str, str]]:
     preferences = preferences or {}
     tone = str(preferences.get("tone", "Warm"))[:30]
@@ -236,6 +237,8 @@ def build_messages(
             system_parts.append(timing)
     elif mode == "English correction":
         system_parts.append(ENGLISH_PROMPT)
+        if extra_note:
+            system_parts.append(extra_note)
     if search_result:
         system_parts.append(search_result)
 
@@ -255,19 +258,64 @@ def reply_token_cap(preferences: dict[str, Any] | None) -> int | None:
     return LENGTH_TOKEN_CAPS.get(response_length)
 
 
+CORRECT_ENGLISH_LINE = "**Correction:** Your sentence is correct ✓"
+
+_CHECK_PROMPT = (
+    "You check English. Reply with only YES if the text is already correct English, with no spelling, grammar, "
+    "punctuation, capitalisation or word-choice mistakes. Reply with only NO if it has any mistake or is not English."
+)
+
+
+def _latest_user_text(conversation: dict[str, Any], mode: str) -> str:
+    for message in reversed(_recent(conversation, mode=mode)):
+        if message.get("role") == "user" and isinstance(message.get("content"), str):
+            return message["content"].strip()
+    return ""
+
+
+def _is_correct_english(text: str) -> bool | None:
+    """True if the text is already correct English, False if it has mistakes, None if the check could not run."""
+    try:
+        verdict = complete_text(
+            [{"role": "system", "content": _CHECK_PROMPT}, {"role": "user", "content": text[:2_000]}],
+            max_tokens=5,
+        )
+    except Exception:
+        return None
+    word = verdict.strip().strip(".!").upper()
+    if word.startswith("YES"):
+        return True
+    if word.startswith("NO"):
+        return False
+    return None
+
+
 def stream_reply(
     conversation: dict[str, Any],
     preferences: dict[str, Any] | None = None,
     timezone_name: str | None = None,
 ) -> Iterator[str]:
-    """Nemotron decides whether to search; Tavily runs only when it asks; Nemotron writes the final reply."""
+    """Nemotron decides whether to search; Tavily runs only when it asks; Nemotron writes the final reply.
+
+    In English correction mode a correct sentence gets only the confirmation line, with no model reply.
+    """
     preferences = preferences or {}
-    query = decide_search(_recent(conversation, mode=chat_mode(preferences)), preferences, timezone_name)
+    mode = chat_mode(preferences)
+    extra_note = None
+    if mode == "English correction":
+        latest = _latest_user_text(conversation, mode)
+        verdict = _is_correct_english(latest) if latest else None
+        if verdict is True:
+            return iter([CORRECT_ENGLISH_LINE])
+        if verdict is False:
+            extra_note = "English check: the latest message has English mistakes, so use Case B."
+    query = decide_search(_recent(conversation, mode=mode), preferences, timezone_name)
     search_result = search_note(query) if query else None
     messages = build_messages(
         conversation,
         preferences,
         timezone_name=timezone_name,
         search_result=search_result,
+        extra_note=extra_note,
     )
     return stream_completion(messages, max_tokens=reply_token_cap(preferences))

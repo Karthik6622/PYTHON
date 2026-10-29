@@ -64,6 +64,36 @@ def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
     assert assistant.reply_token_cap({}) is None
 
 
+def test_correct_english_returns_only_the_confirmation(monkeypatch):
+    monkeypatch.setattr(assistant, "complete_text", lambda messages, max_tokens=200: "YES")
+
+    def no_model(*args, **kwargs):
+        raise AssertionError("a correct sentence must not reach the model")
+
+    monkeypatch.setattr(assistant, "stream_completion", no_model)
+    reply = "".join(assistant.stream_reply(convo("Hey, I watched yesterday's movie."), {"mode": "English correction"}))
+    assert reply == assistant.CORRECT_ENGLISH_LINE
+
+
+def test_sentence_with_mistakes_gets_the_correction_note(monkeypatch):
+    monkeypatch.setattr(assistant, "complete_text", lambda messages, max_tokens=200: "NO")
+    fake_router(monkeypatch, '{"action": "ANSWER"}')
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("i goed home"), {"mode": "English correction"}))
+    assert "use Case B" in system_text(sent["messages"])
+
+
+def test_failed_english_check_falls_back_to_normal_reply(monkeypatch):
+    def boom(messages, max_tokens=200):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(assistant, "complete_text", boom)
+    fake_router(monkeypatch, '{"action": "ANSWER"}')
+    sent = fake_stream(monkeypatch)
+    assert list(assistant.stream_reply(convo("i goed home"), {"mode": "English correction"})) == ["ok"]
+    assert "use Case B" not in system_text(sent["messages"])
+
+
 def test_normal_mode_and_legacy_romantic_topic():
     assert assistant.chat_mode({"mode": "Normal", "topics": ["Romantic"]}) == "Normal"
     assert assistant.chat_mode({"topics": ["Romantic"]}) == "Romantic"

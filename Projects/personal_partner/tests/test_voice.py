@@ -67,6 +67,23 @@ def test_transcribe_rejects_empty_audio():
         voice.transcribe_audio(b"")
 
 
+def test_transcribe_fast_prefers_whisper(monkeypatch):
+    monkeypatch.setattr(voice, "groq_configured", lambda: True)
+    monkeypatch.setattr(voice, "_whisper_transcribe", lambda wav: "fast whisper")
+    monkeypatch.setattr(voice, "_nvidia_transcribe", lambda wav: pytest.fail("NVIDIA should not be tried first"))
+    assert voice.transcribe_audio(_wav(), fast=True) == "fast whisper"
+
+
+def test_transcribe_fast_falls_back_to_nvidia(monkeypatch):
+    def broken(wav):
+        raise voice.VoiceError("whisper down")
+
+    monkeypatch.setattr(voice, "groq_configured", lambda: True)
+    monkeypatch.setattr(voice, "_whisper_transcribe", broken)
+    monkeypatch.setattr(voice, "_nvidia_transcribe", lambda wav: "from nvidia")
+    assert voice.transcribe_audio(_wav(), fast=True) == "from nvidia"
+
+
 def test_clean_transcript_handles_thinking_and_silence():
     assert voice._clean_transcript("<think>hmm</think>Hi there") == "Hi there"
     assert voice._clean_transcript("[no speech]") == ""

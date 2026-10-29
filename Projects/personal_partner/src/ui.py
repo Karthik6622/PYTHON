@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import html
 import logging
 import uuid
@@ -36,6 +37,7 @@ from .social_auth import (
 from .validation import safe_conversation_title, validate_message
 from .voice import VoiceError, synthesize_speech, transcribe_audio, voice_for
 from .styles import APP_CSS, BRAND_HTML, auth_header_html
+from .continuous_voice import continuous_mic
 from .futuristic import FUTURISTIC_CSS
 from .welcome_design import (
     WELCOME_CSS,
@@ -531,6 +533,56 @@ def _voice_message(user_id: str, conversation: dict[str, Any], audio: Any, speak
     _send_message(user_id, conversation, text, speak=speak)
 
 
+def _enable_speak_for_continuous() -> None:
+    """Continuous voice chat always speaks its replies, so turning it on also turns Speak replies on."""
+    if st.session_state.get("continuous_voice"):
+        st.session_state["speak_voice_replies"] = True
+
+
+def _queue_continuous_reply(audio: bytes) -> None:
+    """Hand a reply to the mic component. The audio is sent once; later runs only repeat the id."""
+    st.session_state["continuous_reply_id"] = int(st.session_state.get("continuous_reply_id", 0)) + 1
+    st.session_state["continuous_reply_audio"] = base64.b64encode(audio).decode("ascii") if audio else ""
+
+
+def _continuous_turn(user_id: str, conversation: dict[str, Any], encoded_wav: str) -> None:
+    """One finished sentence: speech -> text -> normal chat reply -> spoken reply. Always releases the mic when done."""
+    st.session_state["continuous_turn_open"] = True
+    try:
+        text = transcribe_audio(base64.b64decode(encoded_wav), fast=True)
+    except VoiceError as exc:
+        st.session_state["voice_notice"] = str(exc)
+        st.rerun()
+    except ValueError:
+        st.session_state["voice_notice"] = "The recording could not be read. Please try again."
+        st.rerun()
+    if not text:
+        st.session_state["voice_notice"] = "I couldn't hear anything. Keep talking, or speak a little closer to the mic."
+        st.rerun()
+    with st.chat_message("user", avatar="🙂"):
+        st.markdown(f"🎤 {text}")
+    _send_message(user_id, conversation, text, speak=True)
+
+
+def _continuous_voice(user_id: str, conversation: dict[str, Any], active_id: str | None) -> None:
+    """Keep the hands-free mic running and route spoken replies to it."""
+    voice_reply = st.session_state.pop("voice_reply", None)
+    turn_open = st.session_state.pop("continuous_turn_open", False)
+    if voice_reply and voice_reply.get("conversation_id") == active_id:
+        _queue_continuous_reply(voice_reply["audio"])
+    elif turn_open:
+        _queue_continuous_reply(b"")
+    utterance = continuous_mic(
+        reply_id=int(st.session_state.get("continuous_reply_id", 0)),
+        reply_audio=str(st.session_state.get("continuous_reply_audio", "")),
+        key="continuous_mic",
+    )
+    st.session_state["continuous_reply_audio"] = ""
+    if utterance and utterance.get("id") != st.session_state.get("last_utterance_id"):
+        st.session_state["last_utterance_id"] = utterance.get("id")
+        _continuous_turn(user_id, conversation, str(utterance.get("audio", "")))
+
+
 def render_chat(user_id: str) -> None:
     conversations = _ensure_conversation(user_id)
     _conversation_sidebar(user_id, conversations)
@@ -545,9 +597,19 @@ def render_chat(user_id: str) -> None:
     notice = st.session_state.pop("voice_notice", None)
     if notice:
         st.warning(notice)
-    voice_reply = st.session_state.pop("voice_reply", None)
-    if voice_reply and voice_reply.get("conversation_id") == active_id:
-        st.audio(voice_reply["audio"], format="audio/wav", autoplay=True)
+    continuous = st.toggle(
+        "🎙️ Continuous voice chat",
+        key="continuous_voice",
+        on_change=_enable_speak_for_continuous,
+        help="Hands-free: the mic stays on, each sentence ends after 3 seconds of silence, and replies are spoken automatically.",
+    )
+    speak = st.toggle("🔊 Speak replies", key="speak_voice_replies", disabled=continuous) or continuous
+    if continuous:
+        _continuous_voice(user_id, conversation, active_id)
+    else:
+        voice_reply = st.session_state.pop("voice_reply", None)
+        if voice_reply and voice_reply.get("conversation_id") == active_id:
+            st.audio(voice_reply["audio"], format="audio/wav", autoplay=True)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
     if pending_id and pending_conversation == active_id:
@@ -564,7 +626,6 @@ def render_chat(user_id: str) -> None:
                 st.error("The message to retry could not be found.")
         return
 
-    speak = st.toggle("🔊 Speak replies to my voice messages", value=True, key="speak_voice_replies")
     entry = st.chat_input("Type a message or tap the mic…", max_chars=8_000, accept_audio=True, audio_sample_rate=16000)
     if entry is None:
         return
@@ -573,7 +634,7 @@ def render_chat(user_id: str) -> None:
     if audio is not None and not text:
         _voice_message(user_id, conversation, audio, speak)
     elif text:
-        _send_message(user_id, conversation, text)
+        _send_message(user_id, conversation, text, speak=speak)
 
 
 def render_profile(user_id: str) -> None:

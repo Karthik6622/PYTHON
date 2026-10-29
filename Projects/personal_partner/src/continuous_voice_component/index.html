@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Continuous voice chat</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  #bar {
+    box-sizing: border-box; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    border: 1px solid rgba(34, 211, 238, 0.45); border-radius: 12px;
+    background: linear-gradient(90deg, rgba(11, 20, 38, 0.95), rgba(19, 12, 40, 0.95));
+    color: #E6F7FF; font: 14px "Segoe UI", system-ui, sans-serif;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.15);
+  }
+  #dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #22D3EE; box-shadow: 0 0 10px #22D3EE; }
+  #bar.recording #dot { background: #F472B6; box-shadow: 0 0 12px #F472B6; animation: pulse 1s ease-in-out infinite; }
+  #bar.thinking #dot { background: #FBBF24; box-shadow: 0 0 10px #FBBF24; }
+  #bar.speaking #dot { background: #A78BFA; box-shadow: 0 0 12px #A78BFA; animation: pulse 0.8s ease-in-out infinite; }
+  #bar.error #dot { background: #F87171; box-shadow: 0 0 10px #F87171; }
+  #label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #tap {
+    border: 1px solid #22D3EE; background: transparent; color: #22D3EE; border-radius: 999px;
+    padding: 4px 12px; cursor: pointer; font: inherit;
+  }
+  #tap[hidden] { display: none; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+</style>
+</head>
+<body>
+<div id="bar" class="starting">
+  <span id="dot"></span>
+  <span id="label">Starting microphone…</span>
+  <button id="tap" type="button" hidden>Tap to enable</button>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  // Timing rules for hands-free chat.
+  var SILENCE_MS = 3000;      // 3 seconds without sound ends the sentence.
+  var MIN_SPEECH_MS = 400;    // shorter sounds (clicks, coughs) are ignored.
+  var MAX_TURN_MS = 60000;    // hard cap for one sentence.
+  var WAIT_LIMIT_MS = 60000;  // stop waiting for a reply after this long.
+  var COOLDOWN_MS = 700;      // ignore the echo tail right after a reply.
+
+  var bar = document.getElementById("bar");
+  var label = document.getElementById("label");
+  var tap = document.getElementById("tap");
+
+  // States: starting -> listening -> recording -> thinking -> speaking -> listening (repeats).
+  var state = "starting";
+  var mounted = false;
+  var seenReplyId = null;
+  var stream = null, ctx = null, analyser = null, samples = null, timer = null;
+  var recorder = null, chunks = [], turnStart = 0, lastVoice = 0;
+  var noise = 0.005, cooldownUntil = 0, waitingSince = 0;
+  var gestureAction = null;
+
+  function post(type, data) {
+    var message = { isStreamlitMessage: true, type: type };
+    for (var key in data) { message[key] = data[key]; }
+    window.parent.postMessage(message, "*");
+  }
+
+  function setState(next, text) {
+    state = next;
+    bar.className = next;
+    label.textContent = text;
+  }
+
+  function needGesture(next, text, action) {
+    gestureAction = action;
+    setState(next, text);
+    tap.hidden = false;
+  }
+
+  tap.addEventListener("click", function () {
+    tap.hidden = true;
+    var action = gestureAction;
+    gestureAction = null;
+    if (action) { action(); }
+  });
+
+  function startMic() {
+    setState("starting", "Starting microphone…");
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    }).then(function (media) {
+      stream = media;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      return ctx.resume().then(function () { return ctx; }, function () { return ctx; });
+    }).then(function () {
+      if (ctx.state === "running") {
+        startListening();
+      } else {
+        needGesture("listening", "Tap to start listening", function () {
+          ctx.resume().then(startListening, startListening);
+        });
+      }
+    }).catch(function () {
+      needGesture("error", "Microphone blocked. Tap to allow it.", startMic);
+    });
+  }
+
+  function startListening() {
+    if (analyser) { return; }
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    samples = new Float32Array(analyser.fftSize);
+    timer = setInterval(tick, 50);
+    setState("listening", "Listening. Just speak.");
+  }
+
+  function level() {
+    analyser.getFloatTimeDomainData(samples);
+    var sum = 0;
+    for (var i = 0; i < samples.length; i++) { sum += samples[i] * samples[i]; }
+    return Math.sqrt(sum / samples.length);
+  }
+
+  function tick() {
+    var now = Date.now();
+    var lvl = level();
+    if (state === "listening") {
+      noise = noise * 0.98 + Math.min(lvl, 0.05) * 0.02;
+      if (now >= cooldownUntil && lvl > Math.max(0.02, noise * 3)) {
+        startRecording(now);
+      }
+    } else if (state === "recording") {
+      if (lvl > Math.max(0.012, noise * 2)) { lastVoice = now; }
+      if (now - lastVoice >= SILENCE_MS || now - turnStart >= MAX_TURN_MS) {
+        finishRecording();
+      }
+    } else if (state === "thinking" && now - waitingSince > WAIT_LIMIT_MS) {
+      releaseToListening();
+    }
+  }
+
+  function startRecording(now) {
+    var type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].filter(function (candidate) {
+      return window.MediaRecorder && MediaRecorder.isTypeSupported(candidate);
+    })[0];
+    recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    chunks = [];
+    recorder.ondataavailable = function (event) {
+      if (event.data && event.data.size) { chunks.push(event.data); }
+    };
+    recorder.start(250);
+    turnStart = now;
+    lastVoice = now;
+    setState("recording", "Listening to you…");
+  }
+
+  function finishRecording() {
+    var rec = recorder;
+    var spokeMs = lastVoice - turnStart;
+    recorder = null;
+    setState("thinking", "Thinking…");
+    waitingSince = Date.now();
+    rec.onstop = function () {
+      if (spokeMs < MIN_SPEECH_MS) { releaseToListening(); return; }
+      var blob = new Blob(chunks, { type: rec.mimeType });
+      toWavBase64(blob).then(function (wav) {
+        post("streamlit:setComponentValue", { value: { id: Date.now(), audio: wav }, dataType: "json" });
+      }).catch(function () { releaseToListening(); });
+    };
+    rec.stop();
+  }
+
+  function releaseToListening() {
+    if (!analyser) { return; }
+    setState("listening", "Listening. Just speak.");
+  }
+
+  // Convert the recording to 16 kHz mono WAV so the server can send it straight to speech-to-text.
+  function toWavBase64(blob) {
+    return blob.arrayBuffer().then(function (data) {
+      return ctx.decodeAudioData(data);
+    }).then(function (decoded) {
+      var frames = Math.max(1, Math.ceil(decoded.duration * 16000));
+      var offline = new OfflineAudioContext(1, frames, 16000);
+      var source = offline.createBufferSource();
+      source.buffer = decoded;
+      source.connect(offline.destination);
+      source.start();
+      return offline.startRendering();
+    }).then(function (rendered) {
+      return encodeWav(rendered.getChannelData(0), 16000);
+    });
+  }
+
+  function encodeWav(floats, sampleRate) {
+    var buffer = new ArrayBuffer(44 + floats.length * 2);
+    var view = new DataView(buffer);
+    function writeText(offset, text) {
+      for (var i = 0; i < text.length; i++) { view.setUint8(offset + i, text.charCodeAt(i)); }
+    }
+    writeText(0, "RIFF");
+    view.setUint32(4, 36 + floats.length * 2, true);
+    writeText(8, "WAVE");
+    writeText(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeText(36, "data");
+    view.setUint32(40, floats.length * 2, true);
+    var offset = 44;
+    for (var j = 0; j < floats.length; j++, offset += 2) {
+      var s = Math.max(-1, Math.min(1, floats[j]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return bytesToBase64(new Uint8Array(buffer));
+  }
+
+  function bytesToBase64(bytes) {
+    var binary = "";
+    var chunk = 0x8000;
+    for (var i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  // A reply arrived from the server: play it, then listen again.
+  function onReply(encoded) {
+    if (recorder) {
+      var rec = recorder;
+      recorder = null;
+      rec.onstop = null;
+      try { rec.stop(); } catch (err) { /* already stopped */ }
+    }
+    if (!encoded) {
+      cooldownUntil = Date.now() + COOLDOWN_MS;
+      releaseToListening();
+      return;
+    }
+    var audio = new Audio("data:audio/wav;base64," + encoded);
+    var finish = function () {
+      cooldownUntil = Date.now() + COOLDOWN_MS;
+      releaseToListening();
+    };
+    audio.onended = finish;
+    audio.onerror = finish;
+    setState("speaking", "Speaking…");
+    audio.play().catch(function () {
+      needGesture("speaking", "Tap to hear the reply", function () {
+        audio.play().catch(finish);
+      });
+    });
+  }
+
+  function stopAll() {
+    if (timer) { clearInterval(timer); }
+    if (stream) { stream.getTracks().forEach(function (track) { track.stop(); }); }
+    if (ctx && ctx.close) { ctx.close(); }
+  }
+
+  window.addEventListener("message", function (event) {
+    var msg = event.data;
+    if (!msg || msg.type !== "streamlit:render") { return; }
+    var args = msg.args || {};
+    var replyId = args.reply_id === undefined ? 0 : args.reply_id;
+    if (!mounted) {
+      // First render: remember the current reply so an old reply is not spoken again.
+      mounted = true;
+      seenReplyId = replyId;
+      startMic();
+      return;
+    }
+    if (replyId !== seenReplyId) {
+      seenReplyId = replyId;
+      onReply(args.reply_audio || "");
+    }
+  });
+
+  window.addEventListener("pagehide", stopAll);
+  post("streamlit:componentReady", { apiVersion: 1 });
+  post("streamlit:setFrameHeight", { height: 52 });
+})();
+</script>
+</body>
+</html>

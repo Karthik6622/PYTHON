@@ -10,6 +10,7 @@ import io
 import re
 import unicodedata
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import httpx
@@ -110,12 +111,20 @@ def _whisper_transcribe(wav: bytes) -> str:
         raise VoiceError("Whisper could not transcribe the audio. Please try again.") from exc
 
 
-def transcribe_audio(wav: bytes) -> str:
-    """NVIDIA Nemotron omni first; Groq Whisper (whisper-large-v3) if that fails. Returns '' when no speech was heard."""
+def transcribe_audio(wav: bytes, fast: bool = False) -> str:
+    """NVIDIA Nemotron omni first; Groq Whisper (whisper-large-v3) if that fails. Returns '' when no speech was heard.
+
+    fast=True tries Groq Whisper first, which is quicker for short hands-free sentences, then falls back to NVIDIA.
+    """
     if not wav:
         raise VoiceError("No audio was recorded.")
     if len(wav) > MAX_AUDIO_BYTES:
         raise VoiceError("That recording is too long. Please record a shorter message.")
+    if fast and groq_configured():
+        try:
+            return _whisper_transcribe(wav)
+        except VoiceError:
+            return _nvidia_transcribe(wav)
     try:
         return _nvidia_transcribe(wav)
     except VoiceError as nvidia_error:
@@ -190,30 +199,36 @@ def voice_for(preferences: dict[str, Any] | None) -> str:
     return "hannah"
 
 
+def _speech_chunk(key: str, model: str, voice: str, chunk: str) -> bytes:
+    response = httpx.post(
+        f"{GROQ_BASE_URL}/audio/speech",
+        headers={"Authorization": f"Bearer {key}"},
+        json={"model": model, "input": chunk, "voice": voice, "response_format": "wav"},
+        timeout=60,
+    )
+    if response.status_code >= 400:
+        detail = ""
+        try:
+            detail = str(response.json().get("error", {}).get("message", ""))
+        except Exception:
+            pass
+        raise VoiceError(f"Spoken replies are unavailable right now ({detail or response.status_code}).")
+    return response.content
+
+
 def synthesize_speech(text: str, voice: str = "hannah") -> bytes:
-    """Turn reply text into WAV audio with Groq text-to-speech. Raises VoiceError if it cannot."""
+    """Turn reply text into WAV audio with Groq text-to-speech. Raises VoiceError if it cannot.
+
+    Chunks are requested in parallel and joined in order, so long replies finish sooner.
+    """
     chunks = split_for_speech(speakable_text(text))
     if not chunks:
         raise VoiceError("There was nothing to read aloud.")
     key = _groq_key()
     model = _configured("GROQ_TTS_MODEL", DEFAULT_TTS_MODEL)
-    parts: list[bytes] = []
     try:
-        for chunk in chunks:
-            response = httpx.post(
-                f"{GROQ_BASE_URL}/audio/speech",
-                headers={"Authorization": f"Bearer {key}"},
-                json={"model": model, "input": chunk, "voice": voice, "response_format": "wav"},
-                timeout=60,
-            )
-            if response.status_code >= 400:
-                detail = ""
-                try:
-                    detail = str(response.json().get("error", {}).get("message", ""))
-                except Exception:
-                    pass
-                raise VoiceError(f"Spoken replies are unavailable right now ({detail or response.status_code}).")
-            parts.append(response.content)
+        with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as pool:
+            parts = list(pool.map(lambda chunk: _speech_chunk(key, model, voice, chunk), chunks))
         return merge_wav(parts)
     except httpx.HTTPError as exc:
         raise VoiceError("Spoken replies are unavailable right now. Please try again.") from exc
