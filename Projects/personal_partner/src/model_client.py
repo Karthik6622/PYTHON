@@ -64,6 +64,21 @@ _THINKING_OFF_VARIANTS = (
 )
 
 
+REQUEST_TIMEOUT_SECONDS = 45.0
+
+# Errors where trying another request variant cannot help, so fail fast instead of waiting again.
+_FATAL_ERRORS = {
+    "APITimeoutError",
+    "APIConnectionError",
+    "AuthenticationError",
+    "PermissionDeniedError",
+    "RateLimitError",
+}
+
+_THINK_OPEN = "<think>"
+_THINK_CLOSE = "</think>"
+
+
 def _openai_client(settings: ModelSettings):
     try:
         from openai import OpenAI
@@ -73,11 +88,76 @@ def _openai_client(settings: ModelSettings):
         api_key=settings.api_key,
         base_url=settings.base_url,
         max_retries=0,
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
+
+
+def _is_fatal(exc: Exception) -> bool:
+    return type(exc).__name__ in _FATAL_ERRORS
+
+
+def describe_model_error(exc: Exception) -> str:
+    """A short, user-facing reason for a failed model call."""
+    if isinstance(exc, ModelConfigurationError):
+        return str(exc)
+    name = type(exc).__name__
+    if name == "APITimeoutError":
+        return "The model took too long to answer. Please try again."
+    if name == "RateLimitError":
+        return "The model is busy right now. Please wait a moment and try again."
+    if name in {"AuthenticationError", "PermissionDeniedError"}:
+        return "The model rejected the API key. Check NVIDIA_API_KEY or LLM_API_KEY."
+    if name == "APIConnectionError":
+        return "Could not reach the model. Check your connection and try again."
+    if "empty response" in str(exc):
+        return "The model sent back an empty reply. Please try again."
+    return "The assistant couldn't reply just now. Please try again."
+
+
+def _partial_tag_length(text: str, tag: str) -> int:
+    for size in range(min(len(tag) - 1, len(text)), 0, -1):
+        if text.endswith(tag[:size]):
+            return size
+    return 0
+
+
+def strip_think_blocks(chunks: Iterator[str]) -> Iterator[str]:
+    """Drop <think>...</think> reasoning from a stream so it is never shown or spoken."""
+    buffer = ""
+    inside = False
+    for chunk in chunks:
+        buffer += chunk
+        while True:
+            if inside:
+                end = buffer.find(_THINK_CLOSE)
+                if end == -1:
+                    buffer = buffer[-(len(_THINK_CLOSE) - 1):]
+                    break
+                buffer = buffer[end + len(_THINK_CLOSE):].lstrip()
+                inside = False
+                continue
+            start = buffer.find(_THINK_OPEN)
+            if start == -1:
+                hold = _partial_tag_length(buffer, _THINK_OPEN)
+                ready = buffer[: len(buffer) - hold]
+                buffer = buffer[len(buffer) - hold:]
+                if ready:
+                    yield ready
+                break
+            if start:
+                yield buffer[:start]
+            buffer = buffer[start + len(_THINK_OPEN):]
+            inside = True
+    if not inside and buffer:
+        yield buffer
 
 
 def stream_completion(messages: list[dict[str, str]], max_tokens: int | None = None) -> Iterator[str]:
     """Stream a reply. max_tokens, when given, can only lower the configured LLM_MAX_TOKENS limit."""
+    return strip_think_blocks(_stream_raw(messages, max_tokens))
+
+
+def _stream_raw(messages: list[dict[str, str]], max_tokens: int | None = None) -> Iterator[str]:
     settings = get_model_settings()
     client = _openai_client(settings)
     token_limit = settings.max_tokens if max_tokens is None else min(settings.max_tokens, max(64, max_tokens))
@@ -105,7 +185,7 @@ def stream_completion(messages: list[dict[str, str]], max_tokens: int | None = N
             if emitted:
                 return
         except Exception as exc:
-            if emitted:
+            if emitted or _is_fatal(exc):
                 raise
             errors.append(exc)
         finally:
@@ -135,9 +215,13 @@ def complete_text(messages: list[dict[str, str]], max_tokens: int = 200) -> str:
                 **options,
             )
             content = response.choices[0].message.content if response.choices else None
-            if isinstance(content, str) and content.strip():
-                return content.strip()
+            if isinstance(content, str):
+                content = "".join(strip_think_blocks(iter([content]))).strip()
+            if content:
+                return content
         except Exception as exc:
+            if _is_fatal(exc):
+                raise
             errors.append(exc)
     if errors:
         raise errors[-1]

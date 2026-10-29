@@ -24,7 +24,7 @@ from .auth import (
     reset_password_for_email,
 )
 from .live_info import resolve_timezone
-from .model_client import ModelConfigurationError
+from .model_client import describe_model_error
 from .social_auth import (
     SocialLoginError,
     complete_github_callback,
@@ -392,6 +392,7 @@ def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> No
 
 def _send_message(
     user_id: str, conversation: dict[str, Any], content: str, message_id: str | None = None, speak: bool = False,
+    voice: bool = False,
 ) -> None:
     error = validate_message(content)
     if error:
@@ -424,7 +425,9 @@ def _send_message(
     try:
         with st.chat_message("assistant", avatar="❤️" if mode == "Romantic" else "🌿"):
             with st.status("Typing…" if mode == "Romantic" else "WithYou is typing…", expanded=False) as status:
-                response = st.write_stream(stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone()))
+                response = st.write_stream(
+                    stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone(), voice=voice)
+                )
                 if not isinstance(response, str) or not response.strip():
                     raise RuntimeError("The assistant returned an empty response.")
                 status.update(label="Reply ready", state="complete", expanded=False)
@@ -440,17 +443,16 @@ def _send_message(
                 st.session_state.voice_reply = {"conversation_id": conversation_id, "audio": audio}
             except VoiceError as exc:
                 st.session_state.voice_notice = str(exc)
+            except Exception:
+                LOGGER.exception("Spoken reply failed")
+                st.session_state.voice_notice = "The reply is ready, but it could not be spoken. Please try again."
         st.session_state.pop("pending_message_id", None)
         st.session_state.pop("pending_conversation_id", None)
         st.session_state.pop("pending_speak", None)
         st.rerun()
     except Exception as exc:
         LOGGER.exception("Model reply failed")
-        if isinstance(exc, ModelConfigurationError):
-            message = str(exc)
-        else:
-            message = "The assistant couldn't reply just now. Check your model settings or try again."
-        st.session_state.last_model_error = message
+        st.session_state.last_model_error = describe_model_error(exc)
         st.rerun()
 
 
@@ -561,7 +563,7 @@ def _continuous_turn(user_id: str, conversation: dict[str, Any], encoded_wav: st
         st.rerun()
     with st.chat_message("user", avatar="🙂"):
         st.markdown(f"🎤 {text}")
-    _send_message(user_id, conversation, text, speak=True)
+    _send_message(user_id, conversation, text, speak=True, voice=True)
 
 
 def _continuous_voice(user_id: str, conversation: dict[str, Any], active_id: str | None) -> None:

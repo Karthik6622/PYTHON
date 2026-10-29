@@ -246,3 +246,25 @@ def test_router_sees_history_and_saved_city_and_writes_follow_up_query(monkeypat
     assert "and before him?" in router_input[1]["content"]
     assert "Chennai" in router_input[0]["content"]
     assert queries == ["Tamil Nadu chief minister before the current one"]
+
+
+def test_voice_turn_is_short_and_speech_friendly(monkeypatch):
+    fake_router(monkeypatch, '{"action": "ANSWER"}')
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("how are you"), {}, voice=True))
+    assert assistant.VOICE_NOTE in system_text(sent["messages"])
+    assert sent["max_tokens"] == assistant.VOICE_TOKEN_CAP
+    sent = fake_stream(monkeypatch)
+    list(assistant.stream_reply(convo("how are you"), {}))
+    assert assistant.VOICE_NOTE not in system_text(sent["messages"])
+    assert sent["max_tokens"] is None
+
+
+def test_router_failure_still_gets_a_reply(monkeypatch):
+    def boom(messages, max_tokens=200):
+        raise RuntimeError("router down")
+
+    monkeypatch.setattr(router, "complete_text", boom)
+    sent = fake_stream(monkeypatch)
+    assert list(assistant.stream_reply(convo("hello"), {})) == ["ok"]
+    assert "messages" in sent

@@ -100,6 +100,11 @@ LENGTH_GUIDES = {
 
 # Brief replies get a hard token ceiling as well as the instruction above, so they stay short.
 LENGTH_TOKEN_CAPS = {"Brief": 300}
+VOICE_TOKEN_CAP = 400
+VOICE_NOTE = (
+    "Voice chat: your reply will be spoken aloud. Answer in a few short, natural sentences like in a phone call. "
+    "No lists, headings, tables, code blocks, markdown, links or emojis. Say numbers and symbols the way a person would speak them."
+)
 
 MODES = ("Normal", "Romantic", "English correction")
 
@@ -237,8 +242,8 @@ def build_messages(
             system_parts.append(timing)
     elif mode == "English correction":
         system_parts.append(ENGLISH_PROMPT)
-        if extra_note:
-            system_parts.append(extra_note)
+    if extra_note:
+        system_parts.append(extra_note)
     if search_result:
         system_parts.append(search_result)
 
@@ -294,10 +299,12 @@ def stream_reply(
     conversation: dict[str, Any],
     preferences: dict[str, Any] | None = None,
     timezone_name: str | None = None,
+    voice: bool = False,
 ) -> Iterator[str]:
     """Nemotron decides whether to search; Tavily runs only when it asks; Nemotron writes the final reply.
 
     In English correction mode a correct sentence gets only the confirmation line, with no model reply.
+    voice=True writes a short reply meant to be heard, not read.
     """
     preferences = preferences or {}
     mode = chat_mode(preferences)
@@ -309,7 +316,12 @@ def stream_reply(
             return iter([CORRECT_ENGLISH_LINE])
         if verdict is False:
             extra_note = "English check: the latest message has English mistakes, so use Case B."
-    query = decide_search(_recent(conversation, mode=mode), preferences, timezone_name)
+    if voice:
+        extra_note = f"{extra_note}\n\n{VOICE_NOTE}" if extra_note else VOICE_NOTE
+    try:
+        query = decide_search(_recent(conversation, mode=mode), preferences, timezone_name)
+    except Exception:
+        query = None
     search_result = search_note(query) if query else None
     messages = build_messages(
         conversation,
@@ -318,4 +330,7 @@ def stream_reply(
         search_result=search_result,
         extra_note=extra_note,
     )
-    return stream_completion(messages, max_tokens=reply_token_cap(preferences))
+    cap = reply_token_cap(preferences)
+    if voice:
+        cap = VOICE_TOKEN_CAP if cap is None else min(cap, VOICE_TOKEN_CAP)
+    return stream_completion(messages, max_tokens=cap)

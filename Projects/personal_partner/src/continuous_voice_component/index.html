@@ -2,35 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Continuous voice chat</title>
 <style>
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-  #bar {
-    box-sizing: border-box; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
-    border: 1px solid rgba(34, 211, 238, 0.45); border-radius: 12px;
-    background: linear-gradient(90deg, rgba(11, 20, 38, 0.95), rgba(19, 12, 40, 0.95));
+  #panel {
+    box-sizing: border-box; height: 128px; padding: 10px 14px 8px;
+    border: 1px solid rgba(34, 211, 238, 0.45); border-radius: 14px;
+    background: linear-gradient(90deg, rgba(11, 20, 38, 0.96), rgba(19, 12, 40, 0.96));
     color: #E6F7FF; font: 14px "Segoe UI", system-ui, sans-serif;
     box-shadow: 0 0 18px rgba(34, 211, 238, 0.15);
+    display: flex; flex-direction: column; gap: 6px;
   }
+  #row { display: flex; align-items: center; gap: 10px; min-height: 30px; }
   #dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #22D3EE; box-shadow: 0 0 10px #22D3EE; }
-  #bar.recording #dot { background: #F472B6; box-shadow: 0 0 12px #F472B6; animation: pulse 1s ease-in-out infinite; }
-  #bar.thinking #dot { background: #FBBF24; box-shadow: 0 0 10px #FBBF24; }
-  #bar.speaking #dot { background: #A78BFA; box-shadow: 0 0 12px #A78BFA; animation: pulse 0.8s ease-in-out infinite; }
-  #bar.error #dot { background: #F87171; box-shadow: 0 0 10px #F87171; }
-  #label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #panel.recording #dot { background: #F472B6; box-shadow: 0 0 12px #F472B6; animation: pulse 1s ease-in-out infinite; }
+  #panel.thinking #dot { background: #FBBF24; box-shadow: 0 0 10px #FBBF24; animation: pulse 0.7s ease-in-out infinite; }
+  #panel.speaking #dot { background: #A78BFA; box-shadow: 0 0 12px #A78BFA; animation: pulse 0.8s ease-in-out infinite; }
+  #panel.error #dot { background: #F87171; box-shadow: 0 0 10px #F87171; }
+  #label { flex: 1; min-width: 0; line-height: 1.25; }
   #tap {
-    border: 1px solid #22D3EE; background: transparent; color: #22D3EE; border-radius: 999px;
-    padding: 4px 12px; cursor: pointer; font: inherit;
+    flex: none; border: 1px solid #22D3EE; background: rgba(34, 211, 238, 0.12); color: #22D3EE;
+    border-radius: 999px; padding: 6px 16px; cursor: pointer; font: inherit; font-weight: 600;
+    touch-action: manipulation;
   }
   #tap[hidden] { display: none; }
+  #wave { width: 100%; flex: 1; min-height: 0; display: block; }
   @keyframes pulse { 50% { opacity: 0.35; } }
 </style>
 </head>
 <body>
-<div id="bar" class="starting">
-  <span id="dot"></span>
-  <span id="label">Starting microphone…</span>
-  <button id="tap" type="button" hidden>Tap to enable</button>
+<div id="panel" class="starting">
+  <div id="row">
+    <span id="dot"></span>
+    <span id="label">Starting microphone…</span>
+    <button id="tap" type="button" hidden>Tap to start</button>
+  </div>
+  <canvas id="wave"></canvas>
 </div>
 <script>
 (function () {
@@ -40,21 +48,29 @@
   var SILENCE_MS = 3000;      // 3 seconds without sound ends the sentence.
   var MIN_SPEECH_MS = 400;    // shorter sounds (clicks, coughs) are ignored.
   var MAX_TURN_MS = 60000;    // hard cap for one sentence.
-  var WAIT_LIMIT_MS = 60000;  // stop waiting for a reply after this long.
-  var COOLDOWN_MS = 700;      // ignore the echo tail right after a reply.
+  var WAIT_LIMIT_MS = 90000;  // stop waiting for a reply after this long.
+  var COOLDOWN_MS = 600;      // ignore the echo tail right after a reply.
 
-  var bar = document.getElementById("bar");
+  var COLORS = {
+    starting: "#22D3EE", listening: "#22D3EE", recording: "#F472B6",
+    thinking: "#FBBF24", speaking: "#A78BFA", error: "#F87171"
+  };
+
+  var panel = document.getElementById("panel");
   var label = document.getElementById("label");
   var tap = document.getElementById("tap");
+  var canvas = document.getElementById("wave");
+  var g2d = canvas.getContext("2d");
 
   // States: starting -> listening -> recording -> thinking -> speaking -> listening (repeats).
   var state = "starting";
   var mounted = false;
   var seenReplyId = null;
-  var stream = null, ctx = null, analyser = null, samples = null, timer = null;
-  var recorder = null, chunks = [], turnStart = 0, lastVoice = 0;
+  var stream = null, ctx = null, micAnalyser = null, micSamples = null, playAnalyser = null, playSamples = null;
+  var timer = null, recorder = null, chunks = [], turnStart = 0, lastVoice = 0;
   var noise = 0.005, cooldownUntil = 0, waitingSince = 0;
-  var gestureAction = null;
+  var gestureAction = null, currentSource = null, errorTimer = null;
+  var bars = [];
 
   function post(type, data) {
     var message = { isStreamlitMessage: true, type: type };
@@ -64,65 +80,132 @@
 
   function setState(next, text) {
     state = next;
-    bar.className = next;
+    panel.className = next;
     label.textContent = text;
   }
 
-  function needGesture(next, text, action) {
+  function needGesture(next, text, buttonText, action) {
     gestureAction = action;
     setState(next, text);
+    tap.textContent = buttonText;
     tap.hidden = false;
   }
 
   tap.addEventListener("click", function () {
-    tap.hidden = true;
     var action = gestureAction;
     gestureAction = null;
+    tap.hidden = true;
     if (action) { action(); }
   });
 
-  function startMic() {
+  function showError(text, then) {
+    if (errorTimer) { clearTimeout(errorTimer); }
+    setState("error", text);
+    if (then) { errorTimer = setTimeout(then, 2500); }
+  }
+
+  function decode(buffer) {
+    return new Promise(function (resolve, reject) {
+      var result = ctx.decodeAudioData(buffer, resolve, reject);
+      if (result && result.then) { result.then(resolve, reject); }
+    });
+  }
+
+  // Play one silent sample so mobile browsers treat the audio engine as unlocked.
+  function unlockAudio() {
+    try {
+      var silent = ctx.createBuffer(1, 1, 22050);
+      var source = ctx.createBufferSource();
+      source.buffer = silent;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch (err) { /* not critical */ }
+  }
+
+  function ensureRunning() {
+    if (ctx.state === "running") { return Promise.resolve(true); }
+    var resumed = ctx.resume ? ctx.resume() : Promise.resolve();
+    return Promise.race([
+      resumed.then(function () { return ctx.state === "running"; }, function () { return false; }),
+      new Promise(function (resolve) { setTimeout(function () { resolve(false); }, 600); })
+    ]);
+  }
+
+  function startSession(fromGesture) {
     setState("starting", "Starting microphone…");
-    navigator.mediaDevices.getUserMedia({
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError(window.isSecureContext === false
+        ? "The microphone needs a secure (https) connection."
+        : "This browser cannot use the microphone.");
+      return;
+    }
+    if (!ctx) {
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      ctx = new AudioCtx();
+    }
+    if (fromGesture) { ctx.resume(); unlockAudio(); }
+    var getStream = stream ? Promise.resolve(stream) : navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    }).then(function (media) {
+    });
+    getStream.then(function (media) {
       stream = media;
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      return ctx.resume().then(function () { return ctx; }, function () { return ctx; });
-    }).then(function () {
-      if (ctx.state === "running") {
+      return ensureRunning();
+    }).then(function (running) {
+      if (running) {
         startListening();
       } else {
-        needGesture("listening", "Tap to start listening", function () {
-          ctx.resume().then(startListening, startListening);
+        needGesture("starting", "Tap once to turn on voice chat", "Tap to start", function () {
+          ctx.resume();
+          unlockAudio();
+          ensureRunning().then(function () { startListening(); });
         });
       }
-    }).catch(function () {
-      needGesture("error", "Microphone blocked. Tap to allow it.", startMic);
+    }).catch(function (err) {
+      var denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+      needGesture("error",
+        denied ? "Microphone is blocked. Allow it in the browser, then tap." : "No microphone found. Tap to try again.",
+        "Try again", function () { startSession(true); });
     });
   }
 
   function startListening() {
-    if (analyser) { return; }
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    samples = new Float32Array(analyser.fftSize);
-    timer = setInterval(tick, 50);
+    if (!micAnalyser) {
+      micAnalyser = ctx.createAnalyser();
+      micAnalyser.fftSize = 2048;
+      ctx.createMediaStreamSource(stream).connect(micAnalyser);
+      micSamples = new Float32Array(micAnalyser.fftSize);
+      playAnalyser = ctx.createAnalyser();
+      playAnalyser.fftSize = 1024;
+      playAnalyser.connect(ctx.destination);
+      playSamples = new Float32Array(playAnalyser.fftSize);
+      timer = setInterval(tick, 50);
+    }
+    setListening();
+  }
+
+  function setListening() {
+    tap.hidden = true;
+    gestureAction = null;
     setState("listening", "Listening. Just speak.");
   }
 
-  function level() {
-    analyser.getFloatTimeDomainData(samples);
+  function micLevel() {
+    micAnalyser.getFloatTimeDomainData(micSamples);
     var sum = 0;
-    for (var i = 0; i < samples.length; i++) { sum += samples[i] * samples[i]; }
-    return Math.sqrt(sum / samples.length);
+    for (var i = 0; i < micSamples.length; i++) { sum += micSamples[i] * micSamples[i]; }
+    return Math.sqrt(sum / micSamples.length);
   }
 
   function tick() {
     var now = Date.now();
-    var lvl = level();
+    var lvl = micLevel();
     if (state === "listening") {
+      if (ctx.state !== "running" && !gestureAction) {
+        needGesture("listening", "Voice chat paused", "Tap to resume", function () {
+          ctx.resume(); ensureRunning().then(setListening);
+        });
+        return;
+      }
       noise = noise * 0.98 + Math.min(lvl, 0.05) * 0.02;
       if (now >= cooldownUntil && lvl > Math.max(0.02, noise * 3)) {
         startRecording(now);
@@ -133,7 +216,7 @@
         finishRecording();
       }
     } else if (state === "thinking" && now - waitingSince > WAIT_LIMIT_MS) {
-      releaseToListening();
+      showError("No reply came back. Listening again.", setListening);
     }
   }
 
@@ -141,7 +224,12 @@
     var type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].filter(function (candidate) {
       return window.MediaRecorder && MediaRecorder.isTypeSupported(candidate);
     })[0];
-    recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    try {
+      recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    } catch (err) {
+      showError("This browser cannot record audio.");
+      return;
+    }
     chunks = [];
     recorder.ondataavailable = function (event) {
       if (event.data && event.data.size) { chunks.push(event.data); }
@@ -149,42 +237,49 @@
     recorder.start(250);
     turnStart = now;
     lastVoice = now;
-    setState("recording", "Listening to you…");
+    setState("recording", "Listening to you… pause 3 seconds to send");
   }
 
   function finishRecording() {
     var rec = recorder;
     var spokeMs = lastVoice - turnStart;
     recorder = null;
+    if (spokeMs < MIN_SPEECH_MS) {
+      rec.onstop = null;
+      try { rec.stop(); } catch (err) { /* already stopped */ }
+      setListening();
+      return;
+    }
     setState("thinking", "Thinking…");
     waitingSince = Date.now();
     rec.onstop = function () {
-      if (spokeMs < MIN_SPEECH_MS) { releaseToListening(); return; }
       var blob = new Blob(chunks, { type: rec.mimeType });
       toWavBase64(blob).then(function (wav) {
         post("streamlit:setComponentValue", { value: { id: Date.now(), audio: wav }, dataType: "json" });
-      }).catch(function () { releaseToListening(); });
+      }).catch(function () {
+        showError("I could not process that recording. Please try again.", setListening);
+      });
     };
-    rec.stop();
-  }
-
-  function releaseToListening() {
-    if (!analyser) { return; }
-    setState("listening", "Listening. Just speak.");
+    try { rec.stop(); } catch (err) { setListening(); }
   }
 
   // Convert the recording to 16 kHz mono WAV so the server can send it straight to speech-to-text.
   function toWavBase64(blob) {
     return blob.arrayBuffer().then(function (data) {
-      return ctx.decodeAudioData(data);
+      return decode(data);
     }).then(function (decoded) {
       var frames = Math.max(1, Math.ceil(decoded.duration * 16000));
-      var offline = new OfflineAudioContext(1, frames, 16000);
+      var Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      var offline = new Offline(1, frames, 16000);
       var source = offline.createBufferSource();
       source.buffer = decoded;
       source.connect(offline.destination);
       source.start();
-      return offline.startRendering();
+      return new Promise(function (resolve, reject) {
+        var result = offline.startRendering();
+        offline.oncomplete = function (event) { resolve(event.renderedBuffer); };
+        if (result && result.then) { result.then(resolve, reject); }
+      });
     }).then(function (rendered) {
       return encodeWav(rendered.getChannelData(0), 16000);
     });
@@ -226,7 +321,30 @@
     return btoa(binary);
   }
 
-  // A reply arrived from the server: play it, then listen again.
+  function base64ToBuffer(encoded) {
+    var binary = atob(encoded);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+    return bytes.buffer;
+  }
+
+  function finishSpeaking() {
+    currentSource = null;
+    cooldownUntil = Date.now() + COOLDOWN_MS;
+    setListening();
+  }
+
+  function playBuffer(decoded) {
+    var source = ctx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(playAnalyser);
+    source.onended = finishSpeaking;
+    currentSource = source;
+    setState("speaking", "Speaking…");
+    source.start(0);
+  }
+
+  // A reply arrived from the server: play it through the unlocked audio engine, then listen again.
   function onReply(encoded) {
     if (recorder) {
       var rec = recorder;
@@ -234,30 +352,96 @@
       rec.onstop = null;
       try { rec.stop(); } catch (err) { /* already stopped */ }
     }
-    if (!encoded) {
+    if (!encoded || !ctx || !playAnalyser) {
       cooldownUntil = Date.now() + COOLDOWN_MS;
-      releaseToListening();
+      if (ctx && micAnalyser) { setListening(); }
       return;
     }
-    var audio = new Audio("data:audio/wav;base64," + encoded);
-    var finish = function () {
-      cooldownUntil = Date.now() + COOLDOWN_MS;
-      releaseToListening();
-    };
-    audio.onended = finish;
-    audio.onerror = finish;
-    setState("speaking", "Speaking…");
-    audio.play().catch(function () {
-      needGesture("speaking", "Tap to hear the reply", function () {
-        audio.play().catch(finish);
+    decode(base64ToBuffer(encoded)).then(function (decoded) {
+      ensureRunning().then(function (running) {
+        if (running) {
+          playBuffer(decoded);
+        } else {
+          needGesture("speaking", "Tap to hear the reply", "Tap to play", function () {
+            ctx.resume();
+            ensureRunning().then(function () { playBuffer(decoded); });
+          });
+        }
       });
+    }).catch(function () {
+      showError("I could not play the reply.", finishSpeaking);
     });
   }
 
+  // Live waveform: microphone level while listening, reply audio while speaking, a soft wave while thinking.
+  function resizeCanvas() {
+    var ratio = window.devicePixelRatio || 1;
+    var width = Math.max(1, Math.floor(canvas.clientWidth * ratio));
+    var height = Math.max(1, Math.floor(canvas.clientHeight * ratio));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }
+
+  function segmentLevels(data, count, gain) {
+    var out = [];
+    var size = Math.max(1, Math.floor(data.length / count));
+    for (var i = 0; i < count; i++) {
+      var sum = 0;
+      for (var j = 0; j < size; j++) {
+        var v = data[i * size + j] || 0;
+        sum += v * v;
+      }
+      out.push(Math.min(1, Math.sqrt(sum / size) * gain));
+    }
+    return out;
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+    resizeCanvas();
+    var width = canvas.width, height = canvas.height;
+    var ratio = window.devicePixelRatio || 1;
+    var barWidth = 4 * ratio, gap = 3 * ratio;
+    var count = Math.max(8, Math.floor(width / (barWidth + gap)));
+    var now = performance.now() / 1000;
+    var target = [];
+    var i;
+    if (micAnalyser && (state === "listening" || state === "recording")) {
+      micAnalyser.getFloatTimeDomainData(micSamples);
+      target = segmentLevels(micSamples, count, 7);
+    } else if (playAnalyser && state === "speaking") {
+      playAnalyser.getFloatTimeDomainData(playSamples);
+      target = segmentLevels(playSamples, count, 5);
+    } else {
+      var strength = state === "thinking" ? 0.35 : 0.12;
+      for (i = 0; i < count; i++) {
+        target.push(strength * (0.5 + 0.5 * Math.sin(now * 4 + i * 0.45)));
+      }
+    }
+    while (bars.length < count) { bars.push(0); }
+    g2d.clearRect(0, 0, width, height);
+    g2d.fillStyle = COLORS[state] || COLORS.listening;
+    var offsetX = (width - count * (barWidth + gap) + gap) / 2;
+    for (i = 0; i < count; i++) {
+      bars[i] = bars[i] * 0.55 + target[i] * 0.45;
+      var barHeight = Math.max(3 * ratio, bars[i] * height);
+      var x = offsetX + i * (barWidth + gap);
+      var y = (height - barHeight) / 2;
+      g2d.globalAlpha = 0.55 + 0.45 * Math.min(1, bars[i] * 2);
+      g2d.beginPath();
+      if (g2d.roundRect) { g2d.roundRect(x, y, barWidth, barHeight, barWidth / 2); } else { g2d.rect(x, y, barWidth, barHeight); }
+      g2d.fill();
+    }
+    g2d.globalAlpha = 1;
+  }
+
   function stopAll() {
-    if (timer) { clearInterval(timer); }
-    if (stream) { stream.getTracks().forEach(function (track) { track.stop(); }); }
-    if (ctx && ctx.close) { ctx.close(); }
+    if (timer) { clearInterval(timer); timer = null; }
+    if (currentSource) { try { currentSource.stop(); } catch (err) { /* already stopped */ } }
+    if (stream) { stream.getTracks().forEach(function (track) { track.stop(); }); stream = null; }
+    if (ctx && ctx.close) { try { ctx.close(); } catch (err) { /* already closed */ } }
   }
 
   window.addEventListener("message", function (event) {
@@ -269,7 +453,7 @@
       // First render: remember the current reply so an old reply is not spoken again.
       mounted = true;
       seenReplyId = replyId;
-      startMic();
+      startSession(false);
       return;
     }
     if (replyId !== seenReplyId) {
@@ -279,8 +463,10 @@
   });
 
   window.addEventListener("pagehide", stopAll);
+  window.addEventListener("unload", stopAll);
+  requestAnimationFrame(draw);
   post("streamlit:componentReady", { apiVersion: 1 });
-  post("streamlit:setFrameHeight", { height: 52 });
+  post("streamlit:setFrameHeight", { height: 134 });
 })();
 </script>
 </body>
