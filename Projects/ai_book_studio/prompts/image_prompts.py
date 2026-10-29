@@ -17,6 +17,9 @@ APPROVED VISUAL STYLE:
 CHARACTER AND LOCATION CONTINUITY:
 {relevant_book_bible_information}
 
+FIXED CHARACTER LOOK (identical in every illustration of this book):
+{character_sheet}
+
 CHAPTER TITLE:
 {chapter_title}
 
@@ -29,8 +32,7 @@ IMAGE CONCEPT:
 Create a detailed visual prompt containing:
 
 - Main subject
-- Character appearance
-- Clothing
+- Characters (see the character rule below)
 - Environment
 - Important objects
 - Composition
@@ -45,6 +47,7 @@ Create a detailed visual prompt containing:
 Requirements:
 
 - Preserve character and location consistency.
+- Character rule: {character_rule}
 - The image must represent the chapter accurately.
 - Do not include text.
 - Do not include numbers.
@@ -98,6 +101,7 @@ Composition rules (important):
 - Keep the top 25% of the image and the bottom 12% free of faces and key details (calm sky, soft background or plain scenery), because title and author bands are added there.
 - Show the character from the waist or knees up, not cropped at the head, and facing the viewer or in a three-quarter view.
 - One clear focal point; no clutter around the face.
+- The fixed look of the lead character (face, hair, clothing) is added to the prompt automatically, so describe only the pose, expression, setting, lighting and mood, and keep the prompt under 600 characters.
 Requirements:
 
 - Do not render the book title.
