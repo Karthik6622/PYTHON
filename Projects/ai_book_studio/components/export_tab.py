@@ -8,6 +8,10 @@ import time
 
 import streamlit as st
 from PIL import Image
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
 
 from components.state import current_project, flash, get_storage, guarded, image_if_exists, job_running, make_pipeline, refresh
 
@@ -22,6 +26,26 @@ def _cover_jpg_bytes(path) -> bytes:
     buffer = io.BytesIO()
     with Image.open(path) as image:
         image.convert("RGB").save(buffer, "JPEG", quality=95)
+    return buffer.getvalue()
+
+
+def _cover_pdf_bytes(path, title: str) -> bytes:
+    """Place the cover on a single A4 page, centred, with print-safe margins and no distortion."""
+    if not path:
+        return b""
+    page_w, page_h = A4
+    margin = 15 * mm
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+    img_w, img_h = rgb.size
+    scale = min((page_w - 2 * margin) / img_w, (page_h - 2 * margin) / img_h)
+    draw_w, draw_h = img_w * scale, img_h * scale
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf.setTitle(f"{title} - Cover")
+    pdf.drawImage(ImageReader(rgb), (page_w - draw_w) / 2, (page_h - draw_h) / 2, draw_w, draw_h)
+    pdf.showPage()
+    pdf.save()
     return buffer.getvalue()
 
 
@@ -70,7 +94,7 @@ def render() -> None:
 
     name = _safe_name(project.title)
     pdf, docx, cover = storage.export_file(project, "pdf"), storage.export_file(project, "docx"), image_if_exists(project, "cover_final")
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.download_button(
         "📕 Download PDF", pdf.read_bytes() if pdf else b"", f"{name}.pdf", "application/pdf",
         disabled=pdf is None, width="stretch", key="dl_pdf",
@@ -85,6 +109,10 @@ def render() -> None:
         disabled=cover is None, width="stretch", key="dl_cover",
     )
     c4.download_button(
+        "📄 Download Cover PDF", _cover_pdf_bytes(cover, project.title), f"{name}_cover.pdf", "application/pdf",
+        disabled=cover is None, width="stretch", key="dl_cover_pdf",
+    )
+    c5.download_button(
         "📦 Download Project JSON", project.model_dump_json(indent=2).encode("utf-8"), f"{name}_project.json", "application/json",
         width="stretch", key="dl_json",
     )
