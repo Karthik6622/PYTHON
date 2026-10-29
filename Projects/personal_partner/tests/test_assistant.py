@@ -30,6 +30,27 @@ def test_romantic_topic_adds_romantic_style():
     assert "never sexually explicit" in romantic
 
 
+def test_romantic_mode_is_a_human_partner_not_an_assistant():
+    text = system_text(assistant.build_messages(convo("have you eaten dinner?"), {"mode": "Romantic", "partner": "Girlfriend"}))
+    assert "Romantic mode is ON" in text and "real, living person" in text
+    assert "You are a girl" in text and "girlfriend" in text
+    assert "English correction mode is ON" not in text
+
+
+def test_english_correction_mode_adds_correction_rules():
+    text = system_text(assistant.build_messages(convo("i goed home"), {"mode": "English correction"}))
+    assert "English correction mode is ON" in text and "No correction needed" in text
+    assert "Romantic mode is ON" not in text
+
+
+def test_normal_mode_and_legacy_romantic_topic():
+    assert assistant.chat_mode({"mode": "Normal", "topics": ["Romantic"]}) == "Normal"
+    assert assistant.chat_mode({"topics": ["Romantic"]}) == "Romantic"
+    assert assistant.chat_mode({}) == "Normal"
+    plain = system_text(assistant.build_messages(convo("hi"), {"mode": "Normal"}))
+    assert "mode is ON" not in plain
+
+
 def use_key(monkeypatch, key="tvly-test-key"):
     monkeypatch.setattr(web_search, "tavily_api_key", lambda: key)
 

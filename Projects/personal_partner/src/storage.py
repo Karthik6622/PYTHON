@@ -310,7 +310,7 @@ def set_password_by_email(email: str, new_password_hash: str) -> bool:
 
 
 def update_user_preferences(user_id: str, preferences: dict[str, Any]) -> bool:
-    allowed = {"tone", "response_length", "topics", "city"}
+    allowed = {"tone", "response_length", "topics", "city", "mode", "partner"}
     clean_preferences = {key: value for key, value in preferences.items() if key in allowed}
     with FileLock(f"{USERS_FILE}.lock"):
         users = _read_users_locked()

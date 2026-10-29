@@ -11,7 +11,7 @@ from typing import Any
 import streamlit as st
 
 from . import storage
-from .assistant import stream_reply
+from .assistant import MODES, chat_mode, stream_reply
 from .auth import (
     AccountLockedError,
     AccountValidationError,
@@ -450,32 +450,42 @@ def _greeting() -> str:
     return "Good evening"
 
 
-def _chat_header(conversation: dict[str, Any], romantic: bool) -> None:
+def _chat_header(conversation: dict[str, Any], mode: str) -> None:
     first_name = html.escape(str(st.session_state.get("display_name", "")).strip().split(" ")[0])
     title = html.escape(safe_conversation_title(str(conversation.get("title", "Conversation"))))
     hello = f"{_greeting()}, {first_name}" if first_name else _greeting()
-    chip = '<span class="ks-chip rose">♥ Romantic mode</span>' if romantic else ""
+    romantic = mode == "Romantic"
+    chip = ""
+    tagline = "Talk it out, ask away, or just say hi. WithYou is your AI companion."
+    if romantic:
+        chip = '<span class="ks-chip rose">♥ Romantic mode</span>'
+        tagline = "Talk to me like you would to someone special."
+    elif mode == "English correction":
+        chip = '<span class="ks-chip">✏ English correction</span>'
+        tagline = "Send a message: your English is corrected first, then your question is answered."
     flag = '<div class="ks-romantic-flag"></div>' if romantic else ""
     st.markdown(
         f'{flag}<div class="ks-chat-head"><div><div class="ks-eyebrow">{title}</div><h2>{hello}</h2>'
-        '<p>Talk it out, ask away, or just say hi. WithYou is your AI companion.</p></div>'
+        f'<p>{tagline}</p></div>'
         f'{chip}</div>',
         unsafe_allow_html=True,
     )
 
 
-def _romantic_toggle(user_id: str) -> bool:
+def _mode_selector(user_id: str) -> str:
     preferences = dict(st.session_state.get("user_preferences", {}))
-    topics = [str(topic) for topic in preferences.get("topics", []) if isinstance(topic, str)]
-    current = "Romantic" in topics
-    chosen = st.toggle(
-        "Romantic mode",
-        value=current,
-        key=f"romantic_mode_{user_id}",
-        help="Replies turn sweet, affectionate and romantic. Switch it off any time.",
+    current = chat_mode(preferences)
+    chosen = st.radio(
+        "Chat mode",
+        MODES,
+        index=MODES.index(current),
+        key=f"chat_mode_{user_id}",
+        horizontal=True,
+        help="Normal: AI assistant. Romantic: a loving girlfriend or boyfriend. English correction: fixes your sentence first, then answers.",
     )
     if chosen != current:
-        topics = [topic for topic in topics if topic != "Romantic"] + (["Romantic"] if chosen else [])
+        topics = [str(topic) for topic in preferences.get("topics", []) if isinstance(topic, str) and topic != "Romantic"]
+        preferences["mode"] = chosen
         preferences["topics"] = topics
         if storage.update_user_preferences(user_id, preferences):
             st.session_state.user_preferences = preferences
@@ -492,8 +502,8 @@ def render_chat(user_id: str) -> None:
     if conversation is None:
         st.info("Choose a chat or start a new one.")
         return
-    romantic_on = _romantic_toggle(user_id)
-    _chat_header(conversation, romantic_on)
+    mode = _mode_selector(user_id)
+    _chat_header(conversation, mode)
     _show_conversation(conversation)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
@@ -542,14 +552,20 @@ def render_settings(user_id: str) -> None:
         length_options = ["Brief", "Balanced", "Detailed"]
         tone = st.selectbox("Reply tone", tone_options, index=tone_options.index(preferences.get("tone", "Warm")) if preferences.get("tone") in tone_options else 0)
         response_length = st.selectbox("Reply length", length_options, index=length_options.index(preferences.get("response_length", "Balanced")) if preferences.get("response_length") in length_options else 1)
-        topic_options = ["Romantic", "Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"]
-        topics = st.multiselect("Topics you often ask about", topic_options, default=[value for value in preferences.get("topics", []) if value in topic_options], help="Choose Romantic and replies will turn sweet and affectionate.")
+        topic_options = ["Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"]
+        topics = st.multiselect("Topics you often ask about", topic_options, default=[value for value in preferences.get("topics", []) if value in topic_options])
+        mode_value = chat_mode(preferences)
+        mode = st.selectbox("Chat mode", MODES, index=MODES.index(mode_value), help="Romantic: replies like a loving girlfriend or boyfriend. English correction: your sentence is corrected first, then answered.")
+        partner_options = ["Auto", "Girlfriend", "Boyfriend"]
+        partner_value = preferences.get("partner", "Auto")
+        partner = st.selectbox("Romantic mode partner", partner_options, index=partner_options.index(partner_value) if partner_value in partner_options else 0, help="Auto picks the opposite of what you say about yourself.")
         city = st.text_input("Your city (optional)", value=str(preferences.get("city", "")), max_chars=60, help="Used only to look up the weather when you ask about it.")
         saved = st.form_submit_button("Save preferences", type="primary")
     if saved:
-        clean = {"tone": tone, "response_length": response_length, "topics": topics, "city": city.strip()}
+        clean = {"tone": tone, "response_length": response_length, "topics": topics, "mode": mode, "partner": partner, "city": city.strip()}
         if storage.update_user_preferences(user_id, clean):
             st.session_state.user_preferences = clean
+            st.session_state.pop(f"chat_mode_{user_id}", None)
             st.success("Preferences saved.")
     st.divider()
     st.subheader("Privacy and account data")
