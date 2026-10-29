@@ -34,6 +34,7 @@ from .social_auth import (
     google_missing_settings,
 )
 from .validation import safe_conversation_title, validate_message
+from .voice import VoiceError, synthesize_speech, transcribe_audio, voice_for
 from .styles import APP_CSS, BRAND_HTML, auth_header_html
 from .welcome_design import (
     WELCOME_CSS,
@@ -80,7 +81,7 @@ def _logout() -> None:
     for key in (
         "authenticated", "user_id", "username", "email", "display_name", "user_preferences",
         "active_conversation_id", "pending_message_id", "pending_conversation_id",
-        "last_model_error", "authenticated_view", "view",
+        "last_model_error", "authenticated_view", "view", "voice_reply", "voice_notice", "pending_speak",
     ):
         st.session_state.pop(key, None)
     st.session_state.view = "Welcome"
@@ -384,7 +385,9 @@ def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> No
             st.markdown(str(message.get("content", "")))
 
 
-def _send_message(user_id: str, conversation: dict[str, Any], content: str, message_id: str | None = None) -> None:
+def _send_message(
+    user_id: str, conversation: dict[str, Any], content: str, message_id: str | None = None, speak: bool = False,
+) -> None:
     error = validate_message(content)
     if error:
         st.error(error)
@@ -403,6 +406,7 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
             storage.rename_conversation(user_id, conversation_id, safe_conversation_title(content))
     st.session_state.pending_message_id = message_id
     st.session_state.pending_conversation_id = conversation_id
+    st.session_state.pending_speak = speak
     st.session_state.pop("last_model_error", None)
 
     latest = next(
@@ -424,8 +428,16 @@ def _send_message(user_id: str, conversation: dict[str, Any], content: str, mess
             conversation_id,
             {"message_id": uuid.uuid4().hex, "role": "assistant", "content": response.strip(), "created_at": _now(), **mode_tag},
         )
+        if speak:
+            try:
+                with st.spinner("Getting the voice ready…"):
+                    audio = synthesize_speech(response, voice_for(st.session_state.get("user_preferences", {})))
+                st.session_state.voice_reply = {"conversation_id": conversation_id, "audio": audio}
+            except VoiceError as exc:
+                st.session_state.voice_notice = str(exc)
         st.session_state.pop("pending_message_id", None)
         st.session_state.pop("pending_conversation_id", None)
+        st.session_state.pop("pending_speak", None)
         st.rerun()
     except Exception as exc:
         LOGGER.exception("Model reply failed")
@@ -500,6 +512,22 @@ def _mode_selector(user_id: str) -> str:
     return current
 
 
+def _voice_message(user_id: str, conversation: dict[str, Any], audio: Any, speak: bool) -> None:
+    """Mic in the message bar: speech -> text (Nemotron omni / Whisper) -> normal chat reply -> spoken reply (Groq)."""
+    try:
+        with st.spinner("Listening…"):
+            text = transcribe_audio(audio.getvalue())
+    except VoiceError as exc:
+        st.error(str(exc))
+        return
+    if not text:
+        st.warning("I couldn't hear anything. Please try again, a little closer to the mic.")
+        return
+    with st.chat_message("user", avatar="🙂"):
+        st.markdown(f"🎤 {text}")
+    _send_message(user_id, conversation, text, speak=speak)
+
+
 def render_chat(user_id: str) -> None:
     conversations = _ensure_conversation(user_id)
     _conversation_sidebar(user_id, conversations)
@@ -511,6 +539,12 @@ def render_chat(user_id: str) -> None:
     mode = _mode_selector(user_id)
     _chat_header(conversation, mode)
     _show_conversation(conversation, mode)
+    notice = st.session_state.pop("voice_notice", None)
+    if notice:
+        st.warning(notice)
+    voice_reply = st.session_state.pop("voice_reply", None)
+    if voice_reply and voice_reply.get("conversation_id") == active_id:
+        st.audio(voice_reply["audio"], format="audio/wav", autoplay=True)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
     if pending_id and pending_conversation == active_id:
@@ -519,14 +553,24 @@ def render_chat(user_id: str) -> None:
         if st.button("Retry response", type="primary"):
             pending = next((item for item in conversation.get("messages", []) if item.get("message_id") == pending_id), None)
             if pending:
-                _send_message(user_id, conversation, str(pending.get("content", "")), message_id=pending_id)
+                _send_message(
+                    user_id, conversation, str(pending.get("content", "")), message_id=pending_id,
+                    speak=bool(st.session_state.get("pending_speak", False)),
+                )
             else:
                 st.error("The message to retry could not be found.")
         return
 
-    prompt = st.chat_input("Message WithYou…", max_chars=8_000)
-    if prompt:
-        _send_message(user_id, conversation, prompt)
+    speak = st.toggle("🔊 Speak replies to my voice messages", value=True, key="speak_voice_replies")
+    entry = st.chat_input("Type a message or tap the mic…", max_chars=8_000, accept_audio=True, audio_sample_rate=16000)
+    if entry is None:
+        return
+    audio = getattr(entry, "audio", None)
+    text = str(getattr(entry, "text", "") or "").strip()
+    if audio is not None and not text:
+        _voice_message(user_id, conversation, audio, speak)
+    elif text:
+        _send_message(user_id, conversation, text)
 
 
 def render_profile(user_id: str) -> None:

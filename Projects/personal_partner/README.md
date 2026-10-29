@@ -24,6 +24,8 @@ Copy-Item .env.example .env
 
 Set `NVIDIA_API_KEY` and `TAVILY_API_KEY` in `.env` or `.streamlit/secrets.toml`.
 
+For voice chat also set `GROQ_API_KEY`. Speech is transcribed by NVIDIA `nemotron-3-nano-omni-30b-a3b-reasoning` (using the same `NVIDIA_API_KEY`), with Groq `whisper-large-v3` as a fallback. The Nemotron chat model writes the reply, and Groq text-to-speech reads it aloud.
+
 ### How questions are routed
 
 ```
