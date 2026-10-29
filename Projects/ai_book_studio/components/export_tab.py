@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import io
 import re
 import time
 
 import streamlit as st
+from PIL import Image
 
 from components.state import current_project, flash, get_storage, guarded, image_if_exists, job_running, make_pipeline, refresh
 
 
 def _safe_name(title: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", title).strip("_")[:60] or "book"
+
+
+def _cover_jpg_bytes(path) -> bytes:
+    if not path:
+        return b""
+    buffer = io.BytesIO()
+    with Image.open(path) as image:
+        image.convert("RGB").save(buffer, "JPEG", quality=95)
+    return buffer.getvalue()
 
 
 def render() -> None:
@@ -70,7 +81,7 @@ def render() -> None:
         disabled=docx is None, width="stretch", key="dl_docx",
     )
     c3.download_button(
-        "🖼️ Download Cover PNG", cover.read_bytes() if cover else b"", f"{name}_cover.png", "image/png",
+        "🖼️ Download Cover JPG", _cover_jpg_bytes(cover), f"{name}_cover.jpg", "image/jpeg",
         disabled=cover is None, width="stretch", key="dl_cover",
     )
     c4.download_button(
