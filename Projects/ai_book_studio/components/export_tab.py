@@ -94,7 +94,8 @@ def render() -> None:
 
     name = _safe_name(project.title)
     pdf, docx, cover = storage.export_file(project, "pdf"), storage.export_file(project, "docx"), image_if_exists(project, "cover_final")
-    c1, c2, c3, c4, c5 = st.columns(5)
+    docx_plain = storage.export_file(project, "no_cover.docx")
+    c1, c2, c3 = st.columns(3)
     c1.download_button(
         "📕 Download PDF", pdf.read_bytes() if pdf else b"", f"{name}.pdf", "application/pdf",
         disabled=pdf is None, width="stretch", key="dl_pdf",
@@ -105,16 +106,24 @@ def render() -> None:
         disabled=docx is None, width="stretch", key="dl_docx",
     )
     c3.download_button(
+        "📗 Download DOCX without cover", docx_plain.read_bytes() if docx_plain else b"", f"{name}_no_cover.docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        disabled=docx_plain is None, width="stretch", key="dl_docx_no_cover",
+    )
+    c4, c5, c6 = st.columns(3)
+    c4.download_button(
         "🖼️ Download Cover JPG", _cover_jpg_bytes(cover), f"{name}_cover.jpg", "image/jpeg",
         disabled=cover is None, width="stretch", key="dl_cover",
     )
-    c4.download_button(
+    c5.download_button(
         "📄 Download Cover PDF", _cover_pdf_bytes(cover, project.title), f"{name}_cover.pdf", "application/pdf",
         disabled=cover is None, width="stretch", key="dl_cover_pdf",
     )
-    c5.download_button(
+    c6.download_button(
         "📦 Download Project JSON", project.model_dump_json(indent=2).encode("utf-8"), f"{name}_project.json", "application/json",
         width="stretch", key="dl_json",
     )
     if not pdf:
         st.caption("Build the files first to enable the PDF and DOCX downloads.")
+    elif not docx_plain:
+        st.caption("Click \"Build PDF and DOCX\" again to create the DOCX without the cover.")

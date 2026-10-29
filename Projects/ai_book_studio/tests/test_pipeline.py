@@ -46,7 +46,15 @@ def test_full_book_exports_pdf_and_docx(storage, book_input):
     assert summary.pdf_path.read_bytes()[:5] == b"%PDF-"
     assert summary.pages > 5
     assert summary.docx_path.exists()
-    headings = [p for p in Document(str(summary.docx_path)).paragraphs if p.style.name == "Heading 1"]
+    assert summary.docx_no_cover_path and summary.docx_no_cover_path.exists()
+    with_cover = Document(str(summary.docx_path))
+    without_cover = Document(str(summary.docx_no_cover_path))
+    assert with_cover.inline_shapes and len(without_cover.inline_shapes) == len(with_cover.inline_shapes) - 1
+    assert len(without_cover.sections) == len(with_cover.sections) - 1
+    assert [p.text for p in without_cover.paragraphs if p.style.name == "Heading 1"] == [
+        p.text for p in with_cover.paragraphs if p.style.name == "Heading 1"
+    ]
+    headings = [p for p in with_cover.paragraphs if p.style.name == "Heading 1"]
     assert len(headings) >= 3
     assert storage.image_file(project, "cover_final")
     assert all(storage.image_file(project, f"chapter_{n:02d}") for n in (1, 2, 3))

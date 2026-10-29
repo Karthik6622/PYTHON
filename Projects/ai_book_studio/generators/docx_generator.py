@@ -229,8 +229,8 @@ def _add_toc(document, flow: _Flow, entries: list[str], heading: str) -> None:
             _field_run(paragraph, "end")
 
 
-def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) -> ExportResult:
-    """Create and validate the DOCX. Raises ``ExportError`` when it cannot be produced."""
+def build_docx(project: BookProject, assets: ExportAssets, output_path: Path, include_cover: bool = True) -> ExportResult:
+    """Create and validate the DOCX (``include_cover=False`` leaves out the full-page cover). Raises ``ExportError`` on failure."""
     plan = project.plan
     if plan is None:
         raise ExportError("DOCX generation failed: the book has no plan.")
@@ -247,7 +247,9 @@ def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) ->
         # Cover: its own full-bleed section without margins. The picture is a little smaller than the page and its line
         # is one point high, so the page never overflows into a blank second page.
         flow = _Flow()
-        if assets.cover_path and Path(assets.cover_path).exists():
+        if not include_cover:
+            pass  # no cover section: the document starts with the front pages or the body
+        elif assets.cover_path and Path(assets.cover_path).exists():
             paragraph = document.paragraphs[0] if document.paragraphs else document.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragraph.paragraph_format.space_before = Pt(0)
@@ -263,7 +265,8 @@ def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) ->
             paragraph = document.add_paragraph(remove_control_chars(plan.title))
             paragraph.paragraph_format.space_before = Pt(0)
             warnings.append("The DOCX has no cover image.")
-        _section_break(document)  # the front pages (no page numbers) or the body start in the next section
+        if include_cover:
+            _section_break(document)  # the front pages (no page numbers) or the body start in the next section
 
         has_dedication = options.has("dedication") and bool(project.front_matter.get("dedication", "").strip())
         has_front = options.has("title_page") or options.has("copyright_page") or has_dedication
@@ -321,7 +324,7 @@ def build_docx(project: BookProject, assets: ExportAssets, output_path: Path) ->
         # Page set-up for every section: the cover has no margins, the others share the book margins.
         for index, section in enumerate(document.sections):
             section.page_width, section.page_height = _PAGE_W, _PAGE_H
-            if index == 0:
+            if index == 0 and include_cover:
                 for side in ("left_margin", "right_margin", "top_margin", "bottom_margin", "header_distance", "footer_distance"):
                     setattr(section, side, Inches(0))
                 continue

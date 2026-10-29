@@ -51,6 +51,7 @@ class ExportSummary:
     docx_path: Path
     pages: int
     warnings: list[str] = field(default_factory=list)
+    docx_no_cover_path: Path | None = None
 
 
 class BookPipeline:
@@ -493,9 +494,11 @@ class BookPipeline:
         pdf = build_pdf(self.project, assets, self.storage.export_path(self.project, "pdf"))
         report_progress(0.7, f"PDF ready ({pdf.pages} pages). Building the DOCX...")
         docx = build_docx(self.project, assets, self.storage.export_path(self.project, "docx"))
+        report_progress(0.85, "Building the DOCX without the cover...")
+        docx_plain = build_docx(self.project, assets, self.storage.export_path(self.project, "no_cover.docx"), include_cover=False)
         report_progress(0.95, "Saving the export report...")
         warnings = list(dict.fromkeys(report.warnings + pdf.warnings + docx.warnings))
         self.project.status.warnings = warnings
         self.storage.save_status(self.project)
         report_progress(1.0, "PDF and DOCX are ready.")
-        return ExportSummary(pdf_path=pdf.path, docx_path=docx.path, pages=pdf.pages, warnings=warnings)
+        return ExportSummary(pdf_path=pdf.path, docx_path=docx.path, pages=pdf.pages, warnings=warnings, docx_no_cover_path=docx_plain.path)
