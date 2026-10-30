@@ -60,8 +60,17 @@ def test_tone_and_length_preferences_reach_the_system_message():
 def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
     assert assistant.reply_token_cap({"response_length": "Brief"}) == assistant.LENGTH_TOKEN_CAPS["Brief"]
     assert assistant.reply_token_cap({"response_length": "Balanced"}) is None
-    assert assistant.reply_token_cap({"response_length": "Detailed"}) is None
+    assert assistant.reply_token_cap({"response_length": "Detailed"}) == assistant.LENGTH_TOKEN_CAPS["Detailed"] > 1200
     assert assistant.reply_token_cap({}) is None
+
+
+def test_detailed_length_rule_overrides_the_short_reply_default():
+    text = system_text(assistant.build_messages(convo("explain python decorators"), {"response_length": "Detailed"}))
+    assert "DETAILED" in text and "250 to 600 words" in text
+    assert "Keep replies short" not in text
+    assert "Short natural messages" not in system_text(
+        assistant.build_messages(convo("hi"), {"response_length": "Detailed", "mode": "Romantic"})
+    )
 
 
 def test_correct_english_returns_only_the_confirmation(monkeypatch):

@@ -153,14 +153,14 @@ def strip_think_blocks(chunks: Iterator[str]) -> Iterator[str]:
 
 
 def stream_completion(messages: list[dict[str, str]], max_tokens: int | None = None) -> Iterator[str]:
-    """Stream a reply. max_tokens, when given, can only lower the configured LLM_MAX_TOKENS limit."""
+    """Stream a reply. max_tokens, when given, replaces the configured LLM_MAX_TOKENS limit (up to 4000)."""
     return strip_think_blocks(_stream_raw(messages, max_tokens))
 
 
 def _stream_raw(messages: list[dict[str, str]], max_tokens: int | None = None) -> Iterator[str]:
     settings = get_model_settings()
     client = _openai_client(settings)
-    token_limit = settings.max_tokens if max_tokens is None else min(settings.max_tokens, max(64, max_tokens))
+    token_limit = settings.max_tokens if max_tokens is None else min(4_000, max(64, max_tokens))
     errors: list[Exception] = []
     for options in _THINKING_OFF_VARIANTS:
         stream = None

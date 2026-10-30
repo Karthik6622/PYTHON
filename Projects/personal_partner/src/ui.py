@@ -409,8 +409,8 @@ def _reply_with_image(user_id: str, conversation_id: str, prompt: str, mode_tag:
     reply: dict[str, Any] = {"message_id": uuid.uuid4().hex, "role": "assistant", "created_at": _now(), **mode_tag}
     if not image_generation_configured():
         reply["content"] = (
-            "I can't create pictures yet because the image service (NVIDIA Cosmos 3 Nano) isn't connected. "
-            "Once IMAGE_GEN_BASE_URL is set up for this app, just ask again."
+            "I can't create pictures yet because no NVIDIA API key is set for the image service (Cosmos 3 Nano). "
+            "Add NVIDIA_API_KEY to this app, then ask again."
         )
     else:
         try:

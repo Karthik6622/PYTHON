@@ -160,15 +160,68 @@ def test_image_requests_are_detected_but_questions_are_not():
         assert not image_gen.wants_image(text), text
 
 
-def test_image_generation_needs_a_server(monkeypatch):
-    monkeypatch.delenv("IMAGE_GEN_BASE_URL", raising=False)
+def test_image_generation_needs_a_key_or_a_server(monkeypatch):
     monkeypatch.setattr(image_gen, "_configured", lambda name, default="": default)
     assert not image_gen.image_generation_configured()
     with pytest.raises(image_gen.ImageGenerationError, match="not set up"):
         image_gen.generate_image("a fox")
 
 
-def test_image_generation_returns_png(monkeypatch):
+def test_hosted_cosmos_text2image_call(monkeypatch):
+    import base64
+    import httpx
+
+    settings = {"NVIDIA_API_KEY": "nvapi-test"}
+    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
+    assert image_gen.image_generation_configured()
+    seen = {}
+    jpeg = io.BytesIO()
+    Image.new("RGB", (16, 16), (10, 200, 10)).save(jpeg, format="JPEG")
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["authorization"]
+        seen["body"] = request.read()
+        return httpx.Response(200, json={"b64_image": base64.b64encode(jpeg.getvalue()).decode()})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    png = image_gen.generate_image("create a baby image")
+    assert png.startswith(b"\x89PNG")
+    assert seen["url"] == image_gen.HOSTED_URL and seen["auth"] == "Bearer nvapi-test"
+    body = __import__("json").loads(seen["body"])
+    assert body["model_mode"] == "text2image" and "baby" in body["prompt"] and body["resolution"] == "480_1_1"
+
+
+def test_hosted_cosmos_polls_until_ready_and_reports_errors(monkeypatch):
+    import base64
+    import httpx
+
+    settings = {"NVIDIA_API_KEY": "nvapi-test"}
+    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
+    monkeypatch.setattr(image_gen.time, "sleep", lambda s: None)
+    calls = []
+
+    def handler(request):
+        calls.append(request.method)
+        if request.method == "POST":
+            return httpx.Response(202, headers={"NVCF-REQID": "abc"})
+        if len(calls) < 3:
+            return httpx.Response(202, headers={"NVCF-REQID": "abc"})
+        return httpx.Response(200, json={"b64_image": base64.b64encode(png_bytes()).decode()})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    assert image_gen.generate_image("a fox").startswith(b"\x89PNG")
+    assert calls == ["POST", "GET", "GET"]
+
+    for status, text in ((401, "rejected the API key"), (404, "can't use"), (422, "safety"), (429, "busy")):
+        monkeypatch.setattr(httpx, "Client", lambda status=status, **kw: real_client(transport=httpx.MockTransport(lambda r: httpx.Response(status)), **kw))
+        with pytest.raises(image_gen.ImageGenerationError, match=text):
+            image_gen.generate_image("a fox")
+
+
+def test_self_hosted_image_server_is_still_supported(monkeypatch):
     import base64
 
     settings = {"IMAGE_GEN_BASE_URL": "http://gpu:30000/v1"}
