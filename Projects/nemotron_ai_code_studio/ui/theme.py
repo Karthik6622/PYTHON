@@ -36,6 +36,9 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 }
 [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"], footer { display:none !important; }
 [data-testid="stMainBlockContainer"], .block-container { padding:0 !important; max-width:100% !important; }
+/* No blinking while the script re-runs: Streamlit dims/fades "stale" elements on every interaction; keep them fully visible. */
+[data-stale], [data-stale="true"] { opacity:1 !important; transition:none !important; }
+[data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainBlockContainer"], [data-testid="stVerticalBlock"], [data-testid="stElementContainer"] { transition:none !important; }
 [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { gap:0 !important; }
 [data-testid="stAppViewContainer"] > .stMain, [data-testid="stMain"] { padding:0 !important; }
 * { scrollbar-width:thin; scrollbar-color:rgba(139,92,246,.45) transparent; }
@@ -319,6 +322,13 @@ html.rk-no-side div.st-key-sidebar, html.rk-no-agent div.st-key-agent { visibili
 html.rk-no-bottom div.st-key-bottompanel { display:none; }
 
 /* ---------- agent: live activity ---------- */
+div.st-key-runinput { flex:none; padding:7px 7px 7px 14px; border-radius:18px; border:1px solid rgba(34,211,238,.45); background:rgba(4,7,16,.95); box-shadow:0 0 0 1px rgba(34,211,238,.18), 0 0 22px rgba(34,211,238,.14); }
+div.st-key-runinput [data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; align-items:center; gap:.5rem !important; }
+div.st-key-runinput [data-testid="stColumn"]:last-child { flex:0 0 40px !important; width:40px !important; min-width:40px !important; }
+.runinput-text { display:flex; align-items:center; gap:9px; color:var(--muted); font:500 12.5px var(--sans); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+div.st-key-agent_stop_input [data-testid^="stBaseButton"] { width:40px; height:40px; min-height:40px; padding:0 !important; border-radius:12px !important; border:none !important; color:#fff !important; background:linear-gradient(135deg,#f43f9e,#fb7185) !important; box-shadow:0 0 16px rgba(244,63,158,.45) !important; }
+div.st-key-agent_stop_input [data-testid^="stBaseButton"]:hover { filter:brightness(1.12); box-shadow:0 0 24px rgba(244,63,158,.7) !important; }
+div.st-key-agent_stop_input [data-testid="stIconMaterial"] { font-size:22px !important; }
 div.st-key-modebar { flex:none; }
 div.st-key-agent [data-baseweb="select"] > div { min-height:32px !important; font-size:12px; }
 .runbar { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:10px; border:1px solid rgba(34,211,238,.3); background:linear-gradient(90deg,rgba(34,211,238,.10),rgba(139,92,246,.07)); font:600 12px var(--sans); color:var(--text); }

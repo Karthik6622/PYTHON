@@ -68,6 +68,8 @@ class ChatMessage:
     max_steps: int = 0
     started: float = field(default_factory=time.time)
     finished: float = 0.0
+    last_event: float = field(default_factory=time.time)  # when the agent last reported anything (for the "no activity" hint)
+    incomplete: bool = False  # the run ended before the task was finished (stopped, step limit, empty model reply)
 
     @property
     def tools(self) -> list[ToolCall]:
@@ -77,15 +79,26 @@ class ChatMessage:
 MAX_TOOL_OUTPUT = 8000
 
 
+def add_notice(message: ChatMessage, text: str) -> None:
+    """Appends an explanation from the studio itself (why the run ended) as its own paragraph of the reply."""
+    text = text.strip()
+    if not text:
+        return
+    message.blocks.append(TextBlock(text))
+    message.text = (message.text + "\n\n" + text) if message.text else text
+
+
 def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str, dict[str, Any]]) -> None:
     """Mutates `message` (and the pending `approvals` by id) for one event. Unknown events are ignored."""
     kind = event.get("type")
+    message.last_event = time.time()
     if kind == "status":
         message.status = str(event.get("text", ""))
     elif kind == "context":
         message.context_files = [str(f if isinstance(f, str) else f.get("path", "")) for f in event.get("files") or []]
     elif kind == "token":
         text = str(event.get("text", ""))
+        message.status = "Writing the reply"
         message.text += text
         if message.blocks and isinstance(message.blocks[-1], TextBlock):
             message.blocks[-1].text += text
@@ -126,11 +139,18 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
         approvals.pop(str(event.get("id")), None)
     elif kind == "error":
         message.error = str(event.get("message", "Error"))
+        message.incomplete = True
+    elif kind == "notice":
+        add_notice(message, str(event.get("text", "")))
+        message.incomplete = message.incomplete or bool(event.get("incomplete"))
     elif kind == "cancelled":
         message.streaming, message.status = False, "Stopped"
         approvals.clear()
         if event.get("modified"):
             message.modified = list(event["modified"])
+        message.incomplete = True
+        changed = len(message.modified)
+        add_notice(message, "Stopped. The agent was stopped before it finished" + (f"; {changed} file(s) were already changed, review them below." if changed else "."))
     elif kind == "done":
         message.streaming, message.status = False, ""
         message.finished = time.time()

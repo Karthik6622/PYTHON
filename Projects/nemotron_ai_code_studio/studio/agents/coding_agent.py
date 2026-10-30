@@ -169,9 +169,20 @@ class CodingAgent:
                     if empty_replies <= 1:
                         messages.append({"role": "user", "content": "Your last reply was empty. Continue the task or give your final answer."})
                         continue
-                    final_text = "Changes were made; review them below." if ctx.modified else "The model finished without a reply. Try again, rephrase the request, or pick another model."
+                    if ctx.modified:
+                        final_text = "Changes were made; review them below."
+                        emit({"type": "notice", "text": final_text})
+                    else:
+                        final_text = (
+                            f"The agent stopped without finishing: the model returned an empty reply after inspecting {len(ctx.inspected)} file(s) "
+                            "and made no changes. Click Continue to try again, rephrase the request, or pick another model."
+                        )
+                        emit({"type": "notice", "text": final_text, "incomplete": True})
                 if turn.finish_reason == "length":
                     final_text += "\n\n(The reply was cut off by the output limit.)"
+                    emit({"type": "notice", "text": "The reply was cut off by the model's output limit. Click Continue to go on.", "incomplete": True})
+                elif mode == "agent" and not ctx.modified and nudges >= MAX_NUDGES and _needs_action(final_text):
+                    emit({"type": "notice", "text": "The agent stopped without changing any files: the model described the work but never made an edit. Click Continue to try again.", "incomplete": True})
 
                 if mode == "agent" and ctx.modified and settings.auto_validate:
                     signature = await asyncio.to_thread(_changes_signature, ctx)
@@ -189,9 +200,11 @@ class CodingAgent:
                             continue
                         if report.passed is False:
                             final_text += "\n\nValidation still reports problems after the automatic fix attempts; please review the output."
+                            emit({"type": "notice", "text": "Validation still reports problems after the automatic fix attempts; please review the output."})
                 break
             else:
                 final_text = (final_text or "") + f"\n\nStopped after {max_steps} steps. The work may be incomplete; ask me to continue."
+                emit({"type": "notice", "text": f"Stopped after {max_steps} steps. The work may be incomplete; click Continue to go on.", "incomplete": True})
 
             result.message = redact(final_text)
         except NvidiaError as exc:

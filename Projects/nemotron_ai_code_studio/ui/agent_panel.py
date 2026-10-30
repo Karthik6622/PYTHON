@@ -9,7 +9,7 @@ from typing import Any
 
 import streamlit as st
 
-from studio.chat import ChangeSet, ChatMessage, TextBlock, ToolCall, apply_event
+from studio.chat import ChangeSet, ChatMessage, TextBlock, ToolCall, add_notice, apply_event
 from studio.config import settings
 from studio.models import available_models, get_model
 
@@ -91,6 +91,9 @@ def _drain() -> bool:
         for event in events:
             apply_event(answer, event, S.approvals)
         if finished:
+            if answer.streaming:  # the run ended without telling us why: never leave the user guessing
+                add_notice(answer, "The agent ended unexpectedly before finishing. Click Continue to try again.")
+                answer.incomplete = True
             answer.streaming, answer.status = False, ""
             answer.finished = answer.finished or time.time()
     S.cursor = cursor
@@ -173,11 +176,22 @@ def _tool_details(message: ChatMessage) -> None:
 
 
 def _runbar(message: ChatMessage) -> None:
-    elapsed = int(time.time() - message.started)
+    now = time.time()
+    elapsed = int(now - message.started)
     steps = f"step {message.step}/{message.max_steps}" if message.step else ""
+    status = message.status or "Working"
+    running_tool = next((t for t in reversed(message.tools) if not t.done), None)
+    if running_tool is not None:  # say exactly what is running right now
+        present = VERBS.get(running_tool.name, (running_tool.name.replace("_", " ").capitalize(),))[0]
+        status = f"{present} {_target(running_tool)}".strip()
+    elif status in {"Thinking", "Continuing"} or status.startswith("Running "):
+        status = "Thinking" if message.reasoning else "Waiting for the model"
+    idle = int(now - message.last_event)
+    if idle >= 8:
+        status += f" ({idle}s, still working)"
     meta = " | ".join(x for x in (steps, f"{elapsed}s") if x)
     st.markdown(
-        f"<div class='runbar'><span class='spin'></span><span class='st'>{escape(message.status or 'Working')}</span>"
+        f"<div class='runbar'><span class='spin'></span><span class='st'>{escape(status)}</span>"
         f"<span class='meta'>{escape(meta)}</span></div>",
         unsafe_allow_html=True,
     )
@@ -346,7 +360,7 @@ def _transcript() -> None:
             _render_message(message)
         _render_approvals()
         last = S.messages[-1] if S.messages else None
-        if last is not None and last.role == "assistant" and not last.streaming and "Stopped after" in last.text:
+        if last is not None and last.role == "assistant" and not last.streaming and last.incomplete:
             if st.button("Continue", key="agent_continue", icon=":material/play_arrow:", disabled=_running()):
                 _start_run("Continue where you left off and finish the task.")
                 st.rerun()
@@ -382,6 +396,25 @@ def _pending_banner() -> None:
             break
 
 
+def _stop_run() -> None:
+    run: AgentRun | None = st.session_state.get("run")
+    if run is None:
+        return
+    run.cancel()
+    answer = next((m for m in reversed(S.messages) if m.role == "assistant"), None)
+    if answer is not None and answer.streaming:
+        answer.status = "Stopping"
+    log("Agent stop requested")
+
+
+def _run_input() -> None:
+    """While the agent works the message box is locked and its send arrow becomes a Stop button."""
+    with st.container(key="runinput"):
+        text, stop = st.columns([8, 1.3], vertical_alignment="center", gap="small")
+        text.markdown("<div class='runinput-text'><span class='spin'></span>Agent is working... press stop to cancel</div>", unsafe_allow_html=True)
+        stop.button("", icon=":material/stop:", key="agent_stop_input", help="Stop the agent", on_click=_stop_run, width="stretch")
+
+
 def render_agent_panel() -> None:
     running = _running()
     key_ok = bool(settings.nvidia_api_key)
@@ -395,10 +428,7 @@ def render_agent_panel() -> None:
     head.markdown(f"<div class='agent-head'><span class='pulse{'' if key_ok else ' off'}'></span><b>RK AGENT</b></div>", unsafe_allow_html=True)
     picker.selectbox("Model", ids, key="model", format_func=lambda i: labels.get(i, i), disabled=running, label_visibility="collapsed")
     if running:
-        if clear.button("", icon=":material/stop_circle:", key="agent_stop", help="Stop"):
-            run = st.session_state.get("run")
-            if run is not None:
-                run.cancel()
+        clear.button("", icon=":material/stop_circle:", key="agent_stop", help="Stop", on_click=_stop_run)
     elif clear.button("", icon=":material/delete_sweep:", key="agent_clear", help="Clear conversation"):
         conversations.clear(S.conversation_id)
         S.messages = []
@@ -412,7 +442,10 @@ def render_agent_panel() -> None:
     st.fragment(run_every=POLL_SECONDS if running else None)(_transcript)()
     _pending_banner()
 
-    prompt = st.chat_input("Message the agent", disabled=running or repo() is None, key="agent_input")
+    if running:
+        _run_input()
+        return
+    prompt = st.chat_input("Message the agent", disabled=repo() is None, key="agent_input")
     if prompt and prompt.strip():
         _start_run(prompt.strip())
         st.rerun()
