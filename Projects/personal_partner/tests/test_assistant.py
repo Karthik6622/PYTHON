@@ -168,6 +168,81 @@ def test_romantic_mode_notes_how_long_the_user_was_away():
     assert "Message timing" not in system_text(assistant.build_messages(conversation, {"mode": "Normal"}))
 
 
+def test_romantic_partner_is_a_possessive_girlfriend_who_treats_the_user_as_boyfriend():
+    for partner in ("Girlfriend", "Auto"):
+        text = system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic", "partner": partner}))
+        assert "You are a girl" in text and "YOUR boyfriend" in text
+    text = system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic", "partner": "Girlfriend"}))
+    assert "possessive and jealous" in text and "NEVER congratulate" in text and "crush" in text
+    assert "never abusive" in text
+    boyfriend = system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic", "partner": "Boyfriend"}))
+    assert "treat the user as your girlfriend" in boyfriend
+    assert "possessive and jealous" not in system_text(assistant.build_messages(convo("hi"), {"mode": "Normal"}))
+
+
+def _night_conversation(sent_at):
+    return {
+        "messages": [
+            _msg("assistant", "hey", "2026-10-29T10:00:00+00:00", "Romantic"),
+            _msg("user", "hi", sent_at, "Romantic"),
+        ]
+    }
+
+
+def test_late_night_note_only_in_romantic_mode_and_only_at_night():
+    # 18:30 UTC = midnight in Asia/Kolkata
+    night = _night_conversation("2026-10-29T18:30:00+00:00")
+    text = system_text(assistant.build_messages(night, {"mode": "Romantic"}, timezone_name="Asia/Kolkata"))
+    assert "Late-night check" in text and "why they are still awake" in text
+    assert "Late-night check" not in system_text(assistant.build_messages(night, {"mode": "Normal"}, timezone_name="Asia/Kolkata"))
+    day = _night_conversation("2026-10-29T10:00:30+00:00")
+    assert "Late-night check" not in system_text(assistant.build_messages(day, {"mode": "Romantic"}, timezone_name="Asia/Kolkata"))
+    assert "Late-night check" not in system_text(assistant.build_messages(night, {"mode": "Romantic"}))  # unknown timezone
+
+
+def test_long_gap_asks_where_they_went_possessively():
+    conversation = {
+        "messages": [
+            _msg("assistant", "hey you", "2026-10-29T10:00:05+00:00", "Romantic"),
+            _msg("user", "i'm back", "2026-10-29T14:00:00+00:00", "Romantic"),
+        ]
+    }
+    text = system_text(assistant.build_messages(conversation, {"mode": "Romantic"}, timezone_name="Asia/Kolkata"))
+    assert "ask where they have been" in text and "sulky and possessive" in text
+
+
+def test_rain_note_follows_live_weather_for_the_saved_city(monkeypatch):
+    monkeypatch.setattr(live_info, "_rain_status", lambda city, bucket: {"place": "Chennai", "raining": True, "chance": 90, "desc": "rain"})
+    text = system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic", "city": "Chennai"}))
+    assert "raining right now in Chennai" in text and "stay at home" in text
+    assert "Rain check" not in system_text(assistant.build_messages(convo("hi"), {"mode": "Normal", "city": "Chennai"}))
+    monkeypatch.setattr(live_info, "_rain_status", lambda city, bucket: {"place": "Chennai", "raining": False, "chance": 10, "desc": "clear sky"})
+    assert "Rain check" not in system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic", "city": "Chennai"}))
+
+
+def test_rain_note_when_user_mentions_rain_and_handles_lookup_failure(monkeypatch):
+    def boom(city, bucket):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(live_info, "_rain_status", boom)
+    def romantic_chat(text):
+        return {"messages": [_msg("user", text, "2026-10-29T10:00:00+00:00", "Romantic")]}
+
+    text = system_text(assistant.build_messages(romantic_chat("it's raining so much here"), {"mode": "Romantic", "city": "Chennai"}))
+    assert "mentioned rain" in text
+    assert "Rain check" not in system_text(assistant.build_messages(romantic_chat("good morning"), {"mode": "Romantic", "city": "Chennai"}))
+
+
+def test_rain_warning_is_not_repeated_every_message(monkeypatch):
+    monkeypatch.setattr(live_info, "_rain_status", lambda city, bucket: {"place": "Chennai", "raining": True, "chance": 90, "desc": "rain"})
+    history = {"messages": [
+        _msg("user", "hi", "2026-10-29T10:00:00+00:00", "Romantic"),
+        _msg("assistant", "It's raining, stay home baby", "2026-10-29T10:00:05+00:00", "Romantic"),
+        _msg("user", "ok", "2026-10-29T10:00:30+00:00", "Romantic"),
+    ]}
+    assert "Rain check" not in system_text(assistant.build_messages(history, {"mode": "Romantic", "city": "Chennai"}))
+
+
 def use_key(monkeypatch, key="tvly-test-key"):
     monkeypatch.setattr(web_search, "tavily_api_key", lambda: key)
 

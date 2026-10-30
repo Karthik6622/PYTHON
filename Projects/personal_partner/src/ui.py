@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from . import storage
 from .assistant import MODES, chat_mode, messages_for_mode, stream_reply
@@ -58,9 +59,46 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+_HIDE_HOST_CHROME = """<script>
+(function () {
+  var P; try { P = window.parent; void P.document; } catch (e) { return; }
+  if (P.__wyHideChrome) return;
+  P.__wyHideChrome = true;
+  var SEL = '[class*="viewerBadge"],[data-testid="manage-app-button"],[class*="_terminalButton_"],[class*="_profileContainer_"],[class*="stDeployButton"],[data-testid="stAppDeployButton"],[data-testid="stToolbar"],[data-testid="stMainMenu"]';
+  function hide(doc) {
+    try {
+      doc.querySelectorAll(SEL).forEach(function (el) { el.style.setProperty('display', 'none', 'important'); });
+      var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null), node, hits = [];
+      while ((node = walker.nextNode())) { if (/^\\s*Manage app\\s*$/i.test(node.nodeValue)) hits.push(node.parentElement); }
+      hits.forEach(function (el) {
+        var up = el, fixed = null;
+        for (var i = 0; i < 8 && up && up !== doc.body; i++, up = up.parentElement) {
+          var cs = doc.defaultView.getComputedStyle(up);
+          if (cs.position === 'fixed' || cs.position === 'sticky') { fixed = up; break; }
+        }
+        (fixed || el).style.setProperty('display', 'none', 'important');
+      });
+    } catch (e) {}
+  }
+  function run() {
+    var docs = [P.document];
+    try { if (P.top && P.top !== P && P.top.document) docs.push(P.top.document); } catch (e) {}
+    docs.forEach(hide);
+  }
+  P.setInterval(run, 1000);
+  run();
+})();
+</script>"""
+
+
 def apply_styles() -> None:
     st.markdown(APP_CSS, unsafe_allow_html=True)
     st.markdown(FUTURISTIC_CSS, unsafe_allow_html=True)
+    # st.components.v1.html is deprecated; st.iframe replaces it on newer Streamlit releases.
+    if hasattr(st, "iframe"):
+        st.iframe(_HIDE_HOST_CHROME, height=1)
+    else:
+        components.html(_HIDE_HOST_CHROME, height=0)
 
 
 def _set_authenticated(user: dict[str, Any]) -> None:
@@ -604,7 +642,8 @@ def render_chat(user_id: str) -> None:
     if conversation is None:
         st.info("Choose a chat or start a new one.")
         return
-    mode = _mode_selector(user_id)
+    with st.container(key="ks_modebar"):
+        mode = _mode_selector(user_id)
     _chat_header(conversation, mode)
     _show_conversation(conversation, mode)
     notice = st.session_state.pop("voice_notice", None)
@@ -687,8 +726,8 @@ def render_settings(user_id: str) -> None:
         mode = st.selectbox("Chat mode", MODES, index=MODES.index(mode_value), help="Romantic: replies like a loving girlfriend or boyfriend. English correction: your sentence is corrected first, then answered.")
         partner_options = ["Auto", "Girlfriend", "Boyfriend"]
         partner_value = preferences.get("partner", "Auto")
-        partner = st.selectbox("Romantic mode partner", partner_options, index=partner_options.index(partner_value) if partner_value in partner_options else 0, help="Auto picks the opposite of what you say about yourself.")
-        city = st.text_input("Your city (optional)", value=str(preferences.get("city", "")), max_chars=60, help="Used only to look up the weather when you ask about it.")
+        partner = st.selectbox("Romantic mode partner", partner_options, index=partner_options.index(partner_value) if partner_value in partner_options else 0, help="Auto and Girlfriend: a possessive girlfriend who treats you as her boyfriend. Boyfriend: a boyfriend who treats you as his girlfriend.")
+        city = st.text_input("Your city (optional)", value=str(preferences.get("city", "")), max_chars=60, help="Used to look up the weather when you ask, and in Romantic mode so your partner can tell you to stay home when it rains.")
         saved = st.form_submit_button("Save preferences", type="primary")
     if saved:
         clean = {"tone": tone, "response_length": response_length, "topics": topics, "mode": mode, "partner": partner, "city": city.strip()}

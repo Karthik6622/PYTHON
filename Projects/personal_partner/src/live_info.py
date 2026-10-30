@@ -143,6 +143,68 @@ def weather_note(user_texts: list[str], default_city: str = "") -> str | None:
     )
 
 
+_RAIN_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99}
+_RAIN_WORDS = re.compile(r"\b(rain|rains|raining|rainy|drizzle|drizzling|storm|thunder|thunderstorm|monsoon|downpour)\b", re.IGNORECASE)
+
+
+@lru_cache(maxsize=64)
+def _rain_status(city: str, bucket: int) -> dict[str, Any] | None:  # noqa: ARG001 - bucket only expires the cache
+    with httpx.Client(timeout=5, verify=ssl.create_default_context()) as client:
+        geo = client.get(_GEOCODE_URL, params={"name": city, "count": 1, "language": "en", "format": "json"})
+        geo.raise_for_status()
+        results = geo.json().get("results") or []
+        if not results:
+            return None
+        place = results[0]
+        forecast = client.get(
+            _FORECAST_URL,
+            params={
+                "latitude": place["latitude"],
+                "longitude": place["longitude"],
+                "current": "weather_code,precipitation",
+                "daily": "precipitation_probability_max",
+                "timezone": "auto",
+                "forecast_days": 1,
+            },
+        )
+        forecast.raise_for_status()
+        data = forecast.json()
+    current = data.get("current", {})
+    chance = (data.get("daily", {}).get("precipitation_probability_max") or [0])[0] or 0
+    raining = current.get("weather_code") in _RAIN_CODES or (current.get("precipitation") or 0) > 0
+    return {
+        "place": place.get("name") or city,
+        "raining": bool(raining),
+        "chance": int(chance),
+        "desc": _WMO.get(current.get("weather_code"), "rain"),
+    }
+
+
+def rain_note(user_text: str, city: str = "", repeat: bool = True) -> str | None:
+    """System note for Romantic mode when it rains (live for the saved city, or when the user mentions rain)."""
+    said = bool(_RAIN_WORDS.search(user_text or ""))
+    status = None
+    if city.strip():
+        try:
+            status = _rain_status(city.strip()[:60], int(time.time() // 600))
+        except Exception as exc:
+            LOGGER.warning("Rain lookup failed: %s: %s", type(exc).__name__, exc)
+    how = (
+        "React like a real, caring, possessive partner: lovingly but firmly ask them to stay at home and not go out, worry about them "
+        "getting wet or sick, ask if they are already outside, and if they truly must go tell them to take an umbrella and text you "
+        "when they reach back. Say it in your own words with feeling."
+    )
+    if status and (status["raining"] or status["chance"] >= 60) and (repeat or said):
+        if status["raining"]:
+            fact = f"It is raining right now in {status['place']} ({status['desc']}), where they live."
+        else:
+            fact = f"Rain is likely today in {status['place']} (about {status['chance']}% chance), where they live."
+        return f"Rain check (live weather): {fact} {how}"
+    if said:
+        return f"Rain check: the user just mentioned rain or a storm. {how}"
+    return None
+
+
 _WIKI_API = "https://en.wikipedia.org/w/api.php"
 _FACT_INTENT = re.compile(
     r"\b(who|what|which|when|where|list|name|latest|current|currently|recent|news|released|release|about|"

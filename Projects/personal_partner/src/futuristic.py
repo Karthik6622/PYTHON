@@ -262,5 +262,26 @@ span[data-baseweb="tag"] { background: var(--ks-btn-grad) !important; }
   .stApp h1, .stApp h2 { letter-spacing: -.01em; }
   .ks-w-blob { filter: blur(34px); }
 }
+
+/* Mode selector stays pinned under the header while the chat scrolls */
+[data-testid="stLayoutWrapper"]:has(> .st-key-ks_modebar), .st-key-ks_modebar:not([data-testid="stLayoutWrapper"] > *) {
+  position: sticky; top: 3.5rem; z-index: 60;
+}
+.st-key-ks_modebar {
+  margin: 0 0 .5rem; padding: .4rem .25rem .35rem;
+  background: rgba(5,9,20,.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--ks-line);
+}
+.st-key-ks_modebar [data-testid="stRadio"] { margin: 0; }
+.stApp:has(.ks-romantic-flag) .st-key-ks_modebar { background: rgba(20,6,15,.94); border-bottom-color: rgba(244,114,182,.28); }
+
+/* Hosting chrome (Share, star, edit, GitHub, menu, Manage app) is not part of the app */
+[data-testid="stToolbar"], [data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"],
+[data-testid="stStatusWidget"], [data-testid="stDecoration"], [data-testid="manage-app-button"], #MainMenu, footer,
+[class*="viewerBadge"], [class*="stDeployButton"], [class*="_terminalButton_"], [class*="_profileContainer_"],
+[class*="_profilePreview_"], a[href*="streamlit.io/cloud"][class*="badge" i] {
+  display: none !important; visibility: hidden !important; pointer-events: none !important;
+}
+[data-testid="stElementContainer"]:has(> iframe[height="0"]), [data-testid="stElementContainer"]:has(> iframe[height="1"]) { display: none !important; }
 </style>
 """
