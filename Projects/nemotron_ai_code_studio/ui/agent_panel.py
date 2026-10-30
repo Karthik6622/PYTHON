@@ -13,6 +13,7 @@ from studio.chat import ChangeSet, ChatMessage, TextBlock, ToolCall, apply_event
 from studio.config import settings
 from studio.models import available_models, get_model
 
+from .dialogs import ensure_folder
 from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, repo, sync_after_change
 
 POLL_SECONDS = 0.4
@@ -63,6 +64,9 @@ def _start_run(prompt: str) -> None:
         st.toast("Set NVIDIA_API_KEY in .env or in Settings before using the agent.", icon=":material/key:")
         return
     mode = (S.mode or "ASK").lower()
+    if mode == "agent" and not ensure_folder():
+        return
+    current = repo()
     model = get_model(S.model)
     user = ChatMessage(role="user", text=prompt[:8000], mode=mode)
     answer = ChatMessage(role="assistant", mode=mode, model=model.label, streaming=True, status="Starting")

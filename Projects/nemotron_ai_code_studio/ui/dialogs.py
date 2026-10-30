@@ -12,7 +12,7 @@ from studio.models import available_models, get_model
 from studio.services import folders
 from studio.services.github_service import GitHubService
 
-from .state import S, attempt, log, new_window_url, nvidia, repositories
+from .state import S, attempt, log, new_window_url, nvidia, open_workspace, repo, repositories
 
 
 def ask_folder(initial: str, title: str) -> str | None:
@@ -21,6 +21,33 @@ def ask_folder(initial: str, title: str) -> str | None:
     if ok and not chosen:
         st.toast("No folder was selected.", icon=":material/info:")
     return chosen if ok else None
+
+
+def ensure_folder() -> bool:
+    """Before the first file is saved in a window with no repository, ask where to save it (the OS folder window).
+
+    Returns False when the user cancels, so the caller must not create anything. Once a folder is chosen it is not asked again."""
+    current = repo()
+    if current is None or not current.scratch or current.path == settings.scratch_path or not folders.native_picker_available():
+        return True
+    return _switch_folder(str(current.path))
+
+
+def _switch_folder(initial: str) -> bool:
+    chosen = ask_folder(initial, "Choose the folder where your files will be saved")
+    if not chosen:
+        return False
+    ok, folder = attempt(repositories.open_scratch, chosen)
+    if not ok:
+        return False
+    open_workspace(folder)
+    log(f"Working in {folder.path}")
+    return True
+
+
+def choose_working_folder() -> None:
+    current = repo()
+    _switch_folder(str(current.path) if current else "")
 
 
 def _clone(name: str, branch: str, root: Path | None) -> None:

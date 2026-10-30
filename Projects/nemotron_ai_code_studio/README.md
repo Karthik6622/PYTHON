@@ -44,7 +44,7 @@ Flow: the agent edits files, then the review card shows each diff. Keep or Rever
 
 ## Working without a repository, and cloning
 
-- A new window starts in a plain "local folder" (`workspaces/scratch`, or `SCRATCH_PATH`). Create and run files there with the editor, the agent and the terminal; no repository is needed. On a computer, "Choose working folder" in the Explorer switches to any folder.
+- A new window starts in a plain "local folder" (`workspaces/scratch`, or `SCRATCH_PATH`). Create and run files there with the editor, the agent and the terminal; no repository is needed. On a computer, the first time you create a file (or start the agent in AGENT mode) the operating system's folder window opens so you choose where files are saved; "Choose working folder" in the Explorer changes it later.
 - "Connect a repository" asks for the repository, then "Clone and open" opens the operating system's folder dialog. The repository is saved in the folder you pick and opens in a new browser tab, so it never mixes with the files in the window you came from. Set `NATIVE_FOLDER_DIALOG=0` to skip the dialog.
 - Every browser tab keeps its own folder (the `?w=` id in the address). Reloading a tab reopens its folder.
 - Running on Streamlit Cloud: the server cannot open a window on your PC or write to its disk, so repositories are saved on the server and are lost when the app restarts. Run RK Studio on your own computer to keep files there.
