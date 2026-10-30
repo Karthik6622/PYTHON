@@ -7,6 +7,7 @@ import streamlit as st
 from studio.security import is_sensitive_path
 
 from .state import S, attempt, close_file, log, open_file, repo
+from .theme import section_title
 
 
 def _join(directory: str, name: str) -> str:
@@ -68,7 +69,7 @@ def render_explorer() -> None:
         st.info("No repository is open. Use the GitHub button to connect one.")
         return
 
-    st.caption(f"EXPLORER  |  {current.name}")
+    section_title("Explorer", current.name)
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")
@@ -126,7 +127,7 @@ def render_search() -> None:
     if current is None:
         st.info("No repository is open.")
         return
-    st.caption("SEARCH")
+    section_title("Search")
     with st.form("search_form", border=False):
         query = st.text_input("Search text", placeholder="Search in repository", label_visibility="collapsed")
         left, right = st.columns(2)

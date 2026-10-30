@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from html import escape
+
 import streamlit as st
 
 try:
@@ -56,7 +58,7 @@ def _save(path: str) -> bool:
 def _editor(path: str) -> None:
     """A fragment, so typing re-runs only this block and not the whole page."""
     note = S.notes.get(path, "")
-    toolbar = st.container()  # filled after the editor runs, so it sees the latest text
+    toolbar = st.container(key="toolbar")  # filled after the editor runs, so it sees the latest text
 
     if note:
         st.warning(note)
@@ -66,18 +68,21 @@ def _editor(path: str) -> None:
         language = ACE_LANGUAGES.get(_language_of(path), "text")
         if st_ace is not None:
             content = st_ace(
-                value=initial, language=language, theme="monokai", keybinding="vscode", font_size=14, tab_size=4,
-                show_gutter=True, wrap=False, auto_update=True, min_lines=26, max_lines=26, readonly=bool(note), key=key,
-            )
+                value=initial, language=language, theme="tomorrow_night_bright", keybinding="vscode", font_size=13, tab_size=4,
+                show_gutter=True, wrap=False, auto_update=True, height="calc(100vh - 4px)", min_lines=None, max_lines=None,
+                readonly=bool(note), key=key,
+            )  # the iframe height is set in theme.py; 100vh inside the frame is that height
         else:
             content = st.text_area("Editor", value=initial, height=560, key=key, disabled=bool(note), label_visibility="collapsed")
         if content is not None and not note:
             S.drafts = {**S.drafts, path: content}
 
     with toolbar:
-        top = st.columns([6, 1.3, 1.3, 1.5], vertical_alignment="center")
+        top = st.columns([2.4, 1, 1.15, 1], vertical_alignment="center")
         dirty = _dirty(path)
-        top[0].markdown(f"**{path}**" + ("  :orange[unsaved changes]" if dirty else ""))
+        parent, _, name = path.rpartition("/")
+        crumb = (f"{escape(parent)} / " if parent else "") + f"<b>{escape(name)}</b>"
+        top[0].markdown(f"<div class='crumb'>{crumb}{'<em>UNSAVED</em>' if dirty else ''}</div>", unsafe_allow_html=True)
         if top[1].button("Save", icon=":material/save:", type="primary", disabled=bool(note) or not dirty, key=f"save:{path}", width="stretch"):
             if _save(path):
                 st.toast(f"Saved {path}", icon=":material/check:")
@@ -127,18 +132,32 @@ def _diff_view(path: str) -> None:
         st.info("No differences for this file.")
 
 
+def _hero(message: str) -> None:
+    st.markdown(
+        "<div class='hero'><div class='orb'>N</div><h2>NEMOTRON STUDIO</h2>"
+        f"<p>{escape(message)}</p>"
+        "<div class='keys'><span>Explorer: open a file</span><span>Agent: ask, plan or build</span><span>Source Control: review and commit</span></div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_editor() -> None:
+    with st.container(key="editorarea"):
+        _render_editor_area()
+
+
+def _render_editor_area() -> None:
     if repo() is None:
-        st.info("Connect a repository to start (GitHub button, top right).")
+        _hero("Connect a repository with the GitHub button in the title bar to start.")
         return
 
     if S.diff_view:
-        _diff_view(S.diff_view)
+        with st.container(key="diffarea"):
+            _diff_view(S.diff_view)
         return
 
     if not S.tabs:
-        st.markdown("#### Open a file")
-        st.caption("Pick a file in the Explorer, or ask the agent about your repository. Edits apply as you type; press Save to write them to disk.")
+        _hero("Pick a file in the Explorer, or ask the agent about your repository. Edits apply as you type; press Save to write them to disk.")
         return
 
     if S.active not in S.tabs:
@@ -148,8 +167,9 @@ def render_editor() -> None:
         st.session_state["last_active"] = S.active
 
     st.session_state["tab_select"] = S.active
-    st.segmented_control(
-        "Open files", options=S.tabs, format_func=_label, selection_mode="single", key="tab_select",
-        on_change=_select_tab, label_visibility="collapsed", width="stretch",
-    )
+    with st.container(key="tabs"):
+        st.segmented_control(
+            "Open files", options=S.tabs, format_func=_label, selection_mode="single", key="tab_select",
+            on_change=_select_tab, label_visibility="collapsed", width="content",
+        )
     _editor(S.active)

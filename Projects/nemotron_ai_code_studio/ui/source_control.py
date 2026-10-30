@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from .state import S, attempt, log, reload_paths, repo
+from .theme import section_title
 
 LETTERS = {"modified": "M", "added": "A", "deleted": "D", "untracked": "U", "renamed": "R", "conflicted": "C"}
 
@@ -114,9 +115,8 @@ def render_source_control() -> None:
     if not ok:
         return
 
-    st.caption("SOURCE CONTROL")
-    sync = f"  |  ahead {status['ahead']}, behind {status['behind']}" if status["upstream"] else "  |  no upstream"
-    st.markdown(f"**{status['branch']}**{sync}")
+    sync = f"ahead {status['ahead']}, behind {status['behind']}" if status["upstream"] else "no upstream"
+    section_title("Source Control", f"{status['branch']}  |  {sync}")
 
     a, b, c, d = st.columns(4)
     if a.button("", icon=":material/refresh:", help="Refresh", key="sc_refresh", width="stretch"):

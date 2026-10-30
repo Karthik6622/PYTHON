@@ -12,10 +12,14 @@ streamlit run app.py
 
 ## Layout
 
-- Top bar: repository, branch, status, Settings, GitHub.
-- Left: Explorer (open, create, rename, delete, refresh), Search, Source Control (stage, commit, push, discard).
+The UI is a full-viewport, dark glass/neon shell modelled on VS Code (no page scroll).
+
+- Title bar: brand, repository, branch picker, GitHub connect and Settings.
+- Activity bar: switches the sidebar between Explorer, Search and Source Control.
+- Sidebar: Explorer (open, create, rename, delete, refresh), Search, Source Control (stage, commit, push, discard).
 - Centre: tabbed Ace editor with Save/Revert, plus TERMINAL, PROBLEMS, OUTPUT, TESTS and GIT DIFF tabs.
 - Right: AI panel with ASK / PLAN / AGENT modes, files inspected, proposed changes (Review, Apply, Reject) and command approvals.
+- Status bar: branch, changes, lint problems, and Nemotron / GitHub connection indicators.
 
 Flow: AI proposes changes, you review, you accept, optionally commit, optionally push. Nothing is pushed automatically.
 

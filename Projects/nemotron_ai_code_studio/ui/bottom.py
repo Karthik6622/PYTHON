@@ -11,7 +11,7 @@ from studio.tools import devtools
 
 from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
 
-PANEL_HEIGHT = 300
+PANEL_HEIGHT = 240
 POLL_SECONDS = 0.5
 
 
@@ -56,7 +56,7 @@ def _start(attr: str, command: str, kind: str = "") -> None:
 def _terminal_render(run: CommandRun) -> None:
     state = "running" if not run.finished.is_set() else "finished"
     st.caption(f"$ {run.command}  ({state})")
-    st.code(run.output or "(no output yet)", language=None, line_numbers=False, height=160)
+    st.code(run.output or "(no output yet)", language=None, line_numbers=False, height=120)
     if not run.finished.is_set() and st.button("Stop", icon=":material/stop:", key="term_stop"):
         run.cancel()
 

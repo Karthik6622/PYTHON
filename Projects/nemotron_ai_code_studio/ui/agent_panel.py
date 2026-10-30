@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from typing import Any
 
 import streamlit as st
@@ -13,7 +14,11 @@ from studio.config import settings
 from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, repo, sync_after_change
 
 POLL_SECONDS = 0.4
-CHAT_HEIGHT = 620
+SUGGESTIONS = [
+    "Explain how this repository is structured",
+    "Find likely bugs in this repository",
+    "Plan unit tests for the main modules",
+]
 MODES = ["ASK", "PLAN", "AGENT"]
 MODE_HELP = {
     "ASK": "Answers questions about the repository. Read-only.",
@@ -201,9 +206,9 @@ def _render_approvals() -> None:
 # ------------------------------------------------------------------ panel
 def _transcript() -> None:
     ended = _drain()
-    with st.container(height=CHAT_HEIGHT, border=True):
+    with st.container(key="chat"):
         if not S.messages:
-            st.caption("Ask about the repository, request a plan, or switch to AGENT to make changes. Referenced files appear under each answer.")
+            _intro()
         for message in S.messages:
             _render_message(message)
         _render_approvals()
@@ -211,23 +216,42 @@ def _transcript() -> None:
         st.rerun()
 
 
+def _intro() -> None:
+    st.markdown(
+        "<div class='intro'><div class='orb'>N</div><h4>Ask. Plan. Build.</h4>"
+        "<p>Ask about the repository, request a plan, or switch to AGENT to make changes. Referenced files appear under each answer.</p></div>"
+        "<div class='suggest-title'>Try</div>",
+        unsafe_allow_html=True,
+    )
+    with st.container(key="suggest"):
+        for index, text in enumerate(SUGGESTIONS):
+            if st.button(text, key=f"suggest_{index}", icon=":material/bolt:", disabled=repo() is None):
+                _start_run(text)
+                st.rerun()
+
+
 def render_agent_panel() -> None:
     running = _running()
-    head, clear = st.columns([5, 1.3], vertical_alignment="center")
-    head.markdown("**AI AGENT**")
+    key_ok = bool(settings.nvidia_api_key)
+    head, clear = st.columns([5, 1], vertical_alignment="center")
+    head.markdown(
+        f"<div class='agent-head'><span class='pulse{'' if key_ok else ' off'}'></span><b>NEMOTRON AGENT</b></div>",
+        unsafe_allow_html=True,
+    )
     if running:
-        if clear.button("Stop", icon=":material/stop:", key="agent_stop", width="stretch"):
+        if clear.button("", icon=":material/stop_circle:", key="agent_stop", help="Stop"):
             run = st.session_state.get("run")
             if run is not None:
                 run.cancel()
-    elif clear.button("Clear", icon=":material/delete_sweep:", key="agent_clear", width="stretch", help="Clear conversation"):
+    elif clear.button("", icon=":material/delete_sweep:", key="agent_clear", help="Clear conversation"):
         conversations.clear(S.conversation_id)
         S.messages = []
         S.approvals = {}
         st.rerun()
 
-    st.segmented_control("Mode", MODES, key="mode", disabled=running, label_visibility="collapsed", width="stretch")
-    st.caption(MODE_HELP[S.mode or "ASK"])
+    with st.container(key="modebar"):
+        st.segmented_control("Mode", MODES, key="mode", disabled=running, label_visibility="collapsed", width="stretch")
+    st.markdown(f"<div class='mode-note'>{escape(MODE_HELP[S.mode or 'ASK'])}</div>", unsafe_allow_html=True)
 
     st.fragment(run_every=POLL_SECONDS if running else None)(_transcript)()
 

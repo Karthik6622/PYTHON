@@ -1,10 +1,10 @@
-"""Top bar: repository, branch, connection and model status, Settings, GitHub."""
+"""Title bar: brand, repository and branch, plus GitHub and Settings. Service status lives in the status bar."""
 
 from __future__ import annotations
 
-import streamlit as st
+from html import escape
 
-from studio.config import settings
+import streamlit as st
 
 from .dialogs import connect_dialog, settings_dialog
 from .state import S, attempt, log, reload_paths, repo
@@ -23,17 +23,15 @@ def _checkout(name: str) -> None:
         st.toast(f"Switched to {name}", icon=":material/call_split:")
 
 
-def _chip(ok: bool, text: str) -> str:
-    colour = "#76b900" if ok else "#f14c4c"
-    return f"<span style='color:{colour}'>&#9679;</span>&nbsp;{text}"
-
-
 def render_top_bar() -> None:
     current = repo()
-    with st.container(border=True):
-        title, repo_col, branch_col, status_col, buttons = st.columns([2.2, 2.2, 1.6, 3.4, 1.8], vertical_alignment="center")
-        title.markdown("**Nemotron AI Code Studio**")
-        repo_col.markdown(f"**Repository:** {current.name if current else 'none'}")
+    with st.container(key="titlebar"):
+        brand, repo_col, branch_col, _space, github_col, settings_col = st.columns([2.6, 3, 1.8, 3.4, 0.45, 0.45], vertical_alignment="center", gap="small")
+        brand.markdown("<div class='brand'><span class='logo'>N</span><span class='word'>NEMOTRON<b>STUDIO</b></span></div>", unsafe_allow_html=True)
+        repo_col.markdown(
+            f"<div class='pill{'' if current else ' off'}'><i></i>{escape(current.name) if current else 'No repository'}</div>",
+            unsafe_allow_html=True,
+        )
 
         if current and current.git is not None:
             ok, branches = attempt(current.git.branches, quiet=True)
@@ -42,20 +40,8 @@ def render_top_bar() -> None:
             options = list(dict.fromkeys([now, *names]))
             st.session_state["branch_select"] = now  # always show the real branch, even after a failed switch
             branch_col.selectbox("Branch", options, key="branch_select", label_visibility="collapsed", on_change=lambda: _checkout(st.session_state.branch_select))
-        else:
-            branch_col.caption("no branch")
 
-        status_col.markdown(
-            "&nbsp;&nbsp;".join([
-                _chip(True, "Backend ready"),
-                _chip(bool(settings.nvidia_api_key), "Nemotron ready" if settings.nvidia_api_key else "Nemotron: no API key"),
-                _chip(bool(settings.github_token), "GitHub token set" if settings.github_token else "GitHub: no token"),
-            ]),
-            unsafe_allow_html=True,
-        )
-
-        github_col, settings_col = buttons.columns(2)
-        if github_col.button("GitHub", icon=":material/hub:", width="stretch"):
+        if github_col.button("", icon=":material/hub:", help="Connect a GitHub repository", key="open_connect"):
             connect_dialog()
-        if settings_col.button("Settings", icon=":material/settings:", width="stretch"):
+        if settings_col.button("", icon=":material/tune:", help="Settings", key="open_settings"):
             settings_dialog()
