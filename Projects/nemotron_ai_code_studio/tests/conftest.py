@@ -6,6 +6,7 @@ from pathlib import Path
 _BASE = Path(tempfile.mkdtemp(prefix="nemotron-tests-"))
 os.environ["WORKSPACE_PATH"] = str(_BASE / "workspaces")
 os.environ["AUTO_VALIDATE"] = "0"
+os.environ["STUDIO_CHAT_DIR"] = str(_BASE / "chats")
 os.environ.pop("NVIDIA_API_KEY", None)
 os.environ.pop("GITHUB_TOKEN", None)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

@@ -106,6 +106,20 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
             message.blocks.append(TextBlock(text))
     elif kind == "reasoning":
         message.reasoning += str(event.get("text", ""))
+    elif kind == "retract":
+        # the model's answer broke off and is being asked again: take back what that attempt had already written
+        remaining = int(event.get("text", 0) or 0)
+        message.text = message.text[: max(0, len(message.text) - remaining)]
+        while remaining > 0 and message.blocks and isinstance(message.blocks[-1], TextBlock):
+            block = message.blocks[-1]
+            cut = min(remaining, len(block.text))
+            block.text = block.text[: len(block.text) - cut]
+            remaining -= cut
+            if not block.text:
+                message.blocks.pop()
+        message.reasoning = message.reasoning[: max(0, len(message.reasoning) - int(event.get("reasoning", 0) or 0))]
+    elif kind == "model":
+        message.model = str(event.get("label", message.model))
     elif kind == "step":
         message.step, message.max_steps = int(event.get("n", 0)), int(event.get("max", 0))
     elif kind == "tool_start":

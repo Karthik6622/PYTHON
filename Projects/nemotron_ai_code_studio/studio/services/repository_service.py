@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..config import PROJECT_ROOT, settings
+from ..config import PROJECT_ROOT, is_hosted, settings
 from ..security import PathSecurityError, resolve_in_root
 from .change_tracker import ChangeTracker
 from .context_service import ContextEngine
@@ -73,6 +73,7 @@ class RepositoryService:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        self._trackers: dict[str, ChangeTracker] = {}
 
     # ---------------------------------------------------------------- windows
     # Each browser window has an id (in the page address). The folder a window works in is remembered under that id,
@@ -91,7 +92,7 @@ class RepositoryService:
             data = self._read_windows()
             windows = {key: value for key, value in data.get("windows", {}).items() if key != window}
             windows[window] = {"path": str(path), "github": github or {}, "scratch": scratch, "link": link, "fresh": bool(link and fresh)}
-            windows = dict(list(windows.items())[-40:])
+            windows = dict(list(windows.items())[-400:])
             try:
                 STATE_FILE.write_text(json.dumps({"windows": windows, "last": window}), encoding="utf-8")
             except OSError:
@@ -179,17 +180,29 @@ class RepositoryService:
         )
 
     # ---------------------------------------------------------------- work without a repository
-    def open_scratch(self, text: str | None = None) -> ActiveRepository:
-        """A plain folder to create and run files in (no GitHub). Without a path it uses the default scratch folder."""
+    def open_scratch(self, text: str | None = None, window: str | None = None) -> ActiveRepository:
+        """A plain folder to create and run files in (no GitHub). Without a path it uses the default scratch folder.
+
+        On a shared deployment every window gets a scratch folder of its own, so two visitors never see each other's files."""
         try:
             if text and text.strip():
                 path = prepare_location(text)
             else:
                 path = settings.scratch_path
+                if window and is_hosted():
+                    path = path / window
                 path.mkdir(parents=True, exist_ok=True)
         except (FolderError, OSError) as exc:
             raise RepositoryError(str(exc), 400) from exc
         return self._activate(path, path.name, scratch=True)
+
+    def adopt_tracker(self, window: str, active: ActiveRepository) -> None:
+        """Keep the list of agent changes awaiting review when the page is reloaded (the folder is opened again as a new object)."""
+        with self._lock:
+            key = f"{window}|{active.path}"
+            active.tracker = self._trackers.setdefault(key, active.tracker)
+            while len(self._trackers) > 200:
+                self._trackers.pop(next(iter(self._trackers)))
 
     # ---------------------------------------------------------------- connect
     def clone_github(self, repository: str, branch: str | None = None, root: Path | None = None) -> tuple[Path, dict[str, Any]]:

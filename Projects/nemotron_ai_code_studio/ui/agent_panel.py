@@ -9,9 +9,11 @@ from typing import Any
 
 import streamlit as st
 
+from studio import chat_store
 from studio.chat import ChangeSet, ChatMessage, TextBlock, ToolCall, add_notice, apply_event
 from studio.config import settings
 from studio.models import available_models, get_model
+from studio.runner import register_run, release_run
 
 from .dialogs import ensure_folder
 from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, repo, sync_after_change
@@ -54,6 +56,11 @@ def _running() -> bool:
     return st.session_state.get("run") is not None
 
 
+def _save_chat() -> None:
+    """Keep the conversation on disk so a page refresh brings it back."""
+    chat_store.save_chat(S.conversation_id, S.messages)
+
+
 # ------------------------------------------------------------------ run lifecycle
 def _start_run(prompt: str) -> None:
     current = repo()
@@ -75,6 +82,7 @@ def _start_run(prompt: str) -> None:
     S.approvals = {}
     run = AgentRun(coding_agent, broker, conversations, current, prompt[:8000], mode, S.conversation_id, model=model.id)
     S.run = run
+    register_run(run)
     run.start()
     log(f"Agent ({mode.upper()}, {model.label}): {prompt[:80]}")
 
@@ -100,12 +108,16 @@ def _drain() -> bool:
     if finished:
         modified = list(answer.modified) if answer is not None else []
         S.run = None
+        release_run(run)
         S.approvals = {}
         current = repo()
+        if current is not None and current.git is not None:
+            current.git.invalidate()  # the agent may have run git commands or changed files
         if modified and current is not None:
             current.reindex()
             sync_after_change(modified)
         log("Agent run finished")
+        _save_chat()
         return True
     return False
 
@@ -226,6 +238,7 @@ def _keep(message: ChatMessage, paths: list[str]) -> None:
     if changes.state == "accepted":
         current.tracker.accept(changes.change_id)
     log("Kept " + ", ".join(paths))
+    _save_chat()
 
 
 def _revert(message: ChatMessage, paths: list[str]) -> None:
@@ -245,6 +258,7 @@ def _revert(message: ChatMessage, paths: list[str]) -> None:
         reload_paths(restored)
         log("Reverted " + ", ".join(restored))
         st.toast(f"Reverted {len(restored)} file(s).", icon=":material/undo:")
+        _save_chat()
 
 
 def _changes_card(message: ChatMessage, changes: ChangeSet) -> None:

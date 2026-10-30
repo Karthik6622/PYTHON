@@ -40,8 +40,8 @@ def hint_for(command: str, output: str, exit_code: int | None) -> str:
     if _INPUT.search(output):
         lines.append("The terminal cannot answer input() prompts. Pass values as arguments or environment variables instead.")
     if _GIT_LOGIN.search(output) or _NO_GH.search(output):
-        lines.append("GitHub login cannot be typed in this terminal (and the GitHub CLI is not installed). Open Settings, add a GitHub token "
-                     "(classic 'repo' scope), then run a plain git push / pull / fetch again: the token is used automatically.")
+        lines.append("GitHub login cannot be typed in this terminal (and the GitHub CLI is not installed). Click the GitHub account button in the top bar to connect, "
+                     "then run a plain git push / pull / fetch again: the connected account is used automatically.")
     elif _GIT_DENIED.search(output):
-        lines.append("GitHub rejected the token. Check that the token in Settings is valid and has write access ('repo' scope) to this repository.")
+        lines.append("GitHub rejected the token. Reconnect GitHub from the top bar and make sure it has write access ('repo' scope) to this repository.")
     return "\n".join(lines)

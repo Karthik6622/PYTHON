@@ -42,11 +42,13 @@ RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 class NvidiaError(Exception):
-    def __init__(self, message: str, status: int = 502, retryable: bool = False) -> None:
+    def __init__(self, message: str, status: int = 502, retryable: bool = False, *, transient: bool = False, partial: bool = False) -> None:
         super().__init__(message)
         self.message = message
         self.status = status
         self.retryable = retryable
+        self.transient = transient  # the model was too slow, overloaded or unreachable: another try or another model may work
+        self.partial = partial      # the answer had already started streaming when it broke
 
 
 @dataclass
@@ -163,9 +165,9 @@ def _friendly_error(status: int, body: str, model: str = "") -> NvidiaError:
     if status == 413 or (status == 400 and "context" in detail.lower()):
         return NvidiaError("The request is too large for the model's context window. Start a new chat or ask about fewer files." + (f" ({detail})" if detail else ""), 400)
     if status == 429:
-        return NvidiaError("NVIDIA's rate limit was reached. Wait a moment and try again.", 429, True)
+        return NvidiaError("NVIDIA's rate limit was reached. Wait a moment and try again.", 429, True, transient=True)
     if status >= 500 or status in RETRYABLE_STATUS:
-        return NvidiaError(f"NVIDIA's service had a problem ({status})." + (f" {detail}" if detail else ""), 502, True)
+        return NvidiaError(f"NVIDIA's service had a problem ({status})." + (f" {detail}" if detail else ""), 502, True, transient=True)
     return NvidiaError(f"NVIDIA rejected the request ({status}). {detail}".strip(), 400)
 
 
@@ -216,6 +218,7 @@ class NvidiaService:
         headers = {"Authorization": f"Bearer {key}", "Accept": "text/event-stream", "Content-Type": "application/json"}
         url = f"{settings.nvidia_base_url}/chat/completions"
         attempts = settings.nvidia_max_retries + 1
+        timeouts = 0
         async with self._client() as client:
             for attempt in range(attempts):
                 started = False
@@ -277,15 +280,19 @@ class NvidiaService:
                     await self._sleep(getattr(error, "retry_after", None) or _backoff(attempt))
                 except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
                     if started or attempt >= attempts - 1:
-                        raise NvidiaError("Could not reach the NVIDIA API. Check your network connection and NVIDIA_BASE_URL.", 502) from exc
+                        raise NvidiaError("Could not reach the NVIDIA API. Check your network connection and NVIDIA_BASE_URL.", 502, transient=True, partial=started) from exc
                     await self._sleep(_backoff(attempt))
                 except httpx.TimeoutException as exc:
-                    if started or attempt >= attempts - 1:
-                        raise NvidiaError("The NVIDIA API took too long to answer. Try again, or raise NVIDIA_TIMEOUT_SECONDS.", 504) from exc
+                    timeouts += 1  # a model that stayed silent this long will usually do it again: do not wait out every retry
+                    if started or timeouts >= 2 or attempt >= attempts - 1:
+                        raise NvidiaError(
+                            f"{info.label} did not answer within {int(settings.nvidia_timeout_seconds)} seconds."
+                            " Raise NVIDIA_TIMEOUT_SECONDS, try again, or pick another model.", 504, transient=True, partial=started,
+                        ) from exc
                     await self._sleep(_backoff(attempt))
                 except (httpx.ReadError, httpx.RemoteProtocolError) as exc:
                     if started or attempt >= attempts - 1:
-                        raise NvidiaError("The connection to the NVIDIA API was interrupted.", 502) from exc
+                        raise NvidiaError("The connection to the NVIDIA API was interrupted.", 502, transient=True, partial=started) from exc
                     await self._sleep(_backoff(attempt))
 
     # ---------------------------------------------------------------- public helpers

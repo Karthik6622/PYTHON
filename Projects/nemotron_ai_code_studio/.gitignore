@@ -3,6 +3,8 @@
 !.env.example
 workspaces/
 .studio_state.json
+.studio_chats/
+.studio_prefs.json
 __pycache__/
 *.pyc
 .venv/

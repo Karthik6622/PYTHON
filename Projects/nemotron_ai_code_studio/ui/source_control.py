@@ -46,6 +46,16 @@ def _commit() -> None:
         _clear_selection()
 
 
+def _undo_commit() -> None:
+    current = repo()
+    ok, info = attempt(current.git.undo_last_commit)
+    if ok:
+        log(f"Undid commit {info['short']}: {info['message']}")
+        st.toast(f"Undid {info['short'][:7]}. Its changes are staged again.", icon=":material/undo:")
+        st.session_state["commit_message"] = info["full_message"]  # edit it and commit again
+        _clear_selection()
+
+
 def _remote(action: str) -> None:
     current = repo()
     ok, message = attempt(getattr(current.git, action))
@@ -138,6 +148,14 @@ def render_source_control() -> None:
     st.text_area("Message", key="commit_message", placeholder="Commit message", height=80, label_visibility="collapsed")
     message_ok = bool(st.session_state.get("commit_message", "").strip())
     st.button("Commit", icon=":material/check:", type="primary", width="stretch", on_click=_commit, disabled=not (staged and message_ok), help="Commits the staged files")
+
+    ok, last = attempt(current.git.last_commit, quiet=True)
+    if ok and last:
+        st.caption(f"Last commit {last['short'][:7]}: {last['message'][:60]}" + ("  (pushed)" if last["pushed"] else ""))
+        st.button(
+            "Undo last commit", icon=":material/undo:", key="sc_undo", width="stretch", on_click=_undo_commit, disabled=last["pushed"],
+            help="Already pushed to GitHub: cannot be undone here" if last["pushed"] else "Undo the last commit. Its changes stay staged and its message comes back so you can commit again.",
+        )
 
     if staged:
         st.markdown(f"**Staged changes ({len(staged)})**")

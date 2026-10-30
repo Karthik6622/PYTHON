@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import secrets
+import time
 from pathlib import Path
 
 import streamlit as st
 
 from studio.config import settings
 from studio.models import available_models, get_model
-from studio.services import folders, local_sync
+from studio.services import folders, github_auth, local_sync
 from studio.services.github_service import GitHubService
 
 from .local_folder import available as browser_folders, picker_supported, render_clone_button
@@ -120,7 +121,7 @@ def connect_dialog() -> None:
         name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
         branch = right.text_input("Branch (optional)", placeholder="default branch")
         if not settings.github_token:
-            st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
+            st.caption("GitHub is not connected. Public repositories work without it; for private ones use the Connect GitHub button in the top bar.")
         st.caption(
             "Clone and open asks which folder on your computer should hold the repository. "
             + ("The folders and files you have open here are kept: it opens in a new window." if target != window_id() else "It opens in this window.")
@@ -138,7 +139,7 @@ def connect_dialog() -> None:
         name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
         branch = right.text_input("Branch (optional)", placeholder="default branch")
         if not settings.github_token:
-            st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
+            st.caption("GitHub is not connected. Public repositories work without it; for private ones use the Connect GitHub button in the top bar.")
         st.caption("Clone and open asks which folder should hold the repository. The terminal works in that same folder.")
         submitted = st.form_submit_button("Clone and open", type="primary", icon=":material/cloud_download:")
 
@@ -154,6 +155,124 @@ def connect_dialog() -> None:
                     _clone(name, branch, root, secrets.token_urlsafe(6) if _occupied() else window_id())
 
 
+def _store() -> dict[str, str]:
+    return settings.session_store(window_id())
+
+
+def github_user() -> str:
+    """Login of the GitHub account connected in this window (empty when unknown)."""
+    return _store().get("github_user", "") if settings.github_token else ""
+
+
+def _connect_token(token: str) -> bool:
+    """Check a token with GitHub and keep it for this window only."""
+    ok, info = attempt(GitHubService(token).validate_token)
+    if not ok:
+        return False
+    store = _store()
+    settings.set_secrets(github_token=token, store=store)
+    store["github_user"] = str(info.get("login") or "")
+    log(f"GitHub connected as {store['github_user'] or 'unknown user'}")
+    return True
+
+
+def _cancel_signin() -> None:
+    st.session_state.pop("_gh_device", None)
+
+
+def _device_signin(client_id: str) -> None:
+    """Sign in with GitHub: the visitor gets a code, approves it on github.com, and this window receives its own token."""
+    flow = st.session_state.get("_gh_device")
+    if flow is None:
+        if st.button("Sign in with GitHub", type="primary", icon=":material/login:", width="stretch", key="gh_signin"):
+            ok, started = attempt(github_auth.start, client_id)
+            if ok:
+                st.session_state["_gh_device"] = {**started, "deadline": time.time() + started["expires_in"]}
+                st.rerun(scope="fragment")
+        return
+
+    uri = flow["verification_uri"]
+    st.markdown(f"Open GitHub, type this code and approve:\n\n## `{flow['user_code']}`")
+    left, right = st.columns(2)
+    left.link_button("Open GitHub", uri, icon=":material/open_in_new:", type="primary", width="stretch")
+    right.button("Cancel", on_click=_cancel_signin, width="stretch", key="gh_cancel")
+    interval = flow["interval"]
+    until = min(flow["deadline"], time.time() + 90)  # wait in slices, so a closed dialog does not hold the app for long
+    with st.spinner("Waiting for you to approve on GitHub..."):
+        while time.time() < until:
+            time.sleep(interval)
+            ok, result = attempt(github_auth.poll, client_id, flow["device_code"], quiet=True)
+            if not ok:
+                st.session_state.pop("_gh_device", None)
+                st.error("GitHub sign-in failed. Start again.")
+                return
+            status = result["status"]
+            if status == "slow_down":
+                interval = flow["interval"] = max(interval, int(result.get("interval") or interval))
+            elif status == "ok":
+                st.session_state.pop("_gh_device", None)
+                if _connect_token(result["token"]):
+                    st.toast("GitHub connected.", icon=":material/check:")
+                    st.rerun()
+                return
+            elif status in {"expired", "denied"}:
+                st.session_state.pop("_gh_device", None)
+                st.warning("The code expired." if status == "expired" else "The sign-in was denied on GitHub.")
+                st.rerun(scope="fragment")
+    if time.time() >= flow["deadline"]:
+        st.session_state.pop("_gh_device", None)
+        st.rerun(scope="fragment")
+    st.button("Check again", key="gh_again")
+
+
+@st.dialog("Connect GitHub", width="medium")
+def github_dialog() -> None:
+    store = _store()
+    if settings.github_token:
+        user = github_user()
+        st.success(f"GitHub is connected{' as ' + user if user else ''}.")
+        st.caption(
+            "You can clone private repositories, pull, push, and use git push in the terminal. The token belongs to this browser window only: "
+            "it is kept in the server's memory, never written to disk and never shared with other visitors."
+        )
+        if store.get("github_token"):
+            if st.button("Disconnect", icon=":material/link_off:"):
+                settings.clear_github()
+                st.rerun()
+        else:
+            st.caption("This token comes from the server's own environment.")
+        return
+
+    st.markdown("Connect your GitHub account to use **your own** repositories (including private ones) and to push your commits.")
+    st.caption("Optional: public repositories and the editor work without it.")
+    client_id = settings.github_client_id
+    if client_id:
+        _device_signin(client_id)
+        st.markdown("<div style='text-align:center;opacity:.6;margin:.4rem 0'>or use a personal access token</div>", unsafe_allow_html=True)
+    with st.form("gh_token_form", border=False):
+        value = st.text_input("Personal access token", type="password", autocomplete="off", placeholder="ghp_... or github_pat_...")
+        go = st.form_submit_button("Connect with token", type="primary" if not client_id else "secondary", icon=":material/key:", width="stretch")
+    st.link_button(
+        "Create a token on GitHub", "https://github.com/settings/tokens/new?scopes=repo&description=RK%20Studio",
+        icon=":material/open_in_new:", help="Opens GitHub with the repo permission already selected",
+    )
+    if go:
+        if len(value.strip()) < 8:
+            st.warning("Paste the token you created on GitHub.")
+        elif _connect_token(value.strip()):
+            st.toast("GitHub connected.", icon=":material/check:")
+            st.rerun()
+
+
+def prompt_github_once() -> None:
+    """Open the Connect GitHub window the first time a window is used without a GitHub token."""
+    store = _store()
+    if settings.github_token or store.get("_gh_prompted"):
+        return
+    store["_gh_prompted"] = "1"
+    github_dialog()
+
+
 @st.dialog("Settings", width="large")
 def settings_dialog() -> None:
     st.markdown(f"**NVIDIA API key** {'(configured)' if settings.nvidia_api_key else '(not set)'}")
@@ -164,6 +283,7 @@ def settings_dialog() -> None:
         st.caption(f"{model.label}: {model.note}  `{model.id}`")
     test_id = st.selectbox("Model to test", [m.id for m in models], index=[m.id for m in models].index(S.model) if S.model in [m.id for m in models] else 0, format_func=lambda i: get_model(i).label)
     st.markdown(f"**GitHub personal access token** {'(configured)' if settings.github_token else '(not set)'}")
+    st.caption("The Connect GitHub button in the top bar signs in without pasting a token. You can also paste one here.")
     github_token = st.text_input("GitHub token", type="password", autocomplete="off", placeholder="ghp_... or github_pat_...", label_visibility="collapsed")
 
     if st.button("Save", type="primary", disabled=not (nvidia_key.strip() or github_token.strip()), icon=":material/save:"):

@@ -13,7 +13,32 @@ from typing import Any
 
 from .agents.coding_agent import CodingAgent, ConversationStore
 from .approvals import ApprovalBroker
+from .config import settings
 from .services.repository_service import ActiveRepository, RepositoryError
+
+_RUNS: dict[str, "AgentRun"] = {}
+_RUNS_LOCK = threading.Lock()
+
+
+def register_run(run: "AgentRun") -> None:
+    """Remember the agent run of a window, so a page refresh can pick it up again instead of losing it."""
+    with _RUNS_LOCK:
+        _RUNS.pop(run.conversation_id, None)
+        _RUNS[run.conversation_id] = run
+        if len(_RUNS) > 100:
+            for key in [k for k, v in _RUNS.items() if v.finished.is_set()][: len(_RUNS) - 100]:
+                _RUNS.pop(key, None)
+
+
+def active_run(conversation_id: str) -> "AgentRun | None":
+    with _RUNS_LOCK:
+        return _RUNS.get(conversation_id)
+
+
+def release_run(run: "AgentRun") -> None:
+    with _RUNS_LOCK:
+        if _RUNS.get(run.conversation_id) is run:
+            _RUNS.pop(run.conversation_id, None)
 
 
 def friendly_error(exc: BaseException) -> str:
@@ -29,6 +54,7 @@ class AgentRun:
         request: str, mode: str, conversation_id: str, model: str | None = None,
     ) -> None:
         self._agent, self._broker, self._conversations = agent, broker, conversations
+        self.secrets = settings.current_session()  # the visitor's own keys, used by this run's thread only
         self.repo, self.request, self.mode, self.conversation_id, self.model = repo, request, mode, conversation_id, model
         self._events: list[dict[str, Any]] = []
         self._lock = threading.Lock()
@@ -60,6 +86,7 @@ class AgentRun:
                 pass
 
     def _main(self) -> None:
+        settings.bind_session(self.secrets)
         loop = asyncio.new_event_loop()
         self._loop = loop
         try:
@@ -92,6 +119,7 @@ class CommandRun:
 
     def __init__(self, repo: ActiveRepository, command: str, cwd: str = "", timeout: int | None = None) -> None:
         self.repo, self.command, self.cwd, self.timeout = repo, command, cwd, timeout
+        self.secrets = settings.current_session()
         self.prompt = "PS>"  # shell prompt shown in the terminal history (set by the UI)
         self._chunks: list[str] = []
         self._lock = threading.Lock()
@@ -103,6 +131,7 @@ class CommandRun:
         threading.Thread(target=self._main, name="command-run", daemon=True).start()
 
     def _main(self) -> None:
+        settings.bind_session(self.secrets)
         try:
             self.result = self.repo.terminal.run_streaming(self.command, self.cwd, self.timeout, self._on_output, self._cancel)
         except Exception as exc:

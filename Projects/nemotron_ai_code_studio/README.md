@@ -51,6 +51,14 @@ Flow: the agent edits files, then the review card shows each diff. Keep or Rever
 - Terminal: the first `pip`/`python`/`playwright` command creates `.venv` in the folder, so installs stay in that folder; Playwright browsers go to `.playwright-browsers`. Both are kept out of `git status`. Playwright runs headless only, and `input()` prompts are not supported. On Streamlit Cloud, Playwright's system libraries must be listed in `packages.txt`.
 - `TERMINAL_TIMEOUT_SECONDS` sets the command timeout (default 1800).
 
+## Several people at once, and memory
+
+- Every browser window is its own workspace, named by the `?w=` id in the address. On a shared deployment a visitor opening the bare address always gets a new workspace (own scratch folder, own keys, own undo list); bookmark the address to come back to it. Nobody sees another visitor's files or tokens. The terminal runs as the same operating-system user, so it is not a security sandbox between people who do not trust each other.
+- GitHub: the account button in the top bar opens *Connect GitHub* (also once automatically). With `GITHUB_CLIENT_ID` set (an OAuth App with Device Flow) visitors click **Sign in with GitHub**, type a code on github.com and approve; otherwise they paste their own token. The token is kept in server memory for that window only and is used by Source Control, cloning and `git push` in the terminal. A `GITHUB_TOKEN` secret is ignored on a shared deployment unless `ALLOW_SHARED_GITHUB_TOKEN=1`.
+- Chat memory: the conversation and the agent's memory of earlier requests are saved to `.studio_chats/` per window, so a refresh brings them back; an agent that is still running is reattached. Clearing the conversation deletes them.
+- Large models: the agent waits up to `NVIDIA_TIMEOUT_SECONDS` (600) for a reply, asks again when a connection drops mid-reply, and continues with the next model (shown as a notice) if one keeps timing out. Set `NVIDIA_MODEL_FALLBACK=0` to disable the switch.
+- Source Control shows the last commit with **Undo commit** (changes return to the staged list); terminal `git commit` / `git push` refresh it.
+
 ## Notes and limitations
 
 - AGENT mode is inferred as the editing mode; the agent also has an extra `edit_file` tool.

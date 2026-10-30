@@ -314,6 +314,34 @@ class GitService:
         head = repo.head.commit
         return {"sha": head.hexsha, "short": head.hexsha[:8], "message": message.splitlines()[0]}
 
+    def last_commit(self) -> dict[str, Any] | None:
+        """The newest commit of this branch and whether it is already on a remote branch (then it can no longer be undone here)."""
+        if not self.has_commits():
+            return None
+        repo = self.repo
+        head = repo.head.commit
+        try:
+            containing = repo.git.branch("-r", "--contains", head.hexsha)
+        except GitCommandError:
+            containing = ""
+        pushed = any(line.strip() and "->" not in line for line in containing.splitlines())
+        text = str(head.message).strip()
+        return {"sha": head.hexsha, "short": head.hexsha[:8], "message": text.splitlines()[0] if text else "", "full_message": text, "pushed": pushed}
+
+    def undo_last_commit(self) -> dict[str, Any]:
+        """Take the newest commit back: its changes return to the staged list and its message can be edited and committed again."""
+        info = self.last_commit()
+        if info is None:
+            raise GitError("There is no commit to undo.", 409)
+        if info["pushed"]:
+            raise GitError("The last commit is already on GitHub, so it cannot be undone here. Make a new commit that fixes it instead.", 409)
+        repo = self.repo
+        if repo.head.commit.parents:
+            self._run(repo, "reset", "--soft", "HEAD~1")
+        else:
+            self._run(repo, "update-ref", "-d", "HEAD")  # the very first commit: the files stay staged
+        return info
+
     # ---------------------------------------------------------------- branches
     def create_branch(self, name: str, checkout: bool = True) -> str:
         if not valid_branch_name(name):

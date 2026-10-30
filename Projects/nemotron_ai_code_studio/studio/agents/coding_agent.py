@@ -11,10 +11,13 @@ import asyncio
 import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
+from .. import chat_store
 from ..approvals import ApprovalBroker
 from ..config import settings
+from ..models import fallback_model, get_model
 from ..security import redact
 from ..services.nvidia_service import SYSTEM_PROMPT, NvidiaError, NvidiaService
 from ..services.repository_service import ActiveRepository
@@ -48,25 +51,40 @@ class RunResult:
 
 
 class ConversationStore:
-    """Keeps recent user/assistant turns (text only) so follow-up questions have context without resending tool traces."""
+    """Keeps recent user/assistant turns (text only) so follow-up questions have context without resending tool traces.
 
-    def __init__(self, max_turns: int = 12) -> None:
+    With a `folder` the turns are also saved to disk, so the agent still remembers earlier requests after a page refresh
+    or a server restart."""
+
+    def __init__(self, max_turns: int = 12, folder: Path | None = None) -> None:
         self._turns: dict[str, list[dict[str, str]]] = {}
         self._max = max_turns * 2
+        self._folder = folder
 
     def history(self, conversation_id: str) -> list[dict[str, str]]:
+        if conversation_id not in self._turns and self._folder is not None:
+            loaded = chat_store.load_turns(conversation_id, self._folder)
+            if loaded:
+                self._turns[conversation_id] = loaded[-self._max:]
         return [dict(m) for m in self._turns.get(conversation_id, [])]
 
     def add(self, conversation_id: str, user: str, assistant: str) -> None:
-        turns = self._turns.setdefault(conversation_id, [])
+        turns = self._turns.get(conversation_id)
+        if turns is None:
+            self.history(conversation_id)  # pick up what was saved earlier before adding to it
+            turns = self._turns.setdefault(conversation_id, [])
         turns.append({"role": "user", "content": user[:8000]})
         turns.append({"role": "assistant", "content": assistant[:8000]})
         del turns[: max(0, len(turns) - self._max)]
         if len(self._turns) > 100:
             self._turns.pop(next(iter(self._turns)))
+        if self._folder is not None:
+            chat_store.save_turns(conversation_id, turns, self._folder)
 
     def clear(self, conversation_id: str) -> None:
         self._turns.pop(conversation_id, None)
+        if self._folder is not None:
+            chat_store.delete(conversation_id, self._folder)
 
 
 class CodingAgent:
@@ -107,6 +125,7 @@ class CodingAgent:
             system = f"{SYSTEM_PROMPT}\n\n{self.planner.instructions(mode)}\n\n{bundle.to_prompt()}"
             messages: list[dict[str, Any]] = [{"role": "system", "content": system}, *history, {"role": "user", "content": request}]
             schemas = tool_schemas(mode)
+            run_model = {"id": model, "tried": {model or settings.nvidia_model}}
             max_steps = self.planner.max_steps(mode, settings.agent_max_steps)
             seen: dict[str, int] = {}
             fix_rounds = 0
@@ -118,17 +137,7 @@ class CodingAgent:
             for step in range(max_steps):
                 emit({"type": "step", "n": step + 1, "max": max_steps})
                 emit({"type": "status", "text": "Thinking" if step == 0 else "Continuing"})
-                turn = None
-                async for event in self.nvidia.agent_chat(messages, schemas, model=model):
-                    if event["type"] == "content":
-                        emit({"type": "token", "text": event["text"]})
-                    elif event["type"] == "reasoning":
-                        emit({"type": "reasoning", "text": event["text"]})
-                    elif event["type"] == "done":
-                        turn = event["result"]
-                if turn is None:
-                    raise NvidiaError("The model returned no response.", 502)
-
+                turn = await self._model_turn(messages, schemas, run_model, emit)
                 if turn.tool_calls:
                     empty_replies = 0
                     entries = []
@@ -226,6 +235,48 @@ class CodingAgent:
         await self._present_changes(repo, ctx, emit)
         emit({"type": "done", "message": result.message, "ok": result.ok, "inspected": result.inspected, "modified": result.modified, "change_id": change_id, "mode": mode})
         return result
+
+    async def _model_turn(self, messages: list[dict[str, Any]], schemas: list[dict[str, Any]], run_model: dict[str, Any], emit: Emit) -> Any:
+        """One model call that survives a dropped connection (the turn is asked again) and a model that keeps timing out
+        (the task carries on with the next model, and says so). `run_model` remembers the model in use for the rest of the run."""
+        retries = 0
+        while True:
+            sent = {"content": 0, "reasoning": 0}
+            try:
+                turn = None
+                async for event in self.nvidia.agent_chat(messages, schemas, model=run_model["id"]):
+                    if event["type"] == "content":
+                        sent["content"] += len(event["text"])
+                        emit({"type": "token", "text": event["text"]})
+                    elif event["type"] == "reasoning":
+                        sent["reasoning"] += len(event["text"])
+                        emit({"type": "reasoning", "text": event["text"]})
+                    elif event["type"] == "done":
+                        turn = event["result"]
+                if turn is None:
+                    raise NvidiaError("The model returned no response.", 502, transient=True)
+                return turn
+            except NvidiaError as exc:
+                if exc.partial and retries < settings.agent_turn_retries:
+                    retries += 1
+                    note = f"The connection to the model dropped. Asking again ({retries}/{settings.agent_turn_retries})"
+                    action = "retry"
+                else:
+                    following = fallback_model(run_model["id"], run_model["tried"]) if exc.transient and settings.model_fallback else None
+                    if following is None:
+                        raise
+                    run_model["tried"].add(following.id)
+                    failed = get_model(run_model["id"]).label
+                    run_model["id"] = following.id
+                    retries = 0
+                    note = f"{failed} is not answering (too slow or overloaded). Continuing the task with {following.label}."
+                    action = "switch"
+                emit({"type": "retract", "text": sent["content"], "reasoning": sent["reasoning"]})
+                if action == "switch":
+                    emit({"type": "model", "label": following.label})
+                    emit({"type": "notice", "text": note})
+                emit({"type": "status", "text": note})
+                await asyncio.sleep(min(10.0, 2.0 * max(retries, 1)) if action == "retry" else 1.0)
 
     async def _present_changes(self, repo: ActiveRepository, ctx: ToolContext, emit: Emit) -> None:
         files = await asyncio.to_thread(repo.tracker.summary, ctx.change_id, repo.workspace)

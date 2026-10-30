@@ -9,6 +9,7 @@ import streamlit as st
 from studio.config import settings
 from studio.models import get_model
 
+from .dialogs import github_user
 from .state import S, attempt, repo
 
 
@@ -38,7 +39,10 @@ def render_status_bar() -> None:
 
     right = [
         _item(escape(get_model(S.model).label), "ok" if settings.nvidia_api_key else "bad", "Selected model. " + ("NVIDIA API key is set" if settings.nvidia_api_key else "NVIDIA_API_KEY is missing")),
-        _item("GitHub", "ok" if settings.github_token else "bad", "GitHub token is set" if settings.github_token else "No GitHub token"),
+        _item(
+            f"GitHub &middot; {escape(github_user())}" if settings.github_token and github_user() else "GitHub", "ok" if settings.github_token else "bad",
+            "GitHub is connected" if settings.github_token else "GitHub is not connected: use the account button in the top bar",
+        ),
         _item(f"<span class='mut'>mode</span> {escape(S.mode or 'ASK')}"),
     ]
     if S.active:

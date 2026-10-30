@@ -6,7 +6,9 @@ from html import escape
 
 import streamlit as st
 
-from .dialogs import connect_dialog, settings_dialog
+from studio.config import settings
+
+from .dialogs import connect_dialog, github_dialog, github_user, prompt_github_once, settings_dialog
 from .state import S, attempt, log, reload_paths, repo
 
 
@@ -26,7 +28,7 @@ def _checkout(name: str) -> None:
 def render_top_bar() -> None:
     current = repo()
     with st.container(key="titlebar"):
-        brand, repo_col, branch_col, github_col, settings_col = st.columns([2.6, 3, 1.8, 0.45, 0.45], vertical_alignment="center", gap="small")
+        brand, repo_col, branch_col, github_col, account_col, settings_col = st.columns([2.6, 3, 1.8, 0.45, 0.45, 0.45], vertical_alignment="center", gap="small")
         brand.markdown("<div class='brand'><span class='logo'>RK</span><span class='word'>RK<b>STUDIO</b></span></div>", unsafe_allow_html=True)
         label = (escape(current.name) + (" &middot; local folder" if current.scratch else "")) if current else "No folder"
         repo_col.markdown(
@@ -42,11 +44,24 @@ def render_top_bar() -> None:
             st.session_state["branch_select"] = now  # always show the real branch, even after a failed switch
             branch_col.selectbox("Branch", options, key="branch_select", label_visibility="collapsed", on_change=lambda: _checkout(st.session_state.branch_select))
 
+        opened = False
         if github_col.button("", icon=":material/hub:", help="Connect a GitHub repository", key="open_connect"):
+            opened = True
             st.session_state.pop("cloned", None)
             st.session_state.pop("_clone_wid", None)
             st.session_state.pop("_clone_open", None)
             st.session_state.pop("_clone_job", None)
             connect_dialog()
-        if settings_col.button("", icon=":material/tune:", help="Settings", key="open_settings"):
+        connected = bool(settings.github_token)
+        who = github_user()
+        if account_col.button(
+            "", icon=":material/verified_user:" if connected else ":material/account_circle:", key="open_github",
+            help=(f"GitHub connected{' as ' + who if who else ''}" if connected else "Connect your GitHub account"),
+        ) and not opened:
+            opened = True
+            github_dialog()
+        if settings_col.button("", icon=":material/tune:", help="Settings", key="open_settings") and not opened:
+            opened = True
             settings_dialog()
+        if not opened:
+            prompt_github_once()

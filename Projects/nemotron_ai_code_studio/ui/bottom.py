@@ -41,7 +41,11 @@ def _live(attr: str, render: Callable[[Any], None], finish: Callable[[Any], None
 
 def _after_command(changed_files: bool = True) -> None:
     current = repo()
-    if current is None or not changed_files:
+    if current is None:
+        return
+    if current.git is not None:
+        current.git.invalidate()  # git commit / push / pull typed in the terminal change what Source Control and the status bar show
+    if not changed_files:
         return
     current.reindex()  # a command may have created, changed or deleted files
     reload_paths(list(S.tabs))

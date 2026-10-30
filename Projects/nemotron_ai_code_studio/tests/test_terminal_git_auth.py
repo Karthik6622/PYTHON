@@ -38,5 +38,5 @@ def test_other_commands_never_get_the_token(monkeypatch, tmp_path):
 
 def test_git_login_hint():
     out = "fatal: could not read Username for 'https://github.com': terminal prompts disabled"
-    assert "Settings" in hint_for("git push", out, 128)
-    assert "Settings" in hint_for("gh auth login", "/bin/sh: 1: gh: not found", 127)
+    assert "top bar" in hint_for("git push", out, 128)
+    assert "top bar" in hint_for("gh auth login", "/bin/sh: 1: gh: not found", 127)

@@ -61,3 +61,16 @@ def get_model(model_id: str | None) -> ModelInfo:
 
 def default_model_id() -> str:
     return get_model(settings.nvidia_model).id
+
+
+# Which model to carry on with when the chosen one keeps timing out: the proven mid-size model first, the largest last.
+_FALLBACK_ORDER = ("nvidia/nemotron-3.5-super-vl-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b", DEFAULT_NVIDIA_MODEL)
+
+
+def fallback_model(current: str | None, tried: set[str] | None = None) -> ModelInfo | None:
+    """The next model to try after `current` (and anything in `tried`) failed, or None when none is left."""
+    skip = {current or settings.nvidia_model, *(tried or set())}
+    for model_id in _FALLBACK_ORDER:
+        if model_id not in skip:
+            return get_model(model_id)
+    return None

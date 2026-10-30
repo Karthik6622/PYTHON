@@ -5,8 +5,10 @@ Secrets entered through the Settings dialog are kept in memory only and are neve
 
 from __future__ import annotations
 
+import contextvars
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,26 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def is_hosted() -> bool:
+    """True on a shared deployment (Streamlit Cloud, Docker, a Linux server without a screen); False on the user's own desktop.
+
+    STUDIO_HOSTED=1/0 forces the answer."""
+    forced = _env("STUDIO_HOSTED").lower()
+    if forced in {"1", "true", "yes", "on"}:
+        return True
+    if forced in {"0", "false", "no", "off"}:
+        return False
+    return not (os.name == "nt" or sys.platform == "darwin" or bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")))
+
+
+# The secrets of the visitor whose request is being served. The UI binds it for its own thread and every worker thread it starts
+# (agent, terminal), so one visitor's GitHub token or API key can never be used for another visitor's work.
+_session_secrets: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar("rk_session_secrets", default=None)
+_by_window: dict[str, dict[str, str]] = {}
+_by_window_lock = threading.Lock()
+_SECRET_KEYS = ("nvidia_api_key", "github_token")
+
+
 class Settings:
     """Read-only view of the configuration plus in-memory secret overrides."""
 
@@ -65,21 +87,67 @@ class Settings:
         self._lock = threading.Lock()
         self._overrides: dict[str, str] = {}
 
-    # ---- secrets (environment first, then in-memory overrides from the Settings dialog)
+    # ---- secrets: this visitor's own value first, then the environment (the deployment's own key)
+    def session_store(self, window: str) -> dict[str, str]:
+        """Where the secrets of one browser window live. On a hosted deployment every window has its own (in memory only);
+        on the user's own computer all windows share one, so a token is entered once."""
+        if not is_hosted():
+            return self._overrides
+        with _by_window_lock:
+            store = _by_window.pop(window, None)
+            if store is None:
+                store = {}
+            _by_window[window] = store  # most recently used last
+            while len(_by_window) > 500:
+                _by_window.pop(next(iter(_by_window)))
+            return store
+
+    def bind_session(self, store: dict[str, str] | None) -> None:
+        _session_secrets.set(store)
+
+    def current_session(self) -> dict[str, str] | None:
+        return _session_secrets.get()
+
+    def _secret(self, key: str) -> str:
+        scoped = _session_secrets.get()
+        if scoped is not None and scoped.get(key):
+            return scoped[key]
+        return self._overrides.get(key, "") if not (scoped is not None and is_hosted()) else ""
+
     @property
     def nvidia_api_key(self) -> str:
-        return self._overrides.get("nvidia_api_key") or _env("NVIDIA_API_KEY")
+        return self._secret("nvidia_api_key") or _env("NVIDIA_API_KEY")
 
     @property
     def github_token(self) -> str:
-        return self._overrides.get("github_token") or _env("GITHUB_TOKEN")
+        """The visitor's own token. A GITHUB_TOKEN in the deployment's environment is used on the user's own computer, but on a shared
+        deployment only when ALLOW_SHARED_GITHUB_TOKEN=1 (it would otherwise let every visitor act as its owner)."""
+        own = self._secret("github_token")
+        if own:
+            return own
+        if is_hosted() and not _env_bool("ALLOW_SHARED_GITHUB_TOKEN", False):
+            return ""
+        return _env("GITHUB_TOKEN")
 
-    def set_secrets(self, nvidia_api_key: str | None = None, github_token: str | None = None) -> None:
+    @property
+    def github_client_id(self) -> str:
+        """Client id of a GitHub OAuth App with Device Flow enabled: lets visitors sign in with GitHub instead of pasting a token."""
+        return _env("GITHUB_CLIENT_ID")
+
+    def set_secrets(self, nvidia_api_key: str | None = None, github_token: str | None = None, store: dict[str, str] | None = None) -> None:
         with self._lock:
+            target = store if store is not None else (_session_secrets.get() if _session_secrets.get() is not None else self._overrides)
             if nvidia_api_key is not None:
-                self._overrides["nvidia_api_key"] = nvidia_api_key.strip()
+                target["nvidia_api_key"] = nvidia_api_key.strip()
             if github_token is not None:
-                self._overrides["github_token"] = github_token.strip()
+                target["github_token"] = github_token.strip()
+
+    def clear_github(self) -> None:
+        with self._lock:
+            for target in (_session_secrets.get(), self._overrides):
+                if target is not None:
+                    target.pop("github_token", None)
+                    target.pop("github_user", None)
 
     def secret_values(self) -> list[str]:
         """Secret strings that must never appear in output or logs."""
@@ -108,11 +176,22 @@ class Settings:
 
     @property
     def nvidia_timeout_seconds(self) -> float:
-        return float(_env_int("NVIDIA_TIMEOUT_SECONDS", 180))
+        """How long to wait for the model to send anything (large models queue for a while before the first word)."""
+        return float(max(30, _env_int("NVIDIA_TIMEOUT_SECONDS", 600)))
 
     @property
     def nvidia_max_retries(self) -> int:
         return max(0, min(6, _env_int("NVIDIA_MAX_RETRIES", 3)))
+
+    @property
+    def agent_turn_retries(self) -> int:
+        """Extra attempts for one model turn when the connection drops in the middle of the reply."""
+        return max(0, min(6, _env_int("AGENT_TURN_RETRIES", 2)))
+
+    @property
+    def model_fallback(self) -> bool:
+        """When the chosen model keeps timing out, carry on with the next model instead of ending the task (a notice says so)."""
+        return _env_bool("NVIDIA_MODEL_FALLBACK", True)
 
     @property
     def context_window_tokens(self) -> int:
