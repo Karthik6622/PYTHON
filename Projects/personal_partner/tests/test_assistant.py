@@ -1,8 +1,11 @@
 from src import assistant, live_info, router, web_search
 
 
-def convo(text):
-    return {"messages": [{"role": "user", "content": text}]}
+def convo(text, mode=None):
+    message = {"role": "user", "content": text}
+    if mode:
+        message["mode"] = mode
+    return {"messages": [message]}
 
 
 def system_text(messages):
@@ -61,7 +64,7 @@ def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
     assert assistant.reply_token_cap({"response_length": "Brief"}) == assistant.LENGTH_TOKEN_CAPS["Brief"]
     assert assistant.reply_token_cap({"response_length": "Balanced"}) is None
     assert assistant.reply_token_cap({"response_length": "Detailed"}) == assistant.LENGTH_TOKEN_CAPS["Detailed"] > 1200
-    assert assistant.reply_token_cap({}) is None
+    assert assistant.reply_token_cap({}) == assistant.LENGTH_TOKEN_CAPS["Brief"]  # Brief is the default length
 
 
 def test_detailed_length_rule_overrides_the_short_reply_default():
@@ -84,7 +87,10 @@ def test_length_reminder_follows_the_latest_user_message_even_after_short_replie
     assert detailed[1]["content"] == "hi"
     balanced = assistant.build_messages(history, {"response_length": "Balanced"})
     assert balanced[-1]["content"].endswith(assistant.LENGTH_REMINDERS["Balanced"])
-    english = assistant.build_messages(history, {"response_length": "Detailed", "mode": "English correction"})
+    english = assistant.build_messages(
+        {"messages": [{**m, "mode": "English correction"} for m in history["messages"]]},
+        {"response_length": "Detailed", "mode": "English correction"},
+    )
     assert english[-1]["content"] == "explain python decorators"
 
 
@@ -95,7 +101,7 @@ def test_correct_english_returns_only_the_confirmation(monkeypatch):
         raise AssertionError("a correct sentence must not reach the model")
 
     monkeypatch.setattr(assistant, "stream_completion", no_model)
-    reply = "".join(assistant.stream_reply(convo("Hey, I watched yesterday's movie."), {"mode": "English correction"}))
+    reply = "".join(assistant.stream_reply(convo("Hey, I watched yesterday's movie.", "English correction"), {"mode": "English correction"}))
     assert reply == assistant.CORRECT_ENGLISH_LINE
 
 
@@ -103,7 +109,7 @@ def test_sentence_with_mistakes_gets_the_correction_note(monkeypatch):
     monkeypatch.setattr(assistant, "complete_text", lambda messages, max_tokens=200: "NO")
     fake_router(monkeypatch, '{"action": "ANSWER"}')
     sent = fake_stream(monkeypatch)
-    list(assistant.stream_reply(convo("i goed home"), {"mode": "English correction"}))
+    list(assistant.stream_reply(convo("i goed home", "English correction"), {"mode": "English correction"}))
     assert "use Case B" in system_text(sent["messages"])
 
 
@@ -114,7 +120,7 @@ def test_failed_english_check_falls_back_to_normal_reply(monkeypatch):
     monkeypatch.setattr(assistant, "complete_text", boom)
     fake_router(monkeypatch, '{"action": "ANSWER"}')
     sent = fake_stream(monkeypatch)
-    assert list(assistant.stream_reply(convo("i goed home"), {"mode": "English correction"})) == ["ok"]
+    assert list(assistant.stream_reply(convo("i goed home", "English correction"), {"mode": "English correction"})) == ["ok"]
     assert "use Case B" not in system_text(sent["messages"])
 
 
@@ -133,6 +139,46 @@ def _msg(role, text, when, mode=None):
     return item
 
 
+def test_every_mode_keeps_its_own_separate_chat():
+    conversation = {
+        "messages": [
+            _msg("user", "normal question", "2026-10-29T10:00:00+00:00"),
+            _msg("assistant", "normal answer", "2026-10-29T10:00:05+00:00"),
+            _msg("user", "good morning love", "2026-10-29T10:01:00+00:00", "Romantic"),
+            _msg("assistant", "morning baby", "2026-10-29T10:01:05+00:00", "Romantic"),
+            _msg("user", "yo bro", "2026-10-29T10:02:00+00:00", "Friend"),
+            _msg("assistant", "yo, ate yet?", "2026-10-29T10:02:05+00:00", "Friend"),
+            _msg("user", "i goed home", "2026-10-29T10:03:00+00:00", "English correction"),
+        ]
+    }
+    expected = {
+        "Romantic": ["good morning love", "morning baby"],
+        "Friend": ["yo bro", "yo, ate yet?"],
+        "English correction": ["i goed home"],
+        "Normal": ["normal question", "normal answer"],
+    }
+    for mode, contents in expected.items():
+        built = assistant.build_messages(conversation, {"mode": mode})[1:]
+        assert [m["content"] for m in assistant.messages_for_mode(conversation, mode)] == contents
+        assert [m["content"].split("\n\n[Reply length")[0] for m in built] == contents
+
+
+def test_friend_mode_is_a_caring_human_friend_with_no_romance():
+    text = system_text(assistant.build_messages(convo("have you eaten?", "Friend"), {"mode": "Friend"}))
+    assert "Friend mode is ON" in text and "real, living person" in text and "best friend" in text
+    assert "No romance at all" in text and "Tease them or scold them" in text
+    assert "Romantic mode is ON" not in text and "English correction mode is ON" not in text
+    assert "You are possessive and jealous" not in text
+    assert "Friend mode is ON" not in system_text(assistant.build_messages(convo("hi"), {"mode": "Romantic"}))
+    assert "Friend" in assistant.MODES and assistant.chat_mode({"mode": "Friend"}) == "Friend"
+
+
+def test_friend_mode_cares_about_late_night_without_jealousy():
+    history = [_msg("user", "hey", "2026-10-29T23:30:00+00:00", "Friend"), _msg("user", "awake", "2026-10-29T23:45:00+00:00", "Friend")]
+    note = assistant.friend_care_note(history, "UTC")
+    assert "still awake" in note and "jealous" not in note
+
+
 def test_romantic_messages_are_isolated_from_other_modes():
     conversation = {
         "messages": [
@@ -143,7 +189,7 @@ def test_romantic_messages_are_isolated_from_other_modes():
         ]
     }
     romantic = assistant.build_messages(conversation, {"mode": "Romantic"})[1:]
-    other = assistant.build_messages(conversation, {"mode": "English correction"})[1:]
+    other = assistant.build_messages(conversation, {"mode": "Normal"})[1:]
     assert [m["content"] for m in romantic] == ["good morning love", "morning baby"]
     assert [m["content"] for m in other] == ["normal question", "normal answer"]
 

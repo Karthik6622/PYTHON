@@ -180,7 +180,7 @@ def _rain_status(city: str, bucket: int) -> dict[str, Any] | None:  # noqa: ARG0
     }
 
 
-def rain_note(user_text: str, city: str = "", repeat: bool = True) -> str | None:
+def rain_note(user_text: str, city: str = "", repeat: bool = True, friend: bool = False) -> str | None:
     """System note for Romantic mode when it rains (live for the saved city, or when the user mentions rain)."""
     said = bool(_RAIN_WORDS.search(user_text or ""))
     status = None
@@ -194,6 +194,11 @@ def rain_note(user_text: str, city: str = "", repeat: bool = True) -> str | None
         "getting wet or sick, ask if they are already outside, and if they truly must go tell them to take an umbrella and text you "
         "when they reach back. Say it in your own words with feeling."
     )
+    if friend:
+        how = (
+            "React like a caring best friend (no jealousy or possessiveness): tell them to be careful, take an umbrella and avoid "
+            "getting drenched or sick, and ask if they are already outside. Say it casually in your own words."
+        )
     if status and (status["raining"] or status["chance"] >= 60) and (repeat or said):
         if status["raining"]:
             fact = f"It is raining right now in {status['place']} ({status['desc']}), where they live."

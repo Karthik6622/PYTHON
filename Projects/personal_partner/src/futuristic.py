@@ -307,5 +307,12 @@ span[data-baseweb="tag"] { background: var(--ks-btn-grad) !important; }
 .stApp:has(.ks-romantic-flag) .st-key-ks_modebar [data-testid="stRadioOption"][data-selected="true"] {
   background: var(--ks-btn-grad); border-color: transparent; box-shadow: 0 0 16px -2px rgba(244,114,182,.6);
 }
+/* Phones: all four modes on a single line */
+@media (max-width: 640px) {
+  .st-key-ks_modebar { padding: .4rem .5rem .5rem; }
+  .st-key-ks_modebar [role="radiogroup"] { flex-wrap: nowrap; gap: .25rem; overflow-x: auto; scrollbar-width: none; }
+  .st-key-ks_modebar [data-testid="stRadioOption"] { flex: 1 1 auto; justify-content: center; padding: .28rem .42rem; white-space: nowrap; }
+  .st-key-ks_modebar [data-testid="stRadioOption"] p { font-size: .72rem; white-space: nowrap; }
+}
 </style>
 """

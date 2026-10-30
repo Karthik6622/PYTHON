@@ -74,7 +74,7 @@ def create_account(
             "email": email,
             "password_hash": password_hash,
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "preferences": {"tone": "Warm", "response_length": "Balanced", "topics": []},
+            "preferences": {"tone": "Warm", "response_length": "Brief", "topics": []},
             "active": True,
         }
     )

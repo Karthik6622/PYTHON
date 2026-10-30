@@ -12,7 +12,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from . import storage
-from .assistant import MODES, chat_mode, messages_for_mode, stream_reply
+from .assistant import MODES, TAGGED_MODES, chat_mode, messages_for_mode, mode_label, stream_reply
 from .auth import (
     AccountLockedError,
     AccountValidationError,
@@ -62,8 +62,8 @@ def _now() -> str:
 _HIDE_HOST_CHROME = """<script>
 (function () {
   var P; try { P = window.parent; void P.document; } catch (e) { return; }
-  if (P.__wyHideChrome) return;
-  P.__wyHideChrome = true;
+  if (P.__wyTimer) P.clearInterval(P.__wyTimer);
+  if (P.__wyClick) P.document.removeEventListener('click', P.__wyClick, true);
   var SEL = '[class*="viewerBadge"],[data-testid="manage-app-button"],[class*="_terminalButton_"],[class*="_profileContainer_"],[class*="stDeployButton"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"]';
   function hide(doc) {
     try {
@@ -85,8 +85,44 @@ _HIDE_HOST_CHROME = """<script>
     try { if (P.top && P.top !== P && P.top.document) docs.push(P.top.document); } catch (e) {}
     docs.forEach(hide);
   }
-  P.setInterval(run, 1000);
+  /* After sign-in: phones start with the sidebar closed (it would cover the chat), laptops and PCs with it open. */
+  function sidebarWatch() {
+    try {
+      var sb = P.document.querySelector('[data-testid="stSidebar"]');
+      if (!sb) { P.__wySbDeadline = 0; P.__wySbSeen = false; return; }
+      if (!P.__wySbSeen) { P.__wySbSeen = true; P.__wySbDeadline = Date.now() + 4000; }
+      if (Date.now() > P.__wySbDeadline) return;
+      if (P.innerWidth > 768) {
+        var open = P.document.querySelector('[data-testid="stExpandSidebarButton"]');
+        if (open && open.getBoundingClientRect().width > 0) { P.__wySbDeadline = 0; (open.querySelector('button') || open).click(); }
+        return;
+      }
+      var close = sb.querySelector('[data-testid="stSidebarCollapseButton"] button');
+      var rect = close ? close.getBoundingClientRect() : null;
+      if (close && rect && rect.width > 0 && rect.right > 0) { P.__wySbDeadline = 0; close.click(); }
+    } catch (e) {}
+  }
+  P.__wyTimer = P.setInterval(function () { run(); sidebarWatch(); }, 500);
   run();
+
+  /* Phones: the sidebar covers the page, so close it as soon as a page, chat or action is chosen. */
+  P.__wyClick = function (e) {
+    try {
+      if (P.innerWidth > 768) return;
+      var t = e.target;
+      if (!t || !t.closest || !t.closest('[data-testid="stSidebar"]')) return;
+      if (t.closest('[data-testid="stSidebarCollapseButton"],[data-testid="stExpander"]')) return;
+      if (!t.closest('[data-testid="stRadioOption"],button')) return;
+      var tries = 0;
+      (function attempt() {
+        var close = P.document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+        var rect = close ? close.getBoundingClientRect() : null;
+        if (close && rect && rect.width > 0 && rect.right > 0) close.click();
+        else if (++tries < 12) P.setTimeout(attempt, 250);
+      })();
+    } catch (err) {}
+  };
+  P.document.addEventListener('click', P.__wyClick, true);
 })();
 </script>"""
 
@@ -415,15 +451,23 @@ def _conversation_sidebar(user_id: str, conversations: list[dict[str, Any]]) -> 
             _logout()
 
 
+def _assistant_avatar(mode: str) -> str:
+    return {"Romantic": "❤️", "Friend": "🤗"}.get(mode, "🌿")
+
+
 def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> None:
     visible = messages_for_mode(conversation, mode)
     if mode == "Romantic" and not visible:
         st.caption("♥ This chat is just for the two of you. It stays here and never shows up in the other modes. Say hi!")
+    elif mode == "Friend" and not visible:
+        st.caption("🤗 This is your friend chat. It stays here and never shows up in the other modes. Say hi!")
+    elif mode == "English correction" and not visible:
+        st.caption("✏ This is your English Teacher chat. It stays here and never shows up in the other modes.")
     for message in visible:
         role = str(message.get("role", "assistant"))
         if role not in {"user", "assistant"}:
             continue
-        avatar = "🙂" if role == "user" else ("❤️" if mode == "Romantic" else "🌿")
+        avatar = "🙂" if role == "user" else _assistant_avatar(mode)
         with st.chat_message(role, avatar=avatar):
             st.markdown(str(message.get("content", "")))
             attached = message.get("attachments")
@@ -480,7 +524,7 @@ def _send_message(
         return
     conversation_id = str(conversation["conversation_id"])
     mode = chat_mode(st.session_state.get("user_preferences", {}))
-    mode_tag = {"mode": "Romantic"} if mode == "Romantic" else {}
+    mode_tag = {"mode": mode} if mode in TAGGED_MODES else {}
     if message_id is None:
         message_id = uuid.uuid4().hex
         storage.append_message(
@@ -491,7 +535,9 @@ def _send_message(
                 **({"attachments": attachments} if attachments else {}), **mode_tag,
             },
         )
-        if mode != "Romantic" and len(messages_for_mode(conversation, mode)) <= 1:
+        # Romantic and Friend chats stay private; the title comes from the first Normal or English message.
+        shared = messages_for_mode(conversation, "Normal") + messages_for_mode(conversation, "English correction")
+        if mode in ("Normal", "English correction") and len(shared) <= 1:
             storage.rename_conversation(user_id, conversation_id, safe_conversation_title(content))
     st.session_state.pending_message_id = message_id
     st.session_state.pending_conversation_id = conversation_id
@@ -506,10 +552,10 @@ def _send_message(
         st.error("This conversation is no longer available. Start a new chat.")
         return
     if wants_image(content):
-        _reply_with_image(user_id, conversation_id, content, mode_tag, "❤️" if mode == "Romantic" else "🌿")
+        _reply_with_image(user_id, conversation_id, content, mode_tag, _assistant_avatar(mode))
     try:
-        with st.chat_message("assistant", avatar="❤️" if mode == "Romantic" else "🌿"):
-            with st.status("Typing…" if mode == "Romantic" else "WithYou is typing…", expanded=False) as status:
+        with st.chat_message("assistant", avatar=_assistant_avatar(mode)):
+            with st.status("Typing…" if mode in ("Romantic", "Friend") else "WithYou is typing…", expanded=False) as status:
                 response = st.write_stream(
                     stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone())
                 )
@@ -570,8 +616,11 @@ def _chat_header(conversation: dict[str, Any], mode: str) -> None:
     if romantic:
         chip = '<span class="ks-chip rose">♥ Romantic mode</span>'
         tagline = "Talk to me like you would to someone special."
+    elif mode == "Friend":
+        chip = '<span class="ks-chip">🤗 Friend mode</span>'
+        tagline = "Your best friend, here to listen, care and keep it real."
     elif mode == "English correction":
-        chip = '<span class="ks-chip">✏ English correction</span>'
+        chip = '<span class="ks-chip">✏ English Teacher</span>'
         tagline = "Send a message: your English is corrected first, then your question is answered."
     flag = '<div class="ks-romantic-flag"></div>' if romantic else ""
     st.markdown(
@@ -591,7 +640,8 @@ def _mode_selector(user_id: str) -> str:
         index=MODES.index(current),
         key=f"chat_mode_{user_id}",
         horizontal=True,
-        help="Normal: AI assistant. Romantic: a loving girlfriend or boyfriend. English correction: fixes your sentence first, then answers.",
+        format_func=mode_label,
+        help="Normal: AI assistant. Romantic: a loving girlfriend or boyfriend. Friend: a caring best friend, no romance. English Teacher: fixes your sentence first, then answers. Each mode keeps its own chat.",
     )
     if chosen != current:
         topics = [str(topic) for topic in preferences.get("topics", []) if isinstance(topic, str) and topic != "Romantic"]
@@ -719,11 +769,11 @@ def render_settings(user_id: str) -> None:
         tone_options = ["Warm", "Direct", "Encouraging", "Neutral"]
         length_options = ["Brief", "Balanced", "Detailed"]
         tone = st.selectbox("Reply tone", tone_options, index=tone_options.index(preferences.get("tone", "Warm")) if preferences.get("tone") in tone_options else 0)
-        response_length = st.selectbox("Reply length", length_options, index=length_options.index(preferences.get("response_length", "Balanced")) if preferences.get("response_length") in length_options else 1)
+        response_length = st.selectbox("Reply length", length_options, index=length_options.index(preferences.get("response_length", "Brief")) if preferences.get("response_length") in length_options else 0)
         topic_options = ["Planning", "Learning", "Work", "Wellbeing", "Writing", "Everyday questions"]
         topics = st.multiselect("Topics you often ask about", topic_options, default=[value for value in preferences.get("topics", []) if value in topic_options])
         mode_value = chat_mode(preferences)
-        mode = st.selectbox("Chat mode", MODES, index=MODES.index(mode_value), help="Romantic: replies like a loving girlfriend or boyfriend. English correction: your sentence is corrected first, then answered.")
+        mode = st.selectbox("Chat mode", MODES, index=MODES.index(mode_value), format_func=mode_label, help="Romantic: replies like a loving girlfriend or boyfriend. Friend: a caring best friend, no romance. English Teacher: your sentence is corrected first, then answered.")
         partner_options = ["Auto", "Girlfriend", "Boyfriend"]
         partner_value = preferences.get("partner", "Auto")
         partner = st.selectbox("Romantic mode partner", partner_options, index=partner_options.index(partner_value) if partner_value in partner_options else 0, help="Auto and Girlfriend: a possessive girlfriend who treats you as her boyfriend. Boyfriend: a boyfriend who treats you as his girlfriend.")

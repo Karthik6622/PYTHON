@@ -224,7 +224,7 @@ def create_or_link_social_user(
             "email": email,
             "password_hash": password_hash,
             "created_at": _now(),
-            "preferences": {"tone": "Warm", "response_length": "Balanced", "topics": []},
+            "preferences": {"tone": "Warm", "response_length": "Brief", "topics": []},
             "active": True,
             "auth_identities": [identity],
         }
@@ -395,8 +395,8 @@ def append_message(user_id: str, conversation_id: str, message: dict[str, Any]) 
         "content": str(message.get("content", ""))[:8_000],
         "created_at": str(message.get("created_at") or _now()),
     }
-    if message.get("mode") == "Romantic":
-        safe_message["mode"] = "Romantic"
+    if message.get("mode") in {"Romantic", "Friend", "English correction"}:
+        safe_message["mode"] = message["mode"]
     attachments = message.get("attachments")
     if isinstance(attachments, list):
         safe_attachments = [
