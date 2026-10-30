@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 from pathlib import Path
 
 import streamlit as st
 
 from studio.config import settings
 from studio.models import available_models, get_model
-from studio.services import folders
+from studio.services import folders, local_sync
 from studio.services.github_service import GitHubService
 
-from .state import S, attempt, log, new_window_url, nvidia, open_workspace, repo, repositories
+from .local_folder import available as browser_folders, picker_supported, render_clone_button
+from .state import S, attempt, log, nvidia, open_workspace, repo, repositories, window_id, window_url
 
 
 def ask_folder(initial: str, title: str) -> str | None:
@@ -24,11 +26,19 @@ def ask_folder(initial: str, title: str) -> str | None:
 
 
 def ensure_folder() -> bool:
-    """Before the first file is saved in a window with no repository, ask where to save it (the OS folder window).
+    """Before the first file is saved or command is run in a window with no folder, make the user choose one.
 
-    Returns False when the user cancels, so the caller must not create anything. Once a folder is chosen it is not asked again."""
+    On the user's own computer that is the operating system's folder window; on a hosted deployment it is the Open folder
+    button of the Explorer. Returns False while there is no folder, so the caller must not create anything."""
     current = repo()
-    if current is None or not current.scratch or st.session_state.get("_folder_chosen") or not folders.native_picker_available():
+    if current is None:
+        return True
+    if browser_folders():
+        if st.session_state.get("_link") is None and picker_supported():
+            st.toast("Open a folder first: use Open folder in the Explorer.", icon=":material/folder_open:")
+            return False
+        return True
+    if not current.scratch or st.session_state.get("_folder_chosen") or not folders.native_picker_available():
         return True
     return _switch_folder(str(current.path))
 
@@ -51,15 +61,44 @@ def choose_working_folder() -> None:
     _switch_folder(str(current.path) if current else "")
 
 
-def _clone(name: str, branch: str, root: Path | None) -> None:
+def _occupied() -> bool:
+    """True when this window already has a folder or files of its own, so a cloned repository must not replace them."""
+    current = repo()
+    return bool(
+        current is None or not current.scratch or st.session_state.get("_link") is not None
+        or st.session_state.get("_folder_chosen") or S.tabs
+    )
+
+
+def _clone(name: str, branch: str, root: Path | None, target: str, link: str = "") -> None:
+    """Clone, then open the repository in window `target`: this window when it is empty, otherwise a new browser tab.
+
+    `link` is the folder on the user's computer (hosted deployments) that will receive the files."""
     with st.spinner("Cloning the repository..."):
         ok, result = attempt(repositories.clone_github, name.strip(), branch.strip() or None, root)
     if not ok:
         return
     path, github = result
-    log(f"Cloned {github.get('full_name', name)} to {path}")
-    st.session_state["cloned"] = {"path": str(path), "url": new_window_url(path, github), "name": github.get("full_name", path.name)}
+    full = github.get("full_name", path.name)
+    log(f"Cloned {full} to {path}")
+    repositories.remember(target, path, github, False, link, bool(link))
+    if target == window_id():
+        ok, current = attempt(repositories.recall, target)
+        if ok and current is not None:
+            open_workspace(current, local_sync.LocalLink(link, fresh=True) if link else None)
+            st.toast(f"Opened {full}.", icon=":material/check:")
+            st.rerun()
+        return
+    st.session_state["cloned"] = {"path": str(path), "url": window_url(target), "name": full, "link": link}
     st.rerun(scope="fragment")
+
+
+def _clone_hosted(job: dict, target: str) -> None:
+    repository, branch = job.get("repo"), job.get("branch")
+    if not isinstance(repository, str) or len(repository.strip()) < 3:
+        st.warning("Enter the repository as owner/repo or paste its GitHub link.")
+        return
+    _clone(repository, branch if isinstance(branch, str) else "", settings.workspace_path / "local" / target, target, local_sync.clean_name(job.get("name")))
 
 
 @st.dialog("Connect a repository", width="large")
@@ -67,35 +106,52 @@ def connect_dialog() -> None:
     done = st.session_state.get("cloned")
     if done:
         st.success(f"{done['name']} is ready.")
-        st.caption(f"Saved in {done['path']}. It opens in its own window, so the files you have open here are not touched.")
+        if done.get("link"):
+            st.caption(f"It is saved to {done['link']} on your computer and opens in its own window, so the files you have open here are not touched. If that window asks you to reconnect, click it once.")
+        else:
+            st.caption(f"Saved in {done['path']}. It opens in its own window, so the files you have open here are not touched.")
         st.link_button("Open in new window", done["url"], type="primary", icon=":material/open_in_new:")
         return
 
-    native = folders.native_picker_available()
+    if browser_folders():
+        target = st.session_state.setdefault("_clone_wid", secrets.token_urlsafe(6) if _occupied() else window_id())
+        job = st.session_state.pop("_clone_job", None)
+        left, right = st.columns([3, 2])
+        name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
+        branch = right.text_input("Branch (optional)", placeholder="default branch")
+        if not settings.github_token:
+            st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
+        st.caption(
+            "Clone and open asks which folder on your computer should hold the repository. "
+            + ("The folders and files you have open here are kept: it opens in a new window." if target != window_id() else "It opens in this window.")
+        )
+        render_clone_button(target, st.session_state.setdefault("_clone_open", secrets.token_urlsafe(4)))
+        if not picker_supported():
+            if st.button("Clone on the server only", icon=":material/cloud_download:"):
+                job = {"repo": name, "branch": branch, "name": ""}
+        if job:
+            _clone_hosted(job, target)
+        return
+
     with st.form("connect_form", border=False):
         left, right = st.columns([3, 2])
         name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
         branch = right.text_input("Branch (optional)", placeholder="default branch")
         if not settings.github_token:
             st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
-        if native:
-            st.caption("Clone and open asks where to save the repository. The terminal for that repository works in the same folder.")
-        else:
-            st.caption("The repository is cloned on the server and opens in its own window. There, use Save to folder (top bar) to keep a copy in a folder on your computer, saved as you work.")
+        st.caption("Clone and open asks which folder should hold the repository. The terminal works in that same folder.")
         submitted = st.form_submit_button("Clone and open", type="primary", icon=":material/cloud_download:")
 
     if submitted:
         if len(name.strip()) < 3:
             st.warning("Enter the repository as owner/repo or paste its GitHub link.")
-        elif not native:
-            _clone(name, branch, None)
         else:
             last = str(settings.workspace_path) if repositories.location_chosen else ""
             chosen = ask_folder(last, "Choose the folder where the repository will be saved")
             if chosen:
                 ok, root = attempt(repositories.choose_location, chosen)
                 if ok:
-                    _clone(name, branch, root)
+                    _clone(name, branch, root, secrets.token_urlsafe(6) if _occupied() else window_id())
 
 
 @st.dialog("Settings", width="large")

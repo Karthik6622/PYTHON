@@ -84,16 +84,36 @@ class RepositoryService:
             return {}
         return data if isinstance(data, dict) and isinstance(data.get("windows"), dict) else {}
 
-    def remember(self, window: str, path: Path, github: dict[str, Any] | None = None, scratch: bool = False) -> None:
+    def remember(self, window: str, path: Path, github: dict[str, Any] | None = None, scratch: bool = False,
+                 link: str = "", fresh: bool = False) -> None:
+        """`link` is the name of the folder on the user's computer this window mirrors; `fresh` means it still has to receive every file."""
         with self._lock:
             data = self._read_windows()
             windows = {key: value for key, value in data.get("windows", {}).items() if key != window}
-            windows[window] = {"path": str(path), "github": github or {}, "scratch": scratch}
+            windows[window] = {"path": str(path), "github": github or {}, "scratch": scratch, "link": link, "fresh": bool(link and fresh)}
             windows = dict(list(windows.items())[-40:])
             try:
                 STATE_FILE.write_text(json.dumps({"windows": windows, "last": window}), encoding="utf-8")
             except OSError:
                 pass
+
+    def window_link(self, window: str) -> tuple[str, bool]:
+        """(name of the linked folder on the user's computer, still has to receive every file) for a window."""
+        entry = self._read_windows().get("windows", {}).get(window)
+        if not isinstance(entry, dict) or not isinstance(entry.get("link"), str):
+            return "", False
+        return entry["link"], bool(entry.get("fresh"))
+
+    def mark_synced(self, window: str) -> None:
+        with self._lock:
+            data = self._read_windows()
+            entry = data.get("windows", {}).get(window)
+            if isinstance(entry, dict) and entry.get("fresh"):
+                entry["fresh"] = False
+                try:
+                    STATE_FILE.write_text(json.dumps(data), encoding="utf-8")
+                except OSError:
+                    pass
 
     def last_window(self) -> str | None:
         last = self._read_windows().get("last")

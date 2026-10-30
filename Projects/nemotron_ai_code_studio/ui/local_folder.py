@@ -2,7 +2,10 @@
 
 A hosted app cannot show the operating system's folder window itself, but the visitor's browser can: it asks for a folder
 (File System Access API: Chrome, Edge, Opera), reads the text files and sends them to the server, and later writes back every
-file that was created or changed in the workspace. The server half is studio/services/local_sync.py."""
+file that was created or changed in the workspace. The server half is studio/services/local_sync.py.
+
+One component serves two places: the "Open folder" button of the Explorer (role "explorer", always mounted in the side panel
+because it also writes the changes back) and the "Clone and open" button of the connect dialog (role "clone")."""
 
 from __future__ import annotations
 
@@ -15,16 +18,41 @@ from studio.services.repository_service import RepositoryError
 from .state import log, open_workspace, repo, repositories, window_id
 
 _JS = r"""
-let api = null;
-let cfg = null;
-let handle = null;
-let status = "";
-let draw = () => {};
-const seen = new Set();
+const shared = (window.__rk = window.__rk || { handle: null, status: "", seen: new Set(), tried: "", reported: false });
+const live = new Set();
 const SENSITIVE = /^(\.env(\..+)?|.*\.(pem|key|p12|pfx)|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|\.npmrc|\.pypirc|credentials(\.json)?)$/i;
 const TEMPLATES = new Set([".env.example", ".env.sample", ".env.template", ".env.dist"]);
+const supported = () => typeof window.showDirectoryPicker === "function";
 
-function say(text) { status = text; draw(); }
+function say(text) { shared.status = text; live.forEach((item) => item.draw()); }
+
+function database() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("rk-studio", 1);
+    request.onupgradeneeded = () => request.result.createObjectStore("handles");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+async function remember(key, value) {
+  const db = await database();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("handles", "readwrite");
+    tx.objectStore("handles").put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function recall(key) {
+  try {
+    const db = await database();
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction("handles", "readonly").objectStore("handles").get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) { return null; }
+}
 
 async function pick() {
   try {
@@ -35,11 +63,16 @@ async function pick() {
   }
 }
 
-async function walk(dir, prefix, files, stats) {
+async function isEmpty(dir) {
+  for await (const _ of dir.values()) return false;
+  return true;
+}
+
+async function walk(dir, prefix, files, stats, cfg) {
   for await (const [name, entry] of dir.entries()) {
     if (files.length >= cfg.max_files || stats.bytes > cfg.max_total) { stats.truncated = true; return; }
     if (entry.kind === "directory") {
-      if (!cfg.skip.includes(name)) await walk(entry, prefix + name + "/", files, stats);
+      if (!cfg.skip.includes(name)) await walk(entry, prefix + name + "/", files, stats, cfg);
       continue;
     }
     const dot = name.lastIndexOf(".");
@@ -54,56 +87,78 @@ async function walk(dir, prefix, files, stats) {
   }
 }
 
-async function openFolder() {
+async function openFolder(self) {
   const chosen = await pick();
   if (!chosen) return;
   say("Reading " + chosen.name + " ...");
   const files = [];
   const stats = { bytes: 0, skipped: 0, truncated: false };
   try {
-    await walk(chosen, "", files, stats);
+    await walk(chosen, "", files, stats, self.cfg);
   } catch (error) {
     say("Could not read the folder: " + (error.message || error));
     return;
   }
-  handle = chosen;
+  try { await remember(self.cfg.window, chosen); } catch (error) { /* the folder still works for this page */ }
+  shared.handle = chosen;
   say("Sending " + files.length + " files ...");
-  api.setTriggerValue("opened", { name: chosen.name, files, skipped: stats.skipped, truncated: stats.truncated, nonce: Math.random() });
+  self.api.setTriggerValue("opened", { name: chosen.name, files, skipped: stats.skipped, truncated: stats.truncated, nonce: Math.random() });
 }
 
-async function saveToFolder() {
+async function reconnect(self) {
+  const stored = await recall(self.cfg.window);
+  if (stored) {
+    try {
+      if ((await stored.requestPermission({ mode: "readwrite" })) === "granted") {
+        shared.handle = stored;
+        say("");
+        flushPending();
+        return;
+      }
+    } catch (error) { /* fall through to the folder window */ }
+  }
   const chosen = await pick();
   if (!chosen) return;
-  let filled = false;
-  for await (const _ of chosen.values()) { filled = true; break; }
-  if (filled && !window.confirm("\"" + chosen.name + "\" is not empty. Files with the same names will be replaced by the files from this workspace. Continue?")) return;
-  handle = chosen;
-  say("Saving to " + chosen.name + " ...");
-  api.setTriggerValue("linked", { name: chosen.name, nonce: Math.random() });
+  if (chosen.name !== self.cfg.name) {
+    if (!window.confirm("This window mirrors \"" + self.cfg.name + "\". Send its files to \"" + chosen.name + "\" instead?")) return;
+    self.api.setTriggerValue("relinked", { name: chosen.name, nonce: Math.random() });
+  }
+  try { await remember(self.cfg.window, chosen); } catch (error) { /* ignore */ }
+  shared.handle = chosen;
+  say("");
+  flushPending();
 }
 
-function stop() {
-  handle = null;
-  say("");
-  api.setTriggerValue("stopped", { nonce: Math.random() });
+async function cloneAndOpen(self) {
+  const field = (label) => document.querySelector('input[aria-label="' + label + '"]');
+  const repository = ((field("Repository") || {}).value || "").trim();
+  const branch = ((field("Branch (optional)") || {}).value || "").trim();
+  if (repository.length < 3) { say("Enter the repository as owner/repo or paste its GitHub link."); return; }
+  const chosen = await pick();
+  if (!chosen) return;
+  if (!(await isEmpty(chosen)) && !window.confirm("\"" + chosen.name + "\" is not empty. Files with the same names will be replaced by the repository's files. Continue?")) return;
+  try { await remember(self.cfg.target, chosen); } catch (error) { say("Your browser would not keep access to the folder."); return; }
+  if (self.cfg.target === self.cfg.window) shared.handle = chosen;
+  say("Cloning into " + chosen.name + " ...");
+  self.api.setTriggerValue("clone", { repo: repository, branch, name: chosen.name, nonce: Math.random() });
 }
 
 async function directory(parts, create) {
-  let dir = handle;
+  let dir = shared.handle;
   for (const part of parts) dir = await dir.getDirectoryHandle(part, { create });
   return dir;
 }
 
-async function flush(batch) {
+async function flush(self, batch) {
   const failed = [];
-  say("Saving " + (batch.writes.length + batch.deletes.length) + " change(s) to " + cfg.name + " ...");
+  say("Saving " + (batch.writes.length + batch.deletes.length) + " change(s) to " + self.cfg.name + " ...");
   for (const item of batch.writes) {
     try {
       const parts = item.path.split("/");
       const leaf = parts.pop();
       const file = await (await directory(parts, true)).getFileHandle(leaf, { create: true });
       const out = await file.createWritable();
-      await out.write(item.content);
+      await out.write(item.base64 !== undefined ? Uint8Array.from(atob(item.base64), (c) => c.charCodeAt(0)) : item.content);
       await out.close();
     } catch (error) { failed.push(item.path); }
   }
@@ -114,16 +169,37 @@ async function flush(batch) {
       await (await directory(parts, false)).removeEntry(leaf);
     } catch (error) { if (!error || error.name !== "NotFoundError") failed.push(path); }
   }
-  say(failed.length ? failed.length + " file(s) could not be written. Check the folder permissions." : "All changes saved to " + cfg.name + ".");
-  api.setTriggerValue("synced", { id: batch.id, failed, nonce: Math.random() });
+  say(failed.length ? failed.length + " file(s) could not be written. Check the folder permissions." : "All changes saved to " + self.cfg.name + ".");
+  self.api.setTriggerValue("synced", { id: batch.id, failed, nonce: Math.random() });
+}
+
+function flushPending() {
+  live.forEach((item) => {
+    const batch = item.cfg.outbox;
+    if (item.cfg.role === "explorer" && batch && shared.handle && !shared.seen.has(batch.id)) {
+      shared.seen.add(batch.id);
+      flush(item, batch);
+    }
+  });
+}
+
+async function restore(self) {
+  if (shared.tried === self.cfg.window) return;
+  shared.tried = self.cfg.window;
+  const stored = await recall(self.cfg.window);
+  try {
+    if (stored && (await stored.queryPermission({ mode: "readwrite" })) === "granted") shared.handle = stored;
+  } catch (error) { /* needs a click */ }
+  live.forEach((item) => item.draw());
+  flushPending();
 }
 
 export default function (component) {
-  api = component;
-  cfg = component.data;
   const host = component.parentElement;
+  const cfg = component.data;
   let box = host.querySelector(".rk");
   if (!box) { box = document.createElement("div"); box.className = "rk"; host.appendChild(box); }
+  const self = { api: component, cfg, box };
 
   const button = (label, onClick, primary) => {
     const item = document.createElement("button");
@@ -133,63 +209,72 @@ export default function (component) {
     item.onclick = onClick;
     return item;
   };
-  draw = () => {
+  const note = (text, extra) => {
+    const item = document.createElement("span");
+    item.className = "note" + (extra ? " " + extra : "");
+    item.textContent = text;
+    return item;
+  };
+  self.draw = () => {
     const parts = [];
-    if (typeof window.showDirectoryPicker !== "function") {
-      const note = document.createElement("span");
-      note.className = "note";
-      note.textContent = "Open folders from your computer: use Chrome or Edge (or upload files in the Explorer).";
-      parts.push(note);
-    } else if (cfg.linked && handle) {
-      const live = document.createElement("span");
-      live.className = "live";
-      live.textContent = "Synced with " + cfg.name;
-      live.title = status || "Changes made here are saved to this folder on your computer.";
-      parts.push(live, button("Stop", stop, false));
+    if (!cfg.visible) { box.replaceChildren(); return; }
+    if (!supported()) {
+      parts.push(note(cfg.role === "clone"
+        ? "Saving a repository to your computer needs Chrome or Edge."
+        : "Opening a folder from your computer needs Chrome or Edge. Files are kept on the server."));
+    } else if (cfg.role === "clone") {
+      parts.push(button("Clone and open", () => cloneAndOpen(self), true));
+      if (shared.status) parts.push(note(shared.status));
+    } else if (cfg.linked && shared.handle) {
+      const label = document.createElement("span");
+      label.className = "live";
+      label.textContent = "Synced with " + cfg.name;
+      label.title = "Changes made here are saved to this folder on your computer.";
+      parts.push(label, button("Open folder", () => openFolder(self), false));
     } else if (cfg.linked) {
-      parts.push(button("Reconnect " + cfg.name, openFolder, true));
+      parts.push(button("Reconnect " + cfg.name, () => reconnect(self), true));
+      if (shared.status) parts.push(note(shared.status));
     } else {
-      parts.push(
-        button("Open folder", openFolder, true),
-        button("Save to folder", saveToFolder, false),
-      );
-    }
-    if (status && !(cfg.linked && handle)) {
-      const text = document.createElement("span");
-      text.className = "note";
-      text.textContent = status;
-      parts.push(text);
+      parts.push(button("Open folder", () => openFolder(self), true));
+      if (shared.status) parts.push(note(shared.status));
     }
     box.replaceChildren(...parts);
   };
-  draw();
 
-  const batch = cfg.outbox;
-  if (batch && handle && !seen.has(batch.id)) {
-    seen.add(batch.id);
-    flush(batch);
+  live.add(self);
+  if (cfg.role === "clone" && shared.opened !== cfg.opened) { shared.opened = cfg.opened; shared.status = ""; }
+  self.draw();
+  if (!shared.reported && cfg.role === "explorer") {
+    shared.reported = true;
+    component.setStateValue("picker", supported());
   }
+  if (cfg.role === "explorer") {
+    if (cfg.linked) restore(self);
+    flushPending();
+  }
+  return () => { live.delete(self); };
 }
 """
 
 _CSS = """
-.rk { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; font:12.5px/1.2 "Segoe UI", system-ui, sans-serif; color:#dde6ff; min-height:36px; }
+.rk { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font:12.5px/1.2 "Segoe UI", system-ui, sans-serif; color:#dde6ff; min-height:36px; }
 button { cursor:pointer; border:1px solid rgba(139,92,246,.55); background:rgba(139,92,246,.12); color:#dde6ff; border-radius:999px;
   padding:6px 14px; font:inherit; font-weight:600; white-space:nowrap; transition:background .15s, box-shadow .15s; }
 button:hover { background:rgba(139,92,246,.3); box-shadow:0 0 12px rgba(139,92,246,.45); }
 button.primary { background:linear-gradient(90deg,#22d3ee,#8b5cf6); border-color:transparent; color:#06101f; }
-.live { display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px; border:1px solid rgba(52,211,153,.5); background:rgba(52,211,153,.1); color:#34d399; font-weight:600; white-space:nowrap; max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+.live { display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px; border:1px solid rgba(52,211,153,.5); background:rgba(52,211,153,.1); color:#34d399; font-weight:600; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
 .live::before { content:""; width:7px; height:7px; border-radius:50%; background:#34d399; box-shadow:0 0 8px #34d399; flex:none; }
-.note { color:#7886ad; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.note { color:#7886ad; }
 """
 
 _component = None
 try:
     _component = st.components.v2.component("rk_local_folder", js=_JS, css=_CSS)
-except Exception:  # Streamlit older than components v2: the upload / download buttons in the Explorer still work
+except Exception:  # Streamlit older than components v2: only the operating system's folder window (local runs) is available
     _component = None
 
 _KEY = "rk_local"
+_CLONE_KEY = "rk_clone"
 
 
 def available() -> bool:
@@ -197,12 +282,21 @@ def available() -> bool:
     return _component is not None and not folders.native_picker_available()
 
 
-def _event(name: str) -> dict:
-    state = st.session_state.get(_KEY)
+def _event(key: str, name: str) -> dict:
+    state = st.session_state.get(key)
     value = getattr(state, name, None) if state is not None else None
     if value is None and isinstance(state, dict):
         value = state.get(name)
     return value if isinstance(value, dict) else {}
+
+
+def picker_supported() -> bool:
+    """False only when the browser reported that it cannot open folders (anything but Chrome, Edge or Opera)."""
+    state = st.session_state.get(_KEY)
+    value = getattr(state, "picker", None) if state is not None else None
+    if value is None and isinstance(state, dict):
+        value = state.get("picker")
+    return value is not False
 
 
 def _notify(text: str, icon: str = ":material/info:") -> None:
@@ -212,7 +306,7 @@ def _notify(text: str, icon: str = ":material/info:") -> None:
 
 
 def _on_opened() -> None:
-    event = _event("opened")
+    event = _event(_KEY, "opened")
     name = local_sync.clean_name(event.get("name"))
     destination = (settings.workspace_path / "local" / window_id() / name).resolve()
     try:
@@ -221,8 +315,7 @@ def _on_opened() -> None:
     except (local_sync.SyncError, RepositoryError) as exc:
         _notify(getattr(exc, "message", None) or str(exc), ":material/error:")
         return
-    open_workspace(folder)
-    st.session_state["_link"] = local_sync.LocalLink(name, known=local_sync.scan(destination))
+    open_workspace(folder, local_sync.LocalLink(name, known=local_sync.snapshot(destination)))
     st.session_state["_reload_all"] = True
     extra = " Some large, binary or secret files were left out." if event.get("skipped") else ""
     if event.get("truncated"):
@@ -230,16 +323,19 @@ def _on_opened() -> None:
     _notify(f"Opened {name}: {count} files.{extra}", ":material/folder_open:")
 
 
-def _on_linked() -> None:
-    event = _event("linked")
-    name = local_sync.clean_name(event.get("name"))
-    st.session_state["_link"] = local_sync.LocalLink(name)
-    st.session_state["_reload_all"] = True
-    _notify(f"Saving this workspace to {name} on your computer.", ":material/save:")
+def _on_relinked() -> None:
+    event = _event(_KEY, "relinked")
+    link = st.session_state.get("_link")
+    current = repo()
+    if link is None or current is None:
+        return
+    link.name = local_sync.clean_name(event.get("name"))
+    link.known, link.pending, link.fresh = {}, None, True
+    repositories.remember(window_id(), current.path, current.github, current.scratch, link.name, True)
 
 
 def _on_synced() -> None:
-    event = _event("synced")
+    event = _event(_KEY, "synced")
     link = st.session_state.get("_link")
     if link is not None:
         link.acknowledge(event.get("id"))
@@ -248,10 +344,8 @@ def _on_synced() -> None:
         _notify(f"{len(failed)} file(s) could not be saved to your folder.", ":material/error:")
 
 
-def _on_stopped() -> None:
-    st.session_state.pop("_link", None)
-    st.session_state["_reload_all"] = True
-    _notify("Stopped saving to your computer.")
+def _on_clone() -> None:
+    st.session_state["_clone_job"] = _event(_CLONE_KEY, "clone")
 
 
 def _panel() -> None:
@@ -268,14 +362,18 @@ def _panel() -> None:
     if link is not None:
         with current.lock:
             outbox = link.plan(current.path)
+        if outbox is None and link.fresh:  # the whole workspace has reached the user's folder
+            link.fresh = False
+            repositories.mark_synced(window_id())
     _component(
         key=_KEY,
         data={
+            "role": "explorer", "window": window_id(), "visible": bool(st.session_state.get("_local_visible", True)),
             "linked": link is not None, "name": link.name if link else "", "outbox": outbox,
             "skip": sorted(local_sync.SKIP_DIRS), "binary": sorted(local_sync.BINARY_EXTENSIONS),
             "max_file": settings.max_file_bytes, "max_files": local_sync.MAX_FILES, "max_total": local_sync.MAX_TOTAL_BYTES,
         },
-        on_opened_change=_on_opened, on_linked_change=_on_linked, on_synced_change=_on_synced, on_stopped_change=_on_stopped,
+        on_opened_change=_on_opened, on_relinked_change=_on_relinked, on_synced_change=_on_synced,
     )
 
 
@@ -290,7 +388,18 @@ def _syncing() -> None:
 
 
 def render_local_folder() -> None:
-    """Buttons (or the sync status) for the title bar. While a folder is linked this re-checks the workspace every 2 seconds."""
+    """The Open folder button (or the sync status) of the Explorer. While a folder is linked this re-checks the workspace every 2 seconds."""
     if not available():
         return
     (_syncing if st.session_state.get("_link") is not None else _idle)()
+
+
+def render_clone_button(target_window: str, opened: str) -> None:
+    """Clone and open: asks for a folder in the browser, then the server clones into it. `target_window` receives the result."""
+    if not available():
+        return
+    _component(
+        key=_CLONE_KEY,
+        data={"role": "clone", "window": window_id(), "target": target_window, "opened": opened, "visible": True},
+        on_clone_change=_on_clone,
+    )

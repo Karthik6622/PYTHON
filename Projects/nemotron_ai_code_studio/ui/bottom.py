@@ -13,6 +13,7 @@ from studio.services.command_policy import classify_command
 from studio.services.terminal_hints import hint_for
 from studio.tools import devtools
 
+from .dialogs import ensure_folder
 from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
 
 PANEL_HEIGHT = 240
@@ -64,6 +65,10 @@ def _prompt() -> str:
     current = repo()
     if current is None:
         return "PS>"
+    link = st.session_state.get("_link")
+    if link is not None:  # hosted: the folder on the user's computer, not the server's copy
+        sub = "\\" + S.term_cwd.replace("/", "\\") if S.term_cwd else ""
+        return f"PS {link.name}{sub}>"
     base = current.terminal.root
     path = base / S.term_cwd if S.term_cwd else base
     return f"PS {path}>"
@@ -160,6 +165,8 @@ def render_terminal() -> None:
                 command = st.text_input("Command", label_visibility="collapsed", placeholder="type a command")
                 submitted = st.form_submit_button("Run")
             if submitted and command.strip():
+                if not ensure_folder():  # the terminal always works in the folder the user chose
+                    st.rerun()
                 verdict = classify_command(command, user_initiated=True)
                 if _builtin(command):
                     st.rerun()

@@ -12,6 +12,7 @@ from ui.bottom import render_bottom  # noqa: E402
 from ui.editor import render_editor  # noqa: E402
 from ui.explorer import render_explorer, render_search  # noqa: E402
 from ui.layout import install_layout  # noqa: E402
+from ui.local_folder import render_local_folder  # noqa: E402
 from ui.source_control import render_source_control  # noqa: E402
 from ui.state import init_state  # noqa: E402
 from ui.statusbar import render_status_bar  # noqa: E402
@@ -48,6 +49,8 @@ def main() -> None:
         with side:
             with st.container(key="sidebar"):
                 panel = st.session_state.get("side") or "Explorer"
+                st.session_state["_local_visible"] = panel == "Explorer"
+                render_local_folder()  # always mounted: it also writes changes back to the user's folder
                 if panel == "Search":
                     render_search()
                 elif panel == "Source Control":

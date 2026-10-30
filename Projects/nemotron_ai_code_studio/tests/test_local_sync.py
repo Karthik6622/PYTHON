@@ -1,7 +1,6 @@
 """Server half of the browser folder feature: validation of what the browser sends, and planning of what to write back."""
 
-import io
-import zipfile
+import base64
 
 import pytest
 
@@ -90,19 +89,27 @@ def test_link_with_nothing_known_exports_everything_in_batches(tmp_path, monkeyp
     assert sorted(sent) == [f"f{i}.py" for i in range(5)]
 
 
-def test_zip_contains_workspace_files_without_secrets_or_tool_folders(tmp_path):
+def test_export_sends_binary_files_as_base64_and_skips_secrets(tmp_path):
     (tmp_path / "a.py").write_text("x", encoding="utf-8")
-    (tmp_path / "img.png").write_bytes(b"\x89PNG")
+    (tmp_path / "img.png").write_bytes(b"\x89PNG\xff\xfe")
     (tmp_path / ".env").write_text("SECRET=1", encoding="utf-8")
-    (tmp_path / ".venv").mkdir()
-    (tmp_path / ".venv" / "y.py").write_text("y", encoding="utf-8")
-    with zipfile.ZipFile(io.BytesIO(local_sync.make_zip(tmp_path))) as archive:
-        assert sorted(archive.namelist()) == ["a.py", "img.png"]
+    link = LocalLink("proj", fresh=True)
+    batch = link.plan(tmp_path)
+    by_path = {w["path"]: w for w in batch["writes"]}
+    assert sorted(by_path) == ["a.py", "img.png"]
+    assert by_path["a.py"]["content"] == "x"
+    assert base64.b64decode(by_path["img.png"]["base64"]) == b"\x89PNG\xff\xfe"
 
 
-def test_uploads_are_confined_to_the_workspace(tmp_path):
-    saved = local_sync.save_uploads(tmp_path, "src", [("..\\..\\evil.py", b"x"), ("pic.png", b"\x89")])
-    assert saved == ["src/evil.py", "src/pic.png"]
-    assert (tmp_path / "src" / "evil.py").exists() and not (tmp_path.parent / "evil.py").exists()
-    with pytest.raises(SyncError):
-        local_sync.save_uploads(tmp_path, "", [(".env", b"SECRET=1")])
+def test_window_link_is_remembered_and_marked_synced(tmp_path, monkeypatch):
+    from studio.services import repository_service as rs
+
+    monkeypatch.setattr(rs, "STATE_FILE", tmp_path / "state.json")
+    service = rs.RepositoryService()
+    service.remember("win-1", tmp_path, link="my-folder", fresh=True)
+    assert service.window_link("win-1") == ("my-folder", True)
+    service.mark_synced("win-1")
+    assert service.window_link("win-1") == ("my-folder", False)
+    service.remember("win-2", tmp_path)
+    assert service.window_link("win-2") == ("", False)
+    assert service.window_link("unknown") == ("", False)

@@ -14,12 +14,13 @@ from studio.chat import ChatMessage
 from studio.deps import broker, coding_agent, conversations, nvidia, repository_agent, repositories
 from studio.models import default_model_id
 from studio.runner import AgentRun, CommandRun, friendly_error
+from studio.services import local_sync
 from studio.services.repository_service import ActiveRepository, RepositoryError
 
 __all__ = [
     "AgentRun", "CommandRun", "broker", "coding_agent", "conversations", "nvidia", "repository_agent", "repositories",
     "S", "init_state", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
-    "window_id", "open_workspace", "new_window_url",
+    "window_id", "open_workspace", "new_window_url", "window_url",
 ]
 
 _WINDOW_ID = re.compile(r"[A-Za-z0-9_-]{4,32}")
@@ -56,10 +57,17 @@ def _open_this_window() -> None:
     except RepositoryError as exc:
         st.error(exc.message)
     st.session_state["_repo"] = current
+    if current is not None:
+        name, fresh = repositories.window_link(wid)
+        if name:  # this window mirrors a folder on the user's computer: keep mirroring it after a reload
+            known = {} if fresh else local_sync.snapshot(current.path)
+            st.session_state["_link"] = local_sync.LocalLink(name, known=known, fresh=fresh)
 
 
-def open_workspace(current: ActiveRepository) -> None:
-    """Make `current` the folder of this window and clear everything that belonged to the previous one."""
+def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None = None) -> None:
+    """Make `current` the folder of this window and clear everything that belonged to the previous one.
+
+    `link` is the folder on the user's computer that mirrors it (hosted deployments)."""
     for key, value in {
         "tabs": [], "active": None, "saved": {}, "drafts": {}, "notes": {}, "versions": {}, "cwd": "", "messages": [],
         "approvals": {}, "diff_view": None, "terminal": "", "term_cwd": "", "tests_result": None, "lint_result": None,
@@ -67,18 +75,29 @@ def open_workspace(current: ActiveRepository) -> None:
         st.session_state[key] = value
     conversations.clear(st.session_state["conversation_id"])
     st.session_state["_repo"] = current
-    repositories.remember(window_id(), current.path, current.github, current.scratch)
+    if link is not None:
+        st.session_state["_link"] = link
+    else:
+        st.session_state.pop("_link", None)
+    repositories.remember(
+        window_id(), current.path, current.github, current.scratch, link.name if link else "", bool(link and link.fresh),
+    )
+
+
+def window_url(wid: str) -> str:
+    """Address that opens window `wid` in a new browser tab."""
+    try:
+        base = str(st.context.url).split("?")[0]
+    except Exception:  # older Streamlit without st.context.url
+        base = ""
+    return f"{base}?w={wid}"
 
 
 def new_window_url(path: Path, github: dict[str, Any]) -> str:
     """Register `path` under a fresh window id and return the address that opens it in a new browser tab."""
     wid = secrets.token_urlsafe(6)
     repositories.remember(wid, path, github)
-    try:
-        base = str(st.context.url).split("?")[0]
-    except Exception:  # older Streamlit without st.context.url
-        base = ""
-    return f"{base}?w={wid}"
+    return window_url(wid)
 
 
 def init_state() -> None:

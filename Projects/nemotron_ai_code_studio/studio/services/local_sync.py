@@ -1,4 +1,4 @@
-"""Server half of "work on a folder of my own computer" for hosted deployments.
+"""Server half of "work in a folder on my own computer" for hosted deployments.
 
 A hosted app cannot open the visitor's Explorer or touch their disk, but the visitor's browser can (File System Access API).
 The browser reads a folder and sends the text files here (`import_files`); afterwards this module works out which workspace
@@ -8,11 +8,10 @@ from the browser is validated here: relative paths only, nothing outside the wor
 
 from __future__ import annotations
 
-import io
+import base64
 import os
 import re
 import secrets
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -25,8 +24,7 @@ MAX_FILES = 3000
 MAX_TOTAL_BYTES = 25_000_000
 BATCH_FILES = 200
 BATCH_BYTES = 6_000_000
-UPLOAD_LIMIT = 20_000_000
-ZIP_LIMIT = 150_000_000
+EXPORT_FILE_LIMIT = 8_000_000  # largest single file written back to the user's folder
 
 
 class SyncError(Exception):
@@ -81,6 +79,11 @@ def scan(root: Path, text_only: bool = True, limit: int | None = None) -> dict[s
     return found
 
 
+def snapshot(root: Path) -> dict[str, tuple[int, int]]:
+    """Everything that is written back to the user's folder (text and binary files, secrets and tool folders excluded)."""
+    return scan(root, text_only=False, limit=EXPORT_FILE_LIMIT)
+
+
 def import_files(root: Path, files: object) -> int:
     """Replace the workspace copy with the files the browser read from the user's folder. Returns how many files were written."""
     if not isinstance(files, list):
@@ -117,54 +120,23 @@ def import_files(root: Path, files: object) -> int:
     return len(written)
 
 
-def save_uploads(root: Path, directory: str, items: list[tuple[str, bytes]]) -> list[str]:
-    """Store files uploaded from the user's computer inside `directory` of the workspace. Returns the saved paths."""
-    saved: list[str] = []
-    for name, data in items:
-        leaf = PurePosixPath((name or "").replace("\\", "/")).name
-        rel = accept(f"{directory.strip('/')}/{leaf}" if directory.strip("/") else leaf, text_only=False)
-        if rel is None:
-            raise SyncError(f"{leaf or 'That file'} cannot be uploaded (protected name or folder).")
-        if len(data) > UPLOAD_LIMIT:
-            raise SyncError(f"{leaf} is larger than {UPLOAD_LIMIT // 1_000_000} MB.")
-        try:
-            target = resolve_in_root(root, rel, allow_root=False)
-        except PathSecurityError as exc:
-            raise SyncError(str(exc)) from exc
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-        saved.append(rel)
-    return saved
-
-
-def make_zip(root: Path) -> bytes:
-    """The workspace as a ZIP file (without .git, tool folders and secrets), for download to the user's computer."""
-    buffer = io.BytesIO()
-    total = 0
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for rel in scan(root, text_only=False, limit=UPLOAD_LIMIT):
-            total += (root / rel).stat().st_size
-            if total > ZIP_LIMIT:
-                raise SyncError("The workspace is too large to download as one ZIP.")
-            archive.write(root / rel, rel)
-    return buffer.getvalue()
-
-
 @dataclass
 class LocalLink:
     """A workspace folder on the server that is mirrored to a folder on the user's computer.
 
     `known` is what the user's folder already has (relative path -> stamp). Anything new or changed in the workspace is sent
-    to the browser in batches; the browser writes it and acknowledges, and only then is it counted as in sync."""
+    to the browser in batches; the browser writes it and acknowledges, and only then is it counted as in sync.
+    `fresh` means the folder has not received the workspace yet (a repository that was just cloned)."""
 
     name: str
     known: dict[str, tuple[int, int]] = field(default_factory=dict)
     pending: dict | None = None
+    fresh: bool = False
 
     def plan(self, root: Path) -> dict | None:
         """The next batch of changes for the browser to write, or None when everything is in sync."""
         if self.pending is None:
-            current = scan(root)
+            current = snapshot(root)
             writes: list[dict[str, str]] = []
             stamps: dict[str, tuple[int, int]] = {}
             size = 0
@@ -175,12 +147,15 @@ class LocalLink:
                 if len(writes) >= BATCH_FILES or size >= BATCH_BYTES:
                     break
                 try:
-                    content = (root / rel).read_bytes().decode("utf-8")
-                except (OSError, UnicodeDecodeError):
-                    self.known[rel] = stamp  # unreadable or not text: leave it alone
+                    raw = (root / rel).read_bytes()
+                except OSError:
+                    self.known[rel] = stamp  # unreadable: leave it alone
                     continue
-                size += len(content)
-                writes.append({"path": rel, "content": content})
+                size += len(raw)
+                try:
+                    writes.append({"path": rel, "content": raw.decode("utf-8")})
+                except UnicodeDecodeError:
+                    writes.append({"path": rel, "base64": base64.b64encode(raw).decode("ascii")})
                 stamps[rel] = stamp
             if not writes and not deletes:
                 return None
