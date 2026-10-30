@@ -28,7 +28,7 @@ def ensure_folder() -> bool:
 
     Returns False when the user cancels, so the caller must not create anything. Once a folder is chosen it is not asked again."""
     current = repo()
-    if current is None or not current.scratch or current.path == settings.scratch_path or not folders.native_picker_available():
+    if current is None or not current.scratch or st.session_state.get("_folder_chosen") or not folders.native_picker_available():
         return True
     return _switch_folder(str(current.path))
 
@@ -41,6 +41,7 @@ def _switch_folder(initial: str) -> bool:
     if not ok:
         return False
     open_workspace(folder)
+    st.session_state["_folder_chosen"] = True
     log(f"Working in {folder.path}")
     return True
 
@@ -80,7 +81,7 @@ def connect_dialog() -> None:
         if native:
             st.caption("Clone and open asks where to save the repository. The terminal for that repository works in the same folder.")
         else:
-            st.caption(f"This app runs on a server, so the repository is saved on the server in {settings.workspace_path}. To save it on your own computer, run RK Studio on that computer.")
+            st.caption("The repository is cloned on the server and opens in its own window. There, use Save to folder (top bar) to keep a copy in a folder on your computer, saved as you work.")
         submitted = st.form_submit_button("Clone and open", type="primary", icon=":material/cloud_download:")
 
     if submitted:

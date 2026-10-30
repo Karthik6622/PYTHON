@@ -89,6 +89,8 @@ def clean_environment(root: Path | None = None) -> dict[str, str]:
     env["PIP_PROGRESS_BAR"] = "off"
     env["CI"] = env.get("CI", "1")
     env["GIT_TERMINAL_PROMPT"] = "0"
+    if "GIT_CONFIG_COUNT" not in env:  # git commit in the terminal must not start gc (see git_service._run)
+        env.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "gc.auto", "GIT_CONFIG_VALUE_0": "0"})
     env["NO_COLOR"] = "1"
     bin_dir = venv_bin(root) if root is not None else None
     if bin_dir is not None and root is not None:

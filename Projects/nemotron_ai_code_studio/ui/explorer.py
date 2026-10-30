@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from studio.security import is_sensitive_path
-from studio.services import folders
+from studio.services import folders, local_sync
 
 from .dialogs import choose_working_folder, ensure_folder
 from .state import S, attempt, close_file, log, open_file, repo
@@ -67,6 +67,35 @@ def _delete(path: str) -> None:
         log(f"Deleted {path}")
 
 
+def _upload(key: str) -> None:
+    current = repo()
+    files = st.session_state.get(key) or []
+    if current is None or not files:
+        return
+    ok, saved = attempt(local_sync.save_uploads, current.path, S.cwd, [(item.name, item.getvalue()) for item in files])
+    st.session_state["upload_round"] = st.session_state.get("upload_round", 0) + 1  # a fresh uploader next time
+    if ok:
+        with current.lock:
+            for path in saved:
+                current.index.refresh_file(path)
+        log(f"Uploaded {len(saved)} file(s)")
+        st.toast(f"Uploaded {len(saved)} file(s) to {S.cwd or 'the root folder'}.", icon=":material/upload:")
+
+
+def _transfer(current) -> None:
+    """Hosted deployments: move files between the visitor's computer and the workspace (the browser does the picking)."""
+    with st.popover("Upload / download", icon=":material/swap_vert:", width="stretch"):
+        key = f"upload_files_{st.session_state.get('upload_round', 0)}"
+        st.file_uploader(
+            "Upload files from your computer", accept_multiple_files=True, key=key, on_change=_upload, args=(key,),
+            help=f"Saved in the open folder ({S.cwd or 'root'}).",
+        )
+        st.download_button(
+            "Download workspace as ZIP", data=lambda: local_sync.make_zip(current.path), file_name=f"{current.name}.zip",
+            mime="application/zip", on_click="ignore", icon=":material/download:", width="stretch",
+        )
+
+
 def render_explorer() -> None:
     current = repo()
     if current is None:
@@ -74,10 +103,17 @@ def render_explorer() -> None:
         return
 
     section_title("Explorer", current.name)
-    if current.scratch:
+    native = folders.native_picker_available()
+    if current.scratch and native:
         st.caption(f"Working folder: {current.path}")
-        if folders.native_picker_available():
-            st.button("Choose working folder", icon=":material/folder_open:", key="pick_work_folder", on_click=choose_working_folder, width="stretch")
+        st.button("Choose working folder", icon=":material/folder_open:", key="pick_work_folder", on_click=choose_working_folder, width="stretch")
+    if not native:
+        link = st.session_state.get("_link")
+        st.caption(
+            f"Saved to {link.name} on your computer as you work." if link
+            else "Files are kept on the server. Use Open folder or Save to folder (top bar) to work in a folder on your computer."
+        )
+        _transfer(current)
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")

@@ -84,10 +84,11 @@ def quick_places() -> list[tuple[str, str]]:
 _PICKER = (
     "import sys, tkinter as tk\n"
     "from tkinter import filedialog\n"
-    "root = tk.Tk(); root.withdraw()\n"
-    "try: root.attributes('-topmost', True)\n"
-    "except Exception: pass\n"
-    "root.update()\n"
+    "root = tk.Tk()\n"
+    "try:\n"
+    "    root.attributes('-alpha', 0.0); root.attributes('-topmost', True); root.geometry('1x1+0+0')\n"
+    "except Exception: root.withdraw()\n"
+    "root.update(); root.lift(); root.focus_force(); root.update()\n"
     "print(filedialog.askdirectory(parent=root, title=sys.argv[1], initialdir=sys.argv[2] or None, mustexist=False) or '')\n"
     "root.destroy()\n"
 )

@@ -94,11 +94,14 @@ class GitService:
     def _run(self, repo: Repo, *args: str, network: bool = False) -> str:
         if args and args[0] not in _READ_ONLY:
             self._cache = None  # anything that can change the repository invalidates the cached status
+        # gc.auto=0: no automatic garbage collection after commit/fetch. On Windows it tries to delete empty .git/objects folders,
+        # which fails when OneDrive or an antivirus holds them and then asks "Should I try again? (y/n)".
+        command = ["git", "-c", "gc.auto=0", *args]
         try:
             if network:
                 with repo.git.custom_environment(**auth_env()):
-                    return repo.git.execute(["git", *args])
-            return repo.git.execute(["git", *args])
+                    return repo.git.execute(command)
+            return repo.git.execute(command)
         except GitCommandError as exc:
             raise GitError(_explain(exc), 400) from exc
 
