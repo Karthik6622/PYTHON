@@ -160,109 +160,43 @@ def test_image_requests_are_detected_but_questions_are_not():
         assert not image_gen.wants_image(text), text
 
 
-def test_image_generation_needs_a_key_or_a_server(monkeypatch):
+def test_image_generation_needs_the_horde_key(monkeypatch):
     monkeypatch.setattr(image_gen, "_configured", lambda name, default="": default)
     assert not image_gen.image_generation_configured()
-    with pytest.raises(image_gen.ImageGenerationError, match="not set up"):
+    with pytest.raises(image_gen.ImageGenerationError, match="AI_HORDE_API_KEY"):
         image_gen.generate_image("a fox")
-
-
-def test_hosted_cosmos_text2image_call(monkeypatch):
-    import base64
-    import httpx
-
-    settings = {"NVIDIA_API_KEY": "nvapi-test"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
+    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": "key" if name == "AI_HORDE_API_KEY" else default)
     assert image_gen.image_generation_configured()
-    seen = {}
-    jpeg = io.BytesIO()
-    Image.new("RGB", (16, 16), (10, 200, 10)).save(jpeg, format="JPEG")
-
-    def handler(request):
-        seen["url"] = str(request.url)
-        seen["auth"] = request.headers["authorization"]
-        seen["body"] = request.read()
-        return httpx.Response(200, json={"b64_image": base64.b64encode(jpeg.getvalue()).decode()})
-
-    real_client = httpx.Client
-    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
-    png = image_gen.generate_image("create a baby image")
-    assert png.startswith(b"\x89PNG")
-    assert seen["url"] == image_gen.HOSTED_URL and seen["auth"] == "Bearer nvapi-test"
-    body = __import__("json").loads(seen["body"])
-    assert body["model_mode"] == "text2image" and "baby" in body["prompt"] and body["resolution"] == "480_1_1"
 
 
-def test_hosted_cosmos_polls_until_ready_and_reports_errors(monkeypatch):
-    import base64
-    import httpx
-
-    settings = {"NVIDIA_API_KEY": "nvapi-test"}
+def _horde_settings(monkeypatch, **extra):
+    settings = {"AI_HORDE_API_KEY": "horde", **extra}
     monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
     monkeypatch.setattr(image_gen.time, "sleep", lambda s: None)
-    calls = []
 
-    def handler(request):
-        calls.append(request.method)
-        if request.method == "POST":
-            return httpx.Response(202, headers={"NVCF-REQID": "abc"})
-        if len(calls) < 3:
-            return httpx.Response(202, headers={"NVCF-REQID": "abc"})
-        return httpx.Response(200, json={"b64_image": base64.b64encode(png_bytes()).decode()})
+
+def _mock_httpx(monkeypatch, handler):
+    import httpx
 
     real_client = httpx.Client
     monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
-    assert image_gen.generate_image("a fox").startswith(b"\x89PNG")
-    assert calls == ["POST", "GET", "GET"]
-
-    for status, text in ((401, "rejected the API key"), (404, "IMAGE_GEN_API_KEY"), (422, "safety"), (429, "busy")):
-        monkeypatch.setattr(httpx, "Client", lambda status=status, **kw: real_client(transport=httpx.MockTransport(lambda r: httpx.Response(status)), **kw))
-        with pytest.raises(image_gen.ImageGenerationError, match=text):
-            image_gen.generate_image("a fox")
-
-    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(
-        transport=httpx.MockTransport(lambda r: httpx.Response(404, json={"detail": "Function not found for account"})), **kw))
-    with pytest.raises(image_gen.ImageGenerationError, match="NVIDIA says: Function not found for account"):
-        image_gen.generate_image("a fox")
 
 
-def test_cloudflare_is_used_first(monkeypatch):
+def test_ai_horde_submits_polls_and_returns_a_png(monkeypatch):
     import base64
     import httpx
+    import json
 
-    settings = {"CLOUDFLARE_ACCOUNT_ID": "acc1", "CLOUDFLARE_API_TOKEN": "tok", "CLOUDFLARE_STEPS": "20"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
-    seen = []
-
-    def handler(request):
-        seen.append(request)
-        return httpx.Response(200, json={"result": {"image": base64.b64encode(png_bytes()).decode()}, "success": True})
-
-    real_client = httpx.Client
-    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
-    assert image_gen.generate_image("a fox").startswith(b"\x89PNG")
-    assert len(seen) == 1 and "/accounts/acc1/ai/run/@cf/black-forest-labs/flux-1-schnell" in str(seen[0].url)
-    assert seen[0].headers["authorization"] == "Bearer tok"
-    body = __import__("json").loads(seen[0].read())
-    assert body == {"prompt": "a fox", "steps": 8}
-
-
-def test_ai_horde_takes_over_when_cloudflare_fails(monkeypatch):
-    import base64
-    import httpx
-
-    settings = {"CLOUDFLARE_ACCOUNT_ID": "acc1", "CLOUDFLARE_API_TOKEN": "tok", "AI_HORDE_API_KEY": "horde"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
-    monkeypatch.setattr(image_gen.time, "sleep", lambda s: None)
+    _horde_settings(monkeypatch)
     calls = []
+    submitted = {}
 
     def handler(request):
         path = request.url.path
         calls.append((request.method, path))
-        if "cloudflare" in request.url.host:
-            return httpx.Response(429)
+        assert request.headers["apikey"] == "horde"
         if path.endswith("/generate/async"):
-            assert request.headers["apikey"] == "horde"
+            submitted.update(json.loads(request.read()))
             return httpx.Response(202, json={"id": "job1"})
         if path.endswith("/generate/check/job1"):
             done = sum(1 for _, p in calls if p.endswith("/check/job1")) >= 2
@@ -271,75 +205,82 @@ def test_ai_horde_takes_over_when_cloudflare_fails(monkeypatch):
             return httpx.Response(200, json={"generations": [{"img": base64.b64encode(png_bytes()).decode(), "censored": False}]})
         return httpx.Response(404)
 
-    real_client = httpx.Client
-    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    _mock_httpx(monkeypatch, handler)
     assert image_gen.generate_image("a fox").startswith(b"\x89PNG")
-    assert calls[0][1].endswith("flux-1-schnell") and calls[1] == ("POST", "/api/v2/generate/async")
+    assert calls[0] == ("POST", "/api/v2/generate/async")
+    assert submitted["prompt"] == "a fox" and submitted["models"] == [image_gen.HORDE_MODEL] and submitted["params"]["steps"] == 4
+    assert submitted["censor_nsfw"] is True and submitted["nsfw"] is False
 
 
-def test_first_provider_error_is_reported_and_horde_censoring(monkeypatch):
+def test_ai_horde_downloads_https_images_only(monkeypatch):
     import httpx
 
-    settings = {"CLOUDFLARE_ACCOUNT_ID": "acc1", "CLOUDFLARE_API_TOKEN": "tok", "AI_HORDE_API_KEY": "horde"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
-    monkeypatch.setattr(image_gen.time, "sleep", lambda s: None)
+    _horde_settings(monkeypatch)
 
     def handler(request):
         path = request.url.path
-        if "cloudflare" in request.url.host:
-            return httpx.Response(401)
         if path.endswith("/generate/async"):
             return httpx.Response(202, json={"id": "job1"})
         if "/check/" in path:
             return httpx.Response(200, json={"done": True})
+        if path.endswith("/generate/status/job1"):
+            return httpx.Response(200, json={"generations": [{"img": "https://cdn.example/pic.webp", "censored": False}]})
+        if request.url.host == "cdn.example":
+            return httpx.Response(200, content=png_bytes())
+        return httpx.Response(404)
+
+    _mock_httpx(monkeypatch, handler)
+    assert image_gen.generate_image("a fox").startswith(b"\x89PNG")
+
+
+def test_ai_horde_errors_are_friendly_and_free_the_queue_slot(monkeypatch):
+    import httpx
+
+    _horde_settings(monkeypatch)
+    deleted = []
+    state = {"mode": "censored"}
+
+    def handler(request):
+        path = request.url.path
         if request.method == "DELETE":
+            deleted.append(path)
             return httpx.Response(200)
+        if path.endswith("/generate/async"):
+            if state["mode"] == "badkey":
+                return httpx.Response(401, json={"message": "Invalid key"})
+            if state["mode"] == "kudos":
+                return httpx.Response(403, json={"message": "Not enough kudos for this request"})
+            if state["mode"] == "busy":
+                return httpx.Response(503)
+            return httpx.Response(202, json={"id": "job1"})
+        if "/check/" in path:
+            return httpx.Response(200, json={"is_possible": False} if state["mode"] == "noworker" else {"done": True})
         return httpx.Response(200, json={"generations": [{"img": "", "censored": True}]})
 
-    real_client = httpx.Client
-    monkeypatch.setattr(httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
-    with pytest.raises(image_gen.ImageGenerationError, match="CLOUDFLARE_API_TOKEN"):
-        image_gen.generate_image("a fox")
-    settings.pop("CLOUDFLARE_ACCOUNT_ID")
-    with pytest.raises(image_gen.ImageGenerationError, match="safety filter"):
-        image_gen.generate_image("a fox")
+    _mock_httpx(monkeypatch, handler)
+    for mode, text in (("badkey", "AI_HORDE_API_KEY"), ("kudos", "kudos"), ("busy", "busy"),
+                       ("noworker", "No AI Horde worker"), ("censored", "safety filter")):
+        state["mode"] = mode
+        with pytest.raises(image_gen.ImageGenerationError, match=text):
+            image_gen.generate_image("a fox")
+    assert deleted == ["/api/v2/generate/status/job1", "/api/v2/generate/status/job1"]
 
 
-def test_cosmos_is_not_a_hidden_fallback_for_book_studio_providers(monkeypatch):
-    settings = {"AI_HORDE_API_KEY": "horde", "NVIDIA_API_KEY": "nvapi"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
-    assert [p.__name__ for p in image_gen._providers()] == ["_generate_ai_horde"]
-    settings["IMAGE_GEN_API_KEY"] = "nvapi"
-    assert [p.__name__ for p in image_gen._providers()] == ["_generate_ai_horde", "_generate_cosmos"]
-
-
-def test_self_hosted_image_server_is_still_supported(monkeypatch):
+def test_bad_picture_from_horde_is_reported(monkeypatch):
     import base64
+    import httpx
 
-    settings = {"IMAGE_GEN_BASE_URL": "http://gpu:30000/v1"}
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": settings.get(name, default))
-    seen = {}
+    _horde_settings(monkeypatch)
 
-    class Images:
-        def generate(self, **kwargs):
-            seen.update(kwargs)
-            return types.SimpleNamespace(data=[types.SimpleNamespace(b64_json=base64.b64encode(png_bytes()).decode())])
+    def handler(request):
+        path = request.url.path
+        if path.endswith("/generate/async"):
+            return httpx.Response(202, json={"id": "job1"})
+        if "/check/" in path:
+            return httpx.Response(200, json={"done": True})
+        return httpx.Response(200, json={"generations": [{"img": base64.b64encode(b"nope").decode()}]})
 
-    import openai
-
-    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: types.SimpleNamespace(images=Images()))
-    png = image_gen.generate_image("a red fox")
-    assert png.startswith(b"\x89PNG")
-    assert seen["model"] == "nvidia/Cosmos3-Nano" and seen["prompt"] == "a red fox" and seen["response_format"] == "b64_json"
-
-
-def test_bad_image_service_reply_is_reported(monkeypatch):
-    import base64
-    import openai
-
-    monkeypatch.setattr(image_gen, "_configured", lambda name, default="": "http://gpu/v1" if name == "IMAGE_GEN_BASE_URL" else default)
-    images = types.SimpleNamespace(generate=lambda **kw: types.SimpleNamespace(data=[types.SimpleNamespace(b64_json=base64.b64encode(b"nope").decode())]))
-    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: types.SimpleNamespace(images=images))
+    _mock_httpx(monkeypatch, handler)
     with pytest.raises(image_gen.ImageGenerationError, match="not a picture"):
         image_gen.generate_image("a fox")
 

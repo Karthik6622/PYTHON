@@ -66,11 +66,26 @@ def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
 
 def test_detailed_length_rule_overrides_the_short_reply_default():
     text = system_text(assistant.build_messages(convo("explain python decorators"), {"response_length": "Detailed"}))
-    assert "DETAILED" in text and "250 to 600 words" in text
+    assert "DETAILED" in text and "300 to 600 words" in text
     assert "Keep replies short" not in text
     assert "Short natural messages" not in system_text(
         assistant.build_messages(convo("hi"), {"response_length": "Detailed", "mode": "Romantic"})
     )
+
+
+def test_length_reminder_follows_the_latest_user_message_even_after_short_replies():
+    history = {"messages": [
+        {"role": "user", "content": "hi"}, {"role": "assistant", "content": "hey!"},
+        {"role": "user", "content": "explain python decorators"},
+    ]}
+    detailed = assistant.build_messages(history, {"response_length": "Detailed"})
+    assert detailed[-1]["role"] == "user" and detailed[-1]["content"].startswith("explain python decorators")
+    assert detailed[-1]["content"].endswith(assistant.LENGTH_REMINDERS["Detailed"])
+    assert detailed[1]["content"] == "hi"
+    balanced = assistant.build_messages(history, {"response_length": "Balanced"})
+    assert balanced[-1]["content"].endswith(assistant.LENGTH_REMINDERS["Balanced"])
+    english = assistant.build_messages(history, {"response_length": "Detailed", "mode": "English correction"})
+    assert english[-1]["content"] == "explain python decorators"
 
 
 def test_correct_english_returns_only_the_confirmation(monkeypatch):

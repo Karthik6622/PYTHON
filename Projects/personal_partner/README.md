@@ -24,7 +24,7 @@ Copy-Item .env.example .env
 
 Set `NVIDIA_API_KEY` and `TAVILY_API_KEY` in `.env` or `.streamlit/secrets.toml`.
 
-For pictures in chat ("generate an image of ..."), set the same image credentials AI Book Studio uses: `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` (FLUX.1 schnell on Cloudflare Workers AI) and/or `AI_HORDE_API_KEY` (AI Horde, used as the backup). NVIDIA Cosmos 3 Nano is used only when `IMAGE_GEN_API_KEY` or `IMAGE_GEN_BASE_URL` is set, or when nothing else is configured.
+For pictures in chat ("generate an image of ..."), set `AI_HORDE_API_KEY` (the same AI Horde FLUX.1 schnell setup AI Book Studio uses). It is a free shared queue, so a picture can take from a few seconds to a few minutes.
 
 For voice chat also set `GROQ_API_KEY`. Speech is transcribed by NVIDIA `nemotron-3-nano-omni-30b-a3b-reasoning` (using the same `NVIDIA_API_KEY`), with Groq `whisper-large-v3` as a fallback. The Nemotron chat model writes the reply, and Groq text-to-speech reads it aloud.
 

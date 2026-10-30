@@ -405,12 +405,12 @@ def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> No
 
 
 def _reply_with_image(user_id: str, conversation_id: str, prompt: str, mode_tag: dict[str, str], avatar: str) -> None:
-    """Create a picture (Cloudflare FLUX, AI Horde or Cosmos) and save it as the assistant's reply."""
+    """Create a picture with AI Horde and save it as the assistant's reply."""
     reply: dict[str, Any] = {"message_id": uuid.uuid4().hex, "role": "assistant", "created_at": _now(), **mode_tag}
     if not image_generation_configured():
         reply["content"] = (
-            "I can't create pictures yet because no image service is set up. Add CLOUDFLARE_ACCOUNT_ID and "
-            "CLOUDFLARE_API_TOKEN (or AI_HORDE_API_KEY), the same ones AI Book Studio uses, then ask again."
+            "I can't create pictures yet because no image service is set up. Add AI_HORDE_API_KEY to this app "
+            "(the same key AI Book Studio uses), then ask again."
         )
     else:
         try:

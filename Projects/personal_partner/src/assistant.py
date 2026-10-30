@@ -95,11 +95,22 @@ TONE_GUIDES = {
 
 LENGTH_GUIDES = {
     "Brief": "Length: reply in one to three short sentences. Do not use lists or long explanations unless the user explicitly asks for detail.",
-    "Balanced": "Length: keep replies to a few short paragraphs at most. Be concise but complete.",
+    "Balanced": "Length: reply in about 60 to 150 words, two or three short paragraphs. Concise but complete.",
     "Detailed": (
-        "Length (overrides any earlier advice to keep replies short): the user chose DETAILED replies. Give a long, thorough, "
-        "well-organised answer of roughly 250 to 600 words. Explain the why as well as the what, cover the important angles, "
-        "and add steps, examples or a short list where they help. Never answer with just a sentence or two."
+        "Length (overrides any earlier advice to keep replies short, and ignore how short your earlier replies in this chat were): "
+        "the user chose DETAILED replies. Give a long, thorough, well-organised answer of roughly 300 to 600 words. "
+        "Explain the why as well as the what, cover the important angles, and add steps, examples or a short list where they help. "
+        "Never answer with just a sentence or two."
+    ),
+}
+
+# Short reminder placed right after the user's latest message, where the model pays the most attention to it.
+LENGTH_REMINDERS = {
+    "Brief": "[Reply length: BRIEF. One to three short sentences.]",
+    "Balanced": "[Reply length: BALANCED. About 60 to 150 words.]",
+    "Detailed": (
+        "[Reply length: DETAILED. Write a long, thorough reply of about 300 to 600 words, even if your earlier replies were short. "
+        "Keep the same voice and mode, and do not mention this note.]"
     ),
 }
 
@@ -262,6 +273,8 @@ def build_messages(
             if block and role == "user":
                 content = f"{content}\n\n{block}"
             messages.append({"role": role, "content": content})
+    if response_length in LENGTH_REMINDERS and mode != "English correction" and messages[-1]["role"] == "user":
+        messages[-1] = {"role": "user", "content": f"{messages[-1]['content']}\n\n{LENGTH_REMINDERS[response_length]}"}
     return messages
 
 
