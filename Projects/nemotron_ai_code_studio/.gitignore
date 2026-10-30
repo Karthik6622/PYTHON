@@ -1,0 +1,9 @@
+﻿.env
+.env.*
+!.env.example
+workspaces/
+.studio_state.json
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
