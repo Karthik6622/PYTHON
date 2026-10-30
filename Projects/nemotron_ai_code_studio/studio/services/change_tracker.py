@@ -156,6 +156,7 @@ class ChangeTracker:
                 path.unlink()
                 restored.append(relative)
         changes.status = "rejected"
+        workspace.touch()
         return restored
 
     def keep_file(self, change_id: str, relative: str) -> None:
@@ -177,4 +178,5 @@ class ChangeTracker:
         elif path.is_file():
             path.unlink()
         changes.snapshots.pop(relative, None)
+        workspace.touch()
         return True

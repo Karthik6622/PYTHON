@@ -23,7 +23,7 @@ def render_status_bar() -> None:
     if current is not None and current.git is not None:
         branch = current.git.current_branch()
         left.append(_item(f"&#9095; {escape(branch)}", title="Current branch"))
-        ok, status = attempt(current.git.status, quiet=True)
+        ok, status = attempt(current.git.cached_status, current.workspace.version, quiet=True)
         if ok and status:
             if status.get("upstream"):
                 left.append(_item(f"&uarr;{status['ahead']} &darr;{status['behind']}", title="Commits ahead / behind upstream"))

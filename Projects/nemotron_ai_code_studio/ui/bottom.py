@@ -8,7 +8,9 @@ from typing import Any, Callable
 
 import streamlit as st
 
+from studio.config import settings
 from studio.services.command_policy import classify_command
+from studio.services.terminal_hints import hint_for
 from studio.tools import devtools
 
 from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
@@ -44,11 +46,11 @@ def _after_command(changed_files: bool = True) -> None:
     reload_paths(list(S.tabs))
 
 
-def _start(attr: str, command: str, kind: str = "", cwd: str = "") -> None:
+def _start(attr: str, command: str, kind: str = "", cwd: str = "", timeout: int | None = None) -> None:
     current = repo()
     if current is None:
         return
-    run = CommandRun(current, command, cwd)
+    run = CommandRun(current, command, cwd, timeout)
     run.prompt = _prompt()
     st.session_state[attr] = run
     if kind:
@@ -68,22 +70,23 @@ def _prompt() -> str:
 
 
 def _terminal_html(live: CommandRun | None) -> str:
+    """The scrollback. The live prompt with its input box is drawn by render_terminal, on the same line as the prompt."""
     chunks = [S.terminal] if S.terminal else []
     if live is not None:
         chunks.append(f"{live.prompt} {live.command}\n{live.output}")
-        tail = ""
-    else:
-        tail = f"<span class='ps'>{escape(_prompt())}</span><span class='caret'></span>"
     body = ""
     for line in "".join(chunks).split("\n"):
         if line.startswith("PS ") and ">" in line:
             head, _, rest = line.partition("> ")
             body += f"<span class='ps'>{escape(head)}&gt;</span> <span class='cmd'>{escape(rest)}</span>\n"
+        elif line.startswith("hint: "):
+            body += f"<span class='hint'>{escape(line)}</span>\n"
         else:
             body += escape(line) + "\n"
     if not S.terminal and live is None:
-        body = f"<span class='dim'>RK Studio terminal. Commands run in the repository folder (cd and cls work).</span>\n{body}"
-    return f"<div class='term'><pre>{body}{tail}</pre></div>"
+        body = ("<span class='dim'>RK Studio terminal. Type commands right after the prompt: git status, pip install &lt;package&gt;, "
+                "python script.py, python -m playwright install chromium. cd and cls work.</span>\n")
+    return f"<div class='term'><pre>{body}</pre></div>"
 
 
 def _terminal_render(run: CommandRun) -> None:
@@ -97,7 +100,9 @@ def _terminal_finish(run: CommandRun) -> None:
     code = "" if result is None else ("cancelled" if result.cancelled else "timed out" if result.timed_out else f"exit {result.exit_code}")
     body = result.output if result is not None else run.error or run.output
     status = f"[{code}]\n" if code and code != "exit 0" else ""
-    S.terminal = (S.terminal + f"{run.prompt} {run.command}\n{body.rstrip()}\n{status}\n")[-20000:]
+    hint = hint_for(run.command, body or "", None if result is None else result.exit_code)
+    hint = "".join(f"hint: {line}\n" for line in hint.split("\n")) if hint else ""
+    S.terminal = (S.terminal + f"{run.prompt} {run.command}\n{body.rstrip()}\n{status}{hint}\n")[-30000:]
     log(f"Command finished ({code or 'error'}): {run.command}")
     _after_command()
 
@@ -144,38 +149,40 @@ def render_terminal() -> None:
         S.term_cwd = ""  # the folder is gone, or another repository was opened
     running = st.session_state.get("term_run") is not None and not st.session_state["term_run"].finished.is_set()
 
-    if not running:
-        with st.container(key="termbox"):
+    with st.container(key="termbox"):
+        if not running:
             st.markdown(_terminal_html(None), unsafe_allow_html=True)
-    with st.form("term_form", clear_on_submit=True, border=False):
-        left, right = st.columns([9, 1.3], vertical_alignment="bottom")
-        command = left.text_input("Command", placeholder="Type a command and press Enter, for example: python -m pytest", label_visibility="collapsed")
-        submitted = right.form_submit_button("Run", icon=":material/play_arrow:", width="stretch", disabled=running)
-    if submitted and command.strip():
-        verdict = classify_command(command)
-        if _builtin(command):
-            st.rerun()
-        elif verdict.level == "deny":
-            st.error(verdict.reason)
-        elif verdict.level == "approve":
-            S.term_confirm = {"command": command.strip(), "reason": verdict.reason}
-        else:
-            _start("term_run", command.strip(), cwd=S.term_cwd)
-            st.rerun()
+            # The prompt and the input share one line, like a real shell. Enter submits (the Run button is visually hidden).
+            with st.form("term_form", clear_on_submit=True, border=False):
+                st.markdown(f"<span class='ps termps'>{escape(_prompt())}</span>", unsafe_allow_html=True)
+                command = st.text_input("Command", label_visibility="collapsed", placeholder="type a command")
+                submitted = st.form_submit_button("Run")
+            if submitted and command.strip():
+                verdict = classify_command(command, user_initiated=True)
+                if _builtin(command):
+                    st.rerun()
+                elif verdict.level == "deny":
+                    S.terminal = (S.terminal + f"{_prompt()} {command.strip()}\n{verdict.reason}\n\n")[-30000:]
+                    st.rerun()
+                elif verdict.level == "approve":
+                    S.term_confirm = {"command": command.strip(), "reason": verdict.reason}
+                else:
+                    _start("term_run", command.strip(), cwd=S.term_cwd, timeout=settings.terminal_timeout_seconds)
+                    st.rerun()
 
-    pending = st.session_state.get("term_confirm")
-    if pending:
-        st.warning(f"{pending['reason']}\n\n`{pending['command']}`")
-        yes, no = st.columns(2)
-        if yes.button("Run anyway", type="primary", key="term_yes", width="stretch"):
-            st.session_state["term_confirm"] = None
-            _start("term_run", pending["command"], cwd=S.term_cwd)
-            st.rerun()
-        if no.button("Cancel", key="term_no", width="stretch"):
-            st.session_state["term_confirm"] = None
-            st.rerun()
+        pending = st.session_state.get("term_confirm")
+        if pending:
+            st.warning(f"{pending['reason']}\n\n`{pending['command']}`")
+            yes, no = st.columns(2)
+            if yes.button("Run anyway", type="primary", key="term_yes", width="stretch"):
+                st.session_state["term_confirm"] = None
+                _start("term_run", pending["command"], cwd=S.term_cwd, timeout=settings.terminal_timeout_seconds)
+                st.rerun()
+            if no.button("Cancel", key="term_no", width="stretch"):
+                st.session_state["term_confirm"] = None
+                st.rerun()
 
-    _live("term_run", _terminal_render, _terminal_finish)
+        _live("term_run", _terminal_render, _terminal_finish)
 
 
 
@@ -327,14 +334,13 @@ def render_git_diff() -> None:
 
 
 def render_bottom() -> None:
-    terminal, problems, output, tests, diff = st.tabs(["TERMINAL", "PROBLEMS", "OUTPUT", "TESTS", "GIT DIFF"])
-    with terminal:
-        render_terminal()
-    with problems:
-        render_problems()
-    with output:
-        render_output()
-    with tests:
-        render_tests()
-    with diff:
-        render_git_diff()
+    names = ["TERMINAL", "PROBLEMS", "OUTPUT", "TESTS", "GIT DIFF"]
+    try:
+        tabs = st.tabs(names, key="bottomtabs", on_change="rerun")  # only the open tab runs: git diff no longer costs time on every click
+    except TypeError:
+        tabs = st.tabs(names)  # older Streamlit: every tab runs
+    renderers = [render_terminal, render_problems, render_output, render_tests, render_git_diff]
+    for tab, render in zip(tabs, renderers):
+        with tab:
+            if getattr(tab, "open", True):
+                render()

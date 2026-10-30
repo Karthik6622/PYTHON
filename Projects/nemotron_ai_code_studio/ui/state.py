@@ -22,6 +22,7 @@ __all__ = [
 @st.cache_resource
 def _restore_once() -> bool:
     """Reopen the repository that was open last time the app ran (once per server process)."""
+    repositories.load_prefs()
     if repositories.active is None:
         repositories.restore_last()
     return True

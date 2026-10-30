@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import streamlit.components.v1 as components
 
-VERSION = 4
+VERSION = 5
 
 SCRIPT = r"""
 <script>
@@ -171,6 +171,17 @@ SCRIPT = r"""
       if (chat.__rkH === undefined) { chat.scrollTop = chat.scrollHeight; }
       else if (chat.scrollHeight !== chat.__rkH && chat.scrollTop + chat.clientHeight >= chat.__rkH - 90) { chat.scrollTop = chat.scrollHeight; }
       chat.__rkH = chat.scrollHeight;
+    }
+    var tb = q('div.st-key-termbox');
+    if (tb) {
+      if (tb.__rkH === undefined || tb.scrollHeight !== tb.__rkH) { tb.scrollTop = tb.scrollHeight; }
+      tb.__rkH = tb.scrollHeight;
+      var ti = tb.querySelector('input');
+      if (ti && ti !== P.__rkTermInput) {
+        P.__rkTermInput = ti;
+        var ae = D.activeElement;
+        if (!ae || ae === D.body) ti.focus({ preventScroll: true });
+      }
     }
     var now = Date.now();
     if (now - lastBadge > 1200) { lastBadge = now; docs().forEach(hideBadges); }

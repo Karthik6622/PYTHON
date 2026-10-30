@@ -13,6 +13,7 @@ from ..config import PROJECT_ROOT, settings
 from ..security import PathSecurityError, resolve_in_root
 from .change_tracker import ChangeTracker
 from .context_service import ContextEngine
+from .folders import FolderError, prepare_location
 from .git_service import GitError, GitService, clone_repository
 from .github_service import GitHubError, GitHubService, RepoRef, parse_repository
 from .indexing_service import RepositoryIndex
@@ -21,6 +22,7 @@ from .terminal_service import TerminalService
 from .workspace_service import WorkspaceService
 
 STATE_FILE = PROJECT_ROOT / ".studio_state.json"
+PREFS_FILE = PROJECT_ROOT / ".studio_prefs.json"
 
 
 class RepositoryError(Exception):
@@ -82,9 +84,41 @@ class RepositoryService:
 
     def _remember(self, path: Path, github: dict[str, Any]) -> None:
         try:
-            STATE_FILE.write_text(json.dumps({"path": str(path), "github": github}), encoding="utf-8")
+            STATE_FILE.write_text(json.dumps({"path": str(path), "github": github, "workspace_root": str(settings.workspace_path)}), encoding="utf-8")
         except OSError:
             pass
+
+    # ---------------------------------------------------------------- where repositories live
+    def load_prefs(self) -> None:
+        """Use the folder the user picked last time (call once when the app starts)."""
+        try:
+            data = json.loads(PREFS_FILE.read_text(encoding="utf-8"))
+            chosen = Path(data["workspace_root"])
+        except (OSError, ValueError, KeyError, TypeError):
+            return
+        if chosen.is_dir():
+            settings.set_workspace_path(chosen)
+
+    @property
+    def location_chosen(self) -> bool:
+        """True once the user picked a folder (or the deployment set WORKSPACE_PATH)."""
+        return settings.workspace_configured
+
+    def _set_location(self, path: Path) -> None:
+        settings.set_workspace_path(path)
+        try:
+            PREFS_FILE.write_text(json.dumps({"workspace_root": str(path)}), encoding="utf-8")
+        except OSError:
+            pass
+
+    def choose_location(self, text: str) -> Path:
+        """Validate the folder the user typed or browsed to, create it if needed, and remember it for the next clone."""
+        try:
+            path = prepare_location(text)
+        except FolderError as exc:
+            raise RepositoryError(str(exc), 400) from exc
+        self._set_location(path)
+        return path
 
     def _activate(self, path: Path, name: str, github: dict[str, Any] | None = None) -> ActiveRepository:
         workspace = WorkspaceService(path)
@@ -140,10 +174,19 @@ class RepositoryService:
 
     @staticmethod
     def _destination(root: Path, ref: RepoRef) -> Path:
-        try:
-            return resolve_in_root(root, ref.folder, allow_root=False)
-        except PathSecurityError as exc:
-            raise RepositoryError(str(exc), 400) from exc
+        """<chosen folder>/<repo name>, like a plain `git clone`; owner__repo is the fallback when that name is taken by something else."""
+        for name in (ref.name, ref.folder):
+            try:
+                destination = resolve_in_root(root, name, allow_root=False)
+            except PathSecurityError as exc:
+                raise RepositoryError(str(exc), 400) from exc
+            if not destination.exists():
+                return destination
+            if _is_git(destination):
+                remote = GitService(destination).remote_url().lower().rstrip("/").removesuffix(".git")
+                if remote.endswith(f"github.com/{ref.owner}/{ref.name}".lower()):
+                    return destination
+        raise RepositoryError(f"The folder '{ref.name}' already exists in {root} and is not a clone of {ref.owner}/{ref.name}. Pick another location.", 409)
 
     @staticmethod
     def _reuse(destination: Path, ref: RepoRef) -> None:
@@ -181,9 +224,21 @@ class RepositoryService:
             raise RepositoryError("That workspace folder does not exist.", 404)
         return self._activate(path, path.name)
 
+    def open_folder(self, text: str) -> ActiveRepository:
+        """Open any existing folder the user picked; its parent becomes the remembered workspace location."""
+        try:
+            path = prepare_location(text)
+        except FolderError as exc:
+            raise RepositoryError(str(exc), 400) from exc
+        self._set_location(path.parent)
+        return self._activate(path, path.name)
+
     def restore_last(self) -> ActiveRepository | None:
         try:
             data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            root = data.get("workspace_root")
+            if root and Path(root).is_dir():
+                settings.set_workspace_path(root)
             path = Path(data["path"]).resolve()
             resolve_in_root(settings.workspace_path, str(path.relative_to(settings.workspace_path)))
         except (OSError, ValueError, KeyError, PathSecurityError):

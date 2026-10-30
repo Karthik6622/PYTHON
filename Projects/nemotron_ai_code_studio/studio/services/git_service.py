@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import difflib
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,8 @@ from git import GitCommandError, InvalidGitRepositoryError, NoSuchPathError, Rep
 
 from ..config import settings
 from ..security import PathSecurityError, redact, resolve_in_root, valid_branch_name
+
+_READ_ONLY = {"status", "diff", "log", "show", "rev-parse", "rev-list", "ls-files", "cat-file", "for-each-ref", "config"}
 
 COMMIT_FALLBACK_NAME = "RK Studio"
 COMMIT_FALLBACK_EMAIL = "studio@localhost"
@@ -55,6 +58,20 @@ def clone_repository(url: str, destination: Path, branch: str | None, token: str
 class GitService:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
+        self._cache: tuple[Any, float, dict[str, Any]] | None = None
+
+    def cached_status(self, token: Any = None, max_age: float = 4.0) -> dict[str, Any]:
+        """status() for the status bar, which re-renders on every click: reuse it for a few seconds unless something changed."""
+        now = time.monotonic()
+        cache = self._cache
+        if cache is not None and cache[0] == token and now - cache[1] < max_age:
+            return cache[2]
+        value = self.status()
+        self._cache = (token, now, value)
+        return value
+
+    def invalidate(self) -> None:
+        self._cache = None
 
     # ---------------------------------------------------------------- plumbing
     @property
@@ -75,6 +92,8 @@ class GitService:
         return clean
 
     def _run(self, repo: Repo, *args: str, network: bool = False) -> str:
+        if args and args[0] not in _READ_ONLY:
+            self._cache = None  # anything that can change the repository invalidates the cached status
         try:
             if network:
                 with repo.git.custom_environment(**auth_env()):

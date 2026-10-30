@@ -42,12 +42,23 @@ class CommandResult:
 
 
 def clean_environment() -> dict[str, str]:
-    """The user's environment minus anything that looks like a credential (so repository code cannot read the API keys)."""
+    """The user's environment minus anything that looks like a credential (so repository code cannot read the API keys).
+
+    `python`, `pip` and `playwright` in the terminal resolve to the same Python that runs RK Studio, so
+    `pip install x` makes `x` importable by the scripts you run next.
+    """
     env = {key: value for key, value in os.environ.items() if not _SECRET_NAME.search(key)}
     env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONUTF8"] = "1"
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    env["PIP_PROGRESS_BAR"] = "off"
     env["CI"] = env.get("CI", "1")
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["NO_COLOR"] = "1"
+    exe_dir = Path(sys.executable).parent if sys.executable else None
+    if exe_dir is not None:
+        extra = [str(exe_dir)] + ([str(exe_dir / "Scripts")] if (exe_dir / "Scripts").is_dir() else [])
+        env["PATH"] = os.pathsep.join([*extra, env.get("PATH", "")])
     return env
 
 

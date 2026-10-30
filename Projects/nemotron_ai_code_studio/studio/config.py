@@ -125,11 +125,24 @@ class Settings:
 
     @property
     def workspace_path(self) -> Path:
-        configured = _env("WORKSPACE_PATH")
+        """Folder that holds cloned repositories: the one the user picked, else WORKSPACE_PATH, else ./workspaces."""
+        configured = self._overrides.get("workspace_path") or _env("WORKSPACE_PATH")
         path = Path(configured).expanduser() if configured else PROJECT_ROOT / "workspaces"
         if not path.is_absolute():
             path = PROJECT_ROOT / path
         return path.resolve()
+
+    @property
+    def workspace_configured(self) -> bool:
+        """True when a clone folder was picked by the user or set with WORKSPACE_PATH."""
+        return bool(self._overrides.get("workspace_path") or _env("WORKSPACE_PATH"))
+
+    def set_workspace_path(self, path: str | Path | None) -> None:
+        with self._lock:
+            if path:
+                self._overrides["workspace_path"] = str(path)
+            else:
+                self._overrides.pop("workspace_path", None)
 
     @property
     def backend_host(self) -> str:
@@ -158,6 +171,11 @@ class Settings:
     @property
     def command_timeout_seconds(self) -> int:
         return max(5, _env_int("COMMAND_TIMEOUT_SECONDS", 120))
+
+    @property
+    def terminal_timeout_seconds(self) -> int:
+        """Time limit for commands typed in the terminal (installs, test suites and scripts can take a while)."""
+        return max(10, _env_int("TERMINAL_TIMEOUT_SECONDS", 1800))
 
     @property
     def agent_max_steps(self) -> int:

@@ -336,13 +336,27 @@ div.st-key-agent [data-baseweb="select"] > div { min-height:32px !important; fon
 .pending-banner { flex:none; padding:6px 10px; border-radius:10px; border:1px solid rgba(251,191,36,.4); background:rgba(251,191,36,.08); color:var(--amber); font:500 12px var(--sans); }
 
 /* ---------- terminal ---------- */
-.term { height:calc(var(--bottom-h) - 118px); min-height:48px; overflow-y:auto; display:flex; flex-direction:column-reverse; padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:#05080f; }
+.term { padding:0; }
 .term pre { margin:0 !important; padding:0 !important; border:none !important; background:transparent !important; color:#d4d4d4; white-space:pre-wrap; word-break:break-word; font:12.5px/1.5 var(--mono) !important; }
-.term .ps { color:#e6edf7; font-weight:600; }
+.term .ps, .termps { color:#e6edf7; font-weight:600; }
 .term .cmd { color:#7dd3fc; }
 .term .dim { color:var(--dim); }
-.term .caret { display:inline-block; width:8px; height:14px; margin-left:6px; vertical-align:-2px; background:#d4d4d4; animation:blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity:0 } }
+.term .hint { color:var(--amber); }
+/* the whole terminal is one scrolling console: history, then "PS <folder>>" with the input on the same line */
+div.st-key-termbox { height:calc(var(--bottom-h) - 74px) !important; min-height:60px; overflow-y:auto; overflow-x:hidden; display:block !important; padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:#05080f; }
+div.st-key-termbox > [data-testid="stElementContainer"], div.st-key-termbox [data-testid="stMarkdownContainer"] { width:100%; }
+div.st-key-termbox [data-testid="stMarkdownContainer"] p { margin:0; }
+div.st-key-termbox [data-testid="stForm"] { position:relative; padding:0 !important; border:none !important; }
+div.st-key-termbox [data-testid="stForm"] > div > [data-testid="stVerticalBlock"], div.st-key-termbox [data-testid="stForm"] [data-testid="stVerticalBlock"] { display:flex !important; flex-direction:row !important; flex-wrap:wrap; align-items:baseline; gap:0 8px !important; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"] { width:auto !important; min-width:0; flex:0 1 auto; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) { flex:1 1 160px; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdownContainer"] { font:12.5px/1.5 var(--mono); word-break:break-all; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stFormSubmitButton"]) { position:absolute; width:1px !important; height:1px; overflow:hidden; opacity:0; pointer-events:none; flex:none; }
+div.st-key-termbox [data-testid="stTextInput"] { width:100%; }
+div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="input"], div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="base-input"] { background:transparent !important; border:none !important; box-shadow:none !important; min-height:0 !important; }
+div.st-key-termbox [data-testid="stTextInput"] input { padding:0 !important; height:19px; min-height:0; font:12.5px/1.5 var(--mono) !important; color:#7dd3fc !important; caret-color:#d4d4d4; background:transparent !important; }
+div.st-key-termbox [data-testid="stTextInput"] input::placeholder { color:var(--dim); opacity:.55; }
+div.st-key-termbox [data-testid="InputInstructions"] { display:none !important; }
 </style>
 """
 

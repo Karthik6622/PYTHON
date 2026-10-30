@@ -32,6 +32,7 @@ _APPROVE: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:pip3?|python3?\s+-m\s+pip|py\s+-m\s+pip)\s+(?:install|uninstall)\b|\buv\s+(?:add|pip\s+install|sync)\b|\bpoetry\s+(?:add|install|remove)\b|\bpipx\s+install\b", re.I), "installs or removes Python packages"),
     (re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+(?:install|i|add|ci|update|upgrade|remove|uninstall|link|publish)\b", re.I), "installs or changes JavaScript packages"),
     (re.compile(r"\bnpx\b|\bpnpm\s+dlx\b|\byarn\s+dlx\b|\bbunx\b", re.I), "downloads and runs a package"),
+    (re.compile(r"\bplaywright\s+install(?:-deps)?\b|\bpython3?\s+-m\s+playwright\s+install(?:-deps)?\b|\bpy\s+-m\s+playwright\s+install(?:-deps)?\b", re.I), "downloads browser binaries"),
     (re.compile(r"\b(?:apt|apt-get|dnf|yum|brew|choco|winget|scoop|snap)\s", re.I), "installs system software"),
     (re.compile(r"\b(?:cargo|go|gem|dotnet)\s+(?:install|add|get)\b", re.I), "installs packages"),
     (re.compile(r"(?:^|\s)(?:rm|rmdir|rd|del|erase|unlink|shred|truncate)(?:\s|$)|\bremove-item\b", re.I), "deletes files"),
@@ -44,6 +45,12 @@ _APPROVE: list[tuple[re.Pattern[str], str]] = [
 
 READ_ONLY_HEADS = {"ls", "dir", "cat", "type", "echo", "pwd", "cd", "head", "tail", "wc", "grep", "findstr", "find", "where", "which", "tree"}
 
+# Setting up the project (pip install, npm install, playwright install) needs no confirmation when the user types it themselves.
+USER_TRUSTED = {
+    "installs or removes Python packages", "installs or changes JavaScript packages", "downloads and runs a package",
+    "downloads browser binaries", "installs packages",
+}
+
 
 @dataclass(frozen=True)
 class Verdict:
@@ -51,7 +58,8 @@ class Verdict:
     reason: str = ""
 
 
-def classify_command(command: str) -> Verdict:
+def classify_command(command: str, user_initiated: bool = False) -> Verdict:
+    """user_initiated=True is for commands the person typed in the terminal: package installs run without a prompt."""
     text = (command or "").strip()
     if not text:
         return Verdict("deny", "The command is empty.")
@@ -65,7 +73,7 @@ def classify_command(command: str) -> Verdict:
         if not segment:
             continue
         for pattern, reason in _APPROVE:
-            if pattern.search(segment) and reason not in reasons:
+            if pattern.search(segment) and reason not in reasons and not (user_initiated and reason in USER_TRUSTED):
                 reasons.append(reason)
     if reasons:
         return Verdict("approve", "This command " + "; ".join(reasons) + ".")

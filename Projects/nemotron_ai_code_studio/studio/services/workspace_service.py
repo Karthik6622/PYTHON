@@ -52,6 +52,10 @@ def looks_binary(sample: bytes) -> bool:
 class WorkspaceService:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
+        self.version = 0  # bumped on every change made through this service (lets callers cache things like git status)
+
+    def touch(self) -> None:
+        self.version += 1
 
     # ---------------------------------------------------------------- path helpers
     def resolve(self, relative: str, *, allow_root: bool = True) -> Path:
@@ -190,6 +194,7 @@ class WorkspaceService:
             except OSError:
                 pass
             raise
+        self.touch()
         return {"path": self.rel(path), "size": path.stat().st_size}
 
     def create(self, relative: str, kind: str = "file", content: str = "") -> dict[str, Any]:
@@ -198,6 +203,7 @@ class WorkspaceService:
             raise WorkspaceError("That path already exists.", 409)
         if kind == "dir":
             path.mkdir(parents=True)
+            self.touch()
             return {"path": self.rel(path), "type": "dir"}
         self.write_text(relative, content)
         return {"path": self.rel(path), "type": "file"}
@@ -210,6 +216,7 @@ class WorkspaceService:
             path.unlink()
         else:
             shutil.rmtree(path)
+        self.touch()
         return {"path": relative, "deleted": True}
 
     def rename(self, source: str, target: str) -> dict[str, Any]:
@@ -221,4 +228,5 @@ class WorkspaceService:
             raise WorkspaceError("The destination already exists.", 409)
         dst.parent.mkdir(parents=True, exist_ok=True)
         src.rename(dst)
+        self.touch()
         return {"from": self.rel(src), "to": self.rel(dst)}
