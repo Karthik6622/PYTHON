@@ -16,8 +16,11 @@ from typing import Callable
 
 from ..config import settings
 from ..security import PathSecurityError, redact, resolve_in_root
+from .git_service import auth_env
 
 _SECRET_NAME = re.compile(r"(?:token|secret|api[_-]?key|password|passwd|credential|private[_-]?key)", re.I)
+# Only a single, plain git network command gets the GitHub token (never a chained command or a script that could read it).
+_GIT_NETWORK = re.compile(r"^\s*git\s+(?:push|pull|fetch|clone|ls-remote)\b[^;&|<>`$()\r\n]*$", re.I)
 MAX_OUTPUT_CHARS = 30_000
 VENV_NAME = ".venv"
 BROWSERS_NAME = ".playwright-browsers"
@@ -151,8 +154,13 @@ class TerminalService:
         limit = timeout or settings.command_timeout_seconds
         shell = settings.terminal_shell
         note = ensure_environment(self.root, command)
+        env = clean_environment(self.root)
+        if settings.github_token and _GIT_NETWORK.match(command):
+            # `git push` cannot ask for a password here, so use the GitHub token from Settings / GITHUB_TOKEN
+            auth = auth_env()
+            env.update({"GIT_CONFIG_COUNT": "2", "GIT_CONFIG_KEY_1": auth["GIT_CONFIG_KEY_0"], "GIT_CONFIG_VALUE_1": auth["GIT_CONFIG_VALUE_0"]})
         popen_args: dict = {
-            "cwd": str(cwd), "env": clean_environment(self.root), "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
+            "cwd": str(cwd), "env": env, "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
             "stderr": subprocess.STDOUT, "bufsize": 0,
         }
         if os.name == "nt":

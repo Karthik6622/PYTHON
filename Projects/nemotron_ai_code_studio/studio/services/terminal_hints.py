@@ -9,6 +9,9 @@ _PLAYWRIGHT_BROWSER = re.compile(r"Executable doesn't exist|playwright install|B
 _PLAYWRIGHT_DEPS = re.compile(r"Host system is missing dependencies|install-deps|error while loading shared libraries", re.I)
 _DISPLAY = re.compile(r"Missing X server|headless.*(?:false|False)|no display|cannot open display", re.I)
 _INPUT = re.compile(r"EOFError: EOF when reading a line", re.I)
+_GIT_LOGIN = re.compile(r"could not read (?:Username|Password)|terminal prompts disabled", re.I)
+_GIT_DENIED = re.compile(r"Authentication failed|Permission to .* denied|Invalid username or (?:password|token)|The requested URL returned error: 40[13]", re.I)
+_NO_GH = re.compile(r"\bgh: (?:command )?not found|'gh' is not recognized", re.I)
 
 # import name -> pip package, for the common cases where they differ
 PIP_NAMES = {
@@ -36,4 +39,9 @@ def hint_for(command: str, output: str, exit_code: int | None) -> str:
         lines.append("There is no screen on this server. Launch the browser headless: p.chromium.launch(headless=True)")
     if _INPUT.search(output):
         lines.append("The terminal cannot answer input() prompts. Pass values as arguments or environment variables instead.")
+    if _GIT_LOGIN.search(output) or _NO_GH.search(output):
+        lines.append("GitHub login cannot be typed in this terminal (and the GitHub CLI is not installed). Open Settings, add a GitHub token "
+                     "(classic 'repo' scope), then run a plain git push / pull / fetch again: the token is used automatically.")
+    elif _GIT_DENIED.search(output):
+        lines.append("GitHub rejected the token. Check that the token in Settings is valid and has write access ('repo' scope) to this repository.")
     return "\n".join(lines)
