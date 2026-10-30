@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -18,6 +19,10 @@ from ..security import PathSecurityError, redact, resolve_in_root
 
 _SECRET_NAME = re.compile(r"(?:token|secret|api[_-]?key|password|passwd|credential|private[_-]?key)", re.I)
 MAX_OUTPUT_CHARS = 30_000
+VENV_NAME = ".venv"
+BROWSERS_NAME = ".playwright-browsers"
+# Commands that need the folder's own Python environment; others (git, ls, ...) never create one.
+_NEEDS_ENV = re.compile(r"(?:^|[\s;&|(])(?:pip3?|python3?|py|playwright|pytest|uvicorn|streamlit|jupyter|ipython)(?=$|[\s;&|)])", re.I)
 
 
 @dataclass
@@ -41,11 +46,41 @@ class CommandResult:
         }
 
 
-def clean_environment() -> dict[str, str]:
+def venv_bin(root: Path) -> Path | None:
+    """The folder's own environment (<folder>/.venv), when it exists."""
+    for sub, exe in (("Scripts", "python.exe"), ("bin", "python")):
+        folder = root / VENV_NAME / sub
+        if (folder / exe).is_file():
+            return folder
+    return None
+
+
+def ensure_environment(root: Path, command: str) -> str:
+    """Create <folder>/.venv the first time a Python command runs, so everything installed stays inside the folder.
+
+    Returns a short note for the terminal (empty when nothing was created)."""
+    if venv_bin(root) is not None or not _NEEDS_ENV.search(command):
+        return ""
+    try:
+        subprocess.run([sys.executable or "python", "-m", "venv", str(root / VENV_NAME)], capture_output=True, timeout=240, check=True)
+    except (OSError, subprocess.SubprocessError):
+        shutil.rmtree(root / VENV_NAME, ignore_errors=True)
+        return "[Could not create a folder environment; using RK Studio's Python instead]\n"
+    exclude = root / ".git" / "info" / "exclude"
+    if exclude.parent.is_dir():  # keep the environment out of `git status` without touching the repository's own files
+        try:
+            with exclude.open("a", encoding="utf-8") as handle:
+                handle.write(f"\n{VENV_NAME}/\n{BROWSERS_NAME}/\n")
+        except OSError:
+            pass
+    return f"[Created {VENV_NAME} in this folder: pip installs and Playwright browsers are kept here]\n"
+
+
+def clean_environment(root: Path | None = None) -> dict[str, str]:
     """The user's environment minus anything that looks like a credential (so repository code cannot read the API keys).
 
-    `python`, `pip` and `playwright` in the terminal resolve to the same Python that runs RK Studio, so
-    `pip install x` makes `x` importable by the scripts you run next.
+    With a folder that has a `.venv`, `python`, `pip` and `playwright` resolve to that environment, and Playwright
+    browsers are stored in the folder. Otherwise they resolve to the Python that runs RK Studio.
     """
     env = {key: value for key, value in os.environ.items() if not _SECRET_NAME.search(key)}
     env["PYTHONUNBUFFERED"] = "1"
@@ -55,6 +90,13 @@ def clean_environment() -> dict[str, str]:
     env["CI"] = env.get("CI", "1")
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["NO_COLOR"] = "1"
+    bin_dir = venv_bin(root) if root is not None else None
+    if bin_dir is not None and root is not None:
+        env.pop("PYTHONHOME", None)
+        env["VIRTUAL_ENV"] = str(bin_dir.parent)
+        env["PLAYWRIGHT_BROWSERS_PATH"] = str(root / BROWSERS_NAME)
+        env["PATH"] = os.pathsep.join([str(bin_dir), env.get("PATH", "")])
+        return env
     exe_dir = Path(sys.executable).parent if sys.executable else None
     if exe_dir is not None:
         extra = [str(exe_dir)] + ([str(exe_dir / "Scripts")] if (exe_dir / "Scripts").is_dir() else [])
@@ -106,8 +148,9 @@ class TerminalService:
         cwd = self.resolve_cwd(cwd_relative)
         limit = timeout or settings.command_timeout_seconds
         shell = settings.terminal_shell
+        note = ensure_environment(self.root, command)
         popen_args: dict = {
-            "cwd": str(cwd), "env": clean_environment(), "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
+            "cwd": str(cwd), "env": clean_environment(self.root), "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
             "stderr": subprocess.STDOUT, "bufsize": 0,
         }
         if os.name == "nt":
@@ -122,6 +165,11 @@ class TerminalService:
 
         pieces: list[str] = []
         total = 0
+        if note:
+            pieces.append(note)
+            total += len(note)
+            if on_output:
+                on_output(note)
 
         def reader() -> None:
             nonlocal total

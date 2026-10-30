@@ -42,11 +42,13 @@ Flow: the agent edits files, then the review card shows each diff. Keep or Rever
 - Secrets are redacted from logs and agent output.
 - `.env` and `workspaces/` are git-ignored.
 
-## Clone location and terminal
+## Working without a repository, and cloning
 
-- Running on your own computer: "Choose folder and clone" opens the operating system's folder dialog. The repository is stored in the folder you pick and the terminal opens there. Set `NATIVE_FOLDER_DIALOG=0` to use the in-app folder browser instead.
-- Running on Streamlit Cloud: the server cannot open a window on your PC or write to its disk. The dialog shows an in-app browser for folders on the server, which are lost when the app restarts.
-- The terminal is a single console with the prompt inline. `pip install <package>`, `python script.py` and `python -m playwright install chromium` work; Playwright runs headless only, and `input()` prompts are not supported. On Streamlit Cloud, Playwright's system libraries must be listed in `packages.txt` and installs do not survive a restart.
+- A new window starts in a plain "local folder" (`workspaces/scratch`, or `SCRATCH_PATH`). Create and run files there with the editor, the agent and the terminal; no repository is needed. On a computer, "Choose working folder" in the Explorer switches to any folder.
+- "Connect a repository" asks for the repository, then "Clone and open" opens the operating system's folder dialog. The repository is saved in the folder you pick and opens in a new browser tab, so it never mixes with the files in the window you came from. Set `NATIVE_FOLDER_DIALOG=0` to skip the dialog.
+- Every browser tab keeps its own folder (the `?w=` id in the address). Reloading a tab reopens its folder.
+- Running on Streamlit Cloud: the server cannot open a window on your PC or write to its disk, so repositories are saved on the server and are lost when the app restarts. Run RK Studio on your own computer to keep files there.
+- Terminal: the first `pip`/`python`/`playwright` command creates `.venv` in the folder, so installs stay in that folder; Playwright browsers go to `.playwright-browsers`. Both are kept out of `git status`. Playwright runs headless only, and `input()` prompts are not supported. On Streamlit Cloud, Playwright's system libraries must be listed in `packages.txt`.
 - `TERMINAL_TIMEOUT_SECONDS` sets the command timeout (default 1800).
 
 ## Notes and limitations

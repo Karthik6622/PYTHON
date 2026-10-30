@@ -128,3 +128,47 @@ def test_native_picker_can_be_disabled(monkeypatch):
     monkeypatch.setenv('NATIVE_FOLDER_DIALOG', '0')
     assert folders.native_picker_available() is False
 
+
+
+def test_each_window_keeps_its_own_folder(tmp_path):
+    service = repository_service.RepositoryService()
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    service.remember("win-aaaa", tmp_path / "a", scratch=True)
+    service.remember("win-bbbb", tmp_path / "b", {"full_name": "o/b"})
+    assert service.last_window() == "win-bbbb"
+    first, second = service.recall("win-aaaa"), service.recall("win-bbbb")
+    assert first.path == (tmp_path / "a").resolve() and first.scratch
+    assert second.path == (tmp_path / "b").resolve() and not second.scratch and second.name == "o/b"
+    assert service.recall("win-cccc") is None
+
+
+def test_recall_forgets_deleted_folder(tmp_path):
+    service = repository_service.RepositoryService()
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    service.remember("win-aaaa", gone, scratch=True)
+    gone.rmdir()
+    assert service.recall("win-aaaa") is None
+
+
+def test_scratch_folder_works_without_a_repository(tmp_path):
+    service = repository_service.RepositoryService()
+    scratch = service.open_scratch(str(tmp_path / "play"))
+    assert scratch.scratch and scratch.git is None and scratch.path == (tmp_path / "play").resolve()
+    scratch.workspace.write_text("hello.py", "print('hi')")
+    result = scratch.terminal.run("python hello.py")
+    assert result.ok and "hi" in result.output
+
+
+def test_python_commands_get_an_environment_inside_the_folder(tmp_path):
+    from studio.services.terminal_service import ensure_environment, venv_bin
+
+    assert ensure_environment(tmp_path, "git status") == ""
+    assert venv_bin(tmp_path) is None
+    assert "Created" in ensure_environment(tmp_path, "pip install requests")
+    bin_dir = venv_bin(tmp_path)
+    assert bin_dir is not None
+    env = clean_environment(tmp_path)
+    assert env["PATH"].split(os.pathsep)[0] == str(bin_dir)
+    assert env["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path / ".playwright-browsers")

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
+import secrets
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 import streamlit as st
@@ -11,25 +14,77 @@ from studio.chat import ChatMessage
 from studio.deps import broker, coding_agent, conversations, nvidia, repository_agent, repositories
 from studio.models import default_model_id
 from studio.runner import AgentRun, CommandRun, friendly_error
-from studio.services.repository_service import ActiveRepository
+from studio.services.repository_service import ActiveRepository, RepositoryError
 
 __all__ = [
     "AgentRun", "CommandRun", "broker", "coding_agent", "conversations", "nvidia", "repository_agent", "repositories",
     "S", "init_state", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
+    "window_id", "open_workspace", "new_window_url",
 ]
+
+_WINDOW_ID = re.compile(r"[A-Za-z0-9_-]{4,32}")
 
 
 @st.cache_resource
-def _restore_once() -> bool:
-    """Reopen the repository that was open last time the app ran (once per server process)."""
+def _load_prefs_once() -> bool:
     repositories.load_prefs()
-    if repositories.active is None:
-        repositories.restore_last()
     return True
 
 
+def window_id() -> str:
+    """Id of this browser window. It lives in the page address (?w=...), so a reload keeps it and a new window gets its own."""
+    if "_window" not in st.session_state:
+        wanted = str(st.query_params.get("w", ""))
+        if not _WINDOW_ID.fullmatch(wanted):
+            wanted = repositories.last_window() or secrets.token_urlsafe(6)
+            st.query_params["w"] = wanted
+        st.session_state["_window"] = wanted
+    return st.session_state["_window"]
+
+
+def _open_this_window() -> None:
+    """Reopen what this window had open; a window with nothing yet starts in the scratch folder (no repository needed)."""
+    if "_repo" in st.session_state:
+        return
+    wid = window_id()
+    current = None
+    try:
+        current = repositories.recall(wid)
+        if current is None:
+            current = repositories.open_scratch()
+            repositories.remember(wid, current.path, scratch=True)
+    except RepositoryError as exc:
+        st.error(exc.message)
+    st.session_state["_repo"] = current
+
+
+def open_workspace(current: ActiveRepository) -> None:
+    """Make `current` the folder of this window and clear everything that belonged to the previous one."""
+    for key, value in {
+        "tabs": [], "active": None, "saved": {}, "drafts": {}, "notes": {}, "versions": {}, "cwd": "", "messages": [],
+        "approvals": {}, "diff_view": None, "terminal": "", "term_cwd": "", "tests_result": None, "lint_result": None,
+    }.items():
+        st.session_state[key] = value
+    conversations.clear(st.session_state["conversation_id"])
+    st.session_state["_repo"] = current
+    repositories.remember(window_id(), current.path, current.github, current.scratch)
+
+
+def new_window_url(path: Path, github: dict[str, Any]) -> str:
+    """Register `path` under a fresh window id and return the address that opens it in a new browser tab."""
+    wid = secrets.token_urlsafe(6)
+    repositories.remember(wid, path, github)
+    try:
+        base = str(st.context.url).split("?")[0]
+    except Exception:  # older Streamlit without st.context.url
+        base = ""
+    return f"{base}?w={wid}"
+
+
 def init_state() -> None:
-    _restore_once()
+    _load_prefs_once()
+    wid = window_id()
+    _open_this_window()
     defaults: dict[str, Any] = {
         "side": "Explorer",
         "cwd": "",
@@ -45,7 +100,7 @@ def init_state() -> None:
         "cursor": 0,           # how many events of the current run were applied
         "mode": "ASK",
         "model": default_model_id(),
-        "conversation_id": "main",
+        "conversation_id": wid,
         "output_log": [],
         "terminal": "",
         "term_cwd": "",        # terminal working folder, relative to the repository root
@@ -76,7 +131,8 @@ S = _State()
 
 
 def repo() -> ActiveRepository | None:
-    return repositories.active
+    """The folder this browser window works in (a connected repository or the scratch folder)."""
+    return st.session_state.get("_repo")
 
 
 def log(text: str) -> None:

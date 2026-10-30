@@ -13,7 +13,7 @@ from ..security import PathSecurityError, is_protected, relative_posix, resolve_
 
 HEAVY_DIRS = {
     "node_modules", "dist", "build", "coverage", "__pycache__", ".venv", "venv", "env", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", ".next", ".nuxt", ".idea", ".vscode", "target", ".gradle", ".tox", ".cache", ".parcel-cache",
+    ".ruff_cache", ".next", ".nuxt", ".idea", ".vscode", "target", ".gradle", ".tox", ".cache", ".parcel-cache", ".playwright-browsers",
 }
 BINARY_EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".pdf", ".zip", ".gz", ".tar", ".7z", ".rar", ".exe", ".dll",

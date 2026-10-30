@@ -5,8 +5,10 @@ from __future__ import annotations
 import streamlit as st
 
 from studio.security import is_sensitive_path
+from studio.services import folders
 
-from .state import S, attempt, close_file, log, open_file, repo
+from .dialogs import ask_folder
+from .state import S, attempt, close_file, log, open_file, open_workspace, repo, repositories
 from .theme import section_title
 
 
@@ -63,13 +65,27 @@ def _delete(path: str) -> None:
         log(f"Deleted {path}")
 
 
+def _choose_folder() -> None:
+    chosen = ask_folder(str(repo().path), "Choose the folder to work in")
+    if not chosen:
+        return
+    ok, folder = attempt(repositories.open_scratch, chosen)
+    if ok:
+        open_workspace(folder)
+        log(f"Working in {folder.path}")
+
+
 def render_explorer() -> None:
     current = repo()
     if current is None:
-        st.info("No repository is open. Use the GitHub button to connect one.")
+        st.info("No folder is open.")
         return
 
     section_title("Explorer", current.name)
+    if current.scratch:
+        st.caption(f"Working folder: {current.path}")
+        if folders.native_picker_available():
+            st.button("Choose working folder", icon=":material/folder_open:", key="pick_work_folder", on_click=_choose_folder, width="stretch")
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")

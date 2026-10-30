@@ -6,7 +6,7 @@ from .agents.coding_agent import CodingAgent, ConversationStore
 from .agents.repository_agent import RepositoryAgent
 from .approvals import ApprovalBroker
 from .services.nvidia_service import NvidiaService
-from .services.repository_service import ActiveRepository, RepositoryError, repositories
+from .services.repository_service import RepositoryError, repositories
 
 broker = ApprovalBroker()
 nvidia = NvidiaService()
@@ -15,8 +15,4 @@ repository_agent = RepositoryAgent()
 conversations = ConversationStore()
 
 
-def current_repo() -> ActiveRepository:
-    return repositories.require()
-
-
-__all__ = ["broker", "nvidia", "coding_agent", "repository_agent", "conversations", "current_repo", "repositories", "RepositoryError"]
+__all__ = ["broker", "nvidia", "coding_agent", "repository_agent", "conversations", "repositories", "RepositoryError"]

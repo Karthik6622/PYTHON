@@ -145,6 +145,15 @@ class Settings:
                 self._overrides.pop("workspace_path", None)
 
     @property
+    def scratch_path(self) -> Path:
+        """Folder used when no repository is connected (SCRATCH_PATH, else <workspaces>/scratch)."""
+        configured = _env("SCRATCH_PATH")
+        path = Path(configured).expanduser() if configured else PROJECT_ROOT / "workspaces" / "scratch"
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+        return path.resolve()
+
+    @property
     def backend_host(self) -> str:
         return _env("BACKEND_HOST", "127.0.0.1")
 

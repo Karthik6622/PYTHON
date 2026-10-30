@@ -28,8 +28,9 @@ def render_top_bar() -> None:
     with st.container(key="titlebar"):
         brand, repo_col, branch_col, _space, github_col, settings_col = st.columns([2.6, 3, 1.8, 3.4, 0.45, 0.45], vertical_alignment="center", gap="small")
         brand.markdown("<div class='brand'><span class='logo'>RK</span><span class='word'>RK<b>STUDIO</b></span></div>", unsafe_allow_html=True)
+        label = (escape(current.name) + (" &middot; local folder" if current.scratch else "")) if current else "No folder"
         repo_col.markdown(
-            f"<div class='pill{'' if current else ' off'}' title='{escape(str(current.path), quote=True) if current else ''}'><i></i>{escape(current.name) if current else 'No repository'}</div>",
+            f"<div class='pill{'' if current else ' off'}' title='{escape(str(current.path), quote=True) if current else ''}'><i></i>{label}</div>",
             unsafe_allow_html=True,
         )
 
@@ -41,7 +42,8 @@ def render_top_bar() -> None:
             st.session_state["branch_select"] = now  # always show the real branch, even after a failed switch
             branch_col.selectbox("Branch", options, key="branch_select", label_visibility="collapsed", on_change=lambda: _checkout(st.session_state.branch_select))
 
-        if github_col.button("", icon=":material/hub:", help="Connect a GitHub repository", key="open_connect"):
+        if github_col.button("", icon=":material/hub:", help="Connect a GitHub repository (opens in a new window)", key="open_connect"):
+            st.session_state.pop("cloned", None)
             connect_dialog()
         if settings_col.button("", icon=":material/tune:", help="Settings", key="open_settings"):
             settings_dialog()

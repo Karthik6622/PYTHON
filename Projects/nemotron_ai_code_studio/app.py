@@ -9,12 +9,11 @@ st.set_page_config(page_title="RK Studio", page_icon=":material/terminal:", layo
 
 from ui.agent_panel import render_agent_panel  # noqa: E402  (set_page_config must be the first Streamlit call)
 from ui.bottom import render_bottom  # noqa: E402
-from ui.dialogs import connect_dialog  # noqa: E402
 from ui.editor import render_editor  # noqa: E402
 from ui.explorer import render_explorer, render_search  # noqa: E402
 from ui.layout import install_layout  # noqa: E402
 from ui.source_control import render_source_control  # noqa: E402
-from ui.state import init_state, repo  # noqa: E402
+from ui.state import init_state  # noqa: E402
 from ui.statusbar import render_status_bar  # noqa: E402
 from ui.theme import inject_theme  # noqa: E402
 from ui.topbar import render_top_bar  # noqa: E402
@@ -41,10 +40,6 @@ def main() -> None:
     init_state()
     inject_theme()
     render_top_bar()
-
-    if repo() is None and not st.session_state.get("connect_prompted"):
-        st.session_state["connect_prompted"] = True
-        connect_dialog()
 
     with st.container(key="shell"):
         activity, side, centre, agent = st.columns([1, 1, 1, 1], gap="small")

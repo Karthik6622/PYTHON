@@ -1,4 +1,4 @@
-"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
+﻿"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
 
 from __future__ import annotations
 
@@ -46,6 +46,7 @@ class ActiveRepository:
     tracker: ChangeTracker = field(default_factory=ChangeTracker)
     github: dict[str, Any] = field(default_factory=dict)
     lock: threading.RLock = field(default_factory=threading.RLock)
+    scratch: bool = False  # True for a plain folder that is not a connected GitHub repository
 
     def info(self) -> dict[str, Any]:
         branch, remote = "", ""
@@ -68,25 +69,50 @@ def _is_git(path: Path) -> bool:
 
 
 class RepositoryService:
+    """Opens folders and clones repositories. Nothing here is global: every browser window owns the workspace it opened."""
+
     def __init__(self) -> None:
-        self._active: ActiveRepository | None = None
         self._lock = threading.Lock()
 
-    # ---------------------------------------------------------------- state
-    @property
-    def active(self) -> ActiveRepository | None:
-        return self._active
-
-    def require(self) -> ActiveRepository:
-        if self._active is None:
-            raise RepositoryError("No repository is connected. Connect a GitHub repository or open a workspace folder first.", 409)
-        return self._active
-
-    def _remember(self, path: Path, github: dict[str, Any]) -> None:
+    # ---------------------------------------------------------------- windows
+    # Each browser window has an id (in the page address). The folder a window works in is remembered under that id,
+    # so a reload reopens it and a new window never shares or replaces another window's folder.
+    def _read_windows(self) -> dict[str, Any]:
         try:
-            STATE_FILE.write_text(json.dumps({"path": str(path), "github": github, "workspace_root": str(settings.workspace_path)}), encoding="utf-8")
-        except OSError:
-            pass
+            data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return data if isinstance(data, dict) and isinstance(data.get("windows"), dict) else {}
+
+    def remember(self, window: str, path: Path, github: dict[str, Any] | None = None, scratch: bool = False) -> None:
+        with self._lock:
+            data = self._read_windows()
+            windows = {key: value for key, value in data.get("windows", {}).items() if key != window}
+            windows[window] = {"path": str(path), "github": github or {}, "scratch": scratch}
+            windows = dict(list(windows.items())[-40:])
+            try:
+                STATE_FILE.write_text(json.dumps({"windows": windows, "last": window}), encoding="utf-8")
+            except OSError:
+                pass
+
+    def last_window(self) -> str | None:
+        last = self._read_windows().get("last")
+        return last if isinstance(last, str) and last else None
+
+    def recall(self, window: str) -> ActiveRepository | None:
+        """Reopen what this window had open, or None when it is new or the folder is gone."""
+        entry = self._read_windows().get("windows", {}).get(window)
+        if not isinstance(entry, dict):
+            return None
+        try:
+            path = Path(entry["path"]).resolve()
+        except (KeyError, TypeError, OSError):
+            return None
+        if not path.is_dir():
+            return None
+        github = entry.get("github") if isinstance(entry.get("github"), dict) else {}
+        scratch = bool(entry.get("scratch"))
+        return self._activate(path, github.get("full_name") or path.name, github, scratch)
 
     # ---------------------------------------------------------------- where repositories live
     def load_prefs(self) -> None:
@@ -120,25 +146,36 @@ class RepositoryService:
         self._set_location(path)
         return path
 
-    def _activate(self, path: Path, name: str, github: dict[str, Any] | None = None) -> ActiveRepository:
+    def _activate(self, path: Path, name: str, github: dict[str, Any] | None = None, scratch: bool = False) -> ActiveRepository:
         workspace = WorkspaceService(path)
         is_git = _is_git(path)
         git = GitService(path) if is_git else None
         index = RepositoryIndex(workspace, git)
         index.build()
-        repo = ActiveRepository(
+        return ActiveRepository(
             name=name, path=path.resolve(), is_git=is_git, workspace=workspace, git=git, index=index,
             search=SearchService(workspace, index), context=ContextEngine(index, workspace, name),
-            terminal=TerminalService(path), github=github or {},
+            terminal=TerminalService(path), github=github or {}, scratch=scratch,
         )
-        with self._lock:
-            self._active = repo
-        self._remember(path, repo.github)
-        return repo
+
+    # ---------------------------------------------------------------- work without a repository
+    def open_scratch(self, text: str | None = None) -> ActiveRepository:
+        """A plain folder to create and run files in (no GitHub). Without a path it uses the default scratch folder."""
+        try:
+            if text and text.strip():
+                path = prepare_location(text)
+            else:
+                path = settings.scratch_path
+                path.mkdir(parents=True, exist_ok=True)
+        except (FolderError, OSError) as exc:
+            raise RepositoryError(str(exc), 400) from exc
+        return self._activate(path, path.name, scratch=True)
 
     # ---------------------------------------------------------------- connect
-    def connect_github(self, repository: str, branch: str | None = None) -> ActiveRepository:
-        """Validate the token, clone (or reuse) the repository inside WORKSPACE_PATH and index it. Blocking."""
+    def clone_github(self, repository: str, branch: str | None = None, root: Path | None = None) -> tuple[Path, dict[str, Any]]:
+        """Validate the token, then clone (or reuse) the repository inside `root` (the folder the user picked). Blocking.
+
+        Returns the repository folder and the GitHub details. It is not opened here: the caller opens it in its own window."""
         try:
             ref = parse_repository(repository)
             service = GitHubService()
@@ -149,7 +186,7 @@ class RepositoryService:
         except GitHubError as exc:
             raise RepositoryError(exc.message, exc.status) from exc
         wanted = (branch or "").strip() or None
-        root = settings.workspace_path
+        root = root or settings.workspace_path
         root.mkdir(parents=True, exist_ok=True)
         destination = self._destination(root, ref)
         created = False
@@ -170,7 +207,7 @@ class RepositoryService:
             "full_name": info["full_name"], "default_branch": info["default_branch"], "private": info["private"],
             "can_push": info["can_push"], "user": token_user,
         }
-        return self._activate(destination, info["full_name"], github)
+        return destination, github
 
     @staticmethod
     def _destination(root: Path, ref: RepoRef) -> Path:
@@ -199,62 +236,5 @@ class RepositoryService:
             GitService(destination).fetch()
         except GitError:
             pass  # offline or no access: the existing clone is still usable
-
-    # ---------------------------------------------------------------- local workspace
-    def list_workspaces(self) -> list[dict[str, Any]]:
-        root = settings.workspace_path
-        found: list[dict[str, Any]] = []
-        if not root.is_dir():
-            return found
-        if _is_git(root):
-            found.append({"name": root.name, "folder": "", "is_git": True})
-        for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
-            if child.is_dir() and not child.name.startswith("."):
-                found.append({"name": child.name, "folder": child.name, "is_git": _is_git(child)})
-        return found
-
-    def open_local(self, folder: str) -> ActiveRepository:
-        """Open a folder that lives inside WORKSPACE_PATH ('' opens WORKSPACE_PATH itself)."""
-        root = settings.workspace_path
-        try:
-            path = resolve_in_root(root, folder or "")
-        except PathSecurityError as exc:
-            raise RepositoryError(str(exc), 400) from exc
-        if not path.is_dir():
-            raise RepositoryError("That workspace folder does not exist.", 404)
-        return self._activate(path, path.name)
-
-    def open_folder(self, text: str) -> ActiveRepository:
-        """Open any existing folder the user picked; its parent becomes the remembered workspace location."""
-        try:
-            path = prepare_location(text)
-        except FolderError as exc:
-            raise RepositoryError(str(exc), 400) from exc
-        self._set_location(path.parent)
-        return self._activate(path, path.name)
-
-    def restore_last(self) -> ActiveRepository | None:
-        try:
-            data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-            root = data.get("workspace_root")
-            if root and Path(root).is_dir():
-                settings.set_workspace_path(root)
-            path = Path(data["path"]).resolve()
-            resolve_in_root(settings.workspace_path, str(path.relative_to(settings.workspace_path)))
-        except (OSError, ValueError, KeyError, PathSecurityError):
-            return None
-        if not path.is_dir():
-            return None
-        github = data.get("github") if isinstance(data.get("github"), dict) else {}
-        return self._activate(path, github.get("full_name") or path.name, github)
-
-    def disconnect(self) -> None:
-        with self._lock:
-            self._active = None
-        try:
-            STATE_FILE.unlink()
-        except OSError:
-            pass
-
 
 repositories = RepositoryService()

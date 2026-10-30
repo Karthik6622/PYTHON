@@ -32,7 +32,6 @@ FILES = {
 def isolated_state(monkeypatch, tmp_path):
     monkeypatch.setattr(repository_service, "STATE_FILE", tmp_path / "state.json")
     yield
-    repository_service.repositories._active = None
 
 
 @pytest.fixture()
