@@ -268,20 +268,44 @@ span[data-baseweb="tag"] { background: var(--ks-btn-grad) !important; }
   position: sticky; top: 3.5rem; z-index: 60;
 }
 .st-key-ks_modebar {
-  margin: 0 0 .5rem; padding: .4rem .25rem .35rem;
-  background: rgba(5,9,20,.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--ks-line);
+  margin: 0 0 .6rem; padding: .45rem .8rem .55rem;
+  background: linear-gradient(135deg, rgba(14,116,144,.34) 0%, rgba(76,29,149,.30) 100%), #0a1426;
+  border: 1px solid rgba(34,211,238,.32); border-radius: 16px;
+  box-shadow: 0 14px 30px -20px rgba(34,211,238,.65), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .st-key-ks_modebar [data-testid="stRadio"] { margin: 0; }
-.stApp:has(.ks-romantic-flag) .st-key-ks_modebar { background: rgba(20,6,15,.94); border-bottom-color: rgba(244,114,182,.28); }
+.st-key-ks_modebar [data-testid="stWidgetLabel"] p { color: var(--ks-muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
+.st-key-ks_modebar [role="radiogroup"] { gap: .45rem; flex-wrap: wrap; }
+.st-key-ks_modebar [data-testid="stRadioOption"] {
+  margin: 0; padding: .28rem .85rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(34,211,238,.28); background: rgba(34,211,238,.07);
+  transition: background .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.st-key-ks_modebar [data-testid="stRadioOption"]:hover { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.5); }
+.st-key-ks_modebar [data-testid="stRadioOption"][data-selected="true"] {
+  background: var(--ks-btn-grad); border-color: transparent; box-shadow: 0 0 16px -2px var(--ks-glow);
+}
+.st-key-ks_modebar [data-testid="stRadioOption"] > div > div:first-child { display: none; }
+.st-key-ks_modebar [data-testid="stRadioOption"] p { color: var(--ks-ink); font-weight: 600; }
+.stApp:has(.ks-romantic-flag) .st-key-ks_modebar {
+  background: linear-gradient(135deg, rgba(190,24,93,.36) 0%, rgba(131,24,67,.30) 100%), #1c0814;
+  border-color: rgba(244,114,182,.38); box-shadow: 0 14px 30px -20px rgba(244,114,182,.65), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.stApp:has(.ks-romantic-flag) .st-key-ks_modebar [data-testid="stRadioOption"] { border-color: rgba(244,114,182,.30); background: rgba(244,114,182,.08); }
+.stApp:has(.ks-romantic-flag) .st-key-ks_modebar [data-testid="stRadioOption"]:hover { background: rgba(244,114,182,.18); border-color: rgba(244,114,182,.55); }
 
-/* Hosting chrome (Share, star, edit, GitHub, menu, Manage app) is not part of the app */
-[data-testid="stToolbar"], [data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"],
+/* Hosting chrome (Share, star, edit, GitHub, menu, Manage app) is not part of the app. The sidebar expand button lives in the toolbar, so keep it. */
+[data-testid="stToolbar"] *:not(:has([data-testid="stExpandSidebarButton"])):not([data-testid="stExpandSidebarButton"]):not([data-testid="stExpandSidebarButton"] *) { display: none !important; }
+[data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"],
 [data-testid="stStatusWidget"], [data-testid="stDecoration"], [data-testid="manage-app-button"], #MainMenu, footer,
 [class*="viewerBadge"], [class*="stDeployButton"], [class*="_terminalButton_"], [class*="_profileContainer_"],
 [class*="_profilePreview_"], a[href*="streamlit.io/cloud"][class*="badge" i] {
   display: none !important; visibility: hidden !important; pointer-events: none !important;
 }
+[data-testid="stSidebarCollapsedControl"], [data-testid="stExpandSidebarButton"] { display: flex !important; visibility: visible !important; pointer-events: auto !important; }
 [data-testid="stElementContainer"]:has(> iframe[height="0"]), [data-testid="stElementContainer"]:has(> iframe[height="1"]) { display: none !important; }
+.stApp:has(.ks-romantic-flag) .st-key-ks_modebar [data-testid="stRadioOption"][data-selected="true"] {
+  background: var(--ks-btn-grad); border-color: transparent; box-shadow: 0 0 16px -2px rgba(244,114,182,.6);
+}
 </style>
 """

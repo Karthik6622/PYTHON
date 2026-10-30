@@ -64,7 +64,7 @@ _HIDE_HOST_CHROME = """<script>
   var P; try { P = window.parent; void P.document; } catch (e) { return; }
   if (P.__wyHideChrome) return;
   P.__wyHideChrome = true;
-  var SEL = '[class*="viewerBadge"],[data-testid="manage-app-button"],[class*="_terminalButton_"],[class*="_profileContainer_"],[class*="stDeployButton"],[data-testid="stAppDeployButton"],[data-testid="stToolbar"],[data-testid="stMainMenu"]';
+  var SEL = '[class*="viewerBadge"],[data-testid="manage-app-button"],[class*="_terminalButton_"],[class*="_profileContainer_"],[class*="stDeployButton"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"]';
   function hide(doc) {
     try {
       doc.querySelectorAll(SEL).forEach(function (el) { el.style.setProperty('display', 'none', 'important'); });
