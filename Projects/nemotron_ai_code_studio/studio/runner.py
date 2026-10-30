@@ -26,10 +26,10 @@ class AgentRun:
 
     def __init__(
         self, agent: CodingAgent, broker: ApprovalBroker, conversations: ConversationStore, repo: ActiveRepository,
-        request: str, mode: str, conversation_id: str,
+        request: str, mode: str, conversation_id: str, model: str | None = None,
     ) -> None:
         self._agent, self._broker, self._conversations = agent, broker, conversations
-        self.repo, self.request, self.mode, self.conversation_id = repo, request, mode, conversation_id
+        self.repo, self.request, self.mode, self.conversation_id, self.model = repo, request, mode, conversation_id, model
         self._events: list[dict[str, Any]] = []
         self._lock = threading.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -77,7 +77,7 @@ class AgentRun:
     async def _run(self) -> None:
         try:
             result = await self._agent.run(
-                self.repo, self.request, self.mode, self._conversations.history(self.conversation_id), self.emit,
+                self.repo, self.request, self.mode, self._conversations.history(self.conversation_id), self.emit, model=self.model,
             )
             if result.message:
                 note = f"\n\n[Files modified: {', '.join(result.modified)}]" if result.modified else ""
@@ -92,6 +92,7 @@ class CommandRun:
 
     def __init__(self, repo: ActiveRepository, command: str, cwd: str = "", timeout: int | None = None) -> None:
         self.repo, self.command, self.cwd, self.timeout = repo, command, cwd, timeout
+        self.prompt = "PS>"  # shell prompt shown in the terminal history (set by the UI)
         self._chunks: list[str] = []
         self._lock = threading.Lock()
         self._cancel = threading.Event()

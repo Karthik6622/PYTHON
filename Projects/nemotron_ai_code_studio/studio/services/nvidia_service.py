@@ -16,10 +16,11 @@ from typing import Any, AsyncIterator
 import httpx
 
 from ..config import settings
+from ..models import get_model
 from ..security import redact
 
 SYSTEM_PROMPT = (
-    "You are the primary software engineering agent inside Nemotron AI Code Studio.\n"
+    "You are the primary software engineering agent inside RK Studio, an AI coding IDE.\n"
     "You can inspect repositories, understand software architecture, search code, read files, modify files, create files, "
     "run approved development commands, analyze errors, run tests, and interact with Git tools.\n"
     "Never claim you inspected a file unless the application provided its contents.\n"
@@ -142,7 +143,7 @@ def parse_tool_arguments(raw: str) -> tuple[dict[str, Any], str]:
     return value, ""
 
 
-def _friendly_error(status: int, body: str) -> NvidiaError:
+def _friendly_error(status: int, body: str, model: str = "") -> NvidiaError:
     detail = ""
     try:
         data = json.loads(body)
@@ -158,7 +159,7 @@ def _friendly_error(status: int, body: str) -> NvidiaError:
     if status == 403:
         return NvidiaError("The NVIDIA API key does not have access to this model." + (f" ({detail})" if detail else ""), 403)
     if status == 404:
-        return NvidiaError(f"NVIDIA could not find the model '{settings.nvidia_model}'. Check NVIDIA_MODEL.", 404)
+        return NvidiaError(f"NVIDIA could not find the model '{model or settings.nvidia_model}'. Pick another model or check NVIDIA_MODEL.", 404)
     if status == 413 or (status == 400 and "context" in detail.lower()):
         return NvidiaError("The request is too large for the model's context window. Start a new chat or ask about fewer files." + (f" ({detail})" if detail else ""), 400)
     if status == 429:
@@ -193,19 +194,24 @@ class NvidiaService:
         *,
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 4096,
+        max_tokens: int | None = 4096,
+        model: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Yields {"type": "content"|"reasoning", "text"} while streaming, then {"type": "done", "result": ChatResult}."""
         key = settings.nvidia_api_key
         if not key:
             raise NvidiaError("No NVIDIA API key is configured. Add NVIDIA_API_KEY to .env or enter it in Settings.", 400)
+        info = get_model(model)
         body: dict[str, Any] = {
-            "model": settings.nvidia_model, "messages": fit_messages(messages), "stream": True,
-            "temperature": temperature, "max_tokens": max_tokens,
+            "model": info.id, "messages": fit_messages(messages), "stream": True,
+            "temperature": temperature, "max_tokens": max_tokens or info.max_tokens,
         }
+        if info.top_p is not None:
+            body["top_p"] = info.top_p
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+        body.update(info.extra_body)
         body.update(settings.nvidia_extra_body)
         headers = {"Authorization": f"Bearer {key}", "Accept": "text/event-stream", "Content-Type": "application/json"}
         url = f"{settings.nvidia_base_url}/chat/completions"
@@ -217,7 +223,7 @@ class NvidiaService:
                     async with client.stream("POST", url, headers=headers, json=body) as response:
                         if response.status_code != 200:
                             raw = (await response.aread()).decode("utf-8", errors="replace")
-                            error = _friendly_error(response.status_code, raw)
+                            error = _friendly_error(response.status_code, raw, info.id)
                             error.retry_after = _retry_after(response.headers.get("retry-after"))  # type: ignore[attr-defined]
                             raise error
                         result = ChatResult()
@@ -283,16 +289,16 @@ class NvidiaService:
                     await self._sleep(_backoff(attempt))
 
     # ---------------------------------------------------------------- public helpers
-    async def chat(self, messages: list[dict[str, Any]], *, temperature: float = 0.2, max_tokens: int = 4096) -> ChatResult:
+    async def chat(self, messages: list[dict[str, Any]], *, temperature: float = 0.2, max_tokens: int = 4096, model: str | None = None) -> ChatResult:
         result = ChatResult()
-        async for event in self.stream_chat(messages, temperature=temperature, max_tokens=max_tokens):
+        async for event in self.stream_chat(messages, temperature=temperature, max_tokens=max_tokens, model=model):
             if event["type"] == "done":
                 result = event["result"]
         return result
 
-    def agent_chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, temperature: float = 0.1, max_tokens: int = 6000) -> AsyncIterator[dict[str, Any]]:
-        """One agent turn: streams text and returns structured tool calls in the final event."""
-        return self.stream_chat(messages, tools=tools, temperature=temperature, max_tokens=max_tokens)
+    def agent_chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, temperature: float = 0.1, max_tokens: int | None = None, model: str | None = None) -> AsyncIterator[dict[str, Any]]:
+        """One agent turn: streams text and returns structured tool calls in the final event (max_tokens defaults to the model's limit)."""
+        return self.stream_chat(messages, tools=tools, temperature=temperature, max_tokens=max_tokens, model=model)
 
     async def generate_code(self, instruction: str, language: str = "", context: str = "") -> str:
         prompt = f"Write {language + ' ' if language else ''}code for the following request. Reply with the code only.\n\n{instruction}"
@@ -306,13 +312,13 @@ class NvidiaService:
         result = await self.chat([{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}], temperature=0.1)
         return result.content.strip()
 
-    async def ping(self) -> dict[str, Any]:
-        """Cheap configuration check used by the top-bar status indicator."""
+    async def ping(self, model: str | None = None) -> dict[str, Any]:
+        """Cheap configuration check (used by the Settings dialog)."""
         info = self.status()
         if not info["configured"]:
             return {**info, "ok": False, "message": "No NVIDIA API key configured."}
         try:
-            await self.chat([{"role": "user", "content": "Reply with the single word ok."}], max_tokens=8)
+            await self.chat([{"role": "user", "content": "Reply with the single word ok."}], max_tokens=64, model=model)
         except NvidiaError as exc:
             return {**info, "ok": False, "message": exc.message}
         return {**info, "ok": True, "message": "Connected."}

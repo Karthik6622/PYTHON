@@ -7,6 +7,7 @@ import asyncio
 import streamlit as st
 
 from studio.config import settings
+from studio.models import available_models, get_model
 from studio.services.github_service import GitHubService
 
 from .state import S, attempt, log, nvidia, repositories
@@ -15,6 +16,7 @@ from .state import S, attempt, log, nvidia, repositories
 def _reset_workspace_state() -> None:
     S.tabs, S.active, S.saved, S.drafts, S.notes, S.versions = [], None, {}, {}, {}, {}
     S.cwd, S.messages, S.approvals, S.diff_view = "", [], {}, None
+    S.terminal, S.term_cwd = "", ""
     S.tests_result = S.lint_result = None
 
 
@@ -25,12 +27,14 @@ def connect_dialog() -> None:
     branch = st.text_input("Branch (optional)", placeholder="default branch")
     if not settings.github_token:
         st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
+    st.caption(f"The repository is cloned into {settings.workspace_path}. The terminal opens in the cloned folder.")
     if st.button("Clone and open", type="primary", disabled=len(name.strip()) < 3, icon=":material/cloud_download:"):
         with st.spinner("Cloning and indexing the repository..."):
             ok, repo = attempt(repositories.connect_github, name.strip(), branch.strip() or None)
         if ok:
             _reset_workspace_state()
-            log(f"Connected to {repo.name}")
+            log(f"Cloned {repo.name} to {repo.path}")
+            st.toast(f"Cloned to {repo.path}", icon=":material/folder_open:")
             st.rerun()
 
     st.divider()
@@ -45,7 +49,7 @@ def connect_dialog() -> None:
             ok, repo = attempt(repositories.open_local, item["folder"])
             if ok:
                 _reset_workspace_state()
-                log(f"Opened {repo.name}")
+                log(f"Opened {repo.name} at {repo.path}")
                 st.rerun()
 
 
@@ -53,7 +57,11 @@ def connect_dialog() -> None:
 def settings_dialog() -> None:
     st.markdown(f"**NVIDIA API key** {'(configured)' if settings.nvidia_api_key else '(not set)'}")
     nvidia_key = st.text_input("NVIDIA API key", type="password", autocomplete="off", placeholder="nvapi-...", label_visibility="collapsed")
-    st.caption(f"Model: {settings.nvidia_model}")
+    models = available_models()
+    st.markdown("**Models**")
+    for model in models:
+        st.caption(f"{model.label}: {model.note}  `{model.id}`")
+    test_id = st.selectbox("Model to test", [m.id for m in models], index=[m.id for m in models].index(S.model) if S.model in [m.id for m in models] else 0, format_func=lambda i: get_model(i).label)
     st.markdown(f"**GitHub personal access token** {'(configured)' if settings.github_token else '(not set)'}")
     github_token = st.text_input("GitHub token", type="password", autocomplete="off", placeholder="ghp_... or github_pat_...", label_visibility="collapsed")
 
@@ -66,7 +74,7 @@ def settings_dialog() -> None:
     left, right = st.columns(2)
     if left.button("Test NVIDIA connection", disabled=not settings.nvidia_api_key, width="stretch"):
         with st.spinner("Contacting NVIDIA..."):
-            ok, result = attempt(lambda: asyncio.run(nvidia.ping()))
+            ok, result = attempt(lambda: asyncio.run(nvidia.ping(model=test_id)))
         if ok:
             (st.success if result.get("ok") else st.error)(result.get("message") or ("NVIDIA connection works." if result.get("ok") else "The check failed."))
     if right.button("Validate GitHub token", disabled=not settings.github_token, width="stretch"):

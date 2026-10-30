@@ -1,1 +1,1 @@
-"""Nemotron AI Code Studio core services."""
+"""RK Studio core services."""

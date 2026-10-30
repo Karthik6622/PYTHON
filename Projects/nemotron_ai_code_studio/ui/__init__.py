@@ -1,1 +1,1 @@
-"""Streamlit user interface for Nemotron AI Code Studio."""
+"""Streamlit user interface for RK Studio."""

@@ -7,6 +7,7 @@ from html import escape
 import streamlit as st
 
 from studio.config import settings
+from studio.models import get_model
 
 from .state import S, attempt, repo
 
@@ -18,7 +19,7 @@ def _item(text: str, kind: str = "", title: str = "") -> str:
 
 def render_status_bar() -> None:
     current = repo()
-    left = ["<span class='it remote'>NEMOTRON</span>"]
+    left = ["<span class='it remote'>RK STUDIO</span>"]
     if current is not None and current.git is not None:
         branch = current.git.current_branch()
         left.append(_item(f"&#9095; {escape(branch)}", title="Current branch"))
@@ -36,7 +37,7 @@ def render_status_bar() -> None:
         left.append(_item(f"{count} problem{'s' if count != 1 else ''}", "bad" if count else "ok"))
 
     right = [
-        _item("Nemotron", "ok" if settings.nvidia_api_key else "bad", "NVIDIA API key is set" if settings.nvidia_api_key else "NVIDIA_API_KEY is missing"),
+        _item(escape(get_model(S.model).label), "ok" if settings.nvidia_api_key else "bad", "Selected model. " + ("NVIDIA API key is set" if settings.nvidia_api_key else "NVIDIA_API_KEY is missing")),
         _item("GitHub", "ok" if settings.github_token else "bad", "GitHub token is set" if settings.github_token else "No GitHub token"),
         _item(f"<span class='mut'>mode</span> {escape(S.mode or 'ASK')}"),
     ]

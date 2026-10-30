@@ -134,7 +134,7 @@ def _diff_view(path: str) -> None:
 
 def _hero(message: str) -> None:
     st.markdown(
-        "<div class='hero'><div class='orb'>N</div><h2>NEMOTRON STUDIO</h2>"
+        "<div class='hero'><div class='orb'>RK</div><h2>RK STUDIO</h2>"
         f"<p>{escape(message)}</p>"
         "<div class='keys'><span>Explorer: open a file</span><span>Agent: ask, plan or build</span><span>Source Control: review and commit</span></div></div>",
         unsafe_allow_html=True,

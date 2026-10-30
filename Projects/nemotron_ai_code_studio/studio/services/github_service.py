@@ -53,7 +53,7 @@ class GitHubService:
         self._transport = transport
 
     def _client(self) -> httpx.Client:
-        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "nemotron-ai-code-studio"}
+        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "rk-studio"}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
         kwargs: dict[str, Any] = {"headers": headers, "timeout": httpx.Timeout(20.0), "base_url": GITHUB_API}

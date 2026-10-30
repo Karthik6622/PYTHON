@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from html import escape
 from typing import Any, Callable
 
 import streamlit as st
@@ -42,21 +44,50 @@ def _after_command(changed_files: bool = True) -> None:
     reload_paths(list(S.tabs))
 
 
-def _start(attr: str, command: str, kind: str = "") -> None:
+def _start(attr: str, command: str, kind: str = "", cwd: str = "") -> None:
     current = repo()
     if current is None:
         return
-    st.session_state[attr] = CommandRun(current, command)
+    run = CommandRun(current, command, cwd)
+    run.prompt = _prompt()
+    st.session_state[attr] = run
     if kind:
         S.job_kind = kind
     log(f"$ {command}")
 
 
 # ------------------------------------------------------------------ terminal
+def _prompt() -> str:
+    """The shell prompt, like a real terminal: PS <absolute path of the repository (or sub-folder)>>"""
+    current = repo()
+    if current is None:
+        return "PS>"
+    base = current.terminal.root
+    path = base / S.term_cwd if S.term_cwd else base
+    return f"PS {path}>"
+
+
+def _terminal_html(live: CommandRun | None) -> str:
+    chunks = [S.terminal] if S.terminal else []
+    if live is not None:
+        chunks.append(f"{live.prompt} {live.command}\n{live.output}")
+        tail = ""
+    else:
+        tail = f"<span class='ps'>{escape(_prompt())}</span><span class='caret'></span>"
+    body = ""
+    for line in "".join(chunks).split("\n"):
+        if line.startswith("PS ") and ">" in line:
+            head, _, rest = line.partition("> ")
+            body += f"<span class='ps'>{escape(head)}&gt;</span> <span class='cmd'>{escape(rest)}</span>\n"
+        else:
+            body += escape(line) + "\n"
+    if not S.terminal and live is None:
+        body = f"<span class='dim'>RK Studio terminal. Commands run in the repository folder (cd and cls work).</span>\n{body}"
+    return f"<div class='term'><pre>{body}{tail}</pre></div>"
+
+
 def _terminal_render(run: CommandRun) -> None:
-    state = "running" if not run.finished.is_set() else "finished"
-    st.caption(f"$ {run.command}  ({state})")
-    st.code(run.output or "(no output yet)", language=None, line_numbers=False, height=120)
+    st.markdown(_terminal_html(run), unsafe_allow_html=True)
     if not run.finished.is_set() and st.button("Stop", icon=":material/stop:", key="term_stop"):
         run.cancel()
 
@@ -65,9 +96,41 @@ def _terminal_finish(run: CommandRun) -> None:
     result = run.result
     code = "" if result is None else ("cancelled" if result.cancelled else "timed out" if result.timed_out else f"exit {result.exit_code}")
     body = result.output if result is not None else run.error or run.output
-    S.terminal = (S.terminal + f"$ {run.command}\n{body.rstrip()}\n[{code or 'error'}]\n\n")[-20000:]
+    status = f"[{code}]\n" if code and code != "exit 0" else ""
+    S.terminal = (S.terminal + f"{run.prompt} {run.command}\n{body.rstrip()}\n{status}\n")[-20000:]
     log(f"Command finished ({code or 'error'}): {run.command}")
     _after_command()
+
+
+def _builtin(command: str) -> bool:
+    """cd / cls are handled by the app (each command runs in its own process). Returns True when handled."""
+    current = repo()
+    if current is None:
+        return False
+    parts = command.strip().split(None, 1)
+    word = parts[0].lower() if parts else ""
+    if word in {"cls", "clear"} and len(parts) == 1:
+        S.terminal = ""
+        return True
+    if word in {"cd", "chdir", "set-location", "sl"}:
+        target = parts[1].strip().strip("\"'") if len(parts) > 1 else ""
+        entry = f"{_prompt()} {command.strip()}\n"
+        if not target or target in {"~", "\\", "/"}:
+            new = ""
+        else:
+            new = os.path.normpath(os.path.join(S.term_cwd or ".", target.replace("\\", "/"))).replace("\\", "/")
+            new = "" if new == "." else new
+        try:
+            if new.startswith("..") or os.path.isabs(new):
+                raise ValueError("Cannot leave the repository folder.")
+            current.terminal.resolve_cwd(new)
+        except ValueError as exc:
+            S.terminal = (S.terminal + entry + f"cd : {exc}\n\n")[-20000:]
+        else:
+            S.term_cwd = new
+            S.terminal = (S.terminal + entry + "\n")[-20000:]
+        return True
+    return False
 
 
 def render_terminal() -> None:
@@ -75,20 +138,29 @@ def render_terminal() -> None:
     if current is None:
         st.info("No repository is open.")
         return
+    try:
+        current.terminal.resolve_cwd(S.term_cwd)
+    except ValueError:
+        S.term_cwd = ""  # the folder is gone, or another repository was opened
     running = st.session_state.get("term_run") is not None and not st.session_state["term_run"].finished.is_set()
 
+    if not running:
+        with st.container(key="termbox"):
+            st.markdown(_terminal_html(None), unsafe_allow_html=True)
     with st.form("term_form", clear_on_submit=True, border=False):
         left, right = st.columns([9, 1.3], vertical_alignment="bottom")
-        command = left.text_input("Command", placeholder="Run a command in the repository folder, for example: python -m pytest", label_visibility="collapsed")
+        command = left.text_input("Command", placeholder="Type a command and press Enter, for example: python -m pytest", label_visibility="collapsed")
         submitted = right.form_submit_button("Run", icon=":material/play_arrow:", width="stretch", disabled=running)
     if submitted and command.strip():
         verdict = classify_command(command)
-        if verdict.level == "deny":
+        if _builtin(command):
+            st.rerun()
+        elif verdict.level == "deny":
             st.error(verdict.reason)
         elif verdict.level == "approve":
             S.term_confirm = {"command": command.strip(), "reason": verdict.reason}
         else:
-            _start("term_run", command.strip())
+            _start("term_run", command.strip(), cwd=S.term_cwd)
             st.rerun()
 
     pending = st.session_state.get("term_confirm")
@@ -97,20 +169,14 @@ def render_terminal() -> None:
         yes, no = st.columns(2)
         if yes.button("Run anyway", type="primary", key="term_yes", width="stretch"):
             st.session_state["term_confirm"] = None
-            _start("term_run", pending["command"])
+            _start("term_run", pending["command"], cwd=S.term_cwd)
             st.rerun()
         if no.button("Cancel", key="term_no", width="stretch"):
             st.session_state["term_confirm"] = None
             st.rerun()
 
     _live("term_run", _terminal_render, _terminal_finish)
-    if S.terminal:
-        top = st.columns([8, 1.3])
-        top[0].caption("History")
-        if top[1].button("Clear", key="term_clear", width="stretch"):
-            S.terminal = ""
-            st.rerun()
-        st.code(S.terminal, language=None, line_numbers=False, height=PANEL_HEIGHT - 120)
+
 
 
 # ------------------------------------------------------------------ tests and problems

@@ -89,6 +89,26 @@ class ChangeTracker:
             result.append({"path": relative, "status": status, "additions": adds, "deletions": dels})
         return sorted(result, key=lambda item: item["path"])
 
+    def file_diff(self, change_id: str, workspace: WorkspaceService, relative: str, max_chars: int = 60_000) -> str:
+        """Unified diff of one tracked file against its state before the run."""
+        changes = self._sets.get(change_id)
+        snap = changes.snapshots.get(relative) if changes is not None else None
+        if snap is None:
+            return ""
+        path = workspace.resolve(relative, allow_root=False)
+        now = path.read_bytes() if path.is_file() else None
+        if snap.content == now:
+            return ""
+        before, after = _decode(snap.content), _decode(now)
+        if before is None or after is None:
+            return f"Binary file {relative} changed\n"
+        lines = difflib.unified_diff(
+            before, after,
+            fromfile="/dev/null" if not snap.existed else f"a/{relative}",
+            tofile="/dev/null" if now is None else f"b/{relative}",
+        )
+        return "".join(line if line.endswith("\n") else line + "\n" for line in lines)[:max_chars]
+
     def diff_text(self, change_id: str, workspace: WorkspaceService, max_chars: int = 200_000) -> str:
         changes = self._sets.get(change_id)
         if changes is None:
@@ -137,3 +157,24 @@ class ChangeTracker:
                 restored.append(relative)
         changes.status = "rejected"
         return restored
+
+    def keep_file(self, change_id: str, relative: str) -> None:
+        """The user keeps this file's changes: forget its snapshot so it no longer shows as pending."""
+        changes = self._sets.get(change_id)
+        if changes is not None:
+            changes.snapshots.pop(relative, None)
+
+    def revert_file(self, change_id: str, workspace: WorkspaceService, relative: str) -> bool:
+        """Restore a single file to the state it had before the run, then forget its snapshot."""
+        changes = self._sets.get(change_id)
+        snap = changes.snapshots.get(relative) if changes is not None else None
+        if changes is None or snap is None:
+            return False
+        path = workspace.resolve(relative, allow_root=False)
+        if snap.existed and snap.content is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(snap.content)
+        elif path.is_file():
+            path.unlink()
+        changes.snapshots.pop(relative, None)
+        return True

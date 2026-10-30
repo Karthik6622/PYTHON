@@ -16,8 +16,12 @@ MODE_INSTRUCTIONS = {
     ),
     "agent": (
         "Mode: AGENT. You may modify files and run approved commands with the tools. Tool results are the only truth about the repository. "
-        "Start with a short plan of 3-6 bullet points, then work through it. Prefer edit_file for small changes and write_file for new files or full rewrites. "
+        "Work in this order: (1) one short sentence saying what you will do; (2) inspect only the few files you need (use read_files to read several at once; "
+        "do not read the whole repository); (3) MAKE THE EDITS with edit_file, write_file or create_file; (4) give the final report. "
+        "Never end your turn with only a plan or a list of files you looked at: when the user asks for a change, you must change the files. "
+        "Prefer edit_file for small changes and write_file for new files or full rewrites. "
         "Keep changes minimal and follow the existing code style. After you edit, the application validates the changes automatically; fix any problems it reports. "
+        "The user reviews every change and can keep or revert it, so do not ask for permission before editing. "
         "Do not commit or push unless the user explicitly asked for it (the user must approve those actions). "
         "Finish with a concise report: what changed, which files were modified, the validation result, and anything left to do."
     ),

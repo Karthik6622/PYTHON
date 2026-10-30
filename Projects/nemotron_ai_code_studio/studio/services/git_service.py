@@ -14,7 +14,7 @@ from git import GitCommandError, InvalidGitRepositoryError, NoSuchPathError, Rep
 from ..config import settings
 from ..security import PathSecurityError, redact, resolve_in_root, valid_branch_name
 
-COMMIT_FALLBACK_NAME = "Nemotron AI Code Studio"
+COMMIT_FALLBACK_NAME = "RK Studio"
 COMMIT_FALLBACK_EMAIL = "studio@localhost"
 
 

@@ -27,9 +27,9 @@ def render_top_bar() -> None:
     current = repo()
     with st.container(key="titlebar"):
         brand, repo_col, branch_col, _space, github_col, settings_col = st.columns([2.6, 3, 1.8, 3.4, 0.45, 0.45], vertical_alignment="center", gap="small")
-        brand.markdown("<div class='brand'><span class='logo'>N</span><span class='word'>NEMOTRON<b>STUDIO</b></span></div>", unsafe_allow_html=True)
+        brand.markdown("<div class='brand'><span class='logo'>RK</span><span class='word'>RK<b>STUDIO</b></span></div>", unsafe_allow_html=True)
         repo_col.markdown(
-            f"<div class='pill{'' if current else ' off'}'><i></i>{escape(current.name) if current else 'No repository'}</div>",
+            f"<div class='pill{'' if current else ' off'}' title='{escape(str(current.path), quote=True) if current else ''}'><i></i>{escape(current.name) if current else 'No repository'}</div>",
             unsafe_allow_html=True,
         )
 

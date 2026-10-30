@@ -161,7 +161,7 @@ class Settings:
 
     @property
     def agent_max_steps(self) -> int:
-        return max(2, min(40, _env_int("AGENT_MAX_STEPS", 16)))
+        return max(2, min(60, _env_int("AGENT_MAX_STEPS", 30)))
 
     @property
     def auto_validate(self) -> bool:

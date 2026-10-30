@@ -1,17 +1,18 @@
-"""Nemotron AI Code Studio: a repository-aware AI coding IDE built with Streamlit.
+"""RK Studio: a repository-aware AI coding IDE built with Streamlit.
 
 Run with:  streamlit run app.py
 """
 
 import streamlit as st
 
-st.set_page_config(page_title="Nemotron AI Code Studio", page_icon=":material/terminal:", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="RK Studio", page_icon=":material/terminal:", layout="wide", initial_sidebar_state="collapsed")
 
 from ui.agent_panel import render_agent_panel  # noqa: E402  (set_page_config must be the first Streamlit call)
 from ui.bottom import render_bottom  # noqa: E402
 from ui.dialogs import connect_dialog  # noqa: E402
 from ui.editor import render_editor  # noqa: E402
 from ui.explorer import render_explorer, render_search  # noqa: E402
+from ui.layout import install_layout  # noqa: E402
 from ui.source_control import render_source_control  # noqa: E402
 from ui.state import init_state, repo  # noqa: E402
 from ui.statusbar import render_status_bar  # noqa: E402
@@ -68,6 +69,7 @@ def main() -> None:
                 render_agent_panel()
 
     render_status_bar()
+    install_layout()
 
 
 main()

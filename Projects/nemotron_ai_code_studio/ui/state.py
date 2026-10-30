@@ -9,6 +9,7 @@ import streamlit as st
 
 from studio.chat import ChatMessage
 from studio.deps import broker, coding_agent, conversations, nvidia, repository_agent, repositories
+from studio.models import default_model_id
 from studio.runner import AgentRun, CommandRun, friendly_error
 from studio.services.repository_service import ActiveRepository
 
@@ -42,9 +43,11 @@ def init_state() -> None:
         "run": None,           # AgentRun in progress
         "cursor": 0,           # how many events of the current run were applied
         "mode": "ASK",
+        "model": default_model_id(),
         "conversation_id": "main",
         "output_log": [],
         "terminal": "",
+        "term_cwd": "",        # terminal working folder, relative to the repository root
         "term_run": None,
         "job_run": None,
         "job_kind": "",

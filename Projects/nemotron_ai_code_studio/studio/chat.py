@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -22,14 +23,28 @@ class ToolCall:
     done: bool = False
     ok: bool = True
     summary: str = ""
+    started: float = field(default_factory=time.time)
+    ended: float = 0.0
+
+
+@dataclass
+class TextBlock:
+    """A stretch of the model's own words, kept in order between tool calls."""
+    text: str = ""
 
 
 @dataclass
 class ChangeSet:
     change_id: str
     files: list[dict[str, Any]] = field(default_factory=list)
-    diff: str = ""
-    state: str = "pending"  # pending | accepted | rejected
+    diffs: dict[str, str] = field(default_factory=dict)  # path -> unified diff
+    state: str = "pending"  # pending | accepted | rejected | mixed
+    kept: list[str] = field(default_factory=list)
+    reverted: list[str] = field(default_factory=list)
+
+    @property
+    def diff(self) -> str:
+        return "".join(self.diffs.values())
 
 
 @dataclass
@@ -37,9 +52,10 @@ class ChatMessage:
     role: str  # user | assistant
     text: str = ""
     mode: str = "ask"
+    model: str = ""
     id: str = field(default_factory=next_id)
     reasoning: str = ""
-    tools: list[ToolCall] = field(default_factory=list)
+    blocks: list[ToolCall | TextBlock] = field(default_factory=list)
     context_files: list[str] = field(default_factory=list)
     inspected: list[str] = field(default_factory=list)
     modified: list[str] = field(default_factory=list)
@@ -48,6 +64,14 @@ class ChatMessage:
     error: str = ""
     streaming: bool = False
     status: str = ""
+    step: int = 0
+    max_steps: int = 0
+    started: float = field(default_factory=time.time)
+    finished: float = 0.0
+
+    @property
+    def tools(self) -> list[ToolCall]:
+        return [b for b in self.blocks if isinstance(b, ToolCall)]
 
 
 MAX_TOOL_OUTPUT = 8000
@@ -61,11 +85,18 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
     elif kind == "context":
         message.context_files = [str(f if isinstance(f, str) else f.get("path", "")) for f in event.get("files") or []]
     elif kind == "token":
-        message.text += str(event.get("text", ""))
+        text = str(event.get("text", ""))
+        message.text += text
+        if message.blocks and isinstance(message.blocks[-1], TextBlock):
+            message.blocks[-1].text += text
+        else:
+            message.blocks.append(TextBlock(text))
     elif kind == "reasoning":
         message.reasoning += str(event.get("text", ""))
+    elif kind == "step":
+        message.step, message.max_steps = int(event.get("n", 0)), int(event.get("max", 0))
     elif kind == "tool_start":
-        message.tools.append(ToolCall(id=str(event.get("id")), name=str(event.get("name")), args=event.get("args")))
+        message.blocks.append(ToolCall(id=str(event.get("id")), name=str(event.get("name")), args=event.get("args")))
         message.status = f"Running {event.get('name')}"
     elif kind == "tool_output":
         for tool in message.tools:
@@ -74,7 +105,7 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
     elif kind == "tool_end":
         for tool in message.tools:
             if tool.id == str(event.get("id")):
-                tool.done, tool.ok, tool.summary = True, bool(event.get("ok")), str(event.get("summary", ""))
+                tool.done, tool.ok, tool.summary, tool.ended = True, bool(event.get("ok")), str(event.get("summary", "")), time.time()
                 tool.output = tool.output or str(event.get("preview", ""))
     elif kind == "files":
         message.inspected = list(event.get("inspected") or [])
@@ -82,7 +113,11 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
     elif kind == "validation":
         message.validation = {"passed": event.get("passed"), "steps": event.get("steps") or []}
     elif kind == "changes":
-        message.changes = ChangeSet(str(event.get("change_id")), list(event.get("files") or []), str(event.get("diff", "")))
+        previous = message.changes
+        current = ChangeSet(str(event.get("change_id")), list(event.get("files") or []), dict(event.get("diffs") or {}))
+        if previous is not None and previous.change_id == current.change_id:
+            current.kept, current.reverted = previous.kept, previous.reverted
+        message.changes = current
     elif kind == "approval_request":
         approval = event.get("approval") or {}
         if approval.get("id"):
@@ -98,8 +133,12 @@ def apply_event(message: ChatMessage, event: dict[str, Any], approvals: dict[str
             message.modified = list(event["modified"])
     elif kind == "done":
         message.streaming, message.status = False, ""
+        message.finished = time.time()
         approvals.clear()
         if not message.error:  # on failure the error banner already shows the message
-            message.text = message.text or str(event.get("message", ""))
+            if not message.text:
+                message.text = str(event.get("message", ""))
+                if message.text:
+                    message.blocks.append(TextBlock(message.text))
         message.inspected = list(event.get("inspected") or message.inspected)
         message.modified = list(event.get("modified") or message.modified)

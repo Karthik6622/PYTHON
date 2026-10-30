@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -26,6 +27,15 @@ Emit = Callable[[dict[str, Any]], None]
 MODES = ("ask", "plan", "agent")
 MAX_FIX_ROUNDS = 2
 MAX_REPEATED_CALLS = 3
+MAX_NUDGES = 2
+FILE_WRITE_TOOLS = {"write_file", "create_file", "edit_file", "delete_file", "rename_file"}
+# A reply that only announces what the model is about to do, without having done it.
+_INTENT = re.compile(r"\b(i['’]ll|i will|i['’]m going to|i am going to|let me|let['’]s|next,? i|now i|going to|here is (?:the|my) plan|plan:)", re.I)
+
+
+def _needs_action(text: str) -> bool:
+    text = text.strip()
+    return not text or text.endswith(":") or bool(_INTENT.search(text[:1500]))
 
 
 @dataclass
@@ -67,7 +77,7 @@ class CodingAgent:
         self.tester = TestingAgent()
         self.debugger = DebuggingAgent()
 
-    async def run(self, repo: ActiveRepository, request: str, mode: str, history: list[dict[str, str]], emit: Emit) -> RunResult:
+    async def run(self, repo: ActiveRepository, request: str, mode: str, history: list[dict[str, str]], emit: Emit, model: str | None = None) -> RunResult:
         mode = mode if mode in MODES else "ask"
         loop = asyncio.get_running_loop()
         change_id = repo.tracker.begin()
@@ -83,6 +93,8 @@ class CodingAgent:
             outcome = await execute_tool(ctx, name, args)
             emit({"type": "tool_end", "id": call_id, "name": name, "ok": outcome.ok, "summary": outcome.summary, "preview": outcome.content[:1800]})
             emit({"type": "files", "inspected": list(ctx.inspected), "modified": list(ctx.modified)})
+            if name in FILE_WRITE_TOOLS and outcome.ok:
+                await self._present_changes(repo, ctx, emit)  # live "changes so far" while the agent works
             return outcome
 
         try:
@@ -100,12 +112,14 @@ class CodingAgent:
             fix_rounds = 0
             validated_signature: str | None = None
             empty_replies = 0
+            nudges = 0
             final_text = ""
 
             for step in range(max_steps):
+                emit({"type": "step", "n": step + 1, "max": max_steps})
                 emit({"type": "status", "text": "Thinking" if step == 0 else "Continuing"})
                 turn = None
-                async for event in self.nvidia.agent_chat(messages, schemas):
+                async for event in self.nvidia.agent_chat(messages, schemas, model=model):
                     if event["type"] == "content":
                         emit({"type": "token", "text": event["text"]})
                     elif event["type"] == "reasoning":
@@ -140,11 +154,22 @@ class CodingAgent:
                     continue
 
                 final_text = turn.content.strip()
-                if not final_text and not turn.reasoning:
+                if mode == "agent" and not ctx.modified and nudges < MAX_NUDGES and (turn.finish_reason == "length" or _needs_action(final_text)):
+                    # The model stopped after reading (or only announced a plan). Push it to actually make the edits.
+                    nudges += 1
+                    messages.append({"role": "assistant", "content": final_text or "(no reply)"})
+                    messages.append({"role": "user", "content": (
+                        "You have not modified any files yet. Carry out the requested change now: call edit_file, write_file or create_file. "
+                        "Do not describe what you will do; do it. If the request truly needs no file changes, answer in one short paragraph."
+                    )})
+                    emit({"type": "status", "text": "Asking the model to make the edits"})
+                    continue
+                if not final_text:
                     empty_replies += 1
                     if empty_replies <= 1:
                         messages.append({"role": "user", "content": "Your last reply was empty. Continue the task or give your final answer."})
                         continue
+                    final_text = "Changes were made; review them below." if ctx.modified else "The model finished without a reply. Try again, rephrase the request, or pick another model."
                 if turn.finish_reason == "length":
                     final_text += "\n\n(The reply was cut off by the output limit.)"
 
@@ -192,8 +217,8 @@ class CodingAgent:
     async def _present_changes(self, repo: ActiveRepository, ctx: ToolContext, emit: Emit) -> None:
         files = await asyncio.to_thread(repo.tracker.summary, ctx.change_id, repo.workspace)
         if files:
-            diff = await asyncio.to_thread(repo.tracker.diff_text, ctx.change_id, repo.workspace)
-            emit({"type": "changes", "change_id": ctx.change_id, "files": files, "diff": diff})
+            diffs = {item["path"]: await asyncio.to_thread(repo.tracker.file_diff, ctx.change_id, repo.workspace, item["path"]) for item in files}
+            emit({"type": "changes", "change_id": ctx.change_id, "files": files, "diffs": diffs})
 
 
 def _changes_signature(ctx: ToolContext) -> str:
