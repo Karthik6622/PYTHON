@@ -230,12 +230,12 @@ export default function (component) {
       label.className = "live";
       label.textContent = "Synced with " + cfg.name;
       label.title = "Changes made here are saved to this folder on your computer.";
-      parts.push(label, button("Open folder", () => openFolder(self), false));
+      parts.push(label, button("Connect Local folder", () => openFolder(self), false));
     } else if (cfg.linked) {
       parts.push(button("Reconnect " + cfg.name, () => reconnect(self), true));
       if (shared.status) parts.push(note(shared.status));
     } else {
-      parts.push(button("Open folder", () => openFolder(self), true));
+      parts.push(button("Connect Local folder", () => openFolder(self), true));
       if (shared.status) parts.push(note(shared.status));
     }
     box.replaceChildren(...parts);

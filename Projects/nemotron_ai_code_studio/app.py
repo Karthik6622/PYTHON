@@ -5,6 +5,13 @@ Run with:  streamlit run app.py
 
 import streamlit as st
 
+try:  # same switch as [global] minCachedMessageSize in .streamlit/config.toml, for hosts that do not read that file
+    from streamlit import config as _config
+
+    _config.set_option("global.minCachedMessageSize", 1e12)
+except Exception:
+    pass
+
 st.set_page_config(page_title="RK Studio", page_icon=":material/terminal:", layout="wide", initial_sidebar_state="collapsed")
 
 from ui.agent_panel import render_agent_panel  # noqa: E402  (set_page_config must be the first Streamlit call)

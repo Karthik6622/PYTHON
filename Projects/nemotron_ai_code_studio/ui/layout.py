@@ -11,7 +11,7 @@ from __future__ import annotations
 import streamlit as st
 import streamlit.components.v1 as components
 
-VERSION = 6
+VERSION = 7
 
 SCRIPT = r"""
 <script>
@@ -229,6 +229,40 @@ SCRIPT = r"""
     if (!tipRaf) tipRaf = P.requestAnimationFrame(tipFrame);
   }
   D.addEventListener('mouseover', onOver, true);
+
+  /* Terminal history: Up / Down in the command box walk through the commands that were run (kept in this browser). */
+  var HKEY = 'rk.term.history', hist = [], hpos = -1, draft = '';
+  try { hist = JSON.parse(P.localStorage.getItem(HKEY) || '[]'); if (!Array.isArray(hist)) hist = []; } catch (e) { hist = []; }
+  function setValue(input, value) {
+    var setter = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    setter.call(input, value);
+    input.dispatchEvent(new P.Event('input', { bubbles: true }));
+    try { input.setSelectionRange(value.length, value.length); } catch (e) {}
+  }
+  function onKey(e) {
+    var t = e.target;
+    if (!t || t.tagName !== 'INPUT' || !t.closest || !t.closest('div.st-key-termbox')) return;
+    if (e.key === 'Enter') {
+      var typed = t.value.trim();
+      if (typed) {
+        if (hist[hist.length - 1] !== typed) hist.push(typed);
+        hist = hist.slice(-100);
+        try { P.localStorage.setItem(HKEY, JSON.stringify(hist)); } catch (x) {}
+      }
+      hpos = -1; draft = '';
+    } else if (e.key === 'ArrowUp') {
+      if (!hist.length) return;
+      e.preventDefault();
+      if (hpos === -1) { draft = t.value; hpos = hist.length; }
+      if (hpos > 0) { hpos--; setValue(t, hist[hpos]); }
+    } else if (e.key === 'ArrowDown') {
+      if (hpos === -1) return;
+      e.preventDefault();
+      hpos++;
+      if (hpos >= hist.length) { hpos = -1; setValue(t, draft); } else { setValue(t, hist[hpos]); }
+    }
+  }
+  D.addEventListener('keydown', onKey, true);
   var onResize = function () {
     if (inResize) return;
     inResize = true;
@@ -238,7 +272,7 @@ SCRIPT = r"""
   P.__rkLayout = {
     v: VERSION, tick: tick,
     stop: function () {
-      P.clearInterval(timer); P.removeEventListener('resize', onResize); D.removeEventListener('mouseover', onOver, true); hideTip();
+      P.clearInterval(timer); P.removeEventListener('resize', onResize); D.removeEventListener('mouseover', onOver, true); D.removeEventListener('keydown', onKey, true); hideTip();
       if (tip.parentNode) tip.parentNode.removeChild(tip);
       for (var k in handles) { if (handles[k].parentNode) handles[k].parentNode.removeChild(handles[k]); }
     }

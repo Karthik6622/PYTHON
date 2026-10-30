@@ -9,5 +9,10 @@ font = "sans-serif"
 [server]
 runOnSave = true
 
+[global]
+# Never send cached message references: with fragments that re-run every 2 seconds the browser can lose a cached
+# message and Streamlit then stops with "Cached ForwardMsg MISS" (Connection error, app dimmed).
+minCachedMessageSize = 1e12
+
 [browser]
 gatherUsageStats = false

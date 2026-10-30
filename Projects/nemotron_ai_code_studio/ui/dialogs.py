@@ -35,7 +35,7 @@ def ensure_folder() -> bool:
         return True
     if browser_folders():
         if st.session_state.get("_link") is None and picker_supported():
-            st.toast("Open a folder first: use Open folder in the Explorer.", icon=":material/folder_open:")
+            st.toast("Open a folder first: use Connect Local folder in the Explorer.", icon=":material/folder_open:")
             return False
         return True
     if not current.scratch or st.session_state.get("_folder_chosen") or not folders.native_picker_available():
