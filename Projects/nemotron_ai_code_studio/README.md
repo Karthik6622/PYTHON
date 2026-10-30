@@ -42,6 +42,13 @@ Flow: the agent edits files, then the review card shows each diff. Keep or Rever
 - Secrets are redacted from logs and agent output.
 - `.env` and `workspaces/` are git-ignored.
 
+## Clone location and terminal
+
+- Running on your own computer: "Choose folder and clone" opens the operating system's folder dialog. The repository is stored in the folder you pick and the terminal opens there. Set `NATIVE_FOLDER_DIALOG=0` to use the in-app folder browser instead.
+- Running on Streamlit Cloud: the server cannot open a window on your PC or write to its disk. The dialog shows an in-app browser for folders on the server, which are lost when the app restarts.
+- The terminal is a single console with the prompt inline. `pip install <package>`, `python script.py` and `python -m playwright install chromium` work; Playwright runs headless only, and `input()` prompts are not supported. On Streamlit Cloud, Playwright's system libraries must be listed in `packages.txt` and installs do not survive a restart.
+- `TERMINAL_TIMEOUT_SECONDS` sets the command timeout (default 1800).
+
 ## Notes and limitations
 
 - AGENT mode is inferred as the editing mode; the agent also has an extra `edit_file` tool.

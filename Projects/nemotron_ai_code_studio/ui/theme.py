@@ -278,6 +278,15 @@ div.st-key-statusbar [data-testid="stElementContainer"], div.st-key-statusbar [d
 div.st-key-shell { position:relative; z-index:1; }
 [data-baseweb="tooltip"], [data-baseweb="popover"], [data-baseweb="layer"], [role="tooltip"], [data-testid="stTooltipContent"] { z-index:5000 !important; }
 [data-testid="stToastContainer"], [data-testid="stToast"] { z-index:6000 !important; }
+/* Tooltips are drawn by layout.py (above the element, on top of everything); Streamlit's own copy is only used as the text source. */
+div:has(> [data-testid="stTooltipContent"]) { opacity:0 !important; pointer-events:none !important; }
+.rk-tip {
+  position:fixed; z-index:2147483000; left:0; top:0; display:none; max-width:300px; padding:6px 10px; border-radius:8px; pointer-events:none;
+  font:500 12px/1.4 var(--sans); color:#e8eefc; background:#0b1022; border:1px solid rgba(139,92,246,.55); box-shadow:0 8px 26px rgba(0,0,0,.6); white-space:normal; overflow-wrap:anywhere;
+}
+.rk-tip::after { content:""; position:absolute; left:var(--ax,50%); width:8px; height:8px; margin-left:-4px; background:#0b1022; transform:rotate(45deg); }
+.rk-tip.above::after { bottom:-5px; border-right:1px solid rgba(139,92,246,.55); border-bottom:1px solid rgba(139,92,246,.55); }
+.rk-tip.below::after { top:-5px; border-left:1px solid rgba(139,92,246,.55); border-top:1px solid rgba(139,92,246,.55); }
 [data-testid="stModal"], [data-testid="stDialog"] { z-index:5500 !important; }
 
 /* ---------- hosted-platform chrome ("Manage app" etc.) must never cover the agent input ---------- */
@@ -337,11 +346,12 @@ div.st-key-agent [data-baseweb="select"] > div { min-height:32px !important; fon
 
 /* ---------- terminal ---------- */
 .term { padding:0; }
-.term pre { margin:0 !important; padding:0 !important; border:none !important; background:transparent !important; color:#d4d4d4; white-space:pre-wrap; word-break:break-word; font:12.5px/1.5 var(--mono) !important; }
+.term pre, .term [data-testid="stMarkdownPre"] { display:block; margin:0 !important; padding:0 !important; border:none !important; background:transparent !important; color:#d4d4d4; white-space:pre-wrap !important; word-break:break-word; font:12.5px/1.5 var(--mono) !important; }
 .term .ps, .termps { color:#e6edf7; font-weight:600; }
 .term .cmd { color:#7dd3fc; }
 .term .dim { color:var(--dim); }
 .term .hint { color:var(--amber); }
+.term .gap { display:inline-block; height:.6em; }
 /* the whole terminal is one scrolling console: history, then "PS <folder>>" with the input on the same line */
 div.st-key-termbox { height:calc(var(--bottom-h) - 74px) !important; min-height:60px; overflow-y:auto; overflow-x:hidden; display:block !important; padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:#05080f; }
 div.st-key-termbox > [data-testid="stElementContainer"], div.st-key-termbox [data-testid="stMarkdownContainer"] { width:100%; }
@@ -356,6 +366,7 @@ div.st-key-termbox [data-testid="stTextInput"] { width:100%; }
 div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="input"], div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="base-input"] { background:transparent !important; border:none !important; box-shadow:none !important; min-height:0 !important; }
 div.st-key-termbox [data-testid="stTextInput"] input { padding:0 !important; height:19px; min-height:0; font:12.5px/1.5 var(--mono) !important; color:#7dd3fc !important; caret-color:#d4d4d4; background:transparent !important; }
 div.st-key-termbox [data-testid="stTextInput"] input::placeholder { color:var(--dim); opacity:.55; }
+div.st-key-termbox [data-testid="stTextInputRootElement"], div.st-key-termbox [data-testid="stTextInputRootElement"]:focus-within { border:none !important; box-shadow:none !important; outline:none !important; background:transparent !important; }
 div.st-key-termbox [data-testid="InputInstructions"] { display:none !important; }
 </style>
 """

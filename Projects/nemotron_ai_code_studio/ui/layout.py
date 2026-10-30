@@ -8,9 +8,10 @@ the newest message and hides platform badges (for example "Manage app") that wou
 
 from __future__ import annotations
 
+import streamlit as st
 import streamlit.components.v1 as components
 
-VERSION = 5
+VERSION = 6
 
 SCRIPT = r"""
 <script>
@@ -188,6 +189,46 @@ SCRIPT = r"""
   }
 
   var timer = P.setInterval(tick, 250);
+
+  /* Tooltips: one floating box, always above the hovered element (below only when there is no room above). */
+  var tip = D.createElement('div'); tip.className = 'rk-tip'; D.body.appendChild(tip);
+  var tipTarget = null, tipKind = '', tipRaf = 0;
+  function tipText() {
+    if (!tipTarget) return '';
+    if (tipKind === 'st') { var c = q('[data-testid="stTooltipContent"]'); return c ? (c.textContent || '').trim() : ''; }
+    return tipTarget.getAttribute('data-rk-tip') || '';
+  }
+  function hideTip() { tip.style.display = 'none'; tipTarget = null; tipRaf = 0; }
+  function tipFrame() {
+    tipRaf = 0;
+    if (!tipTarget || !D.contains(tipTarget) || !tipTarget.matches(':hover')) { hideTip(); return; }
+    var text = tipText();
+    if (!text) { tip.style.display = 'none'; tipRaf = P.requestAnimationFrame(tipFrame); return; }
+    if (tip.textContent !== text) tip.textContent = text;
+    tip.style.display = 'block';
+    var r = tipTarget.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, vw = P.innerWidth, vh = P.innerHeight;
+    var x = Math.max(6, Math.min(vw - w - 6, r.left + r.width / 2 - w / 2));
+    var above = r.top - h - 10 >= 4;
+    var y = above ? r.top - h - 10 : Math.min(vh - h - 4, r.bottom + 10);
+    tip.className = 'rk-tip ' + (above ? 'above' : 'below');
+    tip.style.setProperty('--ax', Math.max(12, Math.min(w - 12, r.left + r.width / 2 - x)) + 'px');
+    tip.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)';
+    tipRaf = P.requestAnimationFrame(tipFrame);
+  }
+  function onOver(e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var st = t.closest('[data-testid="stTooltipHoverTarget"]');
+    var el = st || t.closest('[title],[data-rk-tip]');
+    if (!el) return;
+    if (!st) {
+      var native = el.getAttribute('title');
+      if (native) { el.setAttribute('data-rk-tip', native); el.removeAttribute('title'); }
+    }
+    tipTarget = el; tipKind = st ? 'st' : 'attr';
+    if (!tipRaf) tipRaf = P.requestAnimationFrame(tipFrame);
+  }
+  D.addEventListener('mouseover', onOver, true);
   var onResize = function () {
     if (inResize) return;
     inResize = true;
@@ -197,7 +238,8 @@ SCRIPT = r"""
   P.__rkLayout = {
     v: VERSION, tick: tick,
     stop: function () {
-      P.clearInterval(timer); P.removeEventListener('resize', onResize);
+      P.clearInterval(timer); P.removeEventListener('resize', onResize); D.removeEventListener('mouseover', onOver, true); hideTip();
+      if (tip.parentNode) tip.parentNode.removeChild(tip);
       for (var k in handles) { if (handles[k].parentNode) handles[k].parentNode.removeChild(handles[k]); }
     }
   };
@@ -208,4 +250,8 @@ SCRIPT = r"""
 
 
 def install_layout() -> None:
-    components.html(SCRIPT, height=0)
+    # st.components.v1.html is deprecated; st.iframe replaces it on newer Streamlit releases.
+    if hasattr(st, "iframe"):
+        st.iframe(SCRIPT, height=1)
+    else:
+        components.html(SCRIPT, height=0)

@@ -75,12 +75,14 @@ def _terminal_html(live: CommandRun | None) -> str:
     if live is not None:
         chunks.append(f"{live.prompt} {live.command}\n{live.output}")
     body = ""
-    for line in "".join(chunks).split("\n"):
+    for line in "".join(chunks).rstrip("\n").split("\n"):
         if line.startswith("PS ") and ">" in line:
             head, _, rest = line.partition("> ")
             body += f"<span class='ps'>{escape(head)}&gt;</span> <span class='cmd'>{escape(rest)}</span>\n"
         elif line.startswith("hint: "):
             body += f"<span class='hint'>{escape(line)}</span>\n"
+        elif not line.strip():
+            body += "<span class='gap'></span>\n"  # a truly empty line would end the HTML block and break the layout
         else:
             body += escape(line) + "\n"
     if not S.terminal and live is None:

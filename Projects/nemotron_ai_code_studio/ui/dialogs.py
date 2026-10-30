@@ -61,55 +61,86 @@ def _folder_browser() -> None:
                 st.rerun(scope="fragment")
 
 
+def _opened(repo, verb: str) -> None:
+    _reset_workspace_state()
+    log(f"{verb} {repo.name} at {repo.path}")
+    st.toast(f"{verb} {repo.path}", icon=":material/folder_open:")
+    st.rerun()
+
+
+def _clone(name: str, branch: str, location: str) -> None:
+    ok, _ = attempt(repositories.choose_location, location)
+    if not ok:
+        return
+    with st.spinner("Cloning and indexing the repository..."):
+        ok, repo = attempt(repositories.connect_github, name.strip(), branch.strip() or None)
+    if ok:
+        _opened(repo, "Cloned to")
+
+
+def _ask_folder(initial: str, title: str) -> str | None:
+    """Opens the operating system's folder window. None when it is cancelled or cannot be shown."""
+    ok, chosen = attempt(folders.pick_folder_native, initial, title)
+    if ok and not chosen:
+        st.info("No folder was selected.")
+    return chosen if ok else None
+
+
 @st.dialog("Connect a repository", width="large")
 def connect_dialog() -> None:
-    if "clone_loc" not in st.session_state:
-        st.session_state["clone_loc"] = str(settings.workspace_path) if repositories.location_chosen else ""
-    st.markdown("**1. Where should it be saved?**")
-    st.caption("A folder on the machine that runs RK Studio. The repository is cloned inside it, and the terminal opens in the cloned folder.")
-    places = folders.quick_places()
-    cols = st.columns(len(places))
-    for col, (label, path) in zip(cols, places):
-        col.button(label, key=f"qp:{label}", on_click=_pick, args=(path,), width="stretch")
-    location = st.text_input("Clone location", key="clone_loc", placeholder="Full folder path, for example C:\\Users\\you\\projects", label_visibility="collapsed")
-    with st.expander("Browse folders", icon=":material/folder_open:"):
-        _folder_browser()
-
-    st.markdown("**2. Which repository?**")
-    name = st.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo", label_visibility="collapsed")
-    branch = st.text_input("Branch (optional)", placeholder="default branch")
+    native = folders.native_picker_available()
+    left, right = st.columns([3, 2])
+    name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
+    branch = right.text_input("Branch (optional)", placeholder="default branch")
     if not settings.github_token:
         st.caption("No GitHub token is set. Public repositories work without one; private ones need a token in Settings.")
-    if st.button("Clone and open", type="primary", disabled=len(name.strip()) < 3 or not location.strip(), icon=":material/cloud_download:"):
-        ok, _ = attempt(repositories.choose_location, location)
-        if ok:
-            with st.spinner("Cloning and indexing the repository..."):
-                ok, repo = attempt(repositories.connect_github, name.strip(), branch.strip() or None)
-            if ok:
-                _reset_workspace_state()
-                log(f"Cloned {repo.name} to {repo.path}")
-                st.toast(f"Cloned to {repo.path}", icon=":material/folder_open:")
-                st.rerun()
+    ready = len(name.strip()) >= 3
+    last = str(settings.workspace_path) if repositories.location_chosen else ""
+
+    if native:
+        st.caption("A folder window opens so you can choose where the repository is saved. The terminal then opens in that folder.")
+        if st.button("Choose folder and clone", type="primary", disabled=not ready, icon=":material/folder_open:", key="clone_native"):
+            chosen = _ask_folder(last, "Choose the folder where the repository will be saved")
+            if chosen:
+                _clone(name, branch, chosen)
+        st.divider()
+        if st.button("Open a folder that is already on this computer", icon=":material/folder_open:", key="open_native"):
+            chosen = _ask_folder(last, "Choose a folder to open")
+            if chosen:
+                ok, repo = attempt(repositories.open_folder, chosen)
+                if ok:
+                    _opened(repo, "Opened")
+        return
+
+    # Hosted deployment: the app runs on a server and cannot open a window on your computer, so pick a folder on the server.
+    if "clone_loc" not in st.session_state:
+        st.session_state["clone_loc"] = last
+    st.markdown("**Save to**")
+    st.caption("RK Studio is running on a server, so this is a folder on that server (your own computer's folders cannot be reached from here).")
+    path_col, browse_col = st.columns([5, 1], vertical_alignment="bottom")
+    location = path_col.text_input("Save to", key="clone_loc", placeholder="Full folder path, or use Browse", label_visibility="collapsed")
+    show = browse_col.toggle("Browse", key="show_browser", value=not last)
+    if show:
+        with st.container(border=True, key="browser_box"):
+            cols = st.columns(len(folders.quick_places()))
+            for col, (label, path) in zip(cols, folders.quick_places()):
+                col.button(label, key=f"qp:{label}", on_click=_pick, args=(path,), width="stretch")
+            _folder_browser()
+    if st.button("Clone and open", type="primary", disabled=not (ready and location.strip()), icon=":material/cloud_download:", key="clone_server"):
+        _clone(name, branch, location)
 
     st.divider()
-    st.markdown("**Or open a folder that is already there**")
     if st.button("Open the folder above as a workspace", disabled=not location.strip(), icon=":material/folder_open:", key="open_loc"):
         ok, repo = attempt(repositories.open_folder, location)
         if ok:
-            _reset_workspace_state()
-            log(f"Opened {repo.name} at {repo.path}")
-            st.rerun()
+            _opened(repo, "Opened")
     if repositories.location_chosen:
-        workspaces = repositories.list_workspaces()
-        st.caption(f"Folders inside {settings.workspace_path}")
-        for item in workspaces:
+        for item in repositories.list_workspaces():
             label = f"{item['name']}  ({'git' if item['is_git'] else 'folder'})"
             if st.button(label, key=f"ws:{item['folder']}", width="stretch", icon=":material/folder_open:"):
                 ok, repo = attempt(repositories.open_local, item["folder"])
                 if ok:
-                    _reset_workspace_state()
-                    log(f"Opened {repo.name} at {repo.path}")
-                    st.rerun()
+                    _opened(repo, "Opened")
 
 
 @st.dialog("Settings", width="large")

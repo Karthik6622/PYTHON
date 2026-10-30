@@ -122,3 +122,9 @@ def test_workspace_version_bumps_on_change(repo_dir):
     workspace.write_text("new_file.txt", "hi")
     assert workspace.version == before + 1
     time.sleep(0)
+
+
+def test_native_picker_can_be_disabled(monkeypatch):
+    monkeypatch.setenv('NATIVE_FOLDER_DIALOG', '0')
+    assert folders.native_picker_available() is False
+
