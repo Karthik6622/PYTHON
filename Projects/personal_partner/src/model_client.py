@@ -79,7 +79,7 @@ _THINK_OPEN = "<think>"
 _THINK_CLOSE = "</think>"
 
 
-def _openai_client(settings: ModelSettings):
+def _openai_client(settings: ModelSettings, timeout: float | None = None):
     try:
         from openai import OpenAI
     except ImportError as exc:
@@ -88,7 +88,7 @@ def _openai_client(settings: ModelSettings):
         api_key=settings.api_key,
         base_url=settings.base_url,
         max_retries=0,
-        timeout=REQUEST_TIMEOUT_SECONDS,
+        timeout=timeout or REQUEST_TIMEOUT_SECONDS,
     )
 
 

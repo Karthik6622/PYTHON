@@ -27,6 +27,9 @@ CONVERSATIONS_DIR = DATA_DIR / "conversations"
 _NOTICE_LOCK = Lock()
 _STORAGE_NOTICES: list[str] = []
 _UUID_RE = re.compile(r"^[0-9a-f]{32}$")
+_IMAGE_FILE_RE = re.compile(r"^[0-9a-f]{32}\.png$")
+MAX_ATTACHMENTS = 5
+MAX_ATTACHMENT_TEXT = 12_000
 MAX_FAILED_LOGINS = 5
 LOCKOUT_MINUTES = 15
 _SENSITIVE_FIELDS = {"password_hash", "password_reset", "failed_logins", "locked_until"}
@@ -394,6 +397,22 @@ def append_message(user_id: str, conversation_id: str, message: dict[str, Any]) 
     }
     if message.get("mode") == "Romantic":
         safe_message["mode"] = "Romantic"
+    attachments = message.get("attachments")
+    if isinstance(attachments, list):
+        safe_attachments = [
+            {
+                "name": str(item.get("name", "file"))[:80],
+                "kind": "image" if item.get("kind") == "image" else "document",
+                "text": str(item.get("text", ""))[:MAX_ATTACHMENT_TEXT],
+            }
+            for item in attachments[:MAX_ATTACHMENTS]
+            if isinstance(item, dict)
+        ]
+        if safe_attachments:
+            safe_message["attachments"] = safe_attachments
+    image = message.get("image")
+    if isinstance(image, str) and _IMAGE_FILE_RE.fullmatch(image):
+        safe_message["image"] = image
     path = _conversation_path(user_id)
     with FileLock(f"{path}.lock"):
         _, conversations = _read_conversations_locked(user_id)
@@ -409,11 +428,37 @@ def append_message(user_id: str, conversation_id: str, message: dict[str, Any]) 
     return False
 
 
+def save_generated_image(user_id: str, png: bytes) -> str:
+    """Save a generated picture under the account's folder and return its file name."""
+    if not _UUID_RE.fullmatch(str(user_id)):
+        raise ValueError("Invalid account identifier.")
+    folder = DATA_DIR / "generated" / user_id
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.png"
+    (folder / filename).write_bytes(png)
+    return filename
+
+
+def generated_image_bytes(user_id: str, filename: str) -> bytes | None:
+    """The saved picture, or None when the name is not valid or the file is gone."""
+    if not _UUID_RE.fullmatch(str(user_id)) or not _IMAGE_FILE_RE.fullmatch(str(filename)):
+        return None
+    path = DATA_DIR / "generated" / user_id / filename
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
+
+
 def export_conversation_as_markdown(conversation: dict[str, Any]) -> str:
     lines = [f"# {safe_conversation_title(str(conversation.get('title', 'Conversation')))}", ""]
     for message in conversation.get("messages", []):
         label = "You" if message.get("role") == "user" else "WithYou"
         lines.extend((f"## {label}", "", str(message.get("content", "")), ""))
+        attached = message.get("attachments")
+        for item in attached if isinstance(attached, list) else []:
+            if isinstance(item, dict):
+                lines.extend((f"_Attached: {item.get('name', 'file')}_", ""))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -428,4 +473,5 @@ def delete_all_user_data(user_id: str) -> bool:
     with FileLock(f"{path}.lock"):
         if path.exists():
             path.unlink()
+    shutil.rmtree(DATA_DIR / "generated" / str(user_id), ignore_errors=True)
     return True

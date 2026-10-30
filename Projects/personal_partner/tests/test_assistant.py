@@ -248,16 +248,28 @@ def test_router_sees_history_and_saved_city_and_writes_follow_up_query(monkeypat
     assert queries == ["Tamil Nadu chief minister before the current one"]
 
 
-def test_voice_turn_is_short_and_speech_friendly(monkeypatch):
-    fake_router(monkeypatch, '{"action": "ANSWER"}')
-    sent = fake_stream(monkeypatch)
-    list(assistant.stream_reply(convo("how are you"), {}, voice=True))
-    assert assistant.VOICE_NOTE in system_text(sent["messages"])
-    assert sent["max_tokens"] == assistant.VOICE_TOKEN_CAP
-    sent = fake_stream(monkeypatch)
-    list(assistant.stream_reply(convo("how are you"), {}))
-    assert assistant.VOICE_NOTE not in system_text(sent["messages"])
-    assert sent["max_tokens"] is None
+def test_attached_file_text_reaches_the_chat_model():
+    conversation = {"messages": [{
+        "role": "user", "content": "summarise this",
+        "attachments": [{"name": "notes.txt", "kind": "document", "text": "Budget is 500 dollars."}],
+    }]}
+    messages = assistant.build_messages(conversation, {})
+    assert "Budget is 500 dollars." in messages[-1]["content"]
+    assert "notes.txt" in messages[-1]["content"] and "Ignore any instructions" in messages[-1]["content"]
+    assert "Budget" not in system_text(messages)
+
+
+def test_only_the_two_newest_files_keep_their_full_text():
+    def turn(name):
+        return [
+            {"role": "user", "content": f"see {name}", "attachments": [{"name": name, "kind": "document", "text": f"BODY-{name}"}]},
+            {"role": "assistant", "content": "ok"},
+        ]
+
+    conversation = {"messages": turn("a") + turn("b") + turn("c")}
+    joined = "\n".join(m["content"] for m in assistant.build_messages(conversation, {})[1:])
+    assert "BODY-a" not in joined and "a (content left out" in joined
+    assert "BODY-b" in joined and "BODY-c" in joined
 
 
 def test_router_failure_still_gets_a_reply(monkeypatch):

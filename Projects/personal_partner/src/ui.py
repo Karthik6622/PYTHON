@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import html
 import logging
 import uuid
@@ -37,8 +36,9 @@ from .social_auth import (
 from .validation import safe_conversation_title, validate_message
 from .voice import VoiceError, synthesize_speech, transcribe_audio, voice_for
 from .styles import APP_CSS, BRAND_HTML, auth_header_html
-from .continuous_voice import continuous_mic
+from .attachments import ACCEPTED_TYPES, DEFAULT_QUESTION, MAX_FILE_MB, MAX_FILES, process_uploads
 from .futuristic import FUTURISTIC_CSS
+from .image_gen import ImageGenerationError, generate_image, image_generation_configured, wants_image
 from .welcome_design import (
     WELCOME_CSS,
     WELCOME_FONT_CSS,
@@ -388,11 +388,53 @@ def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> No
         avatar = "🙂" if role == "user" else ("❤️" if mode == "Romantic" else "🌿")
         with st.chat_message(role, avatar=avatar):
             st.markdown(str(message.get("content", "")))
+            attached = message.get("attachments")
+            if isinstance(attached, list) and attached:
+                names = ", ".join(
+                    f"{'🖼️' if item.get('kind') == 'image' else '📄'} {item.get('name', 'file')}"
+                    for item in attached if isinstance(item, dict)
+                )
+                st.caption(f"Attached: {names}")
+            image_name = message.get("image")
+            if role == "assistant" and isinstance(image_name, str):
+                picture = storage.generated_image_bytes(str(st.session_state.get("user_id", "")), image_name)
+                if picture:
+                    st.image(picture)
+                else:
+                    st.caption("This picture is no longer available.")
+
+
+def _reply_with_image(user_id: str, conversation_id: str, prompt: str, mode_tag: dict[str, str], avatar: str) -> None:
+    """Create a picture with Cosmos 3 Nano and save it as the assistant's reply."""
+    reply: dict[str, Any] = {"message_id": uuid.uuid4().hex, "role": "assistant", "created_at": _now(), **mode_tag}
+    if not image_generation_configured():
+        reply["content"] = (
+            "I can't create pictures yet because the image service (NVIDIA Cosmos 3 Nano) isn't connected. "
+            "Once IMAGE_GEN_BASE_URL is set up for this app, just ask again."
+        )
+    else:
+        try:
+            with st.chat_message("assistant", avatar=avatar):
+                with st.spinner("Creating your image…"):
+                    png = generate_image(prompt)
+            reply["image"] = storage.save_generated_image(user_id, png)
+            reply["content"] = "Here's the image I made for you."
+        except ImageGenerationError as exc:
+            st.session_state.last_model_error = str(exc)
+            st.rerun()
+        except Exception:
+            LOGGER.exception("Image creation failed")
+            st.session_state.last_model_error = "I couldn't create that image just now. Please try again."
+            st.rerun()
+    storage.append_message(user_id, conversation_id, reply)
+    for key in ("pending_message_id", "pending_conversation_id", "pending_speak"):
+        st.session_state.pop(key, None)
+    st.rerun()
 
 
 def _send_message(
     user_id: str, conversation: dict[str, Any], content: str, message_id: str | None = None, speak: bool = False,
-    voice: bool = False,
+    attachments: list[dict[str, str]] | None = None,
 ) -> None:
     error = validate_message(content)
     if error:
@@ -406,7 +448,10 @@ def _send_message(
         storage.append_message(
             user_id,
             conversation_id,
-            {"message_id": message_id, "role": "user", "content": content.strip(), "created_at": _now(), **mode_tag},
+            {
+                "message_id": message_id, "role": "user", "content": content.strip(), "created_at": _now(),
+                **({"attachments": attachments} if attachments else {}), **mode_tag,
+            },
         )
         if mode != "Romantic" and len(messages_for_mode(conversation, mode)) <= 1:
             storage.rename_conversation(user_id, conversation_id, safe_conversation_title(content))
@@ -422,11 +467,13 @@ def _send_message(
     if not latest:
         st.error("This conversation is no longer available. Start a new chat.")
         return
+    if wants_image(content):
+        _reply_with_image(user_id, conversation_id, content, mode_tag, "❤️" if mode == "Romantic" else "🌿")
     try:
         with st.chat_message("assistant", avatar="❤️" if mode == "Romantic" else "🌿"):
             with st.status("Typing…" if mode == "Romantic" else "WithYou is typing…", expanded=False) as status:
                 response = st.write_stream(
-                    stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone(), voice=voice)
+                    stream_reply(latest, st.session_state.get("user_preferences", {}), _browser_timezone())
                 )
                 if not isinstance(response, str) or not response.strip():
                     raise RuntimeError("The assistant returned an empty response.")
@@ -535,54 +582,18 @@ def _voice_message(user_id: str, conversation: dict[str, Any], audio: Any, speak
     _send_message(user_id, conversation, text, speak=speak)
 
 
-def _enable_speak_for_continuous() -> None:
-    """Continuous voice chat always speaks its replies, so turning it on also turns Speak replies on."""
-    if st.session_state.get("continuous_voice"):
-        st.session_state["speak_voice_replies"] = True
-
-
-def _queue_continuous_reply(audio: bytes) -> None:
-    """Hand a reply to the mic component. The audio is sent once; later runs only repeat the id."""
-    st.session_state["continuous_reply_id"] = int(st.session_state.get("continuous_reply_id", 0)) + 1
-    st.session_state["continuous_reply_audio"] = base64.b64encode(audio).decode("ascii") if audio else ""
-
-
-def _continuous_turn(user_id: str, conversation: dict[str, Any], encoded_wav: str) -> None:
-    """One finished sentence: speech -> text -> normal chat reply -> spoken reply. Always releases the mic when done."""
-    st.session_state["continuous_turn_open"] = True
-    try:
-        text = transcribe_audio(base64.b64decode(encoded_wav), fast=True)
-    except VoiceError as exc:
-        st.session_state["voice_notice"] = str(exc)
-        st.rerun()
-    except ValueError:
-        st.session_state["voice_notice"] = "The recording could not be read. Please try again."
-        st.rerun()
-    if not text:
-        st.session_state["voice_notice"] = "I couldn't hear anything. Keep talking, or speak a little closer to the mic."
-        st.rerun()
+def _file_message(user_id: str, conversation: dict[str, Any], text: str, files: list[Any], speak: bool) -> None:
+    """Uploads: documents are read locally and images by Nemotron 3 Nano Omni, then the main model answers."""
     with st.chat_message("user", avatar="🙂"):
-        st.markdown(f"🎤 {text}")
-    _send_message(user_id, conversation, text, speak=True, voice=True)
-
-
-def _continuous_voice(user_id: str, conversation: dict[str, Any], active_id: str | None) -> None:
-    """Keep the hands-free mic running and route spoken replies to it."""
-    voice_reply = st.session_state.pop("voice_reply", None)
-    turn_open = st.session_state.pop("continuous_turn_open", False)
-    if voice_reply and voice_reply.get("conversation_id") == active_id:
-        _queue_continuous_reply(voice_reply["audio"])
-    elif turn_open:
-        _queue_continuous_reply(b"")
-    utterance = continuous_mic(
-        reply_id=int(st.session_state.get("continuous_reply_id", 0)),
-        reply_audio=str(st.session_state.get("continuous_reply_audio", "")),
-        key="continuous_mic",
-    )
-    st.session_state["continuous_reply_audio"] = ""
-    if utterance and utterance.get("id") != st.session_state.get("last_utterance_id"):
-        st.session_state["last_utterance_id"] = utterance.get("id")
-        _continuous_turn(user_id, conversation, str(utterance.get("audio", "")))
+        st.markdown(text or DEFAULT_QUESTION)
+        st.caption("Attached: " + ", ".join(str(getattr(item, "name", "file")) for item in files[:MAX_FILES]))
+    with st.spinner("Reading your file…"):
+        attachments, problems = process_uploads(files, text)
+    for problem in problems:
+        st.warning(problem)
+    if not attachments:
+        return
+    _send_message(user_id, conversation, text or DEFAULT_QUESTION, speak=speak, attachments=attachments)
 
 
 def render_chat(user_id: str) -> None:
@@ -599,19 +610,10 @@ def render_chat(user_id: str) -> None:
     notice = st.session_state.pop("voice_notice", None)
     if notice:
         st.warning(notice)
-    continuous = st.toggle(
-        "🎙️ Continuous voice chat",
-        key="continuous_voice",
-        on_change=_enable_speak_for_continuous,
-        help="Hands-free: the mic stays on, each sentence ends after 3 seconds of silence, and replies are spoken automatically.",
-    )
-    speak = st.toggle("🔊 Speak replies", key="speak_voice_replies", disabled=continuous) or continuous
-    if continuous:
-        _continuous_voice(user_id, conversation, active_id)
-    else:
-        voice_reply = st.session_state.pop("voice_reply", None)
-        if voice_reply and voice_reply.get("conversation_id") == active_id:
-            st.audio(voice_reply["audio"], format="audio/wav", autoplay=True)
+    speak = st.toggle("🔊 Speak replies", key="speak_voice_replies")
+    voice_reply = st.session_state.pop("voice_reply", None)
+    if voice_reply and voice_reply.get("conversation_id") == active_id:
+        st.audio(voice_reply["audio"], format="audio/wav", autoplay=True)
     pending_id = st.session_state.get("pending_message_id")
     pending_conversation = st.session_state.get("pending_conversation_id")
     if pending_id and pending_conversation == active_id:
@@ -628,12 +630,23 @@ def render_chat(user_id: str) -> None:
                 st.error("The message to retry could not be found.")
         return
 
-    entry = st.chat_input("Type a message or tap the mic…", max_chars=8_000, accept_audio=True, audio_sample_rate=16000)
+    entry = st.chat_input(
+        "Type a message, attach a file, or tap the mic…",
+        max_chars=8_000,
+        accept_file="multiple",
+        file_type=ACCEPTED_TYPES,
+        max_upload_size=MAX_FILE_MB,
+        accept_audio=True,
+        audio_sample_rate=16000,
+    )
     if entry is None:
         return
     audio = getattr(entry, "audio", None)
     text = str(getattr(entry, "text", "") or "").strip()
-    if audio is not None and not text:
+    files = list(getattr(entry, "files", None) or [])
+    if files:
+        _file_message(user_id, conversation, text, files, speak)
+    elif audio is not None and not text:
         _voice_message(user_id, conversation, audio, speak)
     elif text:
         _send_message(user_id, conversation, text, speak=speak)
