@@ -176,7 +176,7 @@ class RepositoryService:
         return ActiveRepository(
             name=name, path=path.resolve(), is_git=is_git, workspace=workspace, git=git, index=index,
             search=SearchService(workspace, index), context=ContextEngine(index, workspace, name),
-            terminal=TerminalService(path), github=github or {}, scratch=scratch,
+            terminal=TerminalService(path), github=github or {}, scratch=scratch and not is_git,
         )
 
     # ---------------------------------------------------------------- work without a repository

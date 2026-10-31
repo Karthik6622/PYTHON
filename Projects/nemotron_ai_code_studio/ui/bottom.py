@@ -14,7 +14,7 @@ from studio.services.terminal_hints import hint_for
 from studio.tools import devtools
 
 from .dialogs import ensure_folder
-from .state import CommandRun, S, attempt, location_label, log, open_file, reload_paths, repo
+from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
 
 PANEL_HEIGHT = 240
 POLL_SECONDS = 0.5
@@ -65,15 +65,10 @@ def _start(attr: str, command: str, kind: str = "", cwd: str = "", timeout: int 
 
 # ------------------------------------------------------------------ terminal
 def _prompt() -> str:
-    """The shell prompt, like a real terminal: PS <full folder path>> with forward slashes, e.g. PS c:/desktop/books/code>"""
+    """The full path the terminal process is actually running in, with forward slashes."""
     current = repo()
     if current is None:
         return "PS>"
-    link = st.session_state.get("_link")
-    if link is not None:  # hosted: the folder on the user's computer (the path typed once), not the server's copy
-        base = (location_label(current) or link.name).rstrip("/")
-        sub = f"/{S.term_cwd}" if S.term_cwd else ""
-        return f"PS {base}{sub}>"
     base = current.terminal.root
     path = base / S.term_cwd if S.term_cwd else base
     return f"PS {path.as_posix()}>"
@@ -97,8 +92,8 @@ def _terminal_html(live: CommandRun | None) -> str:
             body += escape(line) + "\n"
     if not S.terminal and live is None:
         if st.session_state.get("_link") is not None:
-            body = ("<span class='dim'>Browser-connected folder: commands run on the hosted copy. Browser security hides the "
-                "folder's absolute path on your computer. Type commands after the prompt; use quotes around file names with spaces.</span>\n")
+            body = ("<span class='dim'>Commands run in the hosted working copy; the prompt shows that copy's full path. "
+                "The browser does not disclose your computer's folder path. Use quotes around file names with spaces.</span>\n")
         else:
             body = ("<span class='dim'>RK Studio terminal. Type commands right after the prompt: git status, pip install &lt;package&gt;, "
                 "python script.py, python -m playwright install chromium. cd and cls work.</span>\n")

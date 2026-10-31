@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from html import escape
+
 import streamlit as st
 
 from studio.security import is_sensitive_path
@@ -84,7 +86,10 @@ def render_explorer() -> None:
             st.caption("Open a folder from your computer to start.")
         else:
             listed_note = f" {len(link.listed)} file(s) are listed but not copied." if link.listed else ""
-            st.caption(f"Connected to {link.name} on your computer.{listed_note} The browser does not expose its full path.")
+            st.caption(
+                f"Connected to {link.name} on your computer.{listed_note} "
+                "The full path below is the hosted working copy; browsers do not disclose the original local path."
+            )
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")
@@ -120,7 +125,11 @@ def render_explorer() -> None:
             st.button("Delete", key="delete_btn", on_click=_delete, args=(target,), disabled=not confirm, type="primary")
 
     crumbs = [location_label(current) or "root", *[p for p in S.cwd.split("/") if p]]
-    st.markdown(" / ".join(f"`{c}`" for c in crumbs))
+    full_path = "/".join(crumbs)
+    st.markdown(
+        f"<div class='explorer-path' title='{escape(full_path, quote=True)}'>{escape(full_path)}</div>",
+        unsafe_allow_html=True,
+    )
     if S.cwd and st.button("..", key="up", icon=":material/arrow_upward:", width="stretch"):
         S.cwd = S.cwd.rsplit("/", 1)[0] if "/" in S.cwd else ""
         st.rerun()

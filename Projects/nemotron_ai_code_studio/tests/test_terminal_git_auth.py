@@ -1,9 +1,11 @@
+import os
 import subprocess
 
 from git import Repo
 
 from studio.config import settings
 from studio.services import terminal_service
+from studio.services.git_service import auth_env
 from studio.services.terminal_hints import hint_for
 from studio.services.terminal_service import TerminalService, quote_python_script_path
 
@@ -43,19 +45,38 @@ def test_other_commands_never_get_the_token(monkeypatch, tmp_path):
         assert "GIT_CONFIG_KEY_1" not in _captured_env(monkeypatch, tmp_path, command), command
 
 
-def test_ssh_rewrite_is_hosted_only(monkeypatch):
-    from studio.services.git_service import auth_env
-
+def test_ssh_rewrite_uses_token_or_hosted_mode(monkeypatch):
     monkeypatch.setenv("STUDIO_HOSTED", "0")
     local = auth_env("ghp_exampletoken1234567890")
-    assert local["GIT_CONFIG_COUNT"] == "1"
-    assert local["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+    assert local["GIT_CONFIG_COUNT"] == "3"
+    assert local["GIT_CONFIG_VALUE_0"] == "git@github.com:"
+    assert local["GIT_CONFIG_VALUE_1"] == "ssh://git@github.com/"
+    assert local["GIT_CONFIG_KEY_2"] == "http.https://github.com/.extraheader"
 
     monkeypatch.setenv("STUDIO_HOSTED", "1")
     hosted = auth_env("ghp_exampletoken1234567890")
     assert hosted["GIT_CONFIG_COUNT"] == "3"
     assert hosted["GIT_CONFIG_VALUE_0"] == "git@github.com:"
     assert hosted["GIT_CONFIG_VALUE_1"] == "ssh://git@github.com/"
+
+    monkeypatch.setenv("STUDIO_HOSTED", "0")
+    without_token = auth_env("")
+    assert "GIT_CONFIG_COUNT" not in without_token
+
+
+def test_connected_token_rewrites_github_ssh_remote_to_https(monkeypatch, tmp_path):
+    monkeypatch.setenv("STUDIO_HOSTED", "0")
+    monkeypatch.setitem(settings._overrides, "github_token", "ghp_exampletoken1234567890")
+    local_repo = Repo.init(tmp_path)
+    local_repo.create_remote("origin", "git@github.com:owner/repo.git")
+    env = os.environ.copy()
+    env.update(auth_env())
+
+    result = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=tmp_path, env=env, capture_output=True, text=True, check=True,
+    )
+
+    assert result.stdout.strip() == "https://github.com/owner/repo.git"
 
 
 def test_git_login_hint():

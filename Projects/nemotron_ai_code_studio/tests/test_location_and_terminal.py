@@ -3,6 +3,7 @@ import sys
 import time
 
 import pytest
+from git import Repo
 
 from studio.config import settings
 from studio.services import folders, repository_service
@@ -159,6 +160,19 @@ def test_scratch_folder_works_without_a_repository(tmp_path):
     scratch.workspace.write_text("hello.py", "print('hi')")
     result = scratch.terminal.run("python hello.py")
     assert result.ok and "hi" in result.output
+
+
+def test_choose_working_folder_detects_a_local_git_repository(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    Repo.init(root, initial_branch="main")
+
+    opened = repository_service.RepositoryService().open_scratch(str(root))
+
+    assert opened.is_git
+    assert opened.git is not None
+    assert opened.git.current_branch() == "main"
+    assert opened.scratch is False
 
 
 def test_python_commands_get_an_environment_inside_the_folder(tmp_path):

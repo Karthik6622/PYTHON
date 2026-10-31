@@ -29,14 +29,15 @@ class GitError(Exception):
 
 
 def auth_env(token: str | None = None) -> dict[str, str]:
-    """Environment for non-interactive GitHub access, rewriting SSH only on hosted deployments.
+    """Environment for non-interactive GitHub access.
 
-    A browser-connected folder on a hosted server does not provide the visitor's SSH agent or known_hosts file. GitHub
-    SSH remotes can use the connected personal token over HTTPS there. Local desktop runs keep their normal SSH setup;
-    no SSH host-key checks are disabled and credentials stay out of the URL."""
+    Browser-connected folders do not provide the visitor's SSH agent or known_hosts file. When a token is available,
+    GitHub SSH remotes use that token over HTTPS; otherwise local desktop SSH keeps its normal host-key verification."""
     env = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
     config_index = 0
-    if is_hosted():
+    token = token if token is not None else settings.github_token
+    rewrite_ssh = is_hosted() or bool(token)
+    if rewrite_ssh:
         env.update({
             "GIT_CONFIG_KEY_0": "url.https://github.com/.insteadOf",
             "GIT_CONFIG_VALUE_0": "git@github.com:",
@@ -44,7 +45,6 @@ def auth_env(token: str | None = None) -> dict[str, str]:
             "GIT_CONFIG_VALUE_1": "ssh://git@github.com/",
         })
         config_index = 2
-    token = token if token is not None else settings.github_token
     if token:
         encoded = base64.b64encode(f"x-access-token:{token}".encode()).decode()
         env.update({

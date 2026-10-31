@@ -196,6 +196,7 @@ div.st-key-toolbar .crumb { overflow:hidden; text-overflow:ellipsis; white-space
 .crumb { font:500 12px var(--mono); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .crumb b { color:var(--text); font-weight:600; }
 .crumb em { font-style:normal; margin-left:10px; padding:2px 9px; border-radius:999px; font-size:10.5px; letter-spacing:.08em; color:var(--amber); border:1px solid rgba(251,191,36,.35); background:rgba(251,191,36,.08); }
+.explorer-path { max-height:72px; overflow:auto; overflow-wrap:anywhere; padding:4px 7px; border:1px solid var(--line); border-radius:8px; background:rgba(4,7,16,.55); color:#aab8df; font:10.5px/1.45 var(--mono); }
 /* The Ace iframe fills the editor area exactly; the inner editor height is 100vh of that frame. */
 div.st-key-editorarea iframe { height:calc(var(--main-h) - var(--bottom-h) - 98px) !important; min-height:140px; border:none; display:block; background:#000; }
 
