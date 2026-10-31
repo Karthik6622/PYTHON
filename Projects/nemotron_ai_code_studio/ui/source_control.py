@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+from studio.config import settings
+
 from .state import S, attempt, log, reload_paths, repo
 from .theme import section_title
 
@@ -59,6 +61,10 @@ def _undo_commit() -> None:
 def _remote(action: str) -> None:
     current = repo()
     ok, message = attempt(getattr(current.git, action))
+    if not ok:
+        if not settings.github_token and "github.com" in current.git.remote_url().lower():
+            st.session_state["_ask_github"] = True  # a fetch, pull or push to GitHub needs the account: ask now, and only now
+        return
     if ok:
         log(f"git {action}: {message}")
         st.toast(f"{action.capitalize()} complete", icon=":material/check:")

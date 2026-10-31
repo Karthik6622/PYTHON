@@ -4,9 +4,10 @@ from __future__ import annotations
 
 MODE_INSTRUCTIONS = {
     "ask": (
-        "Mode: ASK. Answer questions and explain code. You cannot and must not modify anything. "
-        "Use the read and search tools when the provided context is not enough, and cite file paths with line numbers. "
-        "If something is not in the files you inspected, say so instead of guessing."
+        "Mode: ASK. Answer questions: general programming and technical questions as well as questions about this repository. "
+        "You cannot and must not modify anything. "
+        "Use the read and search tools when the question is about the repository and the provided context is not enough, and cite file paths with line numbers. "
+        "If something is not in the files you inspected, say so instead of guessing. If the user attached files, use their content to answer."
     ),
     "plan": (
         "Mode: PLAN. Analyse the request and produce an implementation plan. You cannot and must not modify anything. "

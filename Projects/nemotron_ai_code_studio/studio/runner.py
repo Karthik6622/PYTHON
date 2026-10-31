@@ -51,9 +51,10 @@ class AgentRun:
 
     def __init__(
         self, agent: CodingAgent, broker: ApprovalBroker, conversations: ConversationStore, repo: ActiveRepository,
-        request: str, mode: str, conversation_id: str, model: str | None = None,
+        request: str, mode: str, conversation_id: str, model: str | None = None, attachments: str = "",
     ) -> None:
         self._agent, self._broker, self._conversations = agent, broker, conversations
+        self.attachments = attachments  # extracted text of uploaded files, sent to the model with this request only
         self.secrets = settings.current_session()  # the visitor's own keys, used by this run's thread only
         self.repo, self.request, self.mode, self.conversation_id, self.model = repo, request, mode, conversation_id, model
         self._events: list[dict[str, Any]] = []
@@ -105,6 +106,7 @@ class AgentRun:
         try:
             result = await self._agent.run(
                 self.repo, self.request, self.mode, self._conversations.history(self.conversation_id), self.emit, model=self.model,
+                attachments=self.attachments,
             )
             if result.message:
                 note = f"\n\n[Files modified: {', '.join(result.modified)}]" if result.modified else ""

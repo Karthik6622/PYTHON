@@ -55,6 +55,64 @@ def clone_repository(url: str, destination: Path, branch: str | None, token: str
         raise GitError(_explain(exc), 400) from exc
 
 
+_HEAD_REF = re.compile(r"^ref:\s*refs/heads/(\S+)\s*$", re.M)
+_ORIGIN_URL = re.compile(r'\[remote\s+"origin"\][^\[]*?\burl\s*=\s*(\S+)', re.S)
+_GITHUB_REMOTE = re.compile(r"^(?:https://(?:[^@/\s]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
+
+
+def parse_git_metadata(head: object, config: object) -> tuple[str, str]:
+    """(branch, GitHub https URL) from the text of a folder's .git/HEAD and .git/config; an empty string for what is not usable.
+
+    Only GitHub remotes are accepted, and any password or token written into the URL is dropped."""
+    branch = ""
+    match = _HEAD_REF.search(head) if isinstance(head, str) else None
+    if match and valid_branch_name(match.group(1)):
+        branch = match.group(1)
+    url = ""
+    found = _ORIGIN_URL.search(config) if isinstance(config, str) else None
+    if found:
+        remote = _GITHUB_REMOTE.match(found.group(1).strip())
+        if remote:
+            url = f"https://github.com/{remote.group(1)}/{remote.group(2)}.git"
+    return branch, url
+
+
+def adopt_local_repository(root: Path, branch: str, remote_url: str) -> dict[str, Any]:
+    """Make the server copy of a folder from the user's computer a Git repository that matches theirs.
+
+    The browser cannot send the whole .git folder, so this starts a fresh repository on the same branch with the same `origin`,
+    fetches that branch from GitHub when it is allowed to, and then points the index at it: the files then show as changed only
+    where they differ from GitHub, instead of everything being new.
+
+    Returns {"fetched": bool, "needs_login": bool}. A failed fetch is not an error: the repository is still usable."""
+    outcome = {"fetched": False, "needs_login": False}
+    name = branch if valid_branch_name(branch) else "main"
+    try:
+        repo = Repo(str(root)) if (root / ".git").exists() else Repo.init(str(root))
+        if not repo.head.is_valid():
+            repo.git.execute(["git", "symbolic-ref", "HEAD", f"refs/heads/{name}"])
+        if not remote_url:
+            return outcome
+        if "origin" in [remote.name for remote in repo.remotes]:
+            repo.git.execute(["git", "remote", "set-url", "origin", remote_url])
+        else:
+            repo.git.execute(["git", "remote", "add", "origin", remote_url])
+        with repo.git.custom_environment(**auth_env()):
+            repo.git.execute(["git", "-c", "gc.auto=0", "fetch", "--depth", "50", "origin", f"+refs/heads/{name}:refs/remotes/origin/{name}"])
+        outcome["fetched"] = True
+        if not repo.head.is_valid():  # a brand new repository: take the remote history, keep the user's files as they are
+            repo.git.execute(["git", "reset", "-q", "--mixed", f"origin/{name}"])
+        repo.git.execute(["git", "branch", "--set-upstream-to", f"origin/{name}", name])
+    except GitCommandError as exc:
+        text = " ".join(str(exc.stderr or exc).split()).lower()
+        outcome["needs_login"] = any(
+            phrase in text for phrase in ("could not read username", "terminal prompts disabled", "authentication failed", "repository not found", "returned error: 40")
+        )
+    except (OSError, InvalidGitRepositoryError, NoSuchPathError):
+        pass
+    return outcome
+
+
 class GitService:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()

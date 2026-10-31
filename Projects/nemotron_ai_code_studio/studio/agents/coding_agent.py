@@ -95,7 +95,7 @@ class CodingAgent:
         self.tester = TestingAgent()
         self.debugger = DebuggingAgent()
 
-    async def run(self, repo: ActiveRepository, request: str, mode: str, history: list[dict[str, str]], emit: Emit, model: str | None = None) -> RunResult:
+    async def run(self, repo: ActiveRepository, request: str, mode: str, history: list[dict[str, str]], emit: Emit, model: str | None = None, attachments: str = "") -> RunResult:
         mode = mode if mode in MODES else "ask"
         loop = asyncio.get_running_loop()
         change_id = repo.tracker.begin()
@@ -123,7 +123,10 @@ class CodingAgent:
             emit({"type": "context", "files": bundle.public(), "tokens": bundle.tokens})
 
             system = f"{SYSTEM_PROMPT}\n\n{self.planner.instructions(mode)}\n\n{bundle.to_prompt()}"
-            messages: list[dict[str, Any]] = [{"role": "system", "content": system}, *history, {"role": "user", "content": request}]
+            messages: list[dict[str, Any]] = [
+                {"role": "system", "content": system}, *history,
+                {"role": "user", "content": request + (f"\n\n{attachments}" if attachments else "")},
+            ]
             schemas = tool_schemas(mode)
             run_model = {"id": model, "tried": {model or settings.nvidia_model}}
             max_steps = self.planner.max_steps(mode, settings.agent_max_steps)

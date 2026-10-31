@@ -264,12 +264,12 @@ def github_dialog() -> None:
             st.rerun()
 
 
-def prompt_github_once() -> None:
-    """Open the Connect GitHub window the first time a window is used without a GitHub token."""
-    store = _store()
-    if settings.github_token or store.get("_gh_prompted"):
+def prompt_github_if_needed() -> None:
+    """Open the Connect GitHub window only when something asked for it (a private repository, a push or pull that needs a login).
+
+    Opening the app, or a folder that is not a GitHub repository, never opens it."""
+    if not st.session_state.pop("_ask_github", False) or settings.github_token:
         return
-    store["_gh_prompted"] = "1"
     github_dialog()
 
 

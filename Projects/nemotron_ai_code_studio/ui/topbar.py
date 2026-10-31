@@ -8,7 +8,7 @@ import streamlit as st
 
 from studio.config import settings
 
-from .dialogs import connect_dialog, github_dialog, github_user, prompt_github_once, settings_dialog
+from .dialogs import connect_dialog, github_dialog, github_user, prompt_github_if_needed, settings_dialog
 from .state import S, attempt, log, reload_paths, repo
 
 
@@ -64,4 +64,4 @@ def render_top_bar() -> None:
             opened = True
             settings_dialog()
         if not opened:
-            prompt_github_once()
+            prompt_github_if_needed()

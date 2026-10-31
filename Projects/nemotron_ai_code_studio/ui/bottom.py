@@ -112,6 +112,8 @@ def _terminal_finish(run: CommandRun) -> None:
     body = result.output if result is not None else run.error or run.output
     status = f"[{code}]\n" if code and code != "exit 0" else ""
     hint = hint_for(run.command, body or "", None if result is None else result.exit_code)
+    if "GitHub login cannot be typed" in hint and not settings.github_token:
+        st.session_state["_ask_github"] = True  # a git command in the terminal needs the account
     hint = "".join(f"hint: {line}\n" for line in hint.split("\n")) if hint else ""
     S.terminal = (S.terminal + f"{run.prompt} {run.command}\n{body.rstrip()}\n{status}{hint}\n")[-30000:]
     log(f"Command finished ({code or 'error'}): {run.command}")

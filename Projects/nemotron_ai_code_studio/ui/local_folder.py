@@ -13,6 +13,7 @@ import streamlit as st
 
 from studio.config import settings
 from studio.services import folders, local_sync
+from studio.services.git_service import adopt_local_repository, parse_git_metadata
 from studio.services.repository_service import RepositoryError
 
 from .state import log, open_workspace, repo, repositories, window_id
@@ -68,6 +69,21 @@ async function isEmpty(dir) {
   return true;
 }
 
+// The branch and remote of a Git repository live in two small text files; the server rebuilds the repository from them.
+async function readGit(dir) {
+  try {
+    const git = await dir.getDirectoryHandle(".git");
+    const found = {};
+    for (const name of ["HEAD", "config"]) {
+      try {
+        const file = await (await git.getFileHandle(name)).getFile();
+        if (file.size < 200000) found[name] = await file.text();
+      } catch (error) { /* missing file */ }
+    }
+    return found.HEAD ? { head: found.HEAD, config: found.config || "" } : null;
+  } catch (error) { return null; }
+}
+
 async function walk(dir, prefix, files, stats, cfg) {
   for await (const [name, entry] of dir.entries()) {
     if (files.length >= cfg.max_files || stats.bytes > cfg.max_total) { stats.truncated = true; return; }
@@ -99,10 +115,16 @@ async function openFolder(self) {
     say("Could not read the folder: " + (error.message || error));
     return;
   }
+  const git = await readGit(chosen);
   try { await remember(self.cfg.window, chosen); } catch (error) { /* the folder still works for this page */ }
   shared.handle = chosen;
   say("Sending " + files.length + " files ...");
-  self.api.setTriggerValue("opened", { name: chosen.name, files, skipped: stats.skipped, truncated: stats.truncated, nonce: Math.random() });
+  try {
+    self.api.setTriggerValue("opened", { name: chosen.name, files, git, skipped: stats.skipped, truncated: stats.truncated, nonce: Math.random() });
+  } catch (error) {
+    shared.handle = null;
+    say("The folder is too large to send. Open a smaller folder.");
+  }
 }
 
 async function reconnect(self) {
@@ -305,22 +327,42 @@ def _notify(text: str, icon: str = ":material/info:") -> None:
     st.session_state["_local_notice"] = (text, icon)
 
 
+def _adopt_git(destination, meta: object) -> str:
+    """When the folder on the user's computer is a Git repository, make the opened copy one too (same branch and remote).
+
+    Returns a short sentence for the notice. GitHub sign-in is only requested here when GitHub really needs it (a private remote)."""
+    if not isinstance(meta, dict):
+        return ""
+    branch, url = parse_git_metadata(meta.get("head"), meta.get("config"))
+    if not branch:
+        return ""
+    outcome = adopt_local_repository(destination, branch, url)
+    if outcome["needs_login"] and not settings.github_token:
+        st.session_state["_ask_github"] = True
+        return f" Git branch {branch}. Connect GitHub to see changes against the remote."
+    return f" Git branch {branch}."
+
+
 def _on_opened() -> None:
     event = _event(_KEY, "opened")
     name = local_sync.clean_name(event.get("name"))
     destination = (settings.workspace_path / "local" / window_id() / name).resolve()
     try:
         count = local_sync.import_files(destination, event.get("files"))
+        git_note = _adopt_git(destination, event.get("git"))
         folder = repositories.open_scratch(str(destination))
     except (local_sync.SyncError, RepositoryError) as exc:
         _notify(getattr(exc, "message", None) or str(exc), ":material/error:")
+        return
+    except Exception as exc:  # a callback that raises leaves the page stuck on "Sending files"; say what went wrong instead
+        _notify(f"Could not open {name}: {exc.__class__.__name__}. Try again, or open a smaller folder.", ":material/error:")
         return
     open_workspace(folder, local_sync.LocalLink(name, known=local_sync.snapshot(destination)))
     st.session_state["_reload_all"] = True
     extra = " Some large, binary or secret files were left out." if event.get("skipped") else ""
     if event.get("truncated"):
         extra += " The folder is large, so only part of it was opened."
-    _notify(f"Opened {name}: {count} files.{extra}", ":material/folder_open:")
+    _notify(f"Opened {name}: {count} files.{git_note}{extra}", ":material/folder_open:")
 
 
 def _on_relinked() -> None:

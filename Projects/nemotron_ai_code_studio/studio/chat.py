@@ -51,6 +51,7 @@ class ChangeSet:
 class ChatMessage:
     role: str  # user | assistant
     text: str = ""
+    files: list[str] = field(default_factory=list)  # names of the files the user attached to this message
     mode: str = "ask"
     model: str = ""
     id: str = field(default_factory=next_id)

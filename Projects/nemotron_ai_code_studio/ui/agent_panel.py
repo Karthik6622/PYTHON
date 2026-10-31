@@ -14,6 +14,7 @@ from studio.chat import ChangeSet, ChatMessage, TextBlock, ToolCall, add_notice,
 from studio.config import settings
 from studio.models import available_models, get_model
 from studio.runner import register_run, release_run
+from studio.services.attachments import ACCEPTED_TYPES, DEFAULT_QUESTION, MAX_FILE_MB, attachment_block, process_uploads
 
 from .dialogs import ensure_folder
 from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, repo, sync_after_change
@@ -22,12 +23,11 @@ POLL_SECONDS = 0.4
 SUGGESTIONS = [
     "Explain how this repository is structured",
     "Find likely bugs in this repository",
-    "Plan unit tests for the main modules",
+    "Explain the main modules and how they connect",
 ]
-MODES = ["ASK", "PLAN", "AGENT"]
+MODES = ["ASK", "AGENT"]
 MODE_HELP = {
-    "ASK": "Read-only answers about the repository.",
-    "PLAN": "Read-only implementation plan.",
+    "ASK": "Answers any question. Never changes your files.",
     "AGENT": "Edits files. You keep or revert every change.",
 }
 STATUS_LETTER = {"added": "A", "modified": "M", "deleted": "D"}
@@ -62,7 +62,7 @@ def _save_chat() -> None:
 
 
 # ------------------------------------------------------------------ run lifecycle
-def _start_run(prompt: str) -> None:
+def _start_run(prompt: str, attachments: list[dict[str, str]] | None = None) -> None:
     current = repo()
     if current is None:
         st.toast("Connect a repository first.", icon=":material/error:")
@@ -75,12 +75,15 @@ def _start_run(prompt: str) -> None:
         return
     current = repo()
     model = get_model(S.model)
-    user = ChatMessage(role="user", text=prompt[:8000], mode=mode)
+    user = ChatMessage(role="user", text=prompt[:8000], mode=mode, files=[item["name"] for item in attachments or []])
     answer = ChatMessage(role="assistant", mode=mode, model=model.label, streaming=True, status="Starting")
     S.messages = [*S.messages, user, answer]
     S.cursor = 0
     S.approvals = {}
-    run = AgentRun(coding_agent, broker, conversations, current, prompt[:8000], mode, S.conversation_id, model=model.id)
+    run = AgentRun(
+        coding_agent, broker, conversations, current, prompt[:8000], mode, S.conversation_id, model=model.id,
+        attachments=attachment_block(attachments),
+    )
     S.run = run
     register_run(run)
     run.start()
@@ -309,6 +312,8 @@ def _render_message(message: ChatMessage) -> None:
     if message.role == "user":
         with st.chat_message("user"):
             st.markdown(message.text)
+            if message.files:
+                st.caption("Attached: " + ", ".join(message.files))
         return
     with st.chat_message("assistant"):
         head = message.mode.upper() + (f"  |  {message.model}" if message.model else "")
@@ -384,8 +389,8 @@ def _transcript() -> None:
 
 def _intro() -> None:
     st.markdown(
-        "<div class='intro'><div class='orb'>RK</div><h4>Ask. Plan. Build.</h4>"
-        "<p>Ask about the repository, request a plan, or switch to AGENT to make changes. You review every edit before it stays.</p></div>"
+        "<div class='intro'><div class='orb'>RK</div><h4>Ask. Build.</h4>"
+        "<p>Ask any question, or switch to AGENT to make changes to your files. You review every edit before it stays.</p></div>"
         "<div class='suggest-title'>Try</div>",
         unsafe_allow_html=True,
     )
@@ -437,6 +442,8 @@ def render_agent_panel() -> None:
     labels = {m.id: m.label for m in models}
     if S.model not in ids:
         S.model = ids[0]
+    if S.mode not in MODES:  # the removed PLAN mode (or an empty choice) falls back to ASK
+        S.mode = "ASK"
 
     head, picker, clear = st.columns([3, 6, 1.3], vertical_alignment="center")
     head.markdown(f"<div class='agent-head'><span class='pulse{'' if key_ok else ' off'}'></span><b>RK AGENT</b></div>", unsafe_allow_html=True)
@@ -459,7 +466,23 @@ def render_agent_panel() -> None:
     if running:
         _run_input()
         return
-    prompt = st.chat_input("Message the agent", disabled=repo() is None, key="agent_input")
-    if prompt and prompt.strip():
-        _start_run(prompt.strip())
-        st.rerun()
+    prompt = st.chat_input(
+        "Message the agent", disabled=repo() is None, key="agent_input",
+        accept_file="multiple", file_type=ACCEPTED_TYPES, max_upload_size=MAX_FILE_MB,
+    )
+    if not prompt:
+        return
+    text = str(getattr(prompt, "text", prompt) or "").strip()
+    files = list(getattr(prompt, "files", None) or [])
+    if not text and not files:
+        return
+    attachments: list[dict[str, str]] = []
+    if files:
+        with st.spinner("Reading your files..."):
+            attachments, problems = process_uploads(files, text)
+        for problem in problems:
+            st.toast(problem, icon=":material/error:")
+        if not attachments:
+            return
+    _start_run(text or DEFAULT_QUESTION, attachments)
+    st.rerun()

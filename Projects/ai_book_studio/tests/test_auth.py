@@ -17,6 +17,16 @@ def make_account(email: str = EMAIL, password: str = PASSWORD) -> dict[str, str]
     return auth_service.create_account("Mara Reader", email, password, password)
 
 
+def test_mistyped_popular_domains_are_rejected() -> None:
+    for bad in ("sam@gamil.com", "sam@gmial.com", "sam@gmai.com", "sam@gmail.con", "sam@yaho.com", "sam@hotmial.com"):
+        with pytest.raises(AuthError, match="mistyped"):
+            auth_service.validate_email(bad)
+    for bad in ("sam@gmail", "sam@@gmail.com", "sam@.com", "sam gmail.com", "sam@gmail.c"):
+        with pytest.raises(AuthError):
+            auth_service.validate_email(bad)
+    assert auth_service.validate_email(" Sam@Gmail.com ") == "sam@gmail.com"
+
+
 def test_signup_then_login_round_trip() -> None:
     created = make_account()
     assert created["email"] == EMAIL

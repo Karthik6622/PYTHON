@@ -31,6 +31,20 @@ _EMAIL = re.compile(
 )
 
 
+# Frequent typos of popular mail providers, mapped to the address people meant. A pattern alone cannot catch "gamil.com".
+_DOMAIN_TYPOS = {
+    **{typo: "gmail.com" for typo in (
+        "gamil.com", "gmial.com", "gmai.com", "gmal.com", "gmail.co", "gmail.con", "gmail.cm", "gmail.om", "gmaill.com",
+        "gmali.com", "gnail.com", "gmil.com", "gmeil.com", "gmaol.com", "gmqil.com", "gmsil.com", "gmail.comm", "gmail.cim",
+        "gemail.com", "gimail.com", "gmail.net", "gmail.in", "googlemail.co",
+    )},
+    **{typo: "yahoo.com" for typo in ("yaho.com", "yahooo.com", "yahho.com", "yhoo.com", "yahoo.co", "yahoo.con", "yahoo.cm")},
+    **{typo: "outlook.com" for typo in ("outlok.com", "outloook.com", "outlook.co", "outlook.con", "oulook.com", "outllok.com")},
+    **{typo: "hotmail.com" for typo in ("hotmal.com", "hotmial.com", "hotmai.com", "hotmail.co", "hotmail.con", "hotnail.com")},
+    **{typo: "icloud.com" for typo in ("iclod.com", "icloud.co", "icloud.con", "iclould.com")},
+}
+
+
 class AuthError(ValueError):
     """A message that is safe to show to the person signing in."""
 
@@ -52,6 +66,9 @@ def validate_email(email: str) -> str:
     cleaned = normalize_email(email)
     if len(cleaned) > 254 or not _EMAIL.match(cleaned):
         raise AuthError("Enter a valid email address.")
+    meant = _DOMAIN_TYPOS.get(cleaned.rpartition("@")[2])
+    if meant:
+        raise AuthError(f"That email domain looks mistyped. Did you mean @{meant}?")
     return cleaned
 
 
