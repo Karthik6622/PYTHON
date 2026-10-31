@@ -7,8 +7,9 @@ from typing import Any
 from config import JSON_TOKENS
 from models.book_models import BookBible, BookPlan
 from prompts.bible_prompts import BIBLE_PROMPT
+from services.language_service import clean_structure
 from services.nvidia_client import LLMClient
-from utils.language_utils import language_rules
+from utils.language_utils import language_rules, uses_native_script
 from utils.retry_utils import ContentPolicyError, InvalidModelResponseError
 from utils.text_utils import compact_json, render_template
 
@@ -28,7 +29,10 @@ def generate_bible(llm: LLMClient, plan: BookPlan) -> BookBible:
         BIBLE_PROMPT, book_plan_json=compact_json(plan), language=plan.language, language_rules=language_rules(plan.language)
     )
     tokens = 6000 if plan.language == "English" else max(8000, 2 * JSON_TOKENS.get(plan.language, 3500))
-    return llm.generate_json(prompt, "bible", max_tokens=tokens, validator=_validate_bible)
+    bible: BookBible = llm.generate_json(prompt, "bible", max_tokens=tokens, validator=_validate_bible)
+    if uses_native_script(plan.language):
+        bible = BookBible.model_validate(clean_structure(llm, bible.model_dump(), plan.language))
+    return bible
 
 
 def bible_excerpt(bible: BookBible | None, limit: int = 3000) -> str:

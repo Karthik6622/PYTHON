@@ -8,8 +8,9 @@ from typing import Any
 from config import CONTENT_OPTIONS
 from models.book_models import BookInput, BookPlan
 from prompts.planning_prompts import PLANNING_PROMPT
+from services.language_service import clean_structure
 from services.nvidia_client import LLMClient
-from utils.language_utils import language_rules
+from utils.language_utils import language_rules, uses_native_script
 from utils.retry_utils import ContentPolicyError, PlanValidationError
 from utils.text_utils import PageBudget, compute_budget, render_template
 from utils.validation_utils import normalize_plan, validate_plan
@@ -80,6 +81,12 @@ def generate_plan(
     if on_step:
         on_step("checking")
 
+    if uses_native_script(book_input.language):
+        # Chapter titles, objectives and summaries feed every later prompt, so wrong-language words are repaired here.
+        skip = {"author", "book_type", "audience", "language", "writing_style", "visual_style", "image_concept"}
+        if book_input.preferred_title.strip():
+            skip.add("title")
+        plan = BookPlan.model_validate(clean_structure(llm, plan.model_dump(), book_input.language, frozenset(skip)))
     # The user's selections always win over whatever the model echoed back.
     plan.author = book_input.author_name.strip()
     plan.book_type = book_input.effective_book_type

@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import logging
+import re
+from typing import Any
 
 from prompts.language_prompts import LANGUAGE_FIX_PROMPT
 from services.nvidia_client import LLMClient
 from utils.language_utils import (
     NATIVE_SCRIPT_LANGUAGES,
     drop_latin_glosses,
-    has_leftover_english,
+    fault_count,
+    has_language_faults,
     is_code_block,
-    latin_words,
     sanitize_text,
     split_paragraphs,
+    strip_latin,
     uses_native_script,
 )
 from utils.retry_utils import AIBookError, NvidiaAuthError, NvidiaKeyMissingError
@@ -22,8 +25,9 @@ from utils.text_utils import chapter_max_tokens, render_template
 LOGGER = logging.getLogger("ai_book_studio.language")
 
 _GROUP_CHARS = 1800  # characters of faulty paragraphs rewritten per request
-_MAX_REQUESTS = 40  # per text, so a badly broken chapter cannot loop for long
+_MAX_REQUESTS = 60  # per text, so a badly broken chapter cannot loop for long
 _ROUNDS = 2
+_SENTENCE_END = re.compile(r"(?<=[.!?\u0964\u3002])\s+")
 
 
 def _groups(paragraphs: list[str], language: str) -> list[list[int]]:
@@ -32,7 +36,7 @@ def _groups(paragraphs: list[str], language: str) -> list[list[int]]:
     current: list[int] = []
     size = 0
     for index, paragraph in enumerate(paragraphs):
-        faulty = not is_code_block(paragraph) and has_leftover_english(paragraph, language)
+        faulty = not is_code_block(paragraph) and has_language_faults(paragraph, language)
         if not faulty:
             continue
         if current and (index != current[-1] + 1 or size + len(paragraph) > _GROUP_CHARS):
@@ -57,28 +61,51 @@ def _rewrite(llm: LLMClient, passage: str, language: str) -> str | None:
     except AIBookError as exc:
         LOGGER.warning("Language repair request failed: %s", type(exc).__name__)
         return None
-    fixed = sanitize_text(result.text, language)
-    # Accept the rewrite only when it is complete and really has less English than the original.
-    if len(fixed) < 0.5 * len(passage) or len(fixed) > 2.5 * len(passage) + 200:
+    raw = result.text.strip()
+    # Accept the rewrite only when it is complete and really has fewer wrong-language words than the original.
+    if len(raw) < 0.5 * len(passage) or len(raw) > 2.5 * len(passage) + 200:
         return None
-    if len(latin_words(fixed)) >= len(latin_words(passage)):
+    if fault_count(raw, language) >= fault_count(passage, language):
         return None
-    return fixed
+    return raw
+
+
+def _repair_sentences(llm: LLMClient, paragraphs: list[str], language: str, budget: int) -> int:
+    """Rewrite single faulty sentences (models handle a short passage better than a long one). Returns requests used."""
+    used = 0
+    for index, paragraph in enumerate(paragraphs):
+        if is_code_block(paragraph) or not has_language_faults(paragraph, language):
+            continue
+        parts = re.split(r"((?<=[.!?\u0964\u3002])\s+)", paragraph)  # sentences at even positions, separators at odd ones
+        changed = False
+        for position in range(0, len(parts), 2):
+            if not has_language_faults(parts[position], language):
+                continue
+            if used >= budget:
+                break
+            used += 1
+            fixed = _rewrite(llm, parts[position], language)
+            if fixed is not None:
+                parts[position] = " ".join(fixed.split())
+                changed = True
+        if changed:
+            paragraphs[index] = "".join(parts)
+    return used
 
 
 def ensure_language(llm: LLMClient, text: str, language: str) -> str:
     """Return ``text`` cleaned for ``language``.
 
-    Always removes junk symbols and characters of unrelated scripts. For Tamil, Hindi and Japanese, paragraphs that still
-    contain English words are rewritten by the model (at most twice), and leftover bracketed English notes are dropped.
+    For Tamil, Hindi and Japanese the wrong-language parts (English or romanised words, letters of other scripts) are
+    first rewritten by the model, paragraph by paragraph and then sentence by sentence. Anything the model could not
+    fix is removed at the end, and junk symbols and invisible characters are always cleaned.
     """
     language = language or "English"
-    cleaned = sanitize_text(text, language)
     if not uses_native_script(language):
-        return cleaned
+        return sanitize_text(text, language)
+    paragraphs = split_paragraphs(text)
     requests = 0
     for _ in range(_ROUNDS):
-        paragraphs = split_paragraphs(cleaned)
         groups = _groups(paragraphs, language)
         if not groups or requests >= _MAX_REQUESTS:
             break
@@ -91,7 +118,24 @@ def ensure_language(llm: LLMClient, text: str, language: str) -> str:
             if fixed is not None:
                 paragraphs[group[0] : group[-1] + 1] = split_paragraphs(fixed)
                 changed = True
-        cleaned = "\n\n".join(paragraphs)
         if not changed:
             break
-    return drop_latin_glosses(cleaned, language)
+    if any(has_language_faults(p, language) for p in paragraphs if not is_code_block(p)):
+        requests += _repair_sentences(llm, paragraphs, language, max(_MAX_REQUESTS - requests, 10))
+    cleaned = drop_latin_glosses(sanitize_text("\n\n".join(paragraphs), language), language)
+    final = [p if is_code_block(p) else strip_latin(p, language) for p in split_paragraphs(cleaned)]
+    result = "\n\n".join(final)
+    if result != cleaned:
+        LOGGER.warning("Removed %d leftover wrong-language word(s) that the model could not rewrite.", fault_count(cleaned, language))
+    return result
+
+
+def clean_structure(llm: LLMClient, data: Any, language: str, skip: frozenset[str] = frozenset()) -> Any:
+    """Apply ``ensure_language`` to every text inside nested dicts and lists (keys in ``skip`` are left unchanged)."""
+    if isinstance(data, str):
+        return ensure_language(llm, data, language) if data.strip() else data
+    if isinstance(data, list):
+        return [clean_structure(llm, item, language, skip) for item in data]
+    if isinstance(data, dict):
+        return {key: value if key in skip else clean_structure(llm, value, language, skip) for key, value in data.items()}
+    return data

@@ -9,8 +9,9 @@ from config import PASS_SCORE, json_tokens
 from models.book_models import BookProject, ChapterPlan, ChapterSummary, QualityReport
 from prompts.chapter_prompts import SUMMARY_PROMPT
 from prompts.review_prompts import RECHECK_BLOCK, REVIEW_PROMPT
+from services.language_service import ensure_language
 from services.nvidia_client import LLMClient
-from utils.language_utils import language_rules, sanitize_text, split_paragraphs
+from utils.language_utils import language_rules, split_paragraphs
 from utils.retry_utils import AIBookError, InvalidModelResponseError, NvidiaAuthError, NvidiaKeyMissingError
 from utils.text_utils import compact_json, format_previous_summaries, render_template
 
@@ -111,7 +112,7 @@ def summarize_chapter(llm: LLMClient, project: BookProject, chapter: ChapterPlan
         LOGGER.warning("Chapter %s summary was unreadable; using a summary taken from the text.", chapter.chapter_number)
         summary = _fallback_summary(chapter, content)
     for field in ("important_events_or_points", "character_changes", "new_locations", "new_terms", "unresolved_items", "continuity_notes_for_next_chapter"):
-        setattr(summary, field, [sanitize_text(item, plan.language) for item in getattr(summary, field)])
+        setattr(summary, field, [ensure_language(llm, item, plan.language) for item in getattr(summary, field)])
     summary.chapter_number = chapter.chapter_number
     summary.chapter_title = chapter.title
     return summary

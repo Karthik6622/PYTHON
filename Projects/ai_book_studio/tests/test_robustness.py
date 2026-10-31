@@ -15,7 +15,7 @@ from services.image_generator import PlaceholderImageGenerator
 from services.language_service import ensure_language
 from services.nvidia_client import ChatResult
 from utils.json_utils import extract_json_object, repair_truncated_json
-from utils.language_utils import has_leftover_english, sanitize_text
+from utils.language_utils import has_language_faults, has_leftover_english, sanitize_text
 from utils.retry_utils import InvalidModelResponseError, TransientAPIError
 
 TAMIL = "இது ஒரு நீண்ட தமிழ் வாக்கியம் ஆகும்."
@@ -68,6 +68,40 @@ def test_ensure_language_leaves_english_books_alone() -> None:
     llm = _LanguageLLM()
     assert ensure_language(llm, "Plain English text.", "English").strip() == "Plain English text."
     assert "language_fix" not in llm.calls
+
+
+def test_vietnamese_and_other_script_words_are_detected() -> None:
+    assert has_language_faults(f"{TAMIL} thiết lập", "Tamil")
+    assert has_language_faults(f"{TAMIL} अचानक", "Tamil")
+    assert has_language_faults(f"{TAMIL} \ufee1\ufee5", "Tamil")
+    assert not has_language_faults(TAMIL, "Tamil")
+
+
+def test_foreign_script_paragraph_is_rewritten_not_just_cut() -> None:
+    llm = _LanguageLLM()
+    result = ensure_language(llm, f"{TAMIL} அचानक {TAMIL}", "Tamil")
+    assert "language_fix" in llm.calls
+    assert "\u0905" not in result and result.strip() == f"{TAMIL} {TAMIL}"
+
+
+class _UselessFixLLM(_LanguageLLM):
+    def generate(self, prompt: str, preset: Any, max_tokens: int | None = None) -> ChatResult:
+        name = preset if isinstance(preset, str) else preset.name
+        if name == "language_fix":
+            self.calls.append(name)
+            return ChatResult(f"{TAMIL} still English words here, plus thiết lập")
+        return super().generate(prompt, preset, max_tokens)
+
+
+def test_leftover_words_are_removed_when_the_model_cannot_fix_them() -> None:
+    result = ensure_language(_UselessFixLLM(), f"{TAMIL} Chennai-\u0b87\u0bb2 subtle {TAMIL}", "Tamil")
+    assert not has_language_faults(result, "Tamil")
+    assert "\u0b87\u0bb2" in result  # the Tamil suffix is kept
+
+
+def test_urls_and_inline_code_survive_the_last_resort() -> None:
+    result = ensure_language(_UselessFixLLM(), f"{TAMIL} see https://example.com and `print(1)` also extra", "Tamil")
+    assert "https://example.com" in result and "`print(1)`" in result and "extra" not in result
 
 
 # ---------------------------------------------------------------- reviewer fallbacks

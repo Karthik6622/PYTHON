@@ -15,7 +15,10 @@ _TAMIL = "\u0B80-\u0BFF"
 _DEVANAGARI = "\u0900-\u097F"
 _JAPANESE = "\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3000-\u303F\uFF00-\uFFEF"
 _OTHER_INDIC = "\u0980-\u0B7F\u0C00-\u0DFF"  # Bengali, Gurmukhi, Gujarati, Odia, Telugu, Kannada, Malayalam, Sinhala
-_OTHER = "\u0400-\u04FF\u0590-\u06FF\u0750-\u077F\u0E00-\u0E7F\u1100-\u11FF\uAC00-\uD7AF"  # Cyrillic, Hebrew, Arabic, Thai, Hangul
+_OTHER = (
+    "\u0400-\u04FF\u0590-\u06FF\u0750-\u077F\u0E00-\u0E7F\u1100-\u11FF\uAC00-\uD7AF"
+    "\uFB1D-\uFDFF\uFE70-\uFEFE"  # Hebrew and Arabic presentation forms
+)  # Cyrillic, Hebrew, Arabic, Thai, Hangul
 
 _FOREIGN = {
     "Tamil": re.compile(f"[{_DEVANAGARI}{_OTHER_INDIC}{_JAPANESE}{_OTHER}]"),
@@ -24,9 +27,12 @@ _FOREIGN = {
 }
 _FOREIGN_LATIN_LANGUAGES = re.compile(f"[{_DEVANAGARI}{_TAMIL}{_OTHER_INDIC}{_JAPANESE}{_OTHER}]")
 
-_LATIN_WORD = re.compile(r"[A-Za-z\u00C0-\u024F]{2,}")
+_LATIN_CHARS = "A-Za-z\u00C0-\u024F\u1E00-\u1EFF"  # includes accented and Vietnamese letters
+_LATIN_WORD = re.compile(f"[{_LATIN_CHARS}]{{2,}}")
 _LATIN_LETTER = re.compile(r"[A-Za-z]")
 _URL = re.compile(r"https?://\S+|www\.\S+")
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
+_LATIN_TOKEN = re.compile(f"(?P<keep>https?://\\S+|www\\.\\S+|`[^`\\n]*`)|[-\u2010\u2011]?[{_LATIN_CHARS}]+(?:['\u2019\\-][{_LATIN_CHARS}]+)*")
 _PAREN_LATIN = re.compile(r"\s*[(（\[][^()（）\[\]\u0900-\u0DFF\u3040-\u9FFF]*[A-Za-z][^()（）\[\]\u0900-\u0DFF\u3040-\u9FFF]*[)）\]]")
 
 _KEEP_SYMBOLS = set("©®™°№§¶•·‣–—…‘’“”‹›«»¡¿₹€£¥¢±×÷≈≠≤≥%‰′″")
@@ -106,12 +112,44 @@ def sanitize_text(text: str, language: str = "English") -> str:
 
 def latin_words(text: str) -> list[str]:
     """Latin-alphabet words (2+ letters) outside URLs."""
-    return _LATIN_WORD.findall(_URL.sub(" ", text))
+    return _LATIN_WORD.findall(_INLINE_CODE.sub(" ", _URL.sub(" ", text)))
 
 
 def has_leftover_english(text: str, language: str) -> bool:
     """True when text in a non-Latin-script language still contains Latin-alphabet words."""
     return uses_native_script(language) and bool(latin_words(text))
+
+
+def foreign_chars(text: str, language: str) -> list[str]:
+    """Letters of scripts that do not belong to ``language`` (for example Hindi or Arabic letters inside Tamil text)."""
+    pattern = _FOREIGN.get(language)
+    return pattern.findall(text) if pattern else []
+
+
+def fault_count(text: str, language: str) -> int:
+    """Number of wrong-language words and characters in ``text``."""
+    if not uses_native_script(language):
+        return 0
+    return len(latin_words(text)) + len(foreign_chars(text, language))
+
+
+def has_language_faults(text: str, language: str) -> bool:
+    return fault_count(text, language) > 0
+
+
+def strip_latin(text: str, language: str) -> str:
+    """Last resort: delete Latin-alphabet words (URLs are kept) from text in a native-script language."""
+    if not uses_native_script(language):
+        return text
+
+    def _drop(match: re.Match[str]) -> str:
+        return match.group(0) if match.group("keep") else ""
+
+    out = _LATIN_TOKEN.sub(_drop, text)
+    out = re.sub(r"(^|\s)[-\u2010\u2011](?=[\u0900-\u0DFF\u3040-\u9FFF])", r"\1", out, flags=re.M)  # hyphen left in front of a suffix
+    out = re.sub(r"\(\s*\)|\[\s*\]", "", out)
+    out = re.sub(r"[ \t]+([,.;:!?])", r"\1", out)
+    return "\n".join(_SPACES.sub(" ", line).rstrip() for line in out.split("\n"))
 
 
 def latin_ratio(text: str, language: str) -> float:
