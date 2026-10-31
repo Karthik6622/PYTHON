@@ -22,6 +22,7 @@ _SECRET_NAME = re.compile(r"(?:token|secret|api[_-]?key|password|passwd|credenti
 # Only a single, plain git network command gets the GitHub token (never a chained command or a script that could read it).
 _GIT_NETWORK = re.compile(r"^\s*git\s+(?:push|pull|fetch|clone|ls-remote)\b[^;&|<>`$()\r\n]*$", re.I)
 MAX_OUTPUT_CHARS = 30_000
+RUNAWAY_OUTPUT_CHARS = 300_000
 VENV_NAME = ".venv"
 BROWSERS_NAME = ".playwright-browsers"
 # Commands that need the folder's own Python environment; others (git, ls, ...) never create one.
@@ -207,6 +208,7 @@ class TerminalService:
 
         pieces: list[str] = []
         total = 0
+        flooded = False
         if note:
             pieces.append(note)
             total += len(note)
@@ -214,7 +216,7 @@ class TerminalService:
                 on_output(note)
 
         def reader() -> None:
-            nonlocal total
+            nonlocal total, flooded
             assert process.stdout is not None
             decoder = __import__("codecs").getincrementaldecoder("utf-8")(errors="replace")
             while True:
@@ -227,6 +229,12 @@ class TerminalService:
                     total += len(text)
                     if on_output:
                         on_output(text)
+                    if total > RUNAWAY_OUTPUT_CHARS:
+                        # A program stuck in a loop (for example one that keeps asking for input that cannot arrive) would
+                        # otherwise fill memory and freeze the page.
+                        flooded = True
+                        _kill_tree(process)
+                        break
 
         thread = threading.Thread(target=reader, daemon=True)
         thread.start()
@@ -254,6 +262,8 @@ class TerminalService:
             output = output[:head] + "\n... [output truncated] ...\n" + output[-tail:]
         if timed_out:
             output += f"\n[Stopped: exceeded the {limit}s time limit]"
+        if flooded:
+            output += "\n[Stopped: the command printed too much output. A program that waits for typed input cannot get it here.]"
         if cancelled:
             output += "\n[Cancelled]"
         return CommandResult(command, process.returncode if not (timed_out or cancelled) else None, output, timed_out, cancelled, truncated, time.monotonic() - started)

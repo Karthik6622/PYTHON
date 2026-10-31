@@ -124,6 +124,7 @@ class CommandRun:
         self.secrets = settings.current_session()
         self.prompt = "PS>"  # shell prompt shown in the terminal history (set by the UI)
         self._chunks: list[str] = []
+        self._size = 0
         self._lock = threading.Lock()
         self._cancel = threading.Event()
         self.result: Any = None
@@ -144,6 +145,10 @@ class CommandRun:
     def _on_output(self, text: str) -> None:
         with self._lock:
             self._chunks.append(text)
+            self._size += len(text)
+            if self._size > 60_000:  # the screen only needs the latest part of a very long output
+                kept = "".join(self._chunks)[-30_000:]
+                self._chunks, self._size = [kept], len(kept)
 
     @property
     def output(self) -> str:
