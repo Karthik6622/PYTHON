@@ -410,15 +410,19 @@ div[class*="st-key-review_"] [data-testid="stCaptionContainer"] p { color:#9a9a9
 div.st-key-termbox { height:calc(var(--bottom-h) - 74px) !important; min-height:60px; overflow-y:auto; overflow-x:hidden; display:block !important; padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:#05080f; }
 div.st-key-termbox > [data-testid="stElementContainer"], div.st-key-termbox [data-testid="stMarkdownContainer"] { width:100%; }
 div.st-key-termbox [data-testid="stMarkdownContainer"] p { margin:0; }
-div.st-key-termbox [data-testid="stForm"] { position:relative; padding:0 !important; border:none !important; }
-div.st-key-termbox [data-testid="stForm"] > div > [data-testid="stVerticalBlock"], div.st-key-termbox [data-testid="stForm"] [data-testid="stVerticalBlock"] { display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:last baseline; gap:0 8px !important; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"] { width:auto !important; min-width:0; flex:0 1 auto; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) { flex:1 1 120px; min-width:120px; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdownContainer"] { font:12.5px/1.5 var(--mono); overflow-wrap:anywhere; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stFormSubmitButton"]) { position:absolute; width:1px !important; height:1px; overflow:hidden; opacity:0; pointer-events:none; flex:none; }
-div.st-key-termbox [data-testid="stTextInput"] { width:100%; }
+div.st-key-termbox [data-testid="stForm"] { position:relative; display:block; padding:0 !important; border:none !important; font:12.5px/1.5 var(--mono); }
+/* every Streamlit wrapper around the prompt and the input is removed from the layout, so both flow as one line of text and the input follows the last line of a wrapped prompt */
+div.st-key-termbox [data-testid="stForm"] [data-testid="stVerticalBlock"],
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:not(:has([data-testid="stFormSubmitButton"])),
+div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdown"], div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdown"] div,
+div.st-key-termbox [data-testid="stForm"] [data-testid="stTextInput"], div.st-key-termbox [data-testid="stForm"] [data-testid="stTextInput"] > div,
+div.st-key-termbox [data-testid="stTextInputRootElement"] { display:contents !important; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdownContainer"] p { display:inline !important; overflow-wrap:anywhere; }
+div.st-key-termbox [data-testid="stForm"] .termps { margin-right:.7ch; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stWidgetLabel"], div.st-key-termbox [data-testid="stTextInputRootElement"] > div { display:none !important; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stFormSubmitButton"]) { position:absolute; width:1px !important; height:1px; overflow:hidden; opacity:0; pointer-events:none; }
 div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="input"], div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="base-input"] { background:transparent !important; border:none !important; box-shadow:none !important; min-height:0 !important; }
-div.st-key-termbox [data-testid="stTextInput"] input { padding:0 !important; height:19px; min-height:0; font:12.5px/1.5 var(--mono) !important; color:#7dd3fc !important; caret-color:#d4d4d4; background:transparent !important; }
+div.st-key-termbox [data-testid="stTextInput"] input { display:inline-block; field-sizing:content; width:auto !important; min-width:10ch; max-width:100%; vertical-align:baseline; padding:0 !important; height:19px; min-height:0; font:12.5px/1.5 var(--mono) !important; color:#7dd3fc !important; caret-color:#d4d4d4; caret-shape:block; background:transparent !important; border:none !important; outline:none !important; box-shadow:none !important; }
 div.st-key-termbox [data-testid="stTextInput"] input::placeholder { color:var(--dim); opacity:.55; }
 div.st-key-termbox [data-testid="stTextInputRootElement"], div.st-key-termbox [data-testid="stTextInputRootElement"]:focus-within { border:none !important; box-shadow:none !important; outline:none !important; background:transparent !important; }
 div.st-key-termbox [data-testid="InputInstructions"] { display:none !important; }
