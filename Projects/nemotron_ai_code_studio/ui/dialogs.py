@@ -15,7 +15,7 @@ from studio.security import redact
 from studio.services import folders, github_auth, local_sync, secret_store
 from studio.services.github_service import GitHubService
 
-from .local_folder import available as browser_folders, picker_supported
+from .local_folder import available as browser_folders
 from .state import S, attempt, friendly_error, log, nvidia, open_workspace, repo, repositories, window_id, window_url
 
 
@@ -30,15 +30,13 @@ def ask_folder(initial: str, title: str) -> str | None:
 def ensure_folder() -> bool:
     """Before the first file is saved or command is run in a window with no folder, make the user choose one.
 
-    On the user's own computer that is the operating system's folder window; on a hosted deployment it is the Open folder
-    button of the Explorer. Returns False while there is no folder, so the caller must not create anything."""
+    On a hosted deployment the folder lives on the server (a cloned repository or the window's own workspace), so nothing is
+    asked. On the user's own computer a scratch folder is replaced by the one chosen in the operating system's folder window.
+    Returns False while there is no folder, so the caller must not create anything."""
     current = repo()
     if current is None:
         return True
     if browser_folders():
-        if st.session_state.get("_link") is None and picker_supported():
-            st.toast("Open a folder first: use Connect Local folder in the Explorer.", icon=":material/folder_open:")
-            return False
         return True
     if not current.scratch or st.session_state.get("_folder_chosen") or not folders.native_picker_available():
         return True
