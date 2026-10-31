@@ -17,6 +17,10 @@ from services.social_auth import (
     google_is_configured,
 )
 
+_VIEW = "auth_view"  # "login" or "reset"
+_RESET = "auth_reset_state"
+_NOTICE = "auth_notice"
+
 _GOOGLE_ICON = (
     "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'>"
     "<path fill='%234285F4' d='M17.64 9.2045c0-.638-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z'/>"
@@ -150,12 +154,32 @@ a.auth-oauth svg { flex: none; }
     + r""" center / contain no-repeat; }
 
 /* tabs read as a segmented switch inside the card */
-.st-key-auth_card .stTabs [data-baseweb="tab-list"] { border-bottom: none; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); gap: 4px; }
-.st-key-auth_card .stTabs [data-baseweb="tab"] { flex: 1; justify-content: center; border-radius: 10px; padding: 8px 10px; }
-.st-key-auth_card .stTabs [aria-selected="true"] { background: var(--grad); color: #1A0A02; }
-.st-key-auth_card .stTabs [aria-selected="true"] p { color: #1A0A02 !important; font-weight: 700; }
-.st-key-auth_card .stTabs [data-baseweb="tab-highlight"], .st-key-auth_card .stTabs [data-baseweb="tab-border"] { display: none; }
+.st-key-auth_card .stTabs [role="tablist"] {
+  display: flex !important; width: 100%; box-sizing: border-box; overflow: visible !important; gap: 6px !important; padding: 5px !important;
+  border-bottom: none !important; border-radius: 999px !important; background: rgba(255, 255, 255, .05); border: 1px solid var(--line);
+}
+.st-key-auth_card .stTabs [role="tab"] {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; height: auto !important; padding: 10px 14px !important;
+  border-radius: 999px !important; background: transparent; transition: background .2s ease, box-shadow .2s ease;
+}
+.st-key-auth_card .stTabs [role="tab"]:hover { background: rgba(255, 138, 43, .12); }
+.st-key-auth_card .stTabs [role="tab"][aria-selected="true"], .st-key-auth_card .stTabs [role="tab"][aria-selected="true"]:hover {
+  background: var(--grad) !important; box-shadow: 0 8px 22px -10px var(--glow);
+}
+.st-key-auth_card .stTabs [role="tab"][aria-selected="true"] p { color: #1A0A02 !important; font-weight: 700; }
+.st-key-auth_card .stTabs [role="tablist"] > :not([role="tab"]) { display: none !important; }
+.st-key-auth_card .stTabs [role="tabpanel"] { padding-top: 14px; }
 .st-key-auth_card [data-testid="stForm"] { padding: 0; }
+
+/* text-style buttons: forgot password, back to log in */
+.st-key-auth_forgot, .st-key-auth_back { display: flex; justify-content: center; }
+.st-key-auth_forgot button, .st-key-auth_back button {
+  background: transparent !important; border: none !important; box-shadow: none !important; min-height: 0; padding: 4px 10px; border-radius: 999px;
+}
+.st-key-auth_forgot button p, .st-key-auth_back button p { color: var(--amber) !important; font-size: .86rem; font-weight: 600; }
+.st-key-auth_forgot button:hover, .st-key-auth_back button:hover { background: rgba(255, 138, 43, .12) !important; }
+.auth-note { color: var(--muted); font-size: .92rem; margin: 6px 0 10px; }
+.auth-note b { color: var(--amber); font-weight: 600; }
 
 @media (max-width: 900px) { .auth-term { animation: none; } .st-key-auth_card { padding: 22px 18px 18px; } }
 @media (prefers-reduced-motion: reduce) { .auth-term, .st-key-auth_card, .auth-hero, .auth-stats span { animation: none !important; } .auth-term .row { opacity: 1; animation: none; } .auth-term .meter i { animation: none; width: var(--to); } }
@@ -211,7 +235,7 @@ def _social_buttons() -> None:
                 url = ""
             if url:
                 st.markdown(
-                    f'<a class="auth-oauth" href="{html.escape(url, quote=True)}" target="_self" rel="noopener">{_GITHUB_SVG}GitHub</a>',
+                    f'<a class="auth-oauth" href="{html.escape(url, quote=True)}" target="_top" rel="noopener">{_GITHUB_SVG}GitHub</a>',
                     unsafe_allow_html=True,
                 )
         else:
@@ -238,6 +262,61 @@ def _login_form() -> None:
             return
         sign_in(user, remember)
         st.rerun()
+    if st.button("Forgot password?", key="auth_forgot", type="tertiary"):
+        st.session_state[_VIEW] = "reset"
+        st.session_state.pop(_RESET, None)
+        st.rerun()
+
+
+def _reset_view() -> None:
+    """Forgot password: ask for the email, then (after the emailed code, when email is set up) choose a new password."""
+    state = st.session_state.get(_RESET)
+    if not state:
+        st.markdown('<div class="auth-note">Enter the email address on your account.</div>', unsafe_allow_html=True)
+        with st.form("auth_reset_email_form", border=False):
+            email = st.text_input("Email", key="auth_reset_email", autocomplete="email", placeholder="you@example.com")
+            submitted = st.form_submit_button("Continue", type="primary", width="stretch")
+        if submitted:
+            try:
+                st.session_state[_RESET] = auth_service.begin_password_reset(email)
+            except auth_service.AuthError as exc:
+                st.error(str(exc))
+                return
+            st.rerun()
+    else:
+        st.markdown(
+            f'<div class="auth-note">Choose a new password for <b>{html.escape(str(state["email"]))}</b>.'
+            + (" We emailed you a 6-digit code; it works for 15 minutes." if state["needs_code"] else "")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+        with st.form("auth_reset_password_form", border=False):
+            code = (
+                st.text_input("Code from your email", key="auth_reset_code", max_chars=6, autocomplete="one-time-code", placeholder="6 digits")
+                if state["needs_code"]
+                else ""
+            )
+            password = st.text_input("New password", type="password", key="auth_reset_password", autocomplete="new-password", placeholder="Create a strong password")
+            confirm = st.text_input("Confirm new password", type="password", key="auth_reset_confirm", autocomplete="new-password", placeholder="Type it once more")
+            submitted = st.form_submit_button("Update password", type="primary", width="stretch")
+        if submitted:
+            try:
+                auth_service.finish_password_reset(str(state["id"]), code, password, confirm, bool(state["needs_code"]))
+            except auth_service.AuthError as exc:
+                st.error(str(exc))
+                return
+            st.session_state[_NOTICE] = "Password updated. Log in with your new password."
+            _leave_reset()
+            st.rerun()
+    st.markdown('<div class="auth-fine">Signed up with Google or GitHub? You can keep using those buttons on the log in page.</div>', unsafe_allow_html=True)
+    if st.button("Back to log in", key="auth_back", type="tertiary"):
+        _leave_reset()
+        st.rerun()
+
+
+def _leave_reset() -> None:
+    st.session_state[_VIEW] = "login"
+    st.session_state.pop(_RESET, None)
 
 
 def _signup_form() -> None:
@@ -271,10 +350,17 @@ def render_auth_page() -> None:
         st.markdown(_HERO_HTML, unsafe_allow_html=True)
     with right:
         with st.container(key="auth_card"):
+            if st.session_state.get(_VIEW) == "reset":
+                st.markdown(_head("Reset your password", "We'll get you back into your studio."), unsafe_allow_html=True)
+                _reset_view()
+                return
             st.markdown(_head("Welcome to " + APP_NAME, "Log in or create an account to open your studio."), unsafe_allow_html=True)
             message = st.session_state.pop(ERROR_KEY, None)
             if message:
                 st.error(message)
+            notice = st.session_state.pop(_NOTICE, None)
+            if notice:
+                st.success(notice)
             _social_buttons()
             st.markdown('<div class="auth-or">or use your email</div>', unsafe_allow_html=True)
             login_tab, signup_tab = st.tabs(["Log in", "Create account"])

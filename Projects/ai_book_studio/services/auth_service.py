@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import logging
 import re
 import secrets
@@ -111,6 +112,52 @@ def authenticate(email: str, password: str) -> dict[str, str]:
         raise generic
     user_store.clear_failures(user["id"])
     return public_user(user)
+
+
+# ------------------------------------------------------------------ forgot password
+RESET_MINUTES = 15
+RESET_RESEND_SECONDS = 60
+RESET_MAX_TRIES = 5
+
+
+def begin_password_reset(email: str) -> dict[str, object]:
+    """Step 1: look the account up. When email is set up, a 6-digit code is sent and step 2 must present it."""
+    from services import mailer
+
+    email = validate_email(email)
+    user = user_store.find_by_email(email)
+    if user is None:
+        raise AuthError("We could not find an account with that email.")
+    if not user["password_hash"]:
+        raise AuthError("This account uses Google or GitHub. Use that button to log in.")
+    needs_code = mailer.is_configured()
+    if needs_code:
+        previous = user_store.get_reset(user["id"])
+        if previous and time.time() - float(previous["created_at"]) < RESET_RESEND_SECONDS:
+            raise AuthError("A code was just sent. Check your inbox, or wait a minute and try again.")
+        code = f"{secrets.randbelow(10**6):06d}"
+        user_store.save_reset(user["id"], _digest(code), RESET_MINUTES * 60)
+        if not mailer.send_reset_code(user["email"], code, RESET_MINUTES):
+            user_store.delete_reset(user["id"])
+            raise AuthError("We could not send the email right now. Please try again in a moment.")
+    return {"id": user["id"], "email": user["email"], "needs_code": needs_code}
+
+
+def finish_password_reset(user_id: str, code: str, password: str, confirm: str, needs_code: bool) -> None:
+    """Step 2: check the code (when one was sent), then store the new password and end every old session."""
+    validate_password(password)
+    if password != confirm:
+        raise AuthError("The two passwords do not match.")
+    if needs_code:
+        reset = user_store.get_reset(user_id)
+        bad = AuthError("That code is not right or has expired. Go back and ask for a new one.")
+        if not reset or float(reset["expires_at"]) < time.time() or int(reset["attempts"]) >= RESET_MAX_TRIES:
+            raise bad
+        if not hmac.compare_digest(reset["code_hash"], _digest(str(code or "").strip())):
+            user_store.bump_reset_attempts(user_id)
+            raise bad
+    user_store.set_password(user_id, _hash(password))
+    LOGGER.info("password reset id=%s", user_id)
 
 
 # ------------------------------------------------------------------ social accounts

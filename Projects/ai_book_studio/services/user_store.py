@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS resets (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -136,3 +143,36 @@ def user_for_session(token_hash: str) -> dict[str, Any] | None:
 def delete_session(token_hash: str) -> None:
     with closing(_connect()) as db, db:
         db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
+
+
+# ------------------------------------------------------------------ password reset
+def set_password(user_id: str, password_hash: str) -> None:
+    """Replace the password, lift any lock and sign the account out everywhere."""
+    with closing(_connect()) as db, db:
+        db.execute("UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = 0 WHERE id = ?", (password_hash, user_id))
+        db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM resets WHERE user_id = ?", (user_id,))
+
+
+def save_reset(user_id: str, code_hash: str, lifetime_seconds: int) -> None:
+    now = time.time()
+    with closing(_connect()) as db, db:
+        db.execute(
+            "INSERT OR REPLACE INTO resets (user_id, code_hash, created_at, expires_at, attempts) VALUES (?, ?, ?, ?, 0)",
+            (user_id, code_hash, now, now + lifetime_seconds),
+        )
+
+
+def get_reset(user_id: str) -> dict[str, Any] | None:
+    with closing(_connect()) as db:
+        return _row(db.execute("SELECT * FROM resets WHERE user_id = ?", (user_id,)).fetchone())
+
+
+def bump_reset_attempts(user_id: str) -> None:
+    with closing(_connect()) as db, db:
+        db.execute("UPDATE resets SET attempts = attempts + 1 WHERE user_id = ?", (user_id,))
+
+
+def delete_reset(user_id: str) -> None:
+    with closing(_connect()) as db, db:
+        db.execute("DELETE FROM resets WHERE user_id = ?", (user_id,))

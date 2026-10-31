@@ -137,6 +137,7 @@ The app opens on a Log in / Create account page. Each book belongs to an account
 - **Email and password** needs no setup. Passwords are hashed with bcrypt, repeated wrong attempts lock the account for 10 minutes, and the same message is shown for an unknown email and a wrong password.
 - **Stay signed in.** A random session token is stored in the `ab_session` cookie (30 days); only its SHA-256 digest is stored on the server. "Log out" ends it.
 - **Google and GitHub** buttons are enabled once the matching tables are in `.streamlit/secrets.toml` (see the example file for the exact keys, and keep them at the end of the file). Without them the buttons are shown disabled. Accounts with the same verified email are merged.
+- **Forgot password?** (under the log-in form) asks for the email, then lets the person choose a new password; the change also signs the account out of every other device. When `[smtp]` is set in `.streamlit/secrets.toml`, a 6-digit code (15 minutes, 5 tries) is emailed first and must be entered. Without `[smtp]` there is no way to prove who owns the email, so set it before a public launch.
 - Accounts live in `data/users.db` (gitignored). Books made before accounts existed in the same browser are moved to the account the first time that browser signs in.
 - Storage is local disk, so on hosts with an ephemeral file system (some free tiers) accounts and books are lost on redeploy; mount a persistent volume for `data/` and `projects/`.
 

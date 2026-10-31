@@ -134,3 +134,75 @@ def test_create_user_enforces_unique_email() -> None:
     user_store.create_user("same@example.com", "A")
     with pytest.raises(sqlite3.IntegrityError):
         user_store.create_user("same@example.com", "B")
+
+
+# ------------------------------------------------------------------ forgot password
+def test_reset_without_email_setup_sets_new_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services import mailer
+
+    monkeypatch.setattr(mailer, "is_configured", lambda: False)
+    user = make_account()
+    step = auth_service.begin_password_reset(EMAIL)
+    assert step["needs_code"] is False and step["id"] == user["id"]
+    token = auth_service.start_session(user["id"])
+    auth_service.finish_password_reset(user["id"], "", "Brand-new9", "Brand-new9", False)
+    assert auth_service.authenticate(EMAIL, "Brand-new9")["id"] == user["id"]
+    with pytest.raises(AuthError):
+        auth_service.authenticate(EMAIL, PASSWORD)
+    assert auth_service.user_for_session(token) is None  # old sessions end
+
+
+def test_reset_validates_new_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services import mailer
+
+    monkeypatch.setattr(mailer, "is_configured", lambda: False)
+    user = make_account()
+    with pytest.raises(AuthError):
+        auth_service.finish_password_reset(user["id"], "", "short", "short", False)
+    with pytest.raises(AuthError, match="do not match"):
+        auth_service.finish_password_reset(user["id"], "", "Brand-new9", "Brand-new8", False)
+    assert auth_service.authenticate(EMAIL, PASSWORD)["id"] == user["id"]
+
+
+def test_reset_rejects_unknown_and_social_only_accounts() -> None:
+    unknown, social = "nobody" + "@" + "example.com", "social" + "@" + "example.com"
+    with pytest.raises(AuthError, match="could not find"):
+        auth_service.begin_password_reset(unknown)
+    auth_service.social_sign_in("google", "g-9", social, "Social")
+    with pytest.raises(AuthError, match="Google or GitHub"):
+        auth_service.begin_password_reset(social)
+
+
+def test_reset_with_emailed_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services import mailer
+
+    sent: list[str] = []
+    monkeypatch.setattr(mailer, "is_configured", lambda: True)
+    monkeypatch.setattr(mailer, "send_reset_code", lambda to, code, minutes: sent.append(code) or True)
+    user = make_account()
+    step = auth_service.begin_password_reset(EMAIL)
+    assert step["needs_code"] is True and len(sent) == 1
+    with pytest.raises(AuthError, match="just sent"):
+        auth_service.begin_password_reset(EMAIL)
+    with pytest.raises(AuthError, match="not right"):
+        auth_service.finish_password_reset(user["id"], "000000" if sent[0] != "000000" else "111111", "Brand-new9", "Brand-new9", True)
+    auth_service.finish_password_reset(user["id"], sent[0], "Brand-new9", "Brand-new9", True)
+    assert auth_service.authenticate(EMAIL, "Brand-new9")["id"] == user["id"]
+    with pytest.raises(AuthError):  # a code works once
+        auth_service.finish_password_reset(user["id"], sent[0], "Other-pass7", "Other-pass7", True)
+
+
+def test_reset_code_is_locked_after_too_many_guesses(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services import mailer
+
+    sent: list[str] = []
+    monkeypatch.setattr(mailer, "is_configured", lambda: True)
+    monkeypatch.setattr(mailer, "send_reset_code", lambda to, code, minutes: sent.append(code) or True)
+    user = make_account()
+    auth_service.begin_password_reset(EMAIL)
+    wrong = "000000" if sent[0] != "000000" else "111111"
+    for _ in range(auth_service.RESET_MAX_TRIES):
+        with pytest.raises(AuthError):
+            auth_service.finish_password_reset(user["id"], wrong, "Brand-new9", "Brand-new9", True)
+    with pytest.raises(AuthError):
+        auth_service.finish_password_reset(user["id"], sent[0], "Brand-new9", "Brand-new9", True)
