@@ -96,7 +96,11 @@ def _terminal_html(live: CommandRun | None) -> str:
         else:
             body += escape(line) + "\n"
     if not S.terminal and live is None:
-        body = ("<span class='dim'>RK Studio terminal. Type commands right after the prompt: git status, pip install &lt;package&gt;, "
+        if st.session_state.get("_link") is not None:
+            body = ("<span class='dim'>Browser-connected folder: commands run on the hosted copy. Browser security hides the "
+                "folder's absolute path on your computer. Type commands after the prompt; use quotes around file names with spaces.</span>\n")
+        else:
+            body = ("<span class='dim'>RK Studio terminal. Type commands right after the prompt: git status, pip install &lt;package&gt;, "
                 "python script.py, python -m playwright install chromium. cd and cls work.</span>\n")
     return f"<div class='term'><pre>{body}</pre></div>"
 

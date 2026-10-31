@@ -28,6 +28,11 @@ def test_parse_git_metadata_drops_credentials_and_foreign_remotes():
     assert parse_git_metadata(None, None) == ("", "")
 
 
+def test_parse_git_metadata_recovers_detached_checkout_branch_from_config():
+    config = '[branch "feature/fix"]\n\tremote = origin\n'
+    assert parse_git_metadata("a1b2c3 (detached)\n", config)[0] == "feature/fix"
+
+
 def _commit_all(root: Path, message: str) -> None:
     repo = Repo(str(root))
     repo.git.add("-A")

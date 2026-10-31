@@ -434,12 +434,16 @@ def _adopt_git(destination, meta: object) -> str:
     if not isinstance(meta, dict):
         return " No .git folder was found in this folder, so Git features are off."
     branch, url = parse_git_metadata(meta.get("head"), meta.get("config"))
-    if not branch:
-        return " The Git branch could not be read (HEAD does not name a branch), so Git features are off."
+    # A detached HEAD is still a real repository. Keep Git/source control available even if the browser
+    # metadata cannot identify its checked-out branch; use the conventional local branch as a safe fallback.
+    branch_known = bool(branch)
+    branch = branch or "main"
     outcome = adopt_local_repository(destination, branch, url)
     if outcome["needs_login"] and not settings.github_token:
         st.session_state["_ask_github"] = True
-        return f" Git branch {branch}. Connect GitHub to see changes against the remote."
+        return f" Git branch {branch}. Connect GitHub to access the remote."
+    if not branch_known:
+        return f" Git repository detected; branch name unavailable, so the hosted copy uses {branch}."
     return f" Git branch {branch}."
 
 

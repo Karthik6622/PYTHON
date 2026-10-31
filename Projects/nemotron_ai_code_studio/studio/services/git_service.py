@@ -72,6 +72,7 @@ def clone_repository(url: str, destination: Path, branch: str | None, token: str
 
 _HEAD_REF = re.compile(r"^ref:\s*refs/heads/(\S+)\s*$", re.M)
 _ORIGIN_URL = re.compile(r'\[remote\s+"origin"\][^\[]*?\burl\s*=\s*(\S+)', re.S)
+_BRANCH_SECTION = re.compile(r'^\[branch\s+"([^"\r\n]+)"\]', re.M)
 _GITHUB_REMOTE = re.compile(r"^(?:https://(?:[^@/\s]+@)?github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
 
 
@@ -83,6 +84,10 @@ def parse_git_metadata(head: object, config: object) -> tuple[str, str]:
     match = _HEAD_REF.search(head) if isinstance(head, str) else None
     if match and valid_branch_name(match.group(1)):
         branch = match.group(1)
+    if not branch and isinstance(config, str):  # detached HEADs often still have a branch's tracking config
+        configured = _BRANCH_SECTION.search(config)
+        if configured and valid_branch_name(configured.group(1)):
+            branch = configured.group(1)
     url = ""
     found = _ORIGIN_URL.search(config) if isinstance(config, str) else None
     if found:

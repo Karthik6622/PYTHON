@@ -26,6 +26,7 @@ VENV_NAME = ".venv"
 BROWSERS_NAME = ".playwright-browsers"
 # Commands that need the folder's own Python environment; others (git, ls, ...) never create one.
 _NEEDS_ENV = re.compile(r"(?:^|[\s;&|(])(?:pip3?|python3?|py|playwright|pytest|uvicorn|streamlit|jupyter|ipython)(?=$|[\s;&|)])", re.I)
+_PLAIN_PYTHON = re.compile(r"^(\s*(?:python(?:\d+(?:\.\d+)*)?|py)(?:\.exe)?\s+)(.+?)\s*$", re.I)
 
 
 @dataclass
@@ -115,6 +116,27 @@ def python_command() -> str:
     return f'"{exe}"'
 
 
+def quote_python_script_path(command: str, cwd: Path, root: Path) -> str:
+    """Quote an existing Python script filename with spaces when the command is unambiguous.
+
+    For example, `python test calculator.py` is treated as one script path only when that exact file exists and `test`
+    does not. Shell syntax, explicit quoting and commands with further arguments are left untouched.
+    """
+    match = _PLAIN_PYTHON.fullmatch(command)
+    if not match:
+        return command
+    prefix, script = match.groups()
+    if " " not in script or any(char in script for char in "\r\n\"';&|<>`$"):
+        return command
+    candidate = (cwd / script).resolve()
+    first_candidate = (cwd / script.split(None, 1)[0]).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return command
+    return f'{prefix}"{script}"' if candidate.is_file() and not first_candidate.exists() else command
+
+
 def _kill_tree(process: subprocess.Popen) -> None:
     try:
         if os.name == "nt":
@@ -151,6 +173,7 @@ class TerminalService:
     ) -> CommandResult:
         """Blocking. Call from a worker thread. on_output receives redacted text as it arrives."""
         cwd = self.resolve_cwd(cwd_relative)
+        command = quote_python_script_path(command, cwd, self.root)
         limit = timeout or settings.command_timeout_seconds
         shell = settings.terminal_shell
         note = ensure_environment(self.root, command)

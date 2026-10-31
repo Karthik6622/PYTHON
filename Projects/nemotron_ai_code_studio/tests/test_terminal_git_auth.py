@@ -5,7 +5,7 @@ from git import Repo
 from studio.config import settings
 from studio.services import terminal_service
 from studio.services.terminal_hints import hint_for
-from studio.services.terminal_service import TerminalService
+from studio.services.terminal_service import TerminalService, quote_python_script_path
 
 
 def _captured_env(monkeypatch, tmp_path, command):
@@ -67,3 +67,16 @@ def test_git_login_hint():
 def test_ssh_host_key_hint_recommends_token_without_disabling_verification():
     hint = hint_for("git pull", "Host key verification failed. fatal: Could not read from remote repository.", 128)
     assert "Connect GitHub" in hint and "known_hosts" in hint and "not disabled" in hint
+
+
+def test_python_command_quotes_an_existing_script_path_with_spaces(tmp_path):
+    script = tmp_path / "test calculator.py"
+    script.write_text("print('ok')", encoding="utf-8")
+    assert quote_python_script_path("python test calculator.py", tmp_path, tmp_path) == 'python "test calculator.py"'
+    assert quote_python_script_path("python test calculator.py --verbose", tmp_path, tmp_path) == "python test calculator.py --verbose"
+
+
+def test_python_command_does_not_quote_ambiguous_or_shell_syntax(tmp_path):
+    (tmp_path / "test").write_text("", encoding="utf-8")
+    assert quote_python_script_path("python test calculator.py", tmp_path, tmp_path) == "python test calculator.py"
+    assert quote_python_script_path("python test calculator.py && echo done", tmp_path, tmp_path) == "python test calculator.py && echo done"
