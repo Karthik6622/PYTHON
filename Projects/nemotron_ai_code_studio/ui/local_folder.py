@@ -379,14 +379,14 @@ export default function (component) {
 """
 
 _CSS = """
-.rk { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font:12.5px/1.2 "Segoe UI", system-ui, sans-serif; color:#dde6ff; min-height:36px; }
-button { cursor:pointer; border:1px solid rgba(139,92,246,.55); background:rgba(139,92,246,.12); color:#dde6ff; border-radius:999px;
+.rk { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font:12.5px/1.2 "Segoe UI", system-ui, sans-serif; color:#dcfff0; min-height:36px; }
+button { cursor:pointer; border:1px solid rgba(15,191,107,.55); background:rgba(15,191,107,.12); color:#dcfff0; border-radius:999px;
   padding:6px 14px; font:inherit; font-weight:600; white-space:nowrap; transition:background .15s, box-shadow .15s; }
-button:hover { background:rgba(139,92,246,.3); box-shadow:0 0 12px rgba(139,92,246,.45); }
-button.primary { background:linear-gradient(90deg,#22d3ee,#8b5cf6); border-color:transparent; color:#06101f; }
+button:hover { background:rgba(15,191,107,.3); box-shadow:0 0 12px rgba(15,191,107,.45); }
+button.primary { background:linear-gradient(90deg,#2bff9a,#0fbf6b); border-color:transparent; color:#021a0e; }
 .live { display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px; border:1px solid rgba(52,211,153,.5); background:rgba(52,211,153,.1); color:#34d399; font-weight:600; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
 .live::before { content:""; width:7px; height:7px; border-radius:50%; background:#34d399; box-shadow:0 0 8px #34d399; flex:none; }
-.note { color:#7886ad; }
+.note { color:#6fa08a; }
 """
 
 _component = None

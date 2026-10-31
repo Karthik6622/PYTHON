@@ -15,7 +15,7 @@ from studio.security import redact
 from studio.services import folders, github_auth, local_sync, secret_store
 from studio.services.github_service import GitHubService
 
-from .local_folder import available as browser_folders, picker_supported, render_clone_button
+from .local_folder import available as browser_folders, picker_supported
 from .state import S, attempt, friendly_error, log, nvidia, open_workspace, repo, repositories, window_id, window_url
 
 
@@ -114,14 +114,6 @@ def _clone(name: str, branch: str, root: Path | None, target: str, link: str = "
     st.rerun(scope="fragment")
 
 
-def _clone_hosted(job: dict, target: str) -> None:
-    repository, branch = job.get("repo"), job.get("branch")
-    if not isinstance(repository, str) or len(repository.strip()) < 3:
-        st.warning("Enter the repository as owner/repo or paste its GitHub link.")
-        return
-    _clone(repository, branch if isinstance(branch, str) else "", settings.workspace_path / "local" / target, target, local_sync.clean_name(job.get("name")))
-
-
 @st.dialog("Connect a repository", width="large")
 def connect_dialog() -> None:
     done = st.session_state.get("cloned")
@@ -134,45 +126,24 @@ def connect_dialog() -> None:
         st.link_button("Open in new window", done["url"], type="primary", icon=":material/open_in_new:")
         return
 
-    if browser_folders():
-        target = st.session_state.setdefault("_clone_wid", secrets.token_urlsafe(6) if _occupied() else window_id())
-        job = st.session_state.pop("_clone_job", None)
-        left, right = st.columns([3, 2])
-        name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
-        branch = right.text_input("Branch (optional)", placeholder="default branch")
-        if not settings.github_token:
-            st.caption("GitHub is not connected. Public repositories work without it; for private ones use the Connect GitHub button in the top bar.")
-        st.caption(
-            "Clone and open asks which folder on your computer should hold the repository. "
-            + ("The folders and files you have open here are kept: it opens in a new window." if target != window_id() else "It opens in this window.")
-        )
-        render_clone_button(target, st.session_state.setdefault("_clone_open", secrets.token_urlsafe(4)))
-        if not picker_supported():
-            if st.button("Clone on the server only", icon=":material/cloud_download:"):
-                job = {"repo": name, "branch": branch, "name": ""}
-        if job:
-            _clone_hosted(job, target)
-        return
-
+    target = st.session_state.setdefault("_clone_wid", secrets.token_urlsafe(6) if _occupied() else window_id())
     with st.form("connect_form", border=False):
         left, right = st.columns([3, 2])
         name = left.text_input("Repository", placeholder="owner/repo or https://github.com/owner/repo")
         branch = right.text_input("Branch (optional)", placeholder="default branch")
         if not settings.github_token:
             st.caption("GitHub is not connected. Public repositories work without it; for private ones use the Connect GitHub button in the top bar.")
-        st.caption("Clone and open asks which folder should hold the repository. The terminal works in that same folder.")
+        st.caption(
+            "The repository is cloned for you and opens in the IDE. "
+            + ("The folders and files you have open here are kept: it opens in a new window." if target != window_id() else "It opens in this window.")
+        )
         submitted = st.form_submit_button("Clone and open", type="primary", icon=":material/cloud_download:")
 
     if submitted:
         if len(name.strip()) < 3:
             st.warning("Enter the repository as owner/repo or paste its GitHub link.")
         else:
-            last = str(settings.workspace_path) if repositories.location_chosen else ""
-            chosen = ask_folder(last, "Choose the folder where the repository will be saved")
-            if chosen:
-                ok, root = attempt(repositories.choose_location, chosen)
-                if ok:
-                    _clone(name, branch, root, secrets.token_urlsafe(6) if _occupied() else window_id())
+            _clone(name, branch, settings.workspace_path / "local" / target, target)
 
 
 def _store() -> dict[str, str]:
@@ -181,12 +152,14 @@ def _store() -> dict[str, str]:
 
 def github_user() -> str:
     """Login of the GitHub account connected in this window (empty when unknown)."""
-    return _store().get("github_user", "") if settings.github_token else ""
+    store = _store()  # first: it ties this thread to the window's own keys (fragments and callbacks run in threads of their own)
+    return store.get("github_user", "") if settings.github_token else ""
 
 
 def github_status() -> str:
     """'connected' only after GitHub accepted the token; 'failed' after it refused one; otherwise 'disconnected'."""
-    if settings.github_token and github_user():
+    user = github_user()
+    if settings.github_token and user:
         return "connected"
     return "failed" if st.session_state.get("_gh_error") else "disconnected"
 
@@ -244,7 +217,10 @@ def sync_github() -> None:
                 store["github_user"] = str(GitHubService(token).validate_token().get("login") or "")
             except Exception as exc:  # expired, revoked or offline: the repository stays usable, the indicator says why
                 _remember_failure(exc, token)
-                store.pop("github_token", None)  # the saved copy stays; it is tried again the next time a folder is opened
+                if getattr(exc, "status", 0) in {401, 403}:
+                    store.pop("github_token", None)  # GitHub refused it; the saved copy is tried again the next time a folder is opened
+                else:
+                    return  # a timeout or no network says nothing about the token: keep it, and do not ask the user to reconnect
     if github_status() != "connected":
         st.session_state["_ask_github"] = True
 

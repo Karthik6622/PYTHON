@@ -452,6 +452,7 @@ def render_agent_panel() -> None:
         S.model = ids[0]
     if S.mode not in MODES:  # the removed PLAN mode (or an empty choice) falls back to ASK
         S.mode = "ASK"
+    st.session_state["_keep_mode"], st.session_state["_keep_model"] = S.mode, S.model  # survive the run, when the pickers are not drawn
 
     first_prompt = next((m.text.strip().splitlines()[0] for m in S.messages if m.role == "user" and m.text.strip()), "")
     title = first_prompt[:48] + ("…" if len(first_prompt) > 48 else "")

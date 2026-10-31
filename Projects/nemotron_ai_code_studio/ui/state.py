@@ -169,8 +169,8 @@ def init_state() -> None:
         "approvals": {},       # pending approval requests by id
         "run": None,           # AgentRun in progress
         "cursor": 0,           # how many events of the current run were applied
-        "mode": "ASK",
-        "model": default_model_id(),
+        "mode": st.session_state.get("_keep_mode", "ASK"),   # Streamlit forgets a picker's value while it is not drawn (during a run)
+        "model": st.session_state.get("_keep_model") or default_model_id(),
         "conversation_id": wid,
         "output_log": [],
         "terminal": "",
