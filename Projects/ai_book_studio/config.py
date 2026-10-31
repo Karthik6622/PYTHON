@@ -53,7 +53,26 @@ PRESETS: dict[str, SamplingPreset] = {
     "review": SamplingPreset("review", 0.2, 0.8, 2500),
     "summary": SamplingPreset("summary", 0.2, 0.8, 2500),
     "image_prompt": SamplingPreset("image_prompt", 0.5, 0.9, 1200),
+    "language_fix": SamplingPreset("language_fix", 0.3, 0.85, 0),
 }
+
+NATIVE_SCRIPT_LANGUAGES = ("Tamil", "Hindi", "Japanese")
+
+# Output-token limits for JSON replies (editor report, continuity summary). Non-English text needs far more tokens.
+JSON_TOKENS = {"English": 2500, "Spanish": 3200, "French": 3200, "German": 3500, "Japanese": 6000, "Hindi": 8000, "Tamil": 10000}
+
+
+def preset_for(name: str, language: str) -> SamplingPreset:
+    """Sampling preset for ``name``; scripts the model handles less well get lower randomness to avoid garbled text."""
+    base = PRESETS[name]
+    if language in NATIVE_SCRIPT_LANGUAGES and name in {"chapter", "revision", "front_matter"}:
+        return SamplingPreset(base.name, min(base.temperature, 0.45), 0.85, base.max_tokens)
+    return base
+
+
+def json_tokens(language: str) -> int:
+    """Token limit for JSON replies in the given book language."""
+    return JSON_TOKENS.get(language, 3500)
 
 # --------------------------------------------------------------------------------------
 # Quality and retry rules
@@ -62,6 +81,9 @@ PASS_SCORE = 80
 MAX_REVISIONS = 2
 MAX_API_RETRIES = 3
 RETRY_DELAYS = (2.0, 5.0, 10.0)
+# Requests that must return JSON get more attempts (each one with a larger token limit).
+JSON_RETRIES = 5
+JSON_RETRY_DELAYS = (1.0, 2.0, 4.0, 6.0, 8.0)
 
 # --------------------------------------------------------------------------------------
 # UI option lists

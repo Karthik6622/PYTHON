@@ -21,7 +21,16 @@ from openai import (
 )
 from pydantic import ValidationError
 
-from config import MAX_OUTPUT_TOKENS, MIN_OUTPUT_TOKENS, PRESETS, NvidiaSettings, SamplingPreset, get_nvidia_settings
+from config import (
+    JSON_RETRIES,
+    JSON_RETRY_DELAYS,
+    MAX_OUTPUT_TOKENS,
+    MIN_OUTPUT_TOKENS,
+    PRESETS,
+    NvidiaSettings,
+    SamplingPreset,
+    get_nvidia_settings,
+)
 from prompts import SYSTEM_PROMPT
 from utils.json_utils import extract_json_object
 from utils.retry_utils import (
@@ -111,10 +120,19 @@ class NvidiaClient:
         """Request JSON, parse it and optionally validate it; invalid JSON is retried with backoff."""
         sampling = PRESETS[preset] if isinstance(preset, str) else preset
         limit = self._token_limit(max_tokens or sampling.max_tokens)
+        state = {"limit": limit, "attempt": 0}
 
         def attempt() -> Any:
-            result = self._request(prompt, sampling, limit)
-            data = extract_json_object(result.text)
+            state["attempt"] += 1
+            result = self._request(prompt, sampling, state["limit"])
+            if result.truncated:
+                # The reply hit the token limit (common with non-English text): give the next attempt more room.
+                state["limit"] = self._token_limit(int(state["limit"] * 1.6))
+            try:
+                data = extract_json_object(result.text)
+            except InvalidModelResponseError:
+                state["limit"] = self._token_limit(int(state["limit"] * 1.3))
+                raise
             if not validator:
                 return data
             try:
@@ -125,7 +143,12 @@ class NvidiaClient:
                     "The model returned JSON that does not match the expected structure."
                 ) from exc
 
-        return call_with_retries(attempt, retryable=(TransientAPIError, InvalidModelResponseError))
+        return call_with_retries(
+            attempt,
+            retryable=(TransientAPIError, InvalidModelResponseError),
+            max_retries=JSON_RETRIES,
+            delays=JSON_RETRY_DELAYS,
+        )
 
     # ------------------------------------------------------------------ internals
     @staticmethod

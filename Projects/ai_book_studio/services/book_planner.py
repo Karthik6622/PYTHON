@@ -9,6 +9,7 @@ from config import CONTENT_OPTIONS
 from models.book_models import BookInput, BookPlan
 from prompts.planning_prompts import PLANNING_PROMPT
 from services.nvidia_client import LLMClient
+from utils.language_utils import language_rules
 from utils.retry_utils import ContentPolicyError, PlanValidationError
 from utils.text_utils import PageBudget, compute_budget, render_template
 from utils.validation_utils import normalize_plan, validate_plan
@@ -66,8 +67,11 @@ def generate_plan(
         illustration_frequency=book_input.illustration_frequency,
         image_style=book_input.image_style,
         selected_content_options=_selected_options(book_input),
+        language_rules=language_rules(book_input.language),
     )
     plan_tokens = min(16000, max(6000, 3000 + 450 * budget.recommended_chapters))
+    if book_input.language != "English":
+        plan_tokens = min(16384, int(plan_tokens * 1.8))
     if on_step:
         on_step("designing")
     plan: BookPlan = llm.generate_json(

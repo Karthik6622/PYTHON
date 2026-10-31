@@ -133,7 +133,11 @@ All writes are atomic. Use the sidebar to reopen, start a new book, or delete a 
 ## 12. Quality review
 
 Each chapter is reviewed by Nemotron acting as an editor. It passes with a score of 80 or more and no critical problems. Failing chapters are revised up to two times;
-if they still fail, the book continues and the chapter is flagged with a warning. You can edit, regenerate or review again on the Chapters tab.
+if they still fail, the best version is accepted automatically (the score and notes stay visible on the Chapters tab) so the book never waits for the user.
+If the editor's or the summary's JSON reply cannot be read (even after repair and retries with a larger token limit), the review is skipped and the summary is
+taken from the chapter text instead of stopping the run. Temporary API errors are retried automatically. You can still edit, regenerate or review a chapter manually.
+
+For Tamil, Hindi and Japanese, generated text is cleaned of junk symbols and foreign scripts, and paragraphs that still contain English words are rewritten by the model.
 
 ## 13. Safety and content policy
 

@@ -248,13 +248,18 @@ hr { border: none !important; height: 1px; background: linear-gradient(90deg, tr
 [data-testid="stMetricValue"] > div { overflow: visible !important; text-overflow: clip !important; white-space: nowrap; }
 
 /* ---------- Progress and status ---------- */
-[data-testid="stProgress"] [role="progressbar"] { background: rgba(255, 255, 255, .08) !important; border-radius: 99px; overflow: hidden; }
-[data-testid="stProgress"] [role="progressbar"] > div {
-  background: var(--grad) !important; border-radius: 99px; box-shadow: 0 0 16px var(--glow);
+/* The track (empty part) is a dark, clearly different colour; only the fill (done part) is orange. */
+[data-testid="stProgress"] [role="progressbar"] { background: transparent !important; }
+[data-testid="stProgress"] [data-testid="stProgressBarTrack"] {
+  background: #2A1E18 !important; border: 1px solid rgba(255, 255, 255, .14); border-radius: 99px; overflow: hidden;
+  height: 14px !important; box-shadow: inset 0 1px 4px rgba(0, 0, 0, .6);
 }
-[data-testid="stProgress"] [role="progressbar"] > div::after {
-  content: ""; display: block; height: 100%;
-  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .22) 0 8px, transparent 8px 16px) 0 0 / 32px 100%;
+[data-testid="stProgress"] [data-testid="stProgressBarTrack"] > div {
+  position: relative; overflow: hidden; background: var(--grad) !important; border-radius: 99px; box-shadow: 0 0 14px var(--glow);
+}
+[data-testid="stProgress"] [data-testid="stProgressBarTrack"] > div::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .25) 0 8px, transparent 8px 16px) 0 0 / 32px 100%;
   animation: stripes 1.1s linear infinite;
 }
 [data-testid="stProgress"] p { color: var(--muted); }

@@ -24,5 +24,7 @@ Nonfiction:
 
 Write the values in the language of the book ({language}). Keep the JSON keys in English.
 
-Return valid JSON only.
+{language_rules}
+
+Return valid JSON only: one complete JSON object, double-quoted strings, no trailing commas.
 Do not include Markdown or additional commentary."""

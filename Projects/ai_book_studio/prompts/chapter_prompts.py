@@ -74,7 +74,9 @@ Requirements:
 15. Do not include the chapter number or title because the application will add them during formatting.
 16. Return only the chapter content.
 17. The content must be original and must not imitate a living author's distinctive writing style.
-18. Use Markdown only for headings (##), bullet lists, emphasis and scene breaks (a line with ---). Separate paragraphs with a blank line."""
+18. Use Markdown only for headings (##), bullet lists, emphasis and scene breaks (a line with ---). Separate paragraphs with a blank line.
+
+{language_rules}"""
 
 CONTINUE_PROMPT = """The chapter below was cut off before it finished. Continue it from exactly where it stops and bring the chapter to a complete, satisfying end.
 
@@ -87,7 +89,9 @@ LANGUAGE:
 CHAPTER SO FAR (last part):
 {chapter_tail}
 
-Return only the continuation text. Do not repeat anything that is already written."""
+Return only the continuation text. Do not repeat anything that is already written.
+
+{language_rules}"""
 
 SUMMARY_PROMPT = """Create a continuity summary for the following completed chapter.
 
@@ -116,8 +120,10 @@ Return JSON containing:
   "continuity_notes_for_next_chapter": []
 }
 
-Write the values in {language}. Return valid JSON only.
-Do not include Markdown or additional commentary."""
+Write the values in {language}. Keep every list short: at most 5 items, each item one brief sentence.
+Return valid JSON only: one complete JSON object, double-quoted strings, no trailing commas, no Markdown and no commentary.
+
+{language_rules}"""
 
 REVISION_PROMPT = """You are the author revising one chapter after an editor's review. Fix exactly what the editor found and keep everything that already works.
 
@@ -152,7 +158,9 @@ Method:
 5. Write in {language}.
 6. Do not include the chapter number or title.
 7. Do not mention the editor, the review or the generation process.
-8. Return only the complete revised chapter."""
+8. Return only the complete revised chapter.
+
+{language_rules}"""
 
 FRONT_MATTER_PROMPT = """You are an experienced professional author writing the {section_name} of a complete book.
 
@@ -198,7 +206,9 @@ Requirements:
 - Do not include the section heading; the application adds it.
 - Do not mention AI, prompts or the generation process.
 - Do not invent facts about the author, real people or events.
-- Return only the {section_name} text."""
+- Return only the {section_name} text.
+
+{language_rules}"""
 
 SECTION_TASKS = {
     "dedication": (
@@ -242,4 +252,6 @@ Rules:
 - For nonfiction do not invent facts, sources or quotations. For fiction define in-world terms as the book uses them.
 - Sort alphabetically.
 - Format every entry as a Markdown bullet: - **Term**: definition
-- Return only the list."""
+- Return only the list.
+
+{language_rules}"""

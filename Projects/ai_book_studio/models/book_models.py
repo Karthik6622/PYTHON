@@ -276,6 +276,8 @@ class QualityReport(_Model):
     corrections_required: list[str] = Field(default_factory=list)
     editor_summary: str = ""
     revisions: int = 0
+    skipped: bool = False  # the automatic review could not be read; the chapter was accepted without a score
+    auto_accepted: bool = False  # still below the pass mark after the automatic revisions; accepted as the best version
 
     @field_validator("score", mode="before")
     @classmethod

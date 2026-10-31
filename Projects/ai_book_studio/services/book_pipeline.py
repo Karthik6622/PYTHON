@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -27,14 +28,16 @@ from services.image_generator import ImageGenerator, PlaceholderImageGenerator, 
 from services.image_prompt_service import chapter_prompt, choose_orientation, cover_prompt
 from services.nvidia_client import LLMClient, NvidiaClient
 from services.project_storage import ProjectStorage
-from utils.retry_utils import AIBookError, ExportError, redact
+from utils.retry_utils import AIBookError, ExportError, InvalidModelResponseError, TransientAPIError, redact
 from utils.text_utils import chapter_label, compute_budget, label
 from utils.validation_utils import collect_warnings, screen_request, validate_book_input, validate_project_for_export
 
 LOGGER = logging.getLogger("ai_book_studio.pipeline")
 ProgressCallback = Callable[[float, str], None]
 ChapterEventCallback = Callable[[int, str], None]
-REVIEW_UNAVAILABLE = "Review unavailable."
+REVIEW_UNAVAILABLE = "Review unavailable."  # reports saved by older versions
+AUTO_RECOVERY_ATTEMPTS = 3  # tries per chapter step before the run stops with an error
+AUTO_RECOVERY_PAUSE = 4  # seconds between those tries
 
 
 class GenerationStopped(AIBookError):
@@ -117,6 +120,25 @@ class BookPipeline:
     def _check_stop(self) -> None:
         if self._abort.is_set() or (self._should_stop and self._should_stop()):
             raise GenerationStopped()
+
+    def _with_recovery(self, number: int, action: Callable[[], None], attempts: int = AUTO_RECOVERY_ATTEMPTS) -> None:
+        """Run one resumable step; a temporary or unreadable-reply failure is retried automatically instead of stopping the book.
+
+        Every step saves its result as it goes, so a retry continues where the failed attempt stopped.
+        """
+        for attempt in range(1, attempts + 1):
+            try:
+                action()
+                return
+            except (TransientAPIError, InvalidModelResponseError) as exc:
+                if attempt >= attempts:
+                    raise
+                LOGGER.warning("Step %s failed (%s); automatic retry %d/%d", number, type(exc).__name__, attempt, attempts - 1)
+                if number > 0:
+                    self._note(number, "retrying")
+                for _ in range(AUTO_RECOVERY_PAUSE):
+                    self._check_stop()
+                    time.sleep(1)
 
     def _save_status(self) -> None:
         with self._lock:
@@ -236,10 +258,10 @@ class BookPipeline:
         review = self.project.reviews.get(number)
         if not self.project.chapter_done(number):
             self._begin(f"Writing {name}")
-            self.process_chapter(number)
+            self._with_recovery(number, lambda: self.process_chapter(number))
         elif review is None or not review.passed:
             self._begin(f"Improving {name}")
-            self.improve_chapter(number)
+            self._with_recovery(number, lambda: self.improve_chapter(number))
         else:
             self._begin(f"{name} is already complete")
         self._finish()
@@ -283,9 +305,12 @@ class BookPipeline:
     def _ensure_bible(self) -> None:
         self._begin("Creating the book bible...")
         if self.project.bible is None:
-            self.project.bible = generate_bible(self.llm, self._require_plan())
-            self.storage.save_bible(self.project)
+            self._with_recovery(0, self._make_bible)
         self._finish()
+
+    def _make_bible(self) -> None:
+        self.project.bible = generate_bible(self.llm, self._require_plan())
+        self.storage.save_bible(self.project)
 
     def _ensure_section(self, key: str) -> None:
         self._begin(f"Writing {label(key, 'English').lower()}...")
@@ -342,6 +367,11 @@ class BookPipeline:
             self._check_stop()
             self._note(number, "testing")
             report = review_chapter(self.llm, project, chapter, revised, previous=report)
+        if not report.passed and report.editor_summary != REVIEW_UNAVAILABLE:
+            # The automatic fixes are used up. The chapter is kept as the best version so the book never waits for the user;
+            # the score and the editor's notes stay visible in the Chapters tab.
+            report.passed = True
+            report.auto_accepted = True
         report.revisions = prior_revisions + revisions
         project.reviews[number] = report
         self.storage.save_chapter(project, number)

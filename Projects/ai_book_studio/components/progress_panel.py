@@ -6,7 +6,7 @@ import streamlit as st
 
 from components.state import current_project, image_if_exists, job_for, job_running, plan_job_here, start_generation, stop_generation
 from components.styles import pill
-from models.book_models import BookProject
+from models.book_models import BookProject, QualityReport
 from services.job_runner import GenerationJob
 from utils.text_utils import count_words
 
@@ -15,6 +15,7 @@ _PHASE_TEXT = {
     "testing": "🧪 Testing quality",
     "summarising": "📝 Summarising",
     "illustrating": "🖼️ Adding image",
+    "retrying": "🔁 Retrying automatically",
 }
 
 # (progress fraction where the step starts, text) - must match the fractions reported by BookPipeline.create_plan
@@ -48,6 +49,19 @@ def _clock(seconds: int) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes:02d}:{secs:02d}"
 
 
+def review_label(review: QualityReport | None) -> str:
+    """Short outcome of the automatic quality check. The pipeline resolves every chapter by itself, so there is no 'needs attention' state."""
+    if review is None:
+        return "⏳ Pending"
+    if review.skipped:
+        return "✅ Accepted (check skipped)"
+    if review.auto_accepted:
+        return "✅ Completed (best version)"
+    if review.passed:
+        return "✅ Passed"
+    return "🔧 Will be polished on Continue"
+
+
 def chapter_status(project: BookProject, job: GenerationJob | None, number: int) -> str:
     """Plain-language status of one chapter."""
     running = bool(job and job.running)
@@ -58,7 +72,7 @@ def chapter_status(project: BookProject, job: GenerationJob | None, number: int)
         return _PHASE_TEXT.get(phase, phase)
     review = project.reviews.get(number)
     if project.chapter_done(number):
-        return "✅ Passed" if review and review.passed else "⚠️ Needs attention"
+        return review_label(review) if review else "✅ Completed"
     if project.chapters.get(number, "").strip():
         return "In progress"
     return "⏳ Waiting" if running else "Not started"
@@ -82,8 +96,8 @@ def chapter_rows(project: BookProject, job: GenerationJob | None) -> list[dict[s
                 "Status": chapter_status(project, job, n),
                 "Words": count_words(project.chapters.get(n, "")),
                 "Target": chapter.target_words,
-                "Quality score": review.score if review else None,
-                "Passed": ("Yes" if review.passed else "No") if review else "-",
+                "Quality score": (review.score if not review.skipped else None) if review else None,
+                "Passed": review_label(review) if review else "-",
                 "Revisions": review.revisions if review else None,
                 "Image": image,
             }
@@ -106,13 +120,11 @@ def controls(project: BookProject, where: str) -> None:
             stop_generation(project)
         return
     if stage == "completed":
-        flagged = [n for n in project.chapter_numbers if not ((r := project.reviews.get(n)) and r.passed)]
-        if not flagged:
-            st.success("The book is complete and every chapter passed the quality check. Open the Preview and Export tabs.")
-            return
+        pending = [n for n in project.chapter_numbers if not ((r := project.reviews.get(n)) and r.passed)]
         st.success("The book is complete. Open the Preview and Export tabs.")
-        st.warning(f"{len(flagged)} chapter(s) did not pass the quality check yet.")
-        if st.button(f"🔧 Fix {len(flagged)} chapter(s) that need attention", key=f"{where}_improve", type="primary", width="stretch"):
+        if pending and st.button(
+            f"🔧 Finish the quality check for {len(pending)} chapter(s)", key=f"{where}_improve", type="primary", width="stretch"
+        ):
             if start_generation(project):
                 st.rerun()
         return
@@ -143,7 +155,7 @@ def _live_body() -> None:
     numbers = project.chapter_numbers
     done = [n for n in numbers if project.chapter_done(n)]
     passed = [n for n in done if (r := project.reviews.get(n)) and r.passed]
-    flagged = [n for n in done if n not in passed]
+    polished = [n for n in done if (r := project.reviews.get(n)) and r.revisions > 0]
     images_needed = [c.chapter_number for c in plan.chapters if c.requires_image]
     images_done = [n for n in images_needed if image_if_exists(project, f"chapter_{n:02d}")]
 
@@ -156,8 +168,8 @@ def _live_body() -> None:
 
     a, b, c, d = st.columns(4)
     a.metric("Chapters written", f"{len(done)} / {len(numbers)}")
-    b.metric("Quality passed", len(passed))
-    c.metric("Need attention", len(flagged))
+    b.metric("Quality checked", len(passed))
+    c.metric("Auto-polished", len(polished))
     d.metric("Images", f"{len(images_done)} / {len(images_needed)}")
 
     controls(project, "live")

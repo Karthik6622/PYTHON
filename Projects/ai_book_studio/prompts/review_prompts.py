@@ -28,6 +28,8 @@ What to check:
 4. Paragraphs are complete and the chapter ends properly (no cut-off text or abrupt ending).
 5. Writing quality and suitability for the audience.
 
+6. Check the language: the chapter must be entirely in the book's language. Report English words, mixed scripts or garbled characters as an issue.
+
 How to judge:
 
 - Judge quality, never length. The chapter may be shorter or LONGER than any word target. Do not lower the score or list an issue because of its length.
@@ -55,7 +57,12 @@ Return JSON only:
   "editor_summary": ""
 }
 
-Use an integer score from 0 to 100. "editor_summary" is one or two sentences explaining the verdict."""
+Use an integer score from 0 to 100. "editor_summary" is one or two sentences explaining the verdict.
+
+Format rules (important):
+- Write the report itself in English, even when the chapter is in another language. Quote only very short phrases from the chapter.
+- Keep it short: each issue and each correction is one sentence.
+- Return one complete JSON object with double-quoted strings and no trailing commas. No Markdown and no commentary."""
 
 RECHECK_BLOCK = """THIS IS A RE-CHECK. The chapter was revised after you asked for these changes:
 

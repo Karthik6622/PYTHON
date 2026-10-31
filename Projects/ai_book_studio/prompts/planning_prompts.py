@@ -74,6 +74,10 @@ Instructions:
 19. Do not add commentary before or after the JSON.
 20. Write all text values (title, chapter titles, summaries and so on) in the requested language. Keep the JSON keys in English.
 
+{language_rules}
+
+The "visual_style" and "image_concept" values may be written in English because they are only used to make pictures.
+
 Return this schema:
 
 {

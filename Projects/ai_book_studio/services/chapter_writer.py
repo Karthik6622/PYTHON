@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from config import preset_for
 from models.book_models import BookBible, BookPlan, BookProject, ChapterPlan, QualityReport
 from prompts.chapter_prompts import (
     CHAPTER_PROMPT,
@@ -11,7 +12,9 @@ from prompts.chapter_prompts import (
     REVISION_PROMPT,
     SECTION_TASKS,
 )
+from services.language_service import ensure_language
 from services.nvidia_client import LLMClient
+from utils.language_utils import language_rules
 from utils.retry_utils import EmptyResponseError
 from utils.text_utils import (
     PageBudget,
@@ -64,18 +67,24 @@ def write_chapter(llm: LLMClient, project: BookProject, chapter: ChapterPlan) ->
         chapter_summary=chapter.summary,
         key_topics="; ".join(chapter.key_topics) or "Follow the chapter summary.",
         target_words=chapter.target_words,
+        language_rules=language_rules(plan.language),
     )
     limit = chapter_max_tokens(int(chapter.target_words * 1.5), plan.language)
-    result = llm.generate(prompt, "chapter", max_tokens=limit)
+    result = llm.generate(prompt, preset_for("chapter", plan.language), max_tokens=limit)
     text = result.text
     if result.truncated:
         tail = text[-2500:]
         follow_up = render_template(
-            CONTINUE_PROMPT, chapter_objective=chapter.objective, language=plan.language, chapter_tail=tail
+            CONTINUE_PROMPT,
+            chapter_objective=chapter.objective,
+            language=plan.language,
+            chapter_tail=tail,
+            language_rules=language_rules(plan.language),
         )
-        more = llm.generate(follow_up, "chapter", max_tokens=max(1024, limit // 2))
+        more = llm.generate(follow_up, preset_for("chapter", plan.language), max_tokens=max(1024, limit // 2))
         text = f"{text.rstrip()}\n\n{more.text.lstrip()}"
     cleaned = clean_chapter_text(text, chapter.chapter_number, chapter.title)
+    cleaned = ensure_language(llm, cleaned, plan.language)
     if not cleaned:
         raise EmptyResponseError(f"Chapter {chapter.chapter_number} came back empty.")
     return cleaned
@@ -124,10 +133,12 @@ def revise_chapter(
         editor_summary=report.editor_summary or "The chapter needs the changes listed below.",
         fix_list=_fix_list(report, earlier or []),
         language=plan.language,
+        language_rules=language_rules(plan.language),
     )
     limit = chapter_max_tokens(int(max(chapter.target_words, len(content.split())) * 1.3), plan.language)
-    result = llm.generate(prompt, "revision", max_tokens=limit)
+    result = llm.generate(prompt, preset_for("revision", plan.language), max_tokens=limit)
     cleaned = clean_chapter_text(result.text, chapter.chapter_number, chapter.title)
+    cleaned = ensure_language(llm, cleaned, plan.language)
     return cleaned or content
 
 
@@ -156,9 +167,10 @@ def write_front_section(
         chapter_summaries=summaries if project.summaries else "Chapters are not written yet; do not describe their details.",
         section_task=SECTION_TASKS[section],
         target_words=words,
+        language_rules=language_rules(plan.language),
     )
-    result = llm.generate(prompt, "front_matter", max_tokens=chapter_max_tokens(words, plan.language))
-    return strip_reasoning(result.text).strip()
+    result = llm.generate(prompt, preset_for("front_matter", plan.language), max_tokens=chapter_max_tokens(words, plan.language))
+    return ensure_language(llm, strip_reasoning(result.text), plan.language)
 
 
 def collect_glossary_terms(project: BookProject, limit: int = 60) -> list[str]:
@@ -185,9 +197,10 @@ def write_glossary(llm: LLMClient, project: BookProject) -> str:
         language=plan.language,
         terms="\n".join(f"- {term}" for term in terms) or "None listed; use the bible.",
         book_bible_json=bible,
+        language_rules=language_rules(plan.language),
     )
-    result = llm.generate(prompt, "front_matter", max_tokens=3000)
-    return strip_reasoning(result.text).strip()
+    result = llm.generate(prompt, "front_matter", max_tokens=max(3000, chapter_max_tokens(600, plan.language)))
+    return ensure_language(llm, strip_reasoning(result.text), plan.language)
 
 
 def author_page_text(project: BookProject) -> str:

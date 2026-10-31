@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from components.progress_panel import render_live
+from components.progress_panel import render_live, review_label
 from components.state import bump_content, current_project, flash, get_storage, guarded, job_running, make_pipeline, refresh
 from models.book_models import BookProject
 from utils.text_utils import count_words
@@ -38,8 +38,9 @@ def _chapter_editor(project: BookProject, number: int) -> None:
     review = project.reviews.get(number)
 
     if review:
-        pill = "✅ Passed" if review.passed else "⚠️ Needs attention"
-        st.markdown(f"**Quality check:** {pill} · score {review.score}/100 · {review.revisions} automatic revision(s)")
+        pill = review_label(review)
+        score = "" if review.skipped else f" · score {review.score}/100"
+        st.markdown(f"**Quality check:** {pill}{score} · {review.revisions} automatic revision(s)")
         if review.editor_summary:
             st.caption(review.editor_summary)
         if review.issues:
