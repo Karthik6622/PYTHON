@@ -60,6 +60,16 @@ def test_tone_and_length_preferences_reach_the_system_message():
     assert assistant.TONE_GUIDES["Warm"] not in text and assistant.LENGTH_GUIDES["Detailed"] not in text
 
 
+def test_saved_city_is_told_to_the_model_as_where_the_user_is_from():
+    text = system_text(assistant.build_messages(convo("where am I from?"), {"city": "Tiruchendur"}))
+    assert "Tiruchendur" in text and "never ask" in text.lower()
+
+
+def test_no_profile_note_without_a_saved_city():
+    assert assistant.profile_note({}) == "" and assistant.profile_note({"city": "  "}) == ""
+    assert "Saved profile" not in system_text(assistant.build_messages(convo("hi"), {}))
+
+
 def test_brief_length_caps_reply_tokens_and_other_lengths_do_not():
     assert assistant.reply_token_cap({"response_length": "Brief"}) == assistant.LENGTH_TOKEN_CAPS["Brief"]
     assert assistant.reply_token_cap({"response_length": "Balanced"}) is None

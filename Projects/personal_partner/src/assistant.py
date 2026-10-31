@@ -322,6 +322,20 @@ def friend_care_note(history: list[dict[str, Any]], timezone_name: str | None = 
     return " ".join(notes)
 
 
+def profile_note(preferences: dict[str, Any] | None) -> str:
+    """What the user saved in Settings about themselves, stated as facts the model must use instead of asking again."""
+    city = " ".join(str((preferences or {}).get("city", "")).split())[:60]
+    if not city:
+        return ""
+    return (
+        "Saved profile (the user typed this in Settings, so it is true and already known to you):\n"
+        f"- Their city / hometown / where they live and are from: {city}.\n"
+        "If they ask where they are from, where they live, which city they are in, or what city they saved, answer directly with "
+        f"'{city}' in your own words. Never ask them again for it and never say you do not know it. "
+        "Use it naturally for local questions (weather, places, time of day) without repeating it in every reply."
+    )
+
+
 def _rain_already_mentioned(history: list[dict[str, Any]]) -> bool:
     recent_replies = [str(m.get("content", "")).lower() for m in history[-6:] if m.get("role") == "assistant"]
     return any(word in reply for reply in recent_replies for word in ("rain", "umbrella", "stay home"))
@@ -345,6 +359,9 @@ def build_messages(
     preference_block = f"User preferences: tone={tone}; response length={response_length}; interests={', '.join(topics) or 'not specified'}."
     style_lines = [TONE_GUIDES.get(tone, TONE_GUIDES["Warm"]), LENGTH_GUIDES.get(response_length, LENGTH_GUIDES["Balanced"])]
     system_parts = [SYSTEM_PROMPT, preference_block, "\n".join(style_lines), current_time_note(timezone_name)]
+    profile = profile_note(preferences)
+    if profile:
+        system_parts.insert(2, profile)
     mode = chat_mode(preferences)
     recent = _recent(conversation, limit, mode)
     if mode == "Romantic":

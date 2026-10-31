@@ -22,6 +22,7 @@ Choose ANSWER when:
 - the answer is stable general knowledge you know well (history, science, definitions, facts that do not change);
 - it is reasoning, maths, writing, coding, translation, advice, planning, or opinions;
 - it is small talk, feelings, companionship, role-play, or a question about this conversation;
+- it asks about the user themselves, such as where they live or are from, their city, name or saved preferences (those come from their saved profile, never from the web);
 - it asks for the date or time (the current date and time are given below).
 
 Resolve follow-up messages such as "and before him?" using the earlier conversation. When you choose SEARCH, write a short, specific search query in English that would find the answer. For local weather or local news, add the user's saved city if one is given.
