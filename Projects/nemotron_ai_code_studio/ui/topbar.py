@@ -6,13 +6,13 @@ from html import escape
 
 import streamlit as st
 
-from .dialogs import connect_dialog, github_dialog, github_status, github_user, prompt_github_if_needed, settings_dialog, sync_github
+from .dialogs import connect_dialog, new_window_dialog, github_dialog, github_status, github_user, prompt_github_if_needed, settings_dialog, sync_github
 from .state import S, attempt, log, reload_paths, repo
 
 
 def _checkout(name: str) -> None:
     current = repo()
-    if current is None or current.git is None or name == current.git.current_branch():
+    if not name or current is None or current.git is None or name == current.git.current_branch():
         return
     ok, _ = attempt(current.git.checkout, name)
     if ok:
@@ -44,7 +44,7 @@ def render_top_bar() -> None:
             now = current.git.current_branch()
             options = list(dict.fromkeys([now, *names]))
             st.session_state["branch_select"] = now  # always show the real branch, even after a failed switch
-            branch_col.selectbox("Branch", options, key="branch_select", label_visibility="collapsed", on_change=lambda: _checkout(st.session_state.branch_select))
+            branch_col.selectbox("Branch", options, key="branch_select", label_visibility="collapsed", on_change=lambda: _checkout(st.session_state.get("branch_select", "")))
 
         opened = False
         if github_col.button("", icon=":material/hub:", help="Connect a GitHub repository", key="open_connect"):
@@ -65,5 +65,8 @@ def render_top_bar() -> None:
         if settings_col.button("", icon=":material/tune:", help="Settings", key="open_settings") and not opened:
             opened = True
             settings_dialog()
+        if not opened and st.session_state.get("_new_window"):
+            opened = True
+            new_window_dialog(st.session_state.pop("_new_window"))
         if not opened:
             prompt_github_if_needed()

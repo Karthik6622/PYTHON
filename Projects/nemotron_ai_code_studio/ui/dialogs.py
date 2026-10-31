@@ -60,7 +60,26 @@ def _switch_folder(initial: str) -> bool:
 
 def choose_working_folder() -> None:
     current = repo()
-    _switch_folder(str(current.path) if current else "")
+    if current is None or current.scratch and not S.tabs and st.session_state.get("_link") is None:
+        _switch_folder(str(current.path) if current else "")
+        return
+    # This window already has a folder (for example a connected GitHub repository): keep it and open the new one in its own window.
+    chosen = ask_folder(str(current.path), "Choose the folder to open in a new window")
+    if not chosen:
+        return
+    ok, folder = attempt(repositories.open_scratch, chosen)
+    if not ok:
+        return
+    wid = secrets.token_urlsafe(6)
+    repositories.remember(wid, folder.path, {}, folder.scratch)
+    st.session_state["_new_window"] = {"name": folder.name, "path": str(folder.path), "url": window_url(wid)}
+
+
+@st.dialog("Open in new window")
+def new_window_dialog(info: dict) -> None:
+    st.write(f"**{info.get('name', '')}** opens in its own window, so the folder and files open here are not touched.")
+    st.caption(info.get("path", ""))
+    st.link_button("Open in new window", info.get("url", "#"), type="primary", icon=":material/open_in_new:")
 
 
 def _occupied() -> bool:
