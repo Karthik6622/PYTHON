@@ -537,30 +537,30 @@ def update_time(session: dict, session_id: str | None = None) -> None:
 
 
 def apply_theme() -> None:
-    """Futuristic/Cyberpunk theme with red color palette."""
+    """Futuristic/Cyberpunk theme with yellow/gold color palette."""
     st.markdown(
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
         
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a2e;
-            --bg-card: #161622;
-            --border-primary: #ff0033;
-            --border-secondary: #ff3366;
-            --border-dim: #331a22;
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #1a1a1a;
+            --bg-card: #141414;
+            --border-primary: #ffd700;
+            --border-secondary: #ffeb3b;
+            --border-dim: #33331a;
             --text-primary: #ffffff;
-            --text-secondary: #cccccc;
-            --text-muted: #888899;
-            --accent-primary: #ff0033;
-            --accent-secondary: #ff3366;
-            --accent-glow: #ff0033;
-            --accent-soft: #33000a;
+            --text-secondary: #e0e0e0;
+            --text-muted: #888866;
+            --accent-primary: #ffd700;
+            --accent-secondary: #ffeb3b;
+            --accent-glow: #ffd700;
+            --accent-soft: #333300;
             --success: #00ff88;
-            --warning: #ffaa00;
-            --error: #ff0033;
+            --warning: #ffd700;
+            --error: #ff4444;
             --glow-intensity: 0.6;
         }
         
@@ -576,8 +576,8 @@ def apply_theme() -> None:
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             background-image: 
-                linear-gradient(rgba(255,0,51,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,0,51,0.03) 1px, transparent 1px);
+                linear-gradient(rgba(255,215,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,215,0,0.03) 1px, transparent 1px);
             background-size: 60px 60px;
             pointer-events: none;
             z-index: 0;
@@ -594,9 +594,9 @@ def apply_theme() -> None:
             content: '';
             position: fixed;
             top: -50%; left: -50%; right: -50%; bottom: -50%;
-            background: radial-gradient(ellipse at 20% 20%, rgba(255,0,51,0.08) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 80%, rgba(255,51,102,0.06) 0%, transparent 50%),
-                        radial-gradient(ellipse at 50% 50%, rgba(255,0,51,0.04) 0%, transparent 70%);
+            background: radial-gradient(ellipse at 20% 20%, rgba(255,215,0,0.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, rgba(255,235,59,0.06) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 50%, rgba(255,215,0,0.04) 0%, transparent 70%);
             pointer-events: none;
             z-index: 0;
             animation: pulseGlow 8s ease-in-out infinite alternate;
@@ -687,7 +687,7 @@ def apply_theme() -> None:
         
         [data-testid="stCodeBlock"] {
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,0,51,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,215,0,0.1);
         }
 
         /* ---- sidebar ---- */
@@ -695,7 +695,7 @@ def apply_theme() -> None:
         [data-testid="stSidebar"] > div { 
             background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%) !important; 
             border-right: 1px solid var(--border-primary) !important;
-            box-shadow: 4px 0 30px rgba(255,0,51,0.1), inset -1px 0 0 var(--border-primary);
+            box-shadow: 4px 0 30px rgba(255,215,0,0.1), inset -1px 0 0 var(--border-primary);
         }
         
         [data-testid="stSidebar"] .block-container { 
@@ -744,7 +744,7 @@ def apply_theme() -> None:
             position: absolute;
             top: 0; left: 50%; transform: translateX(-50%);
             width: 200px; height: 200px;
-            background: radial-gradient(circle, rgba(255,0,51,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%);
             pointer-events: none;
         }
         
@@ -755,12 +755,12 @@ def apply_theme() -> None:
             height: 60px; 
             border-radius: 50%;
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: var(--text-primary);
+            color: var(--bg-primary);
             font-size: 28px;
             margin-bottom: 1.2rem;
             box-shadow: 
-                0 0 30px rgba(255,0,51,0.5),
-                0 0 60px rgba(255,0,51,0.3),
+                0 0 30px rgba(255,215,0,0.5),
+                0 0 60px rgba(255,215,0,0.3),
                 inset 0 0 20px rgba(255,255,255,0.1);
             animation: heroPulse 2s ease-in-out infinite alternate;
             position: relative;
@@ -768,14 +768,14 @@ def apply_theme() -> None:
         }
         
         @keyframes heroPulse {
-            0% { box-shadow: 0 0 30px rgba(255,0,51,0.5), 0 0 60px rgba(255,0,51,0.3), inset 0 0 20px rgba(255,255,255,0.1); }
-            100% { box-shadow: 0 0 40px rgba(255,0,51,0.7), 0 0 80px rgba(255,0,51,0.4), inset 0 0 30px rgba(255,255,255,0.2); }
+            0% { box-shadow: 0 0 30px rgba(255,215,0,0.5), 0 0 60px rgba(255,215,0,0.3), inset 0 0 20px rgba(255,255,255,0.1); }
+            100% { box-shadow: 0 0 40px rgba(255,215,0,0.7), 0 0 80px rgba(255,215,0,0.4), inset 0 0 30px rgba(255,255,255,0.2); }
         }
         
         .hero h1 { 
             font: 800 clamp(2rem, 5vw, 3.5rem)/1.1 'Orbitron', sans-serif; 
             margin: 0 0 1rem; 
-            background: linear-gradient(90deg, #fff, #ff6688, #fff);
+            background: linear-gradient(90deg, #fff, #ffd700, #fff);
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -811,17 +811,17 @@ def apply_theme() -> None:
             font-weight: 500;
             letter-spacing: 0.02em;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 10px rgba(255,0,51,0.2);
+            box-shadow: 0 2px 10px rgba(255,215,0,0.2);
         }
         
         .source-pill:hover {
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            box-shadow: 0 4px 20px rgba(255,0,51,0.4);
+            box-shadow: 0 4px 20px rgba(255,215,0,0.4);
             transform: translateY(-2px);
         }
         
         [data-testid="stMarkdownContainer"] span.source-pill { 
-            color: var(--accent-secondary) !important; 
+            color: var(--bg-primary) !important; 
         }
         
         .footer { 
@@ -865,7 +865,7 @@ def apply_theme() -> None:
             text-transform: uppercase !important;
             font-size: 0.95rem !important;
             box-shadow: 
-                0 4px 20px rgba(255,0,51,0.4),
+                0 4px 20px rgba(255,215,0,0.4),
                 inset 0 1px 0 rgba(255,255,255,0.1) !important;
             transition: all 0.3s ease !important;
             position: relative;
@@ -881,9 +881,9 @@ def apply_theme() -> None:
         }
         
         .stButton > button[kind="primary"]:hover { 
-            background: linear-gradient(135deg, var(--accent-secondary), #ff0044) !important; 
+            background: linear-gradient(135deg, var(--accent-secondary), #ffe000) !important; 
             box-shadow: 
-                0 6px 30px rgba(255,0,51,0.6),
+                0 6px 30px rgba(255,215,0,0.6),
                 inset 0 1px 0 rgba(255,255,255,0.2) !important;
             transform: translateY(-2px);
         }
@@ -894,7 +894,7 @@ def apply_theme() -> None:
         
         .stButton > button[kind="primary"], 
         .stButton > button[kind="primary"] * { 
-            color: #ffffff !important; 
+            color: #000000 !important; 
         }
         
         .stButton > button:not([kind="primary"]), 
@@ -918,7 +918,7 @@ def apply_theme() -> None:
         .stDownloadButton > button:hover { 
             border-color: var(--accent-primary) !important; 
             background: var(--bg-tertiary) !important;
-            box-shadow: 0 4px 20px rgba(255,0,51,0.2);
+            box-shadow: 0 4px 20px rgba(255,215,0,0.2);
         }
 
         /* ---- inputs ---- */
@@ -940,7 +940,7 @@ def apply_theme() -> None:
         [data-baseweb="textarea"]:focus-within,
         [data-baseweb="base-input"]:focus-within {
             border-color: var(--accent-primary) !important;
-            box-shadow: 0 0 0 3px rgba(255,0,51,0.2) !important;
+            box-shadow: 0 0 0 3px rgba(255,215,0,0.2) !important;
         }
         
         textarea::placeholder, input::placeholder { 
@@ -1000,7 +1000,7 @@ def apply_theme() -> None:
         
         [data-testid="stChatInput"]:focus-within {
             border-color: var(--accent-primary) !important;
-            box-shadow: 0 4px 30px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,0,51,0.2) !important;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,215,0,0.2) !important;
         }
         
         [data-testid="stBottom"], 
@@ -1016,7 +1016,7 @@ def apply_theme() -> None:
         
         [data-testid="stSlider"] [data-testid="stThumbValue"] {
             background: var(--accent-primary) !important;
-            color: white !important;
+            color: var(--bg-primary) !important;
         }
         
         .stSlider [data-testid="stTickBar"] {
@@ -1039,7 +1039,7 @@ def apply_theme() -> None:
         
         .stSelectbox [data-baseweb="select"]:focus-within > div {
             border-color: var(--accent-primary) !important;
-            box-shadow: 0 0 0 3px rgba(255,0,51,0.2) !important;
+            box-shadow: 0 0 0 3px rgba(255,215,0,0.2) !important;
         }
 
         /* Toggle */
@@ -1076,7 +1076,7 @@ def apply_theme() -> None:
             box-shadow: 
                 0 4px 30px rgba(0,0,0,0.5),
                 inset 0 1px 0 rgba(255,255,255,0.05),
-                0 0 0 1px rgba(255,0,51,0.05);
+                0 0 0 1px rgba(255,215,0,0.05);
             transition: all 0.3s ease;
         }
         
@@ -1085,7 +1085,7 @@ def apply_theme() -> None:
             box-shadow: 
                 0 8px 40px rgba(0,0,0,0.6),
                 inset 0 1px 0 rgba(255,255,255,0.08),
-                0 0 20px rgba(255,0,51,0.1);
+                0 0 20px rgba(255,215,0,0.1);
         }
         
         [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
@@ -1179,7 +1179,7 @@ def apply_theme() -> None:
         
         [data-testid="stMetric"]:hover {
             border-color: var(--accent-primary) !important;
-            box-shadow: 0 8px 30px rgba(255,0,51,0.2);
+            box-shadow: 0 8px 30px rgba(255,215,0,0.2);
         }
         
         [data-testid="stMetricLabel"] {
@@ -1229,13 +1229,13 @@ def apply_theme() -> None:
             border: 2px solid var(--bg-primary);
         }
         ::-webkit-scrollbar-thumb:hover { 
-            background: linear-gradient(180deg, var(--accent-secondary), #ff0044); 
+            background: linear-gradient(180deg, var(--accent-secondary), #ffe000); 
         }
         ::-webkit-scrollbar-corner { background: var(--bg-primary); }
 
         /* ---- selection ---- */
         ::selection {
-            background: rgba(255,0,51,0.3);
+            background: rgba(255,215,0,0.3);
             color: var(--text-primary);
         }
 
