@@ -97,6 +97,8 @@ def _detect(path: Path) -> GitInfo:
         resolved, scratch = path.resolve(), settings.scratch_path.resolve()
         if resolved == scratch or scratch in resolved.parents:
             return GitInfo()
+        if settings.workspace_path.resolve() in resolved.parents and not (resolved / ".git").exists():
+            return GitInfo()  # a mirrored or scratch folder kept inside RK Studio's own workspaces folder, not a repository of its own
     except OSError:
         pass
     return inspect_folder(path)

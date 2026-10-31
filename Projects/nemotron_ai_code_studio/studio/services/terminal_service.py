@@ -184,6 +184,13 @@ class TerminalService:
         shell = settings.terminal_shell
         note = ensure_environment(self.root, command)
         env = clean_environment(self.root)
+        try:
+            if settings.workspace_path.resolve() in self.root.resolve().parents:
+                # A folder RK Studio keeps under its own workspaces folder is a repository only if it has its own .git. Without this,
+                # git would climb into the repository RK Studio itself lives in and act on (or refuse) the wrong project.
+                env["GIT_CEILING_DIRECTORIES"] = str(self.root.resolve().parent)
+        except OSError:
+            pass
         network_git = _GIT_NETWORK.match(command)
         if network_git:
             # Never prompt in the terminal. The connected account's token goes through the environment only (a header scoped to
