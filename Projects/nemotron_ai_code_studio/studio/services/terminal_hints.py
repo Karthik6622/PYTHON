@@ -11,6 +11,7 @@ _DISPLAY = re.compile(r"Missing X server|headless.*(?:false|False)|no display|ca
 _INPUT = re.compile(r"EOFError: EOF when reading a line", re.I)
 _GIT_LOGIN = re.compile(r"could not read (?:Username|Password)|terminal prompts disabled", re.I)
 _GIT_DENIED = re.compile(r"Authentication failed|Permission to .* denied|Invalid username or (?:password|token)|The requested URL returned error: 40[13]", re.I)
+_GIT_HOST_KEY = re.compile(r"Host key verification failed", re.I)
 _NO_GH = re.compile(r"\bgh: (?:command )?not found|'gh' is not recognized", re.I)
 
 # import name -> pip package, for the common cases where they differ
@@ -44,4 +45,7 @@ def hint_for(command: str, output: str, exit_code: int | None) -> str:
                      "then run a plain git push / pull / fetch again: the connected account is used automatically.")
     elif _GIT_DENIED.search(output):
         lines.append("GitHub rejected the token. Reconnect GitHub from the top bar and make sure it has write access ('repo' scope) to this repository.")
+    elif _GIT_HOST_KEY.search(output) and re.match(r"\s*git\s+(?:push|pull|fetch|clone|ls-remote)\b", command, re.I):
+        lines.append("This command is using GitHub SSH, but this app has no access to your computer's SSH agent or known_hosts file. "
+                     "Connect GitHub in the top bar to use your token over HTTPS; SSH host-key checking is not disabled.")
     return "\n".join(lines)

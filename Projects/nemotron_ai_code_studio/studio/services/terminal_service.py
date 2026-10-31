@@ -155,10 +155,19 @@ class TerminalService:
         shell = settings.terminal_shell
         note = ensure_environment(self.root, command)
         env = clean_environment(self.root)
-        if settings.github_token and _GIT_NETWORK.match(command):
-            # `git push` cannot ask for a password here, so use the GitHub token from Settings / GITHUB_TOKEN
+        network_git = _GIT_NETWORK.match(command)
+        clone_command = re.match(r"^\s*git\s+(?:clone|ls-remote)\b", command, re.I)
+        if network_git and ((self.root / ".git").exists() or clone_command):
+            # Never prompt in the terminal. Hosted GitHub SSH URLs are rewritten to HTTPS because the server has no
+            # access to the visitor's SSH agent / known_hosts; local runs retain their normal SSH setup.
             auth = auth_env()
-            env.update({"GIT_CONFIG_COUNT": "2", "GIT_CONFIG_KEY_1": auth["GIT_CONFIG_KEY_0"], "GIT_CONFIG_VALUE_1": auth["GIT_CONFIG_VALUE_0"]})
+            index = int(env.get("GIT_CONFIG_COUNT", "0"))
+            for source_index in range(int(auth.get("GIT_CONFIG_COUNT", "0"))):
+                env[f"GIT_CONFIG_KEY_{index}"] = auth[f"GIT_CONFIG_KEY_{source_index}"]
+                env[f"GIT_CONFIG_VALUE_{index}"] = auth[f"GIT_CONFIG_VALUE_{source_index}"]
+                index += 1
+            if index:
+                env["GIT_CONFIG_COUNT"] = str(index)
         popen_args: dict = {
             "cwd": str(cwd), "env": env, "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
             "stderr": subprocess.STDOUT, "bufsize": 0,

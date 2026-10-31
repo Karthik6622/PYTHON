@@ -12,7 +12,7 @@ from typing import Any
 
 from git import GitCommandError, InvalidGitRepositoryError, NoSuchPathError, Repo
 
-from ..config import settings
+from ..config import is_hosted, settings
 from ..security import PathSecurityError, redact, resolve_in_root, valid_branch_name
 
 _READ_ONLY = {"status", "diff", "log", "show", "rev-parse", "rev-list", "ls-files", "cat-file", "for-each-ref", "config"}
@@ -29,16 +29,31 @@ class GitError(Exception):
 
 
 def auth_env(token: str | None = None) -> dict[str, str]:
-    """Environment that lets git talk to github.com with the token, without ever prompting."""
+    """Environment for non-interactive GitHub access, rewriting SSH only on hosted deployments.
+
+    A browser-connected folder on a hosted server does not provide the visitor's SSH agent or known_hosts file. GitHub
+    SSH remotes can use the connected personal token over HTTPS there. Local desktop runs keep their normal SSH setup;
+    no SSH host-key checks are disabled and credentials stay out of the URL."""
     env = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+    config_index = 0
+    if is_hosted():
+        env.update({
+            "GIT_CONFIG_KEY_0": "url.https://github.com/.insteadOf",
+            "GIT_CONFIG_VALUE_0": "git@github.com:",
+            "GIT_CONFIG_KEY_1": "url.https://github.com/.insteadOf",
+            "GIT_CONFIG_VALUE_1": "ssh://git@github.com/",
+        })
+        config_index = 2
     token = token if token is not None else settings.github_token
     if token:
         encoded = base64.b64encode(f"x-access-token:{token}".encode()).decode()
         env.update({
-            "GIT_CONFIG_COUNT": "1",
-            "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
-            "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {encoded}",
+            f"GIT_CONFIG_KEY_{config_index}": "http.https://github.com/.extraheader",
+            f"GIT_CONFIG_VALUE_{config_index}": f"AUTHORIZATION: basic {encoded}",
         })
+        config_index += 1
+    if config_index:
+        env["GIT_CONFIG_COUNT"] = str(config_index)
     return env
 
 

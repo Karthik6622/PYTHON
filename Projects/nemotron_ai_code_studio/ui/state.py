@@ -104,13 +104,12 @@ def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None 
 
 
 def location_label(current: ActiveRepository | None) -> str:
-    """The folder's path to show. A local run shows the real path. A hosted window shows the path the user typed for the
-    folder on their computer (a browser never exposes that path by itself), or nothing when it was not typed yet."""
+    """The folder's path to show. A local run exposes its real path; a hosted browser only exposes the selected folder name."""
     if current is None:
         return ""
     link = st.session_state.get("_link")
     if link is not None:
-        return link.location
+        return link.location or link.name
     return "" if is_hosted() else current.path.as_posix()
 
 

@@ -236,6 +236,23 @@ div.st-key-bottompanel::before { content:""; position:absolute; top:-1px; left:0
 [data-baseweb="menu"], [data-baseweb="menu"] li { background:transparent !important; }
 
 /* ---------- agent panel ---------- */
+.agent-title { display:flex; align-items:center; gap:10px; min-width:0; height:34px; color:#e6e6e6; font:600 13px/1.3 Inter,"Segoe UI",system-ui,sans-serif; }
+.agent-title > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.agent-title .pulse { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); flex:none; }
+.agent-title .pulse.off { background:var(--red); box-shadow:0 0 8px var(--red); }
+div.st-key-agent { background:rgba(15,15,15,.96); border-left-color:#2d2d2d; }
+div.st-key-agent [data-testid="stChatMessage"] { border:0; border-bottom:1px solid rgba(255,255,255,.07); border-radius:0; padding:.7rem .25rem; background:transparent !important; color:#e6e6e6; }
+div.st-key-agent [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) { border-color:rgba(255,255,255,.09); }
+div.st-key-agent [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) { border-color:rgba(255,255,255,.07); }
+div.st-key-agent [data-testid^="stChatMessageAvatar"] { border-radius:6px; }
+div.st-key-agent div.st-key-agentcomposer { flex:none; padding:8px; border:1px solid #3a3a3a; border-radius:13px; background:#1e1e1e; box-shadow:0 8px 24px rgba(0,0,0,.24); }
+div.st-key-agentcomposer [data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; gap:.45rem !important; }
+div.st-key-agentcomposer [data-baseweb="select"] > div { min-height:30px !important; border-radius:8px !important; background:#252526 !important; border-color:#3a3a3a !important; }
+div.st-key-agentcomposer [data-testid="stCaptionContainer"] { margin:.25rem .25rem .1rem; }
+div.st-key-agentcomposer [data-testid="stCaptionContainer"] p { color:#9a9a9a !important; font-size:10.5px !important; }
+div.st-key-agentcomposer [data-testid="stChatInput"] { border-radius:10px !important; border-color:#3a3a3a !important; background:#252526 !important; box-shadow:none !important; }
+div.st-key-agentcomposer [data-testid="stChatInput"]:focus-within { border-color:#0078d4 !important; box-shadow:0 0 0 1px rgba(0,120,212,.35) !important; }
+div.st-key-agentcomposer [data-testid="stChatInputSubmitButton"] { background:#0078d4 !important; color:#fff !important; border-radius:7px !important; }
 .agent-head { display:flex; align-items:center; gap:10px; }
 .agent-head .pulse { width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(52,211,153,.6); animation:pulse 2.2s infinite; flex:none; }
 .agent-head .pulse.off { background:var(--red); animation:none; box-shadow:0 0 10px var(--red); }

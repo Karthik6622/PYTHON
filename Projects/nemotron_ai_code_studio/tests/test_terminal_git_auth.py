@@ -1,5 +1,7 @@
 import subprocess
 
+from git import Repo
+
 from studio.config import settings
 from studio.services import terminal_service
 from studio.services.terminal_hints import hint_for
@@ -24,19 +26,44 @@ def _captured_env(monkeypatch, tmp_path, command):
 
 def test_plain_git_push_gets_the_github_token(monkeypatch, tmp_path):
     monkeypatch.setitem(settings._overrides, "github_token", "ghp_exampletoken1234567890")
+    monkeypatch.setenv("STUDIO_HOSTED", "1")
+    Repo.init(tmp_path)
     env = _captured_env(monkeypatch, tmp_path, "git push")
-    assert env["GIT_CONFIG_COUNT"] == "2"
-    assert env["GIT_CONFIG_KEY_1"] == "http.https://github.com/.extraheader"
-    assert env["GIT_CONFIG_VALUE_1"].startswith("AUTHORIZATION: basic ")
+    assert env["GIT_CONFIG_COUNT"] == "4"
+    assert env["GIT_CONFIG_KEY_1"] == "url.https://github.com/.insteadOf"
+    assert env["GIT_CONFIG_VALUE_1"] == "git@github.com:"
+    assert env["GIT_CONFIG_VALUE_2"] == "ssh://git@github.com/"
+    assert env["GIT_CONFIG_KEY_3"] == "http.https://github.com/.extraheader"
+    assert env["GIT_CONFIG_VALUE_3"].startswith("AUTHORIZATION: basic ")
 
 
 def test_other_commands_never_get_the_token(monkeypatch, tmp_path):
     monkeypatch.setitem(settings._overrides, "github_token", "ghp_exampletoken1234567890")
-    for command in ("git status", "git push && python evil.py", "python -c 'print(1)'", "git push; env"):
+    for command in ("git status", "git push", "git push && python evil.py", "python -c 'print(1)'", "git push; env"):
         assert "GIT_CONFIG_KEY_1" not in _captured_env(monkeypatch, tmp_path, command), command
+
+
+def test_ssh_rewrite_is_hosted_only(monkeypatch):
+    from studio.services.git_service import auth_env
+
+    monkeypatch.setenv("STUDIO_HOSTED", "0")
+    local = auth_env("ghp_exampletoken1234567890")
+    assert local["GIT_CONFIG_COUNT"] == "1"
+    assert local["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+
+    monkeypatch.setenv("STUDIO_HOSTED", "1")
+    hosted = auth_env("ghp_exampletoken1234567890")
+    assert hosted["GIT_CONFIG_COUNT"] == "3"
+    assert hosted["GIT_CONFIG_VALUE_0"] == "git@github.com:"
+    assert hosted["GIT_CONFIG_VALUE_1"] == "ssh://git@github.com/"
 
 
 def test_git_login_hint():
     out = "fatal: could not read Username for 'https://github.com': terminal prompts disabled"
     assert "top bar" in hint_for("git push", out, 128)
     assert "top bar" in hint_for("gh auth login", "/bin/sh: 1: gh: not found", 127)
+
+
+def test_ssh_host_key_hint_recommends_token_without_disabling_verification():
+    hint = hint_for("git pull", "Host key verification failed. fatal: Could not read from remote repository.", 128)
+    assert "Connect GitHub" in hint and "known_hosts" in hint and "not disabled" in hint

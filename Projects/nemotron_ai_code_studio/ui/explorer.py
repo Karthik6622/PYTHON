@@ -67,16 +67,6 @@ def _delete(path: str) -> None:
         log(f"Deleted {path}")
 
 
-def _save_location(name: str) -> None:
-    """Keeps the path the user typed for the folder on their computer, so the explorer and terminal can show it."""
-    current = repo()
-    link = st.session_state.get("_link")
-    if current is None or link is None or link.name != name:
-        return
-    link.location = local_sync.clean_location(st.session_state.get(f"link_location:{name}"))
-    local_sync.update_sidecar(current.path, location=link.location)
-
-
 def render_explorer() -> None:
     current = repo()
     if current is None:
@@ -94,13 +84,7 @@ def render_explorer() -> None:
             st.caption("Open a folder from your computer to start.")
         else:
             listed_note = f" {len(link.listed)} file(s) are listed but not copied." if link.listed else ""
-            st.caption(f"Saved to {link.name} on your computer as you work.{listed_note}")
-            with st.expander("Folder path on your computer", expanded=not link.location):
-                st.text_input(
-                    "Path of this folder on your computer", value=link.location, key=f"link_location:{link.name}",
-                    placeholder="c:/desktop/books/code", on_change=_save_location, args=(link.name,),
-                    help="A browser cannot read this path, so type it once. The terminal and this header show it.",
-                )
+            st.caption(f"Connected to {link.name} on your computer.{listed_note} The browser does not expose its full path.")
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")

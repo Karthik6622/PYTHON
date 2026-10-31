@@ -453,9 +453,13 @@ def render_agent_panel() -> None:
     if S.mode not in MODES:  # the removed PLAN mode (or an empty choice) falls back to ASK
         S.mode = "ASK"
 
-    head, picker, clear = st.columns([3, 6, 1.3], vertical_alignment="center")
-    head.markdown(f"<div class='agent-head'><span class='pulse{'' if key_ok else ' off'}'></span><b>RK AGENT</b></div>", unsafe_allow_html=True)
-    picker.selectbox("Model", ids, key="model", format_func=lambda i: labels.get(i, i), disabled=running, label_visibility="collapsed")
+    first_prompt = next((m.text.strip().splitlines()[0] for m in S.messages if m.role == "user" and m.text.strip()), "")
+    title = first_prompt[:48] + ("…" if len(first_prompt) > 48 else "")
+    head, clear = st.columns([9, 1], vertical_alignment="center")
+    head.markdown(
+        f"<div class='agent-title'><span class='pulse{'' if key_ok else ' off'}'></span>"
+        f"<span>{escape(title or 'New Chat')}</span></div>", unsafe_allow_html=True,
+    )
     if running:
         clear.button("", icon=":material/stop_circle:", key="agent_stop", help="Stop", on_click=_stop_run)
     elif clear.button("", icon=":material/delete_sweep:", key="agent_clear", help="Clear conversation"):
@@ -464,20 +468,28 @@ def render_agent_panel() -> None:
         S.approvals = {}
         st.rerun()
 
-    with st.container(key="modebar"):
-        st.segmented_control("Mode", MODES, key="mode", disabled=running, label_visibility="collapsed", width="stretch")
-    st.markdown(f"<div class='mode-note' title='{escape(MODE_HELP[S.mode or 'ASK'])}'>{escape(MODE_HELP[S.mode or 'ASK'])}</div>", unsafe_allow_html=True)
-
     st.fragment(run_every=POLL_SECONDS if running else None)(_transcript)()
     _pending_banner()
 
     if running:
         _run_input()
         return
-    prompt = st.chat_input(
-        "Message the agent", disabled=repo() is None, key="agent_input",
-        accept_file="multiple", file_type=ACCEPTED_TYPES, max_upload_size=MAX_FILE_MB,
-    )
+
+    with st.container(key="agentcomposer"):
+        mode_col, model_col = st.columns([1, 2], vertical_alignment="center", gap="small")
+        mode_col.selectbox(
+            "Mode", MODES, key="mode", format_func=lambda value: {"ASK": "Ask", "AGENT": "Agent"}.get(value, value),
+            disabled=repo() is None, label_visibility="collapsed",
+        )
+        model_col.selectbox(
+            "Model", ids, key="model", format_func=lambda value: labels.get(value, value),
+            disabled=repo() is None, label_visibility="collapsed",
+        )
+        st.caption(MODE_HELP[S.mode or "ASK"])
+        prompt = st.chat_input(
+            "Describe what to build", disabled=repo() is None, key="agent_input",
+            accept_file="multiple", file_type=ACCEPTED_TYPES, max_upload_size=MAX_FILE_MB,
+        )
     if not prompt:
         return
     text = str(getattr(prompt, "text", prompt) or "").strip()
