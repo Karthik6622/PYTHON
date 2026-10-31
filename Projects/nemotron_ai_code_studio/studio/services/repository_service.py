@@ -1,4 +1,4 @@
-﻿"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
+"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
 
 from __future__ import annotations
 
@@ -204,32 +204,41 @@ class RepositoryService:
         except OSError:
             pass
 
-    def choose_location(self, text: str) -> Path:
-        """Validate the folder the user typed or browsed to, create it if needed, and remember it for the next clone."""
-        try:
-            path = prepare_location(text)
-        except FolderError as exc:
-            raise RepositoryError(str(exc), 400) from exc
+    def choose_location(self, path: Path) -> None:
+        """User picked a folder on their computer. This becomes the workspace root for all future clones."""
+        if not path.is_dir():
+            raise RepositoryError("The chosen path is not a directory.", 400)
         self._set_location(path)
-        return path
 
+    # ---------------------------------------------------------------- open / activate
     def _activate(self, path: Path, name: str, github: dict[str, Any] | None = None, scratch: bool = False) -> ActiveRepository:
         workspace = WorkspaceService(path)
-        info = _detect(path)
-        is_git = info.is_repo
-        git = GitService(path) if is_git else None
-        index = RepositoryIndex(workspace, git)
-        index.build()
+        index = RepositoryIndex(workspace)
+        search = SearchService(workspace, index)
+        context = ContextEngine(index, search)
+        terminal = TerminalService(path)
+        git = GitService(path) if (path / ".git").exists() else None
+        if git is not None:
+            index.git = git
         return ActiveRepository(
-            name=name, path=path.resolve(), is_git=is_git, workspace=workspace, git=git, index=index,
-            search=SearchService(workspace, index), context=ContextEngine(index, workspace, name),
-            terminal=TerminalService(path), github=github or {}, scratch=scratch and not is_git,
-            git_info=info, git_checked=time.monotonic(),
+            name=name, path=path, is_git=git is not None, workspace=workspace, git=git,
+            index=index, search=search, context=context, terminal=terminal,
+            github=github or {}, scratch=scratch,
         )
 
-    # ---------------------------------------------------------------- work without a repository
-    def open_scratch(self, text: str | None = None, window: str | None = None) -> ActiveRepository:
-        """A plain folder to create and run files in (no GitHub). Without a path it uses the default scratch folder.
+    def open_folder(self, path: Path, window: str = "") -> ActiveRepository:
+        """Open a local folder (must exist)."""
+        if not path.is_dir():
+            raise RepositoryError("Folder does not exist.", 404)
+        active = self._activate(path, path.name)
+        if window:
+            self.remember(window, path)
+            self.adopt_tracker(window, active)
+        return active
+
+    def open_scratch(self, window: str, text: str = "") -> ActiveRepository:
+        """Open a scratch folder for a window. If `text` is provided, it is treated as a path on the user's computer
+        that this window mirrors. The folder is created if it doesn't exist.
 
         On a shared deployment every window gets a scratch folder of its own, so two visitors never see each other's files."""
         try:
