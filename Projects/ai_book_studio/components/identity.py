@@ -1,4 +1,4 @@
-"""A private, anonymous id per browser, so one visitor's books, jobs and files stay separate from everyone else's.
+"""The id that owns a visitor's books, jobs and files: the account id once signed in, otherwise a private anonymous id per browser.
 
 The id is a random token kept in a cookie. It is read from ``st.context.cookies`` when the session connects; a browser
 that has none gets a new token, which a tiny hidden script then stores as a cookie for next time.
@@ -43,7 +43,12 @@ def _cookie_value() -> str | None:
 
 
 def owner_id() -> str:
-    """The id of this browser. Stable for the whole session; created on first use."""
+    """The id that owns this visitor's books: the account id when signed in, otherwise a per-browser id."""
+    user = st.session_state.get("auth_user")
+    if isinstance(user, dict) and is_valid_owner(user.get("id")):
+        st.session_state[_SESSION_KEY] = user["id"]
+        st.session_state[_NEEDS_COOKIE_KEY] = False
+        return user["id"]
     token = st.session_state.get(_SESSION_KEY)
     if is_valid_owner(token):
         return token

@@ -7,11 +7,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
 
-from utils.image_utils import COVER_SIZE, load_pil_font, make_placeholder_image, wrap_text
+from utils.image_utils import COVER_SIZE, make_placeholder_image, wrap_by_width
+from utils.text_shaping import load_text_font
 
 
 def _fit_block(
-    draw: ImageDraw.ImageDraw,
     text: str,
     language: str,
     bold: bool,
@@ -23,35 +23,26 @@ def _fit_block(
     """Find the largest font size at which the wrapped text fits the box."""
     size = start_size
     while True:
-        font = load_pil_font(size, language, bold)
-        lines = wrap_text(draw, text, font, max_width)
-        line_height = int(size * 1.18)
+        font = load_text_font(size, language, bold)
+        lines = wrap_by_width(text, font.width, max_width)
+        line_height = font.line_height
         if len(lines) * line_height <= max_height or size <= min_size:
             return font, lines, line_height
         size -= 4
 
 
 def _draw_centered(
-    draw: ImageDraw.ImageDraw,
+    canvas: Image.Image,
     lines: list[str],
     font,
     line_height: int,
     top: int,
     width: int,
     fill: tuple[int, int, int],
-    stroke: int,
 ) -> int:
     y = top
     for line in lines:
-        line_width = draw.textlength(line, font=font)
-        draw.text(
-            ((width - line_width) / 2, y),
-            line,
-            font=font,
-            fill=fill,
-            stroke_width=stroke,
-            stroke_fill=(0, 0, 0),
-        )
+        font.draw(canvas, (width - font.width(line)) / 2, y, line, fill)
         y += line_height
     return y
 
@@ -107,19 +98,19 @@ def compose_cover(
     max_width = width - 2 * margin
     gold = (214, 178, 94)
 
-    title_font, title_lines, title_lh = _fit_block(draw, title, language, True, max_width, int(height * 0.15), 108, 44)
-    y = _draw_centered(draw, title_lines, title_font, title_lh, int(height * 0.045), width, (255, 255, 255), 0)
+    title_font, title_lines, title_lh = _fit_block(title, language, True, max_width, int(height * 0.15), 108, 44)
+    y = _draw_centered(canvas, title_lines, title_font, title_lh, int(height * 0.045), width, (255, 255, 255))
     if subtitle.strip():
-        sub_font, sub_lines, sub_lh = _fit_block(draw, subtitle, language, False, max_width, int(height * 0.06), 40, 22)
-        y = _draw_centered(draw, sub_lines, sub_font, sub_lh, y + 10, width, (232, 232, 242), 0)
+        sub_font, sub_lines, sub_lh = _fit_block(subtitle, language, False, max_width, int(height * 0.06), 40, 22)
+        y = _draw_centered(canvas, sub_lines, sub_font, sub_lh, y + 10, width, (232, 232, 242))
     rule_y = min(y + 14, title_solid - 6)
     draw.line([(width * 0.38, rule_y), (width * 0.62, rule_y)], fill=gold, width=3)
 
     band_h = height - art_bottom
-    author_font, author_lines, author_lh = _fit_block(draw, author, language, True, max_width, int(band_h * 0.7), 52, 28)
+    author_font, author_lines, author_lh = _fit_block(author, language, True, max_width, int(band_h * 0.7), 52, 28)
     author_top = art_bottom + (band_h - len(author_lines) * author_lh) // 2
     draw.line([(width * 0.38, art_bottom + 12), (width * 0.62, art_bottom + 12)], fill=gold, width=3)
-    _draw_centered(draw, author_lines, author_font, author_lh, author_top + 8, width, (255, 255, 255), 0)
+    _draw_centered(canvas, author_lines, author_font, author_lh, author_top + 8, width, (255, 255, 255))
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

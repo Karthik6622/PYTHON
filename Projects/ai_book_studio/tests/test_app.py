@@ -11,6 +11,13 @@ from conftest import FakeLLM
 APP = str(Path(__file__).resolve().parents[1] / "app.py")
 
 
+def signed_in_app(user_id: str) -> AppTest:
+    """An app session that is already signed in as ``user_id`` (the login page itself is tested in test_auth.py)."""
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.session_state["auth_user"] = {"id": user_id, "name": "Test Reader", "email": "reader@example.com"}
+    return at
+
+
 def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
     import services.project_storage as storage_module
     import components.state as state_module
@@ -18,7 +25,7 @@ def test_app_creates_plan_and_renders_every_tab(tmp_path, monkeypatch):
     monkeypatch.setattr(storage_module, "PROJECTS_DIR", tmp_path / "projects")
     monkeypatch.setattr(state_module, "NvidiaClient", FakeLLM)
 
-    at = AppTest.from_file(APP, default_timeout=60).run()
+    at = signed_in_app("u" + "1" * 32).run()
     assert not at.exception
     assert len(at.radio(key="nav").options) == 7
     assert any("Create Book Plan" in b.label for b in at.button)
@@ -67,8 +74,8 @@ def test_two_browsers_do_not_affect_each_other(tmp_path, monkeypatch):
     monkeypatch.setattr(state_module, "NvidiaClient", FakeLLM)
     state_module.get_storage.clear()
 
-    first = AppTest.from_file(APP, default_timeout=60).run()
-    second = AppTest.from_file(APP, default_timeout=60).run()
+    first = signed_in_app("u" + "a" * 32).run()
+    second = signed_in_app("u" + "b" * 32).run()
     assert not first.exception and not second.exception
     assert first.session_state["owner_id"] != second.session_state["owner_id"]
 

@@ -180,6 +180,26 @@ class ProjectStorage:
                 LOGGER.warning("Could not adopt project folder %s", folder.name)
         return adopted
 
+    def transfer_owner(self, old_owner: str, new_owner: str) -> int:
+        """Move every project of ``old_owner`` to ``new_owner`` (used when a browser's books join an account)."""
+        if not old_owner or not new_owner or old_owner == new_owner:
+            return 0
+        moved = 0
+        for folder in self.root.iterdir() if self.root.exists() else []:
+            meta_path = folder / "project.json"
+            if not folder.is_dir() or not meta_path.exists() or not self.is_valid_id(folder.name):
+                continue
+            try:
+                meta = self._read_json(meta_path) or {}
+                if str(meta.get("owner", "")) != old_owner:
+                    continue
+                meta["owner"] = new_owner
+                self._write_json(meta_path, meta)
+                moved += 1
+            except (OSError, ProjectLoadError):
+                LOGGER.warning("Could not move project folder %s", folder.name)
+        return moved
+
     def clear_generated(self, project: BookProject) -> None:
         """Remove generated content (bible, front matter, chapters, images, exports) but keep the input and plan."""
         folder = self.project_dir(project.project_id)

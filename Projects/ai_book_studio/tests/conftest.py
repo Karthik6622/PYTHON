@@ -91,6 +91,16 @@ class FakeLLM:
         return validator(data) if validator else data
 
 
+@pytest.fixture(autouse=True)
+def isolated_users_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every test gets its own empty accounts database; the real one is never touched."""
+    import config
+
+    path = tmp_path / "users.db"
+    monkeypatch.setattr(config, "USERS_DB", path)
+    return path
+
+
 @pytest.fixture()
 def storage(tmp_path: Path) -> ProjectStorage:
     return ProjectStorage(tmp_path / "projects")

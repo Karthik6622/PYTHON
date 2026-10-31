@@ -130,6 +130,16 @@ projects/{project_id}/
 
 All writes are atomic. Use the sidebar to reopen, start a new book, or delete a saved project.
 
+## 11a. Accounts and sign-in
+
+The app opens on a Log in / Create account page. Each book belongs to an account, so projects are still there after a refresh, on another browser or after a restart.
+
+- **Email and password** needs no setup. Passwords are hashed with bcrypt, repeated wrong attempts lock the account for 10 minutes, and the same message is shown for an unknown email and a wrong password.
+- **Stay signed in.** A random session token is stored in the `ab_session` cookie (30 days); only its SHA-256 digest is stored on the server. "Log out" ends it.
+- **Google and GitHub** buttons are enabled once the matching tables are in `.streamlit/secrets.toml` (see the example file for the exact keys, and keep them at the end of the file). Without them the buttons are shown disabled. Accounts with the same verified email are merged.
+- Accounts live in `data/users.db` (gitignored). Books made before accounts existed in the same browser are moved to the account the first time that browser signs in.
+- Storage is local disk, so on hosts with an ephemeral file system (some free tiers) accounts and books are lost on redeploy; mount a persistent volume for `data/` and `projects/`.
+
 ## 12. Quality review
 
 Each chapter is reviewed by Nemotron acting as an editor. It passes with a score of 80 or more and no critical problems. Failing chapters are revised up to two times;

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -11,6 +13,7 @@ st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide", initi
 load_dotenv(ROOT_DIR / ".env")
 
 from components import audio_tab, chapters_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
+from components.auth_session import current_user, require_login, sign_out  # noqa: E402
 from components.progress_panel import render_sidebar_status  # noqa: E402
 from components.identity import adopt_legacy_books, owner_id, remember_browser  # noqa: E402
 from components.state import (  # noqa: E402
@@ -61,13 +64,21 @@ def render_sidebar() -> None:
         if not image.configured:
             st.markdown(pill("Placeholder images", "warn"), unsafe_allow_html=True)
 
+        user = current_user() or {}
+        st.markdown(
+            f'<div class="side-user"><b>{html.escape(user.get("name", ""))}</b><span>{html.escape(user.get("email", ""))}</span></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Log out", key="sb_logout", width="stretch"):
+            sign_out()
+
         st.divider()
         st.markdown("### Generation status")
         render_sidebar_status()
 
         st.divider()
         st.markdown("### Saved projects")
-        st.caption("Private to this browser.")
+        st.caption("Saved to your account.")
         saved = storage.list_projects(owner=owner_id())
         ids = [item["id"] for item in saved]
         if st.session_state.get("sb_open") not in ids:
@@ -94,6 +105,8 @@ def render_sidebar() -> None:
 
 def main() -> None:
     setup_logging()
+    if not require_login():
+        st.stop()
     init_state()
     remember_browser()
     adopt_legacy_books(get_storage())

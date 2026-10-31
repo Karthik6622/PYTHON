@@ -345,6 +345,12 @@ code, pre { border-radius: 10px; }
   display: inline-block; margin: 0 4px 4px 0; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600;
   letter-spacing: .03em; color: var(--amber); background: rgba(255, 140, 40, .12); border: 1px solid var(--line-2);
 }
+.side-user {
+  display: flex; flex-direction: column; gap: 2px; margin: 10px 0 8px; padding: 10px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, .045); border: 1px solid var(--line); overflow: hidden;
+}
+.side-user b { font-family: var(--display); color: var(--ink); font-size: .98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-user span { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Pills ---------- */
 .pill {

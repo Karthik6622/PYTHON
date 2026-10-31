@@ -18,6 +18,8 @@ APP_TAGLINE = "Turn your idea into a professionally structured and illustrated b
 
 ROOT_DIR = Path(__file__).resolve().parent
 PROJECTS_DIR = ROOT_DIR / "projects"
+DATA_DIR = ROOT_DIR / "data"  # accounts and login sessions (never committed)
+USERS_DB = DATA_DIR / "users.db"
 ASSETS_DIR = ROOT_DIR / "assets"
 FONTS_DIR = ASSETS_DIR / "fonts"
 PLACEHOLDERS_DIR = ASSETS_DIR / "placeholders"

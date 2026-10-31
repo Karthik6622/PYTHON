@@ -44,6 +44,7 @@ def _family(directory: Path, regular: str, bold: str = "", italic: str = "", bol
 
 
 SCRIPT_BY_LANGUAGE = {"Tamil": "tamil", "Hindi": "devanagari", "Japanese": "japanese"}
+SHAPED_SCRIPTS = frozenset({"tamil", "devanagari"})  # scripts whose letters must be shaped (joined) to read correctly
 
 FONT_FAMILIES: dict[str, list[_Family]] = {
     "latin": [
@@ -57,12 +58,14 @@ FONT_FAMILIES: dict[str, list[_Family]] = {
     "tamil": [
         _family(FONTS_DIR, "NotoSansTamil-Regular.ttf", "NotoSansTamil-Bold.ttf"),
         _family(_WIN, "Nirmala.ttf", "NirmalaB.ttf"),
+        _family(_WIN, "Nirmala.ttc"),  # newer Windows ships Nirmala only as a collection (regular and bold inside)
         _family(_NOTO, "NotoSansTamil-Regular.ttf", "NotoSansTamil-Bold.ttf"),
         _family(Path("/usr/share/fonts/truetype/lohit-tamil"), "Lohit-Tamil.ttf"),
     ],
     "devanagari": [
         _family(FONTS_DIR, "NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari-Bold.ttf"),
         _family(_WIN, "Nirmala.ttf", "NirmalaB.ttf"),
+        _family(_WIN, "Nirmala.ttc"),
         _family(_WIN, "mangal.ttf", "mangalb.ttf"),
         _family(_NOTO, "NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari-Bold.ttf"),
     ],
@@ -107,13 +110,18 @@ def load_pil_font(size: int, language: str = "English", bold: bool = False) -> I
 
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> list[str]:
     """Wrap text to a pixel width. Languages without spaces are wrapped per character."""
+    return wrap_by_width(text, lambda candidate: draw.textlength(candidate, font=font), max_width)
+
+
+def wrap_by_width(text: str, measure, max_width: float) -> list[str]:
+    """Wrap text using any ``measure(text) -> width`` function. Languages without spaces are wrapped per character."""
     tokens = text.split(" ") if " " in text.strip() else list(text.strip())
     joiner = " " if " " in text.strip() else ""
     lines: list[str] = []
     current = ""
     for token in tokens:
         candidate = f"{current}{joiner}{token}" if current else token
-        if draw.textlength(candidate, font=font) <= max_width or not current:
+        if measure(candidate) <= max_width or not current:
             current = candidate
         else:
             lines.append(current)
