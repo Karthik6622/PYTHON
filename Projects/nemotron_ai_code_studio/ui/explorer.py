@@ -10,7 +10,7 @@ from studio.security import is_sensitive_path
 from studio.services import folders, local_sync
 
 from .dialogs import choose_working_folder, ensure_folder
-from .state import S, attempt, close_file, log, open_file, repo
+from .state import S, attempt, close_file, log, open_file, recent_edits, repo
 from .theme import section_title
 
 
@@ -144,13 +144,14 @@ def render_explorer() -> None:
 
     if not entries:
         st.caption("This folder is empty.")
+    hot = recent_edits()  # files (and their folders) the agent changed a moment ago glow, then fade back to normal
     for entry in entries[:500]:
         is_dir = entry["type"] == "dir"
         label = entry["name"] + ("  (skipped by indexing)" if entry.get("ignored") else "")
         if entry.get("listed") and not is_dir:
             label = f"{entry['name']}  (not copied: {entry['why']})"
         pressed = st.button(
-            label, key=f"entry:{entry['path']}", width="stretch",
+            label, key=f"entry:{entry['path']}{'__hot__' if entry['path'] in hot else ''}", width="stretch",
             icon=":material/folder:" if is_dir else ":material/description:",
             type="primary" if entry["path"] == S.active else "secondary",
         )

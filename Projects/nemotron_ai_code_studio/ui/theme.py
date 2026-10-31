@@ -164,6 +164,14 @@ div.st-key-up [data-testid^="stBaseButton"] {
   box-shadow:inset 2px 0 0 var(--cyan) !important; border:none !important;
 }
 [class*="st-key-entry-"] [data-testid="stBaseButton-primary"] p { color:var(--cyan) !important; font-weight:600 !important; }
+/* files the agent just edited glow for a few seconds, then fade back to normal (EDIT_GLOW_SECONDS in state.py) */
+[class*="__hot__"] [data-testid^="stBaseButton"] { position:relative; overflow:hidden; }
+[class*="__hot__"] [data-testid^="stBaseButton"]::after {
+  content:""; position:absolute; inset:0; border-radius:9px; pointer-events:none;
+  background:linear-gradient(90deg,rgba(184,255,61,.38),rgba(43,255,154,.16)); box-shadow:inset 3px 0 0 #b8ff3d;
+  animation:editglow 10s ease-out forwards;
+}
+@keyframes editglow { 0%,35% { opacity:1; } 100% { opacity:0; } }
 
 /* ---------- inputs ---------- */
 [data-baseweb="input"], [data-baseweb="textarea"], [data-baseweb="select"] > div, [data-baseweb="base-input"] {

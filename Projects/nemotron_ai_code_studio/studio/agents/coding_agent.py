@@ -187,14 +187,14 @@ class CodingAgent:
                     else:
                         final_text = (
                             f"The agent stopped without finishing: the model returned an empty reply after inspecting {len(ctx.inspected)} file(s) "
-                            "and made no changes. Click Continue to try again, rephrase the request, or pick another model."
+                            "and made no changes. Send the request again, rephrase it, or pick another model."
                         )
                         emit({"type": "notice", "text": final_text, "incomplete": True})
                 if turn.finish_reason == "length":
                     final_text += "\n\n(The reply was cut off by the output limit.)"
-                    emit({"type": "notice", "text": "The reply was cut off by the model's output limit. Click Continue to go on.", "incomplete": True})
+                    emit({"type": "notice", "text": "The reply was cut off by the model's output limit. Ask it to go on.", "incomplete": True})
                 elif mode == "agent" and not ctx.modified and nudges >= MAX_NUDGES and _needs_action(final_text):
-                    emit({"type": "notice", "text": "The agent stopped without changing any files: the model described the work but never made an edit. Click Continue to try again.", "incomplete": True})
+                    emit({"type": "notice", "text": "The agent stopped without changing any files: the model described the work but never made an edit. Send the request again.", "incomplete": True})
 
                 if mode == "agent" and ctx.modified and settings.auto_validate:
                     signature = await asyncio.to_thread(_changes_signature, ctx)
@@ -216,7 +216,7 @@ class CodingAgent:
                 break
             else:
                 final_text = (final_text or "") + f"\n\nStopped after {max_steps} steps. The work may be incomplete; ask me to continue."
-                emit({"type": "notice", "text": f"Stopped after {max_steps} steps. The work may be incomplete; click Continue to go on.", "incomplete": True})
+                emit({"type": "notice", "text": f"Stopped after {max_steps} steps. The work may be incomplete; ask it to go on.", "incomplete": True})
 
             result.message = redact(final_text)
         except NvidiaError as exc:

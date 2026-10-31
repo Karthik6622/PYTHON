@@ -17,7 +17,7 @@ from studio.runner import register_run, release_run
 from studio.services.attachments import ACCEPTED_TYPES, DEFAULT_QUESTION, MAX_FILE_MB, attachment_block, process_uploads
 
 from .dialogs import ensure_folder
-from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, remember_mode, repo, sync_after_change
+from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, mark_edited, reload_paths, remember_mode, repo, sync_after_change
 
 POLL_SECONDS = 0.4
 SUGGESTIONS = [
@@ -103,7 +103,7 @@ def _drain() -> bool:
             apply_event(answer, event, S.approvals)
         if finished:
             if answer.streaming:  # the run ended without telling us why: never leave the user guessing
-                add_notice(answer, "The agent ended unexpectedly before finishing. Click Continue to try again.")
+                add_notice(answer, "The agent ended unexpectedly before finishing. Send your request again.")
                 answer.incomplete = True
             answer.streaming, answer.status = False, ""
             answer.finished = answer.finished or time.time()
@@ -119,6 +119,7 @@ def _drain() -> bool:
         if modified and current is not None:
             current.reindex()
             sync_after_change(modified)
+            mark_edited(modified)
         log("Agent run finished")
         _save_chat()
         return True
@@ -386,11 +387,6 @@ def _transcript() -> None:
         for message in S.messages:
             _render_message(message)
         _render_approvals()
-        last = S.messages[-1] if S.messages else None
-        if last is not None and last.role == "assistant" and not last.streaming and last.incomplete:
-            if st.button("Continue", key="agent_continue", icon=":material/play_arrow:", disabled=_running()):
-                _start_run("Continue where you left off and finish the task.")
-                st.rerun()
     if ended:
         st.rerun()
 

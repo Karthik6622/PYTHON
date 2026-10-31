@@ -21,7 +21,7 @@ from studio.services.repository_service import ActiveRepository, RepositoryError
 
 __all__ = [
     "AgentRun", "CommandRun", "broker", "coding_agent", "conversations", "nvidia", "repository_agent", "repositories",
-    "S", "init_state", "remember_mode", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
+    "S", "init_state", "remember_mode", "mark_edited", "recent_edits", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
     "window_id", "open_workspace", "new_window_url", "window_url", "location_label", "repo_label",
 ]
 
@@ -164,6 +164,29 @@ def remember_mode(mode: str) -> None:
         st.session_state["_keep_mode"] = mode
         if str(st.query_params.get("mode", "")).upper() != mode:
             st.query_params["mode"] = mode.lower()
+
+
+EDIT_GLOW_SECONDS = 10  # how long the Explorer highlights what the agent just edited (the fade in theme.py lasts the same time)
+
+
+def mark_edited(paths: list[str]) -> None:
+    """Remember the files the agent just changed so the Explorer can highlight them for a moment."""
+    now = time.time()
+    marks = dict(st.session_state.get("_edited") or {})
+    marks.update({path: now for path in paths})
+    st.session_state["_edited"] = marks
+
+
+def recent_edits() -> set[str]:
+    """Paths edited within the last few seconds, plus the folders that contain them (so a changed file inside a folder is findable)."""
+    now = time.time()
+    marks = {path: at for path, at in (st.session_state.get("_edited") or {}).items() if now - at < EDIT_GLOW_SECONDS}
+    st.session_state["_edited"] = marks
+    hot: set[str] = set()
+    for path in marks:
+        parts = path.split("/")
+        hot.update("/".join(parts[: i + 1]) for i in range(len(parts)))
+    return hot
 
 
 def init_state() -> None:
