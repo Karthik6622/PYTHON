@@ -170,7 +170,7 @@ def render_terminal() -> None:
             # The prompt and the input share one line, like a real shell. Enter submits (the Run button is visually hidden).
             with st.form("term_form", clear_on_submit=True, border=False):
                 st.markdown(f"<span class='ps termps'>{escape(_prompt())}</span>", unsafe_allow_html=True)
-                command = st.text_input("Command", label_visibility="collapsed", placeholder="type a command")
+                command = st.text_input("Command", label_visibility="collapsed")
                 submitted = st.form_submit_button("Run")
             if submitted and command.strip():
                 if not ensure_folder():  # the terminal always works in the folder the user chose

@@ -411,10 +411,10 @@ div.st-key-termbox { height:calc(var(--bottom-h) - 74px) !important; min-height:
 div.st-key-termbox > [data-testid="stElementContainer"], div.st-key-termbox [data-testid="stMarkdownContainer"] { width:100%; }
 div.st-key-termbox [data-testid="stMarkdownContainer"] p { margin:0; }
 div.st-key-termbox [data-testid="stForm"] { position:relative; padding:0 !important; border:none !important; }
-div.st-key-termbox [data-testid="stForm"] > div > [data-testid="stVerticalBlock"], div.st-key-termbox [data-testid="stForm"] [data-testid="stVerticalBlock"] { display:flex !important; flex-direction:row !important; flex-wrap:wrap; align-items:baseline; gap:0 8px !important; }
+div.st-key-termbox [data-testid="stForm"] > div > [data-testid="stVerticalBlock"], div.st-key-termbox [data-testid="stForm"] [data-testid="stVerticalBlock"] { display:flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:last baseline; gap:0 8px !important; }
 div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"] { width:auto !important; min-width:0; flex:0 1 auto; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) { flex:1 1 160px; }
-div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdownContainer"] { font:12.5px/1.5 var(--mono); word-break:break-all; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) { flex:1 1 120px; min-width:120px; }
+div.st-key-termbox [data-testid="stForm"] [data-testid="stMarkdownContainer"] { font:12.5px/1.5 var(--mono); overflow-wrap:anywhere; }
 div.st-key-termbox [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stFormSubmitButton"]) { position:absolute; width:1px !important; height:1px; overflow:hidden; opacity:0; pointer-events:none; flex:none; }
 div.st-key-termbox [data-testid="stTextInput"] { width:100%; }
 div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="input"], div.st-key-termbox [data-testid="stTextInput"] [data-baseweb="base-input"] { background:transparent !important; border:none !important; box-shadow:none !important; min-height:0 !important; }
