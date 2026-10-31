@@ -145,6 +145,16 @@ _CSS = (
 a.auth-oauth svg { flex: none; }
 .auth-oauth-off { opacity: .45; pointer-events: none; }
 .st-key-auth_github_off button { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.st-key-auth_github a {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 2.75rem; border-radius: 12px; font-weight: 600;
+  text-decoration: none; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .05); color: var(--ink) !important;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.st-key-auth_github a:hover { transform: translateY(-2px); border-color: var(--amber); background: rgba(255, 138, 43, .12); box-shadow: 0 10px 26px -14px var(--glow); }
+.st-key-auth_github a p { color: var(--ink) !important; }
+.st-key-auth_github a::before { content: ""; width: 18px; height: 18px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23FFF4EA' d='"""
+    + _GITHUB_PATH
+    + r"""'/></svg>") center / contain no-repeat; }
 .st-key-auth_github_off button::before { content: ""; width: 18px; height: 18px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23FFF4EA' d='"""
     + _GITHUB_PATH
     + r"""'/></svg>") center / contain no-repeat; }
@@ -233,11 +243,8 @@ def _social_buttons() -> None:
                 url = github_authorization_url()
             except SocialLoginError:
                 url = ""
-            if url:
-                st.markdown(
-                    f'<a class="auth-oauth" href="{html.escape(url, quote=True)}" target="_top" rel="noopener">{_GITHUB_SVG}GitHub</a>',
-                    unsafe_allow_html=True,
-                )
+            if url:  # opens GitHub in a new tab: embedded apps cannot navigate the whole window
+                st.link_button("GitHub", url, key="auth_github", width="stretch")
         else:
             st.button(
                 "GitHub",
@@ -259,9 +266,9 @@ def _login_form() -> None:
             user = auth_service.authenticate(email, password)
         except auth_service.AuthError as exc:
             st.error(str(exc))
-            return
-        sign_in(user, remember)
-        st.rerun()
+        else:
+            sign_in(user, remember)
+            st.rerun()
     if st.button("Forgot password?", key="auth_forgot", type="tertiary"):
         st.session_state[_VIEW] = "reset"
         st.session_state.pop(_RESET, None)
@@ -281,8 +288,8 @@ def _reset_view() -> None:
                 st.session_state[_RESET] = auth_service.begin_password_reset(email)
             except auth_service.AuthError as exc:
                 st.error(str(exc))
-                return
-            st.rerun()
+            else:
+                st.rerun()
     else:
         st.markdown(
             f'<div class="auth-note">Choose a new password for <b>{html.escape(str(state["email"]))}</b>.'
@@ -304,10 +311,10 @@ def _reset_view() -> None:
                 auth_service.finish_password_reset(str(state["id"]), code, password, confirm, bool(state["needs_code"]))
             except auth_service.AuthError as exc:
                 st.error(str(exc))
-                return
-            st.session_state[_NOTICE] = "Password updated. Log in with your new password."
-            _leave_reset()
-            st.rerun()
+            else:
+                st.session_state[_NOTICE] = "Password updated. Log in with your new password."
+                _leave_reset()
+                st.rerun()
     st.markdown('<div class="auth-fine">Signed up with Google or GitHub? You can keep using those buttons on the log in page.</div>', unsafe_allow_html=True)
     if st.button("Back to log in", key="auth_back", type="tertiary"):
         _leave_reset()
