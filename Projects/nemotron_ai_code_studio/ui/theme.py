@@ -6,6 +6,24 @@ from html import escape
 
 import streamlit as st
 
+# One scrollbar look for the page and for the code editor (which lives in its own frame; layout.py copies this into it).
+# A slim pill thumb with a green gradient on a dark, faintly green track; it turns lime on hover. Firefox gets the thin standard bar.
+SCROLLBAR_CSS = """
+* { scrollbar-width:thin; scrollbar-color:#0fbf6b #061510; }
+@supports selector(::-webkit-scrollbar) {
+  * { scrollbar-width:auto; scrollbar-color:auto; }
+  ::-webkit-scrollbar { width:11px; height:11px; background:transparent; }
+  ::-webkit-scrollbar-track { background:rgba(43,255,154,.04); border-left:1px solid rgba(110,255,190,.10); }
+  ::-webkit-scrollbar:horizontal, ::-webkit-scrollbar-track:horizontal { border-left:none; }
+  ::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#2bff9a,#0fbf6b); border:3px solid transparent; background-clip:padding-box; border-radius:999px; min-height:36px; min-width:36px; box-shadow:0 0 10px rgba(43,255,154,.35); }
+  ::-webkit-scrollbar-thumb:horizontal { background:linear-gradient(90deg,#2bff9a,#0fbf6b); background-clip:padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background:linear-gradient(180deg,#b8ff3d,#2bff9a); background-clip:padding-box; }
+  ::-webkit-scrollbar-thumb:active { background:#b8ff3d; background-clip:padding-box; }
+  ::-webkit-scrollbar-corner { background:transparent; }
+  ::-webkit-scrollbar-button { display:none; width:0; height:0; }
+}
+"""
+
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -41,8 +59,7 @@ html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
 [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stMainBlockContainer"], [data-testid="stVerticalBlock"], [data-testid="stElementContainer"] { transition:none !important; }
 [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { gap:0 !important; }
 [data-testid="stAppViewContainer"] > .stMain, [data-testid="stMain"] { padding:0 !important; }
-* { scrollbar-width:thin; scrollbar-color:rgba(15,191,107,.45) transparent; }
-::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-thumb { background:rgba(15,191,107,.4); border-radius:8px; } ::-webkit-scrollbar-track { background:transparent; }
+__SCROLLBAR__
 h1,h2,h3,h4,h5,h6,p,label,span,div { font-family:var(--sans); }
 code, pre, kbd { font-family:var(--mono) !important; }
 p { margin:0; }
@@ -477,7 +494,7 @@ div.st-key-termbox [data-testid="InputInstructions"] { display:none !important; 
 
 
 def inject_theme() -> None:
-    st.markdown(CSS, unsafe_allow_html=True)
+    st.markdown(CSS.replace("__SCROLLBAR__", SCROLLBAR_CSS), unsafe_allow_html=True)
 
 
 def section_title(title: str, right: str = "") -> None:

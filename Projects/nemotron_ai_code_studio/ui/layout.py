@@ -8,10 +8,17 @@ the newest message and hides platform badges (for example "Manage app") that wou
 
 from __future__ import annotations
 
+import json
+
 import streamlit as st
 import streamlit.components.v1 as components
 
-VERSION = 7
+from .theme import SCROLLBAR_CSS
+
+VERSION = 8
+
+# The code editor is a component in its own frame, so the page's CSS does not reach it: the same scrollbar style is copied in.
+FRAME_CSS = SCROLLBAR_CSS + "html, body { background:#000; } .ace_scrollbar { background:transparent; }"
 
 SCRIPT = r"""
 <script>
@@ -156,6 +163,16 @@ SCRIPT = r"""
     try { if (P.top && P.top !== P && P.top.document) list.push(P.top.document); } catch (e) {}
     return list;
   }
+  var FRAME_CSS = __FRAME_CSS__;
+  function styleFrames() {
+    D.querySelectorAll('iframe').forEach(function (f) {
+      try {
+        var d = f.contentDocument;
+        if (!d || !d.head || d.getElementById('rk-sb')) return;
+        var s = d.createElement('style'); s.id = 'rk-sb'; s.textContent = FRAME_CSS; d.head.appendChild(s);
+      } catch (e) {}
+    });
+  }
 
   var lastBadge = 0;
   function tick() {
@@ -167,6 +184,7 @@ SCRIPT = r"""
       ['side', 'agent', 'bottom'].forEach(function (kind) { if (state[kind] !== null) apply(kind, state[kind], false); });
     }
     place();
+    styleFrames();
     var chat = q('div.st-key-chat');
     if (chat) {
       if (chat.__rkH === undefined) { chat.scrollTop = chat.scrollHeight; }
@@ -280,7 +298,7 @@ SCRIPT = r"""
   tick();
 })();
 </script>
-""".replace("__VERSION__", str(VERSION))
+""".replace("__VERSION__", str(VERSION)).replace("__FRAME_CSS__", json.dumps(FRAME_CSS))
 
 
 def install_layout() -> None:
