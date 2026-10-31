@@ -7,6 +7,7 @@ from html import escape
 from typing import Any, Callable
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from studio.config import settings
 from studio.services.command_policy import classify_command
@@ -18,6 +19,8 @@ from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
 
 PANEL_HEIGHT = 240
 POLL_SECONDS = 0.5
+# Puts the cursor in the answer box so the user can type straight away, like a console.
+_FOCUS_SCRIPT = "<script>try{const i=window.parent.document.querySelector('.st-key-termbox [data-testid=\"stTextInputField\"]');if(i&&window.parent.document.activeElement!==i)i.focus();}catch(e){}</script>"
 
 
 # ------------------------------------------------------------------ live runs
@@ -56,7 +59,7 @@ def _start(attr: str, command: str, kind: str = "", cwd: str = "", timeout: int 
     current = repo()
     if current is None:
         return
-    run = CommandRun(current, command, cwd, timeout)
+    run = CommandRun(current, command, cwd, timeout, interactive=attr == "term_run")
     run.prompt = _prompt()
     st.session_state[attr] = run
     if kind:
@@ -200,6 +203,15 @@ def render_terminal() -> None:
                 st.rerun()
 
         _live("term_run", _terminal_render, _terminal_finish)
+        live = st.session_state.get("term_run")
+        if live is not None and not live.finished.is_set() and live.inputs is not None:
+            # The program is running and may be waiting for an answer (input()): type it here, Enter sends it.
+            with st.form("term_answer", clear_on_submit=True, border=False):
+                answer = st.text_input("Input", label_visibility="collapsed", key="term_answer_text")
+                sent = st.form_submit_button("Send")
+            if sent:
+                live.send_input(answer)
+            components.html(_FOCUS_SCRIPT, height=0)
 
 
 

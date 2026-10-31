@@ -7,6 +7,7 @@ and long commands run in their own threads here, and the UI polls their event li
 from __future__ import annotations
 
 import asyncio
+import queue
 import threading
 import time
 from typing import Any
@@ -119,8 +120,9 @@ class AgentRun:
 class CommandRun:
     """A shell command (terminal, tests) running in a worker thread with live output."""
 
-    def __init__(self, repo: ActiveRepository, command: str, cwd: str = "", timeout: int | None = None) -> None:
+    def __init__(self, repo: ActiveRepository, command: str, cwd: str = "", timeout: int | None = None, interactive: bool = False) -> None:
         self.repo, self.command, self.cwd, self.timeout = repo, command, cwd, timeout
+        self.inputs: queue.Queue | None = queue.Queue() if interactive else None  # lines typed by the user while it runs
         self.secrets = settings.current_session()
         self.prompt = "PS>"  # shell prompt shown in the terminal history (set by the UI)
         self._chunks: list[str] = []
@@ -136,7 +138,7 @@ class CommandRun:
     def _main(self) -> None:
         settings.bind_session(self.secrets)
         try:
-            self.result = self.repo.terminal.run_streaming(self.command, self.cwd, self.timeout, self._on_output, self._cancel)
+            self.result = self.repo.terminal.run_streaming(self.command, self.cwd, self.timeout, self._on_output, self._cancel, self.inputs)
         except Exception as exc:
             self.error = friendly_error(exc)
         finally:
@@ -157,3 +159,7 @@ class CommandRun:
 
     def cancel(self) -> None:
         self._cancel.set()
+
+    def send_input(self, text: str) -> None:
+        if self.inputs is not None and not self.finished.is_set():
+            self.inputs.put(text)

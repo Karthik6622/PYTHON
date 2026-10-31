@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import queue
 import re
 import shutil
 import signal
@@ -171,8 +172,12 @@ class TerminalService:
         timeout: int | None = None,
         on_output: Callable[[str], None] | None = None,
         cancel: threading.Event | None = None,
+        input_queue: queue.Queue | None = None,
     ) -> CommandResult:
-        """Blocking. Call from a worker thread. on_output receives redacted text as it arrives."""
+        """Blocking. Call from a worker thread. on_output receives redacted text as it arrives.
+
+        With `input_queue` the command can be answered like in a real terminal: each line put in the queue is typed into the
+        program (and echoed in the output); without it the program gets no input at all."""
         cwd = self.resolve_cwd(cwd_relative)
         command = quote_python_script_path(command, cwd, self.root)
         limit = timeout or settings.command_timeout_seconds
@@ -193,9 +198,11 @@ class TerminalService:
             if index:
                 env["GIT_CONFIG_COUNT"] = str(index)
         popen_args: dict = {
-            "cwd": str(cwd), "env": env, "stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE,
-            "stderr": subprocess.STDOUT, "bufsize": 0,
+            "cwd": str(cwd), "env": env, "stdin": subprocess.PIPE if input_queue is not None else subprocess.DEVNULL,
+            "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "bufsize": 0,
         }
+        if input_queue is not None:
+            env["PYTHONUNBUFFERED"] = "1"  # prompts such as input("Enter: ") must appear before the program waits for the answer
         if os.name == "nt":
             popen_args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
@@ -238,6 +245,30 @@ class TerminalService:
 
         thread = threading.Thread(target=reader, daemon=True)
         thread.start()
+
+        def typist() -> None:
+            assert input_queue is not None and process.stdin is not None
+            while process.poll() is None:
+                try:
+                    line = input_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                try:
+                    process.stdin.write((line + "\n").encode("utf-8"))
+                    process.stdin.flush()
+                except OSError:
+                    break  # the program has already ended
+                echo = redact(line) + "\n"
+                pieces.append(echo)
+                if on_output:
+                    on_output(echo)
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+
+        if input_queue is not None:
+            threading.Thread(target=typist, daemon=True).start()
         timed_out = cancelled = False
         while process.poll() is None:
             if cancel is not None and cancel.is_set():

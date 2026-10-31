@@ -73,6 +73,20 @@ def test_terminal_runs_and_times_out(tmp_path):
         terminal.run("echo x", cwd_relative="../")
 
 
+def test_terminal_program_can_be_answered_while_it_runs(tmp_path):
+    import queue
+
+    script = tmp_path / "ask.py"
+    script.write_text("name = input('Name: ')\nprint('Hello ' + name)\nage = input('Age: ')\nprint('Age ' + age)\n")
+    typed: queue.Queue = queue.Queue()
+    typed.put("Ravi")
+    typed.put("30")
+    result = TerminalService(tmp_path).run_streaming(f'"{sys.executable}" ask.py', timeout=30, input_queue=typed)
+    assert result.ok and "Name: " in result.output and "Hello Ravi" in result.output and "Age 30" in result.output
+    without = TerminalService(tmp_path).run(f'"{sys.executable}" ask.py', timeout=30)
+    assert not without.ok and "EOFError" in without.output
+
+
 def test_terminal_hides_secrets_from_child(tmp_path, monkeypatch):
     monkeypatch.setenv("MY_SECRET_TOKEN", "should-not-leak-1234")
     out = TerminalService(tmp_path).run(f'"{sys.executable}" -c "import os; print(os.environ.get(\'MY_SECRET_TOKEN\', \'absent\'))"')
