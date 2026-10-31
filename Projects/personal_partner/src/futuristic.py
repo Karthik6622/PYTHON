@@ -324,5 +324,10 @@ span[data-baseweb="tag"] { background: var(--ks-btn-grad) !important; }
   [data-testid="stFileChip"] > div:has(> [data-testid="stFileChipImagePreview"]) { width: 3.75rem; height: 3.75rem; flex: 0 0 3.75rem; }
   [data-testid="stFileChipName"] { font-size: .8rem; max-width: 7rem; }
 }
+/* Sidebar menu (Chat, My Profile, Settings): a little bigger on every screen */
+[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] { gap: .3rem; }
+[data-testid="stSidebar"] [data-testid="stRadioOption"] { padding: .5rem .65rem; min-height: 2.75rem; align-items: center; border-radius: .7rem; }
+[data-testid="stSidebar"] [data-testid="stRadioOption"] p { font-size: 1.05rem; }
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div:first-child { transform: scale(1.15); }
 </style>
 """
