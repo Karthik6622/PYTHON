@@ -86,11 +86,18 @@
     '[role=combobox]', '[role=textbox]', '[role=option]', '[data-testid]', '[data-test]', '[data-qa]', '[data-cy]',
     '[contenteditable=true]', '[tabindex]:not([tabindex="-1"])',
   ].join(',');
+  const INTERACTIVE_TAGS = ['a', 'button', 'input', 'select', 'textarea', 'summary'];
+  const isContainer = (el) => {
+    // Layout wrappers that only match through data-testid / tabindex (frameworks tag every block) are noise, not controls.
+    if (INTERACTIVE_TAGS.includes(el.tagName.toLowerCase()) || attr(el, 'role') || el.isContentEditable) return false;
+    return !!el.querySelector('a[href],button,input,select,textarea,[role=button],[role=tab],[role=link]') || norm(el.textContent).length > 140;
+  };
   const seen = new Set();
   const elements = [];
   for (const el of q(SELECTOR)) {
     if (seen.has(el) || elements.length >= MAX_ELEMENTS) continue;
     seen.add(el);
+    if (isContainer(el)) continue;
     const tag = el.tagName.toLowerCase();
     const type = (el.type || '').toLowerCase();
     const testid = attr(el, 'data-testid') || attr(el, 'data-test') || attr(el, 'data-qa') || attr(el, 'data-cy');

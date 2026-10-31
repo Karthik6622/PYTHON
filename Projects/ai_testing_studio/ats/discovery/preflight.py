@@ -39,8 +39,10 @@ def preflight(url: str, ignore_https_errors: bool = False, timeout: float = 15.0
         return PreflightResult(ok=False, category=category, message=str(exc))
 
     headers = {"User-Agent": "Mozilla/5.0 (compatible; AITestingStudio/1.0)", "Accept": "text/html,application/xhtml+xml"}
+    # The operating-system trust store matches what the browser uses (corporate proxies and private CAs included).
+    verify: ssl.SSLContext | bool = False if ignore_https_errors else ssl.create_default_context()
     try:
-        with httpx.Client(follow_redirects=True, timeout=timeout, verify=not ignore_https_errors, max_redirects=8, headers=headers) as client:
+        with httpx.Client(follow_redirects=True, timeout=timeout, verify=verify, max_redirects=8, headers=headers) as client:
             response = client.get(target)
     except httpx.TooManyRedirects:
         return PreflightResult(ok=False, category="too_many_redirects", message="The site redirects in a loop.")

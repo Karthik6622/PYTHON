@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Single-page sign in</title></head>
+<body>
+<div id="root"></div>
+<script>
+const root = document.getElementById('root');
+function landing() {
+  root.innerHTML = '<h1>Welcome</h1><button id="start">Get started</button>';
+  document.getElementById('start').onclick = form;
+}
+function form() {
+  root.innerHTML = '<h2>Welcome back</h2><input type="text" autocomplete="email" placeholder="you@example.com">' +
+    '<input type="password" placeholder="Your password"><button id="go">Log in</button><p id="err"></p>';
+  document.getElementById('go').onclick = () => {
+    const i = root.querySelectorAll('input');
+    if (i[0].value === 'tester@example.com' && i[1].value === 'correct-horse') home();
+    else document.getElementById('err').textContent = 'Wrong email or password';
+  };
+}
+function home() {
+  root.innerHTML = '<h1>Dashboard</h1><button>New conversation</button><button>Log out</button><input type="text" placeholder="Search notes">';
+}
+landing();
+</script>
+</body></html>

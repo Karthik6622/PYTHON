@@ -117,20 +117,42 @@ def launch(playwright: Any, browser_name: str = "chromium", headless: bool = Tru
 # ------------------------------------------------------------------------------------------
 # Authentication
 # ------------------------------------------------------------------------------------------
-def perform_login(page: Any, auth: dict[str, Any], start_url: str) -> str | None:
-    """Sign in using credentials from environment variables. Returns a warning message when it cannot be confirmed."""
+LOGIN_OPENER = re.compile(r"^(get started|log ?in|sign ?in)\b", re.I)
+LOGIN_SUBMIT = re.compile(r"^(log ?in|sign ?in|submit|continue|enter)$", re.I)
+PASSWORD_FIELD = "input[type=password]:visible"
+
+
+def reveal_login_form(page: Any) -> None:
+    """Single-page apps often show a landing page first; open the sign-in form when no password field is visible yet."""
+    if page.locator(PASSWORD_FIELD).count():
+        return
+    for role in ("button", "link"):
+        opener = page.get_by_role(role, name=LOGIN_OPENER)
+        if opener.count():
+            opener.first.click()
+            settle(page, max_ms=6000, quiet_ms=1000)
+            if page.locator(PASSWORD_FIELD).count():
+                return
+
+
+def perform_login(page: Any, auth: dict[str, Any], start_url: str) -> tuple[str | None, bool]:
+    """Sign in using credentials from environment variables.
+
+    Returns ``(warning, signed_in)``: a warning when the sign-in cannot be confirmed, and whether the current page is the signed-in session.
+    """
     username = os.environ.get(auth.get("username_env") or "", "")
     password = os.environ.get(auth.get("password_env") or "", "")
     if not username or not password:
-        return "Credential environment variables are not set; discovery continued without signing in."
-    page.goto(auth.get("login_url") or start_url, wait_until="domcontentloaded")
+        return "Credential environment variables are not set; discovery continued without signing in.", False
     try:
+        open_page(page, auth.get("login_url") or start_url, [])
         if auth.get("username_selector") and auth.get("password_selector"):
             page.locator(auth["username_selector"]).first.fill(username)
             page.locator(auth["password_selector"]).first.fill(password)
             submit = auth.get("submit_selector")
         else:
-            password_field = page.locator("input[type=password]:visible").first
+            reveal_login_form(page)
+            password_field = page.locator(PASSWORD_FIELD).first
             user_field = page.locator(
                 "input[type=email]:visible, input[type=text]:visible, input:not([type]):visible"
             ).first
@@ -139,20 +161,19 @@ def perform_login(page: Any, auth: dict[str, Any], start_url: str) -> str | None
             submit = "button[type=submit], input[type=submit]"
         if submit and page.locator(submit).count():
             page.locator(submit).first.click()
+        elif not auth.get("submit_selector") and page.get_by_role("button", name=LOGIN_SUBMIT).count():
+            page.get_by_role("button", name=LOGIN_SUBMIT).first.click()
         else:
             page.keyboard.press("Enter")
-        try:
-            page.wait_for_load_state("networkidle", timeout=10000)
-        except Exception:  # noqa: BLE001
-            pass
+        settle(page, max_ms=15000, quiet_ms=1500)
         needle = auth.get("success_url_contains") or ""
         if needle and needle not in page.url:
-            return "Login could not be confirmed (success URL fragment not found); results may be limited to public pages."
-        if page.locator("input[type=password]:visible").count():
-            return "A password field is still visible after login; the sign-in may have failed."
+            return "Login could not be confirmed (success URL fragment not found); results may be limited to public pages.", False
+        if page.locator(PASSWORD_FIELD).count():
+            return "A password field is still visible after login; the sign-in may have failed (check the credentials).", False
     except Exception as exc:  # noqa: BLE001
-        return f"Login workflow failed: {str(exc).splitlines()[0][:160]}"
-    return None
+        return f"Login workflow failed: {str(exc).splitlines()[0][:160]}", False
+    return None, True
 
 
 # ------------------------------------------------------------------------------------------
@@ -168,6 +189,99 @@ def new_context(browser: Any, job: dict[str, Any]) -> Any:
     if state and Path(state).is_file():
         options["storage_state"] = state
     return browser.new_context(**options)
+
+
+SIGNATURE_JS = (
+    "() => (document.body ? document.body.innerText.length : 0) + ':' + "
+    "document.querySelectorAll('input,button,a,select,textarea,[role],[data-testid]').length + ':' + "
+    # Streamlit keeps the placeholder title until the script has run; treat that as 'still loading'.
+    "(document.querySelector('[data-testid=stApp]') && document.title === 'Streamlit' ? 'loading' : 'ready')"
+)
+IFRAMES_JS = (
+    "() => Array.from(document.querySelectorAll('iframe')).map((f) => { const r = f.getBoundingClientRect(); "
+    "return { src: f.src || '', area: r.width * r.height }; }).concat([{ src: '', area: -(innerWidth * innerHeight) }])"
+)
+WAKE_BUTTON = re.compile(r"get this app back up", re.I)
+
+
+def settle(page: Any, max_ms: int = 15000, quiet_ms: int = 2000) -> None:
+    """Single-page apps keep rendering after the load event: wait until the page content stops changing."""
+    waited, stable, last = 0, 0, ""
+    while waited < max_ms:
+        page.wait_for_timeout(500)
+        waited += 500
+        try:
+            signature = page.evaluate(SIGNATURE_JS)
+        except Exception:  # noqa: BLE001 - page is navigating
+            stable = 0
+            continue
+        stable = stable + 500 if signature == last else 0
+        last = signature
+        if stable >= quiet_ms and signature.endswith(":ready"):
+            return
+
+
+def wake_sleeping_app(page: Any, warnings: list[str], max_ms: int = 90000) -> None:
+    """Streamlit Community Cloud puts idle apps to sleep behind a button; wake the app and wait for it."""
+    try:
+        button = page.get_by_role("button", name=WAKE_BUTTON)
+        if not button.count():
+            return
+        progress("The app is asleep; waking it up")
+        button.first.click()
+        waited = 0
+        while waited < max_ms and page.get_by_role("button", name=WAKE_BUTTON).count():
+            page.wait_for_timeout(1000)
+            waited += 1000
+        warnings.append("The application was asleep and was woken up for discovery.")
+    except Exception:  # noqa: BLE001
+        return
+
+
+def embedded_app_url(page: Any, wait_s: int = 25) -> str | None:
+    """URL of the real application when the page is only a shell around one full-size same-site iframe (e.g. Streamlit Cloud).
+
+    Such shells keep the frame at zero size while the app boots, so wait for it to become visible.
+    """
+    candidate = None
+    for tick in range(wait_s):
+        try:
+            frames = page.evaluate(IFRAMES_JS)
+            plain_page = page.evaluate("document.querySelectorAll('iframe').length === 0 && document.body && document.body.innerText.length > 200")
+        except Exception:  # noqa: BLE001
+            return candidate
+        if plain_page:
+            return None
+        view = -frames[-1]["area"] or 1
+        for frame in frames[:-1]:
+            src = frame["src"]
+            if not (src.startswith("http") and _host(src) == _host(page.url) and urldefrag(src)[0] != urldefrag(page.url)[0]):
+                continue
+            candidate = src
+            if frame["area"] > 0.5 * view:
+                return src
+        if candidate is None and tick >= 5:
+            return None
+        page.wait_for_timeout(1000)
+    return candidate
+
+
+def open_page(page: Any, url: str, warnings: list[str]) -> Any:
+    """Navigate, wake sleeping apps, step into an embedded app frame and wait for the page to finish rendering."""
+    response = page.goto(url, wait_until="domcontentloaded")
+    try:
+        page.wait_for_load_state("networkidle", timeout=6000)
+    except Exception:  # noqa: BLE001
+        pass
+    wake_sleeping_app(page, warnings)
+    inner = embedded_app_url(page)
+    if inner:
+        note = f"The site embeds its application in a frame; the application URL ({inner}) was analysed directly."
+        if note not in warnings:
+            warnings.append(note)
+        response = page.goto(inner, wait_until="domcontentloaded")
+    settle(page)
+    return response
 
 
 def extract_page(page: Any) -> dict[str, Any]:
@@ -217,7 +331,7 @@ def discover(job: dict[str, Any]) -> dict[str, Any]:
         page = context.new_page()
         console: list[str] = []
         network: list[dict[str, Any]] = []
-        page.on("console", lambda m: console.append(f"{m.type}: {m.text[:200]}") if m.type in ("error", "warning") else None)
+        page.on("console", lambda m: console.append(f"{m.type}: {m.text[:200]}") if m.type in ("error", "warning") and "Unrecognized feature" not in m.text else None)
         page.on("pageerror", lambda e: console.append("pageerror: " + str(e)[:200]))
         page.on(
             "response",
@@ -226,9 +340,10 @@ def discover(job: dict[str, Any]) -> dict[str, Any]:
             else None,
         )
         auth = job.get("auth") or {}
+        signed_in_page = False
         if auth.get("mode") in ("env_credentials", "login_workflow"):
             progress("Signing in with configured credentials")
-            warning = perform_login(page, auth, start_url)
+            warning, signed_in_page = perform_login(page, auth, start_url)
             if warning:
                 result["warnings"].append(warning)
 
@@ -245,17 +360,18 @@ def discover(job: dict[str, Any]) -> dict[str, Any]:
             console.clear()
             network.clear()
             try:
-                response = page.goto(url, wait_until="domcontentloaded")
-                try:
-                    page.wait_for_load_state("networkidle", timeout=6000)
-                except Exception:  # noqa: BLE001
-                    pass
+                if signed_in_page:
+                    # Analyse the signed-in session as it is: reloading would drop sessions held in memory (single-page apps).
+                    signed_in_page, response = False, None
+                else:
+                    response = open_page(page, url, result["warnings"])
                 status = response.status if response else None
                 data = extract_page(page)
             except Exception as exc:  # noqa: BLE001
                 skip(url, "navigation failed: " + str(exc).splitlines()[0][:120])
                 continue
             final_url = page.url
+            seen.add(urldefrag(final_url)[0])
             key = slug(final_url, used_keys)
             snapshot: dict[str, Any] = {
                 "page_key": key, "url": url, "final_url": final_url, "title": data["title"], "status": status, "depth": depth,

@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Embedded app</title></head>
+<body>
+<div data-testid="appRoot"><div data-testid="mainBlock">
+<h1>Embedded app</h1>
+<label for="who">Your name</label><input id="who" type="text">
+<button type="button">Say hello</button>
+<p>Rendered late.</p>
+</div></div>
+<script>setTimeout(function(){var b=document.createElement('button');b.textContent='Late button';document.querySelector('[data-testid=mainBlock]').appendChild(b);},1200);</script>
+</body></html>

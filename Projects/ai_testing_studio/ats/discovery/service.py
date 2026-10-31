@@ -42,7 +42,39 @@ def storage_state_path(file_name: str) -> Path | None:
 
 
 def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> dict[str, Any]:
-    """Run ``ats.discovery.worker`` as a subprocess and return its JSON result. Raises ``DiscoveryError`` on failure."""
+    """Run the worker; if the browser binary is missing, install Chromium once and retry. Raises ``DiscoveryError`` on failure."""
+    try:
+        return _run_worker_once(job, timeout, on_progress, cancel)
+    except BrowserMissingError:
+        if on_progress:
+            on_progress("Chromium is not installed yet; installing it now (one-time download)")
+        install_browser()
+        try:
+            return _run_worker_once(job, timeout, on_progress, cancel)
+        except BrowserMissingError as exc:
+            raise DiscoveryError("The browser is not installed. " + INSTALL_HINT) from exc
+
+
+class BrowserMissingError(DiscoveryError):
+    """Playwright is present but the Chromium binary is not."""
+
+
+def install_browser(timeout: int = 900) -> None:
+    """Download Chromium for Playwright (fixed argv, no shell)."""
+    try:
+        done = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False,
+        )  # fmt: skip
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise DiscoveryError(f"The browser could not be installed automatically ({type(exc).__name__}). " + INSTALL_HINT) from exc
+    if done.returncode != 0:
+        LOGGER.error("Browser install failed: %s", mask((done.stdout + done.stderr)[-500:]))
+        raise DiscoveryError("The browser could not be installed automatically. " + INSTALL_HINT)
+
+
+def _run_worker_once(job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> dict[str, Any]:
+    """Run ``ats.discovery.worker`` as a subprocess and return its JSON result."""
     if not playwright_available():
         raise DiscoveryError(f"Playwright is not installed. {INSTALL_HINT}")
     with tempfile.TemporaryDirectory(prefix="ats_job_") as tmp:
@@ -93,7 +125,7 @@ def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None =
     if "error" in data:
         text = str(data["error"])
         if "Executable doesn't exist" in text or "playwright install" in text:
-            raise DiscoveryError("The browser is not installed. " + INSTALL_HINT)
+            raise BrowserMissingError("The browser is not installed. " + INSTALL_HINT)
         raise DiscoveryError(f"Browser analysis failed: {mask(text)[:300]}")
     return data
 
