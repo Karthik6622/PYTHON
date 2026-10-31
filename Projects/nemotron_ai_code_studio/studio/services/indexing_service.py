@@ -158,7 +158,7 @@ class RepositoryIndex:
         names: list[str] = []
         if self.git is not None:
             try:
-                output = self.git.repo.git.execute(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+                output = self.git.repo.git.execute(["git", "-C", str(self.workspace.root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"])
                 names = [item for item in output.split("\0") if item]
             except Exception:
                 names = []

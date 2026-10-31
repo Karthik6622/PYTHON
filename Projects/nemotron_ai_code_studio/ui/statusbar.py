@@ -8,24 +8,32 @@ import streamlit as st
 
 from studio.config import settings
 from studio.models import get_model
+from studio.services.git_detect import GitInfo, connection_state
 
-from .dialogs import github_user
-from .state import S, attempt, repo, repo_label
+from .dialogs import github_status, github_user
+from .state import S, attempt, location_label, repo
 
 
-def _item(text: str, kind: str = "", title: str = "") -> str:
+def _item(text: str, kind: str = "", title: str = "", style: str = "") -> str:
     dot = f"<span class='dot {kind}'></span>" if kind else ""
-    return f"<span class='it' title='{escape(title, quote=True)}'>{dot}{text}</span>"
+    extra = f" style='{style}'" if style else ""
+    return f"<span class='it' title='{escape(title, quote=True)}'{extra}>{dot}{text}</span>"
 
 
 def render_status_bar() -> None:
     current = repo()
+    info = current.git_info if current is not None else GitInfo()
+    state = connection_state(current is not None, info, github_status())  # A none, B folder, C repo, D repo + GitHub, E error
+
     left = ["<span class='it remote'>RK STUDIO</span>"]
-    if current is not None:
-        left.append(_item(escape(repo_label(current)), title="Repository"))
-    if current is not None and current.git is not None:
-        branch = current.git.current_branch()
-        left.append(_item(f"&#9095; {escape(branch)}", title="Current branch"))
+    if current is not None and st.session_state.get("_link") is None:
+        path = location_label(current)  # the real folder on this computer, as the backend reports it
+        left.append(_item(escape(path), title=path, style="max-width:42vw;overflow:hidden;text-overflow:ellipsis"))
+    if info.error:
+        left.append(_item(escape(info.error[:90]), "bad", info.error))
+    if current is not None and info.is_repo and current.git is not None:
+        left.append(_item(escape(info.display_name or current.name), title=info.remote_slug or "Repository"))
+        left.append(_item(f"&#9095; {escape(info.branch_label)}", title="Current branch"))
         ok, status = attempt(current.git.cached_status, current.workspace.version, quiet=True)
         if ok and status:
             if status.get("upstream"):
@@ -40,11 +48,14 @@ def render_status_bar() -> None:
     right = [
         _item(escape(get_model(S.model).label), "ok" if settings.nvidia_api_key else "bad", "Selected model. " + ("NVIDIA API key is set" if settings.nvidia_api_key else "NVIDIA_API_KEY is missing")),
     ]
-    if current is not None and current.git is not None:
-        right.append(_item(
-            f"GitHub &middot; {escape(github_user())}" if settings.github_token and github_user() else "GitHub", "ok" if settings.github_token else "bad",
-            "GitHub is connected" if settings.github_token else "GitHub is not connected: use the account button in the top bar",
-        ))
+    if state == "D":
+        who = github_user()
+        right.append(_item("GitHub Connected", "ok", f"GitHub is connected{' as ' + who if who else ''}"))
+    elif state == "C":
+        right.append(_item("GitHub Not Connected", "idle", "Use the account button in the top bar to connect GitHub"))
+    elif state == "E" and info.is_repo:
+        reason = (st.session_state.get("_gh_error") or {}).get("message", "GitHub rejected the credentials.")
+        right.append(_item("GitHub Authentication Failed", "bad", reason))
     right.append(_item(f"<span class='mut'>mode</span> {escape(S.mode or 'ASK')}"))
     if S.active:
         right.append(_item(escape(S.active.rsplit(".", 1)[-1].upper() if "." in S.active else "TEXT")))

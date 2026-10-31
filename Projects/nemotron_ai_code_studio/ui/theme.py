@@ -293,6 +293,7 @@ div.st-key-statusbar [data-testid="stElementContainer"], div.st-key-statusbar [d
 .sbar .ok { background:var(--green); box-shadow:0 0 8px var(--green); }
 .sbar .bad { background:var(--red); box-shadow:0 0 8px var(--red); }
 .sbar .warn { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+.sbar .idle { background:var(--muted); }
 .sbar .mut { color:var(--muted); }
 
 /* ---------- layering: tooltips, menus and dialogs always sit above every panel ---------- */

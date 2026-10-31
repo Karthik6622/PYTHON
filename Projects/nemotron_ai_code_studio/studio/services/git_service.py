@@ -154,19 +154,42 @@ class GitService:
     # ---------------------------------------------------------------- plumbing
     @property
     def repo(self) -> Repo:
+        # The opened folder may be a sub-folder of the repository (or a linked worktree): Git finds the real top level itself.
         try:
-            return Repo(str(self.root))
+            return Repo(str(self.root), search_parent_directories=True)
         except (InvalidGitRepositoryError, NoSuchPathError) as exc:
             raise GitError("This workspace is not a Git repository.", 400) from exc
 
+    @property
+    def top(self) -> Path:
+        """Top level of the working tree the opened folder belongs to."""
+        return Path(self.repo.working_dir).resolve()
+
+    @property
+    def prefix(self) -> str:
+        """The opened folder relative to the top level ("" when it is the top level itself)."""
+        try:
+            relative = self.root.relative_to(self.top).as_posix()
+        except ValueError:
+            return ""
+        return "" if relative == "." else relative
+
+    def _from_top(self, path: str) -> str:
+        """A path as Git reports it (relative to the top level) as a path inside the opened folder."""
+        prefix = self.prefix
+        return path[len(prefix) + 1:] if prefix and path.startswith(f"{prefix}/") else path
+
     def _paths(self, paths: list[str]) -> list[str]:
+        """Paths inside the opened folder as Git wants them: relative to the top level of the working tree."""
+        prefix = self.prefix
         clean = []
         for item in paths:
             try:
                 resolved = resolve_in_root(self.root, item, allow_root=False)
             except PathSecurityError as exc:
                 raise GitError(str(exc), 400) from exc
-            clean.append(resolved.relative_to(self.root).as_posix())
+            relative = resolved.relative_to(self.root).as_posix()
+            clean.append(f"{prefix}/{relative}" if prefix else relative)
         return clean
 
     def _run(self, repo: Repo, *args: str, network: bool = False) -> str:
@@ -208,7 +231,8 @@ class GitService:
 
     def status(self) -> dict[str, Any]:
         repo = self.repo
-        output = self._run(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "-b")
+        scope = ["--", self.prefix] if self.prefix else []
+        output = self._run(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "-b", *scope)
         tokens = [token for token in output.split("\0") if token != ""]
         branch, upstream, ahead, behind = "", "", 0, 0
         if tokens and tokens[0].startswith("## "):
@@ -254,8 +278,8 @@ class GitService:
                 else:
                     kind = "modified"
             files.append({
-                "path": path, "kind": kind, "staged": staged, "unstaged": unstaged, "index": x, "worktree": y,
-                **({"original_path": original} if original else {}),
+                "path": self._from_top(path), "kind": kind, "staged": staged, "unstaged": unstaged, "index": x, "worktree": y,
+                **({"original_path": self._from_top(original)} if original else {}),
             })
         return {"branch": branch or self.current_branch(), "upstream": upstream, "ahead": ahead, "behind": behind,
                 "files": files, "clean": not files}
@@ -268,7 +292,7 @@ class GitService:
         args = ["diff", "--no-color", "--no-ext-diff"]
         if staged:
             args.append("--cached")
-        pathspec: list[str] = self._paths([path]) if path else []
+        pathspec: list[str] = self._paths([path]) if path else ([self.prefix] if self.prefix else [])
         text = self._run(repo, *args, *(["--", *pathspec] if pathspec else []))
         if not staged:
             text += self._untracked_diff(repo, pathspec)
@@ -280,7 +304,7 @@ class GitService:
             names = [name for name in names if name in pathspec]
         parts: list[str] = []
         for name in names[:50]:
-            path = self.root / name
+            path = self.top / name
             try:
                 if not path.is_file() or path.stat().st_size > settings.max_file_bytes:
                     continue
@@ -305,12 +329,12 @@ class GitService:
             existed = True
         except GitCommandError:
             original, existed = "", False
-        target = self.root / rel
+        target = self.top / rel
         modified = ""
         if target.is_file():
             data = target.read_bytes()[: settings.max_file_bytes]
             modified = "" if b"\x00" in data[:8000] else data.decode("utf-8", errors="replace")
-        return {"path": rel, "original": original, "modified": modified, "existed_in_head": existed, "exists_now": target.is_file()}
+        return {"path": self._from_top(rel), "original": original, "modified": modified, "existed_in_head": existed, "exists_now": target.is_file()}
 
     def log(self, count: int = 20) -> list[dict[str, Any]]:
         repo = self.repo
@@ -342,13 +366,13 @@ class GitService:
     def stage(self, paths: list[str] | None = None) -> None:
         repo = self.repo
         if not paths:
-            self._run(repo, "add", "-A")
+            self._run(repo, "add", "-A", *(["--", self.prefix] if self.prefix else []))
         else:
             self._run(repo, "add", "-A", "--", *self._paths(paths))
 
     def unstage(self, paths: list[str] | None = None) -> None:
         repo = self.repo
-        pathspec = self._paths(paths) if paths else []
+        pathspec = self._paths(paths) if paths else ([self.prefix] if self.prefix else [])
         if self.has_commits():
             self._run(repo, "reset", "-q", "HEAD", *(["--", *pathspec] if pathspec else []))
         else:
@@ -360,14 +384,14 @@ class GitService:
         discarded: list[str] = []
         untracked = set(repo.untracked_files)
         for rel in self._paths(paths):
-            target = self.root / rel
+            target = self.top / rel
             if rel in untracked:
                 if target.is_file():
                     target.unlink()
-                    discarded.append(rel)
+                    discarded.append(self._from_top(rel))
                 continue
             self._run(repo, "restore", "--source=HEAD", "--staged", "--worktree", "--", rel)
-            discarded.append(rel)
+            discarded.append(self._from_top(rel))
         return discarded
 
     def commit(self, message: str) -> dict[str, Any]:

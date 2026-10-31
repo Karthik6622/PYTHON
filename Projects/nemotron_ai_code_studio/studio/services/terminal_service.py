@@ -179,10 +179,10 @@ class TerminalService:
         note = ensure_environment(self.root, command)
         env = clean_environment(self.root)
         network_git = _GIT_NETWORK.match(command)
-        clone_command = re.match(r"^\s*git\s+(?:clone|ls-remote)\b", command, re.I)
-        if network_git and ((self.root / ".git").exists() or clone_command):
-            # Never prompt in the terminal. Hosted GitHub SSH URLs are rewritten to HTTPS because the server has no
-            # access to the visitor's SSH agent / known_hosts; local runs retain their normal SSH setup.
+        if network_git:
+            # Never prompt in the terminal. The connected account's token goes through the environment only (a header scoped to
+            # github.com), never into the command line or a remote URL. Hosted GitHub SSH URLs are rewritten to HTTPS because
+            # the server has no access to the visitor's SSH agent / known_hosts; local runs retain their normal SSH setup.
             auth = auth_env()
             index = int(env.get("GIT_CONFIG_COUNT", "0"))
             for source_index in range(int(auth.get("GIT_CONFIG_COUNT", "0"))):

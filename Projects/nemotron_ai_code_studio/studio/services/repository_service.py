@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from ..security import PathSecurityError, resolve_in_root
 from .change_tracker import ChangeTracker
 from .context_service import ContextEngine
 from .folders import FolderError, prepare_location
+from .git_detect import GitInfo, inspect_folder
 from .git_service import GitError, GitService, clone_repository
 from .github_service import GitHubError, GitHubService, RepoRef, parse_repository
 from .indexing_service import RepositoryIndex
@@ -47,6 +49,25 @@ class ActiveRepository:
     github: dict[str, Any] = field(default_factory=dict)
     lock: threading.RLock = field(default_factory=threading.RLock)
     scratch: bool = False  # True for a plain folder that is not a connected GitHub repository
+    git_info: GitInfo = field(default_factory=GitInfo)  # what `git rev-parse` and friends reported when the folder was last checked
+    git_checked: float = 0.0
+
+    def refresh_git(self, max_age: float = 0.0) -> GitInfo:
+        """Ask Git again about this folder (at most every `max_age` seconds). Picks up `git init`, a removed .git folder, a new branch
+        or changes made outside the Studio, and turns the Git features on or off to match."""
+        if max_age and self.git_checked and time.monotonic() - self.git_checked < max_age:
+            return self.git_info
+        info = _detect(self.path)
+        self.git_info, self.git_checked = info, time.monotonic()
+        if info.is_repo and self.git is None:
+            self.git = GitService(self.path)
+            self.index.git = self.git
+        elif not info.is_repo and self.git is not None:
+            self.git, self.index.git = None, None
+        elif self.git is not None:
+            self.git.invalidate()
+        self.is_git = info.is_repo
+        return info
 
     def info(self) -> dict[str, Any]:
         branch, remote = "", ""
@@ -64,8 +85,21 @@ class ActiveRepository:
         self.index.build()
 
 
-def _is_git(path: Path) -> bool:
+def _is_clone(path: Path) -> bool:
+    """A folder that is a repository of its own (a clone target), as opposed to a sub-folder of some other repository."""
     return (path / ".git").exists()
+
+
+def _detect(path: Path) -> GitInfo:
+    """Git details of a folder. RK Studio's own default scratch folder is never treated as a repository: it is not a folder the
+    user selected, and it may happen to sit inside the repository RK Studio itself was installed from."""
+    try:
+        resolved, scratch = path.resolve(), settings.scratch_path.resolve()
+        if resolved == scratch or scratch in resolved.parents:
+            return GitInfo()
+    except OSError:
+        pass
+    return inspect_folder(path)
 
 
 class RepositoryService:
@@ -120,6 +154,16 @@ class RepositoryService:
         last = self._read_windows().get("last")
         return last if isinstance(last, str) and last else None
 
+    def missing_path(self, window: str) -> str:
+        """The folder this window had open when that folder has since been moved or deleted (empty otherwise)."""
+        entry = self._read_windows().get("windows", {}).get(window)
+        if not isinstance(entry, dict) or entry.get("scratch") or entry.get("link") or not isinstance(entry.get("path"), str):
+            return ""
+        try:
+            return "" if Path(entry["path"]).is_dir() else entry["path"]
+        except OSError:
+            return entry["path"]
+
     def recall(self, window: str) -> ActiveRepository | None:
         """Reopen what this window had open, or None when it is new or the folder is gone."""
         entry = self._read_windows().get("windows", {}).get(window)
@@ -169,7 +213,8 @@ class RepositoryService:
 
     def _activate(self, path: Path, name: str, github: dict[str, Any] | None = None, scratch: bool = False) -> ActiveRepository:
         workspace = WorkspaceService(path)
-        is_git = _is_git(path)
+        info = _detect(path)
+        is_git = info.is_repo
         git = GitService(path) if is_git else None
         index = RepositoryIndex(workspace, git)
         index.build()
@@ -177,6 +222,7 @@ class RepositoryService:
             name=name, path=path.resolve(), is_git=is_git, workspace=workspace, git=git, index=index,
             search=SearchService(workspace, index), context=ContextEngine(index, workspace, name),
             terminal=TerminalService(path), github=github or {}, scratch=scratch and not is_git,
+            git_info=info, git_checked=time.monotonic(),
         )
 
     # ---------------------------------------------------------------- work without a repository
@@ -194,7 +240,7 @@ class RepositoryService:
                 path.mkdir(parents=True, exist_ok=True)
         except (FolderError, OSError) as exc:
             raise RepositoryError(str(exc), 400) from exc
-        return self._activate(path, path.name, scratch=True)
+        return self._activate(path, path.name or str(path), scratch=True)
 
     def adopt_tracker(self, window: str, active: ActiveRepository) -> None:
         """Keep the list of agent changes awaiting review when the page is reloaded (the folder is opened again as a new object)."""
@@ -252,7 +298,7 @@ class RepositoryService:
                 raise RepositoryError(str(exc), 400) from exc
             if not destination.exists():
                 return destination
-            if _is_git(destination):
+            if _is_clone(destination):
                 remote = GitService(destination).remote_url().lower().rstrip("/").removesuffix(".git")
                 if remote.endswith(f"github.com/{ref.owner}/{ref.name}".lower()):
                     return destination
@@ -260,7 +306,7 @@ class RepositoryService:
 
     @staticmethod
     def _reuse(destination: Path, ref: RepoRef) -> None:
-        if not _is_git(destination):
+        if not _is_clone(destination):
             raise RepositoryError(f"The folder '{destination.name}' already exists in the workspace and is not a Git repository.", 409)
         remote = GitService(destination).remote_url().lower().rstrip("/").removesuffix(".git")
         if not remote.endswith(f"github.com/{ref.owner}/{ref.name}".lower()):

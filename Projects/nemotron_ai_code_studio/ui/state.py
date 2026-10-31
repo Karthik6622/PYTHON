@@ -64,6 +64,9 @@ def _open_this_window() -> None:
     try:
         current = repositories.recall(wid)
         if current is None:
+            lost = repositories.missing_path(wid)
+            if lost:
+                st.session_state["_folder_missing"] = lost  # the Explorer tells the user instead of silently opening another folder
             current = repositories.open_scratch(window=wid)
             repositories.remember(wid, current.path, scratch=True)
         repositories.adopt_tracker(wid, current)
@@ -92,6 +95,8 @@ def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None 
     }.items():
         st.session_state[key] = value
     conversations.clear(st.session_state["conversation_id"])
+    for key in ("_gh_synced", "_gh_error", "_ask_github", "branch_select", "search_hits", "search_query", "_folder_missing"):
+        st.session_state.pop(key, None)  # nothing of the previous folder's repository or GitHub state may linger
     repositories.adopt_tracker(window_id(), current)
     st.session_state["_repo"] = current
     if link is not None:
@@ -104,10 +109,10 @@ def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None 
 
 
 def location_label(current: ActiveRepository | None) -> str:
-    """The absolute path of the workspace the IDE and terminal are actually using."""
+    """The absolute path of the workspace the IDE and terminal are actually using, in the operating system's notation."""
     if current is None:
         return ""
-    return current.path.as_posix()
+    return str(current.path)
 
 
 _REMOTE_NAME = re.compile(r"[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")

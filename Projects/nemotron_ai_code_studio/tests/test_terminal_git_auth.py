@@ -41,8 +41,19 @@ def test_plain_git_push_gets_the_github_token(monkeypatch, tmp_path):
 
 def test_other_commands_never_get_the_token(monkeypatch, tmp_path):
     monkeypatch.setitem(settings._overrides, "github_token", "ghp_exampletoken1234567890")
-    for command in ("git status", "git push", "git push && python evil.py", "python -c 'print(1)'", "git push; env"):
+    for command in ("git status", "git push && python evil.py", "python -c 'print(1)'", "git push; env"):
         assert "GIT_CONFIG_KEY_1" not in _captured_env(monkeypatch, tmp_path, command), command
+
+
+def test_git_push_from_a_sub_folder_of_a_repository_gets_the_token(monkeypatch, tmp_path):
+    monkeypatch.setitem(settings._overrides, "github_token", "ghp_exampletoken1234567890")
+    monkeypatch.setenv("STUDIO_HOSTED", "0")
+    Repo.init(tmp_path)
+    inner = tmp_path / "pkg" / "src"
+    inner.mkdir(parents=True)
+    env = _captured_env(monkeypatch, inner, "git push")
+    assert env["GIT_CONFIG_VALUE_3"].startswith("AUTHORIZATION: basic ")
+    assert "ghp_exampletoken1234567890" not in "".join(env.values())  # only the encoded header, never the plain token
 
 
 def test_ssh_rewrite_uses_token_or_hosted_mode(monkeypatch):

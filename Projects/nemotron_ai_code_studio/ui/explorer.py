@@ -10,7 +10,7 @@ from studio.security import is_sensitive_path
 from studio.services import folders, local_sync
 
 from .dialogs import choose_working_folder, ensure_folder
-from .state import S, attempt, close_file, location_label, log, open_file, repo
+from .state import S, attempt, close_file, log, open_file, repo
 from .theme import section_title
 
 
@@ -78,18 +78,27 @@ def render_explorer() -> None:
 
     section_title("Explorer", current.name)
     native = folders.native_picker_available()
-    if current.scratch and native:
-        st.caption(f"Working folder: {current.path}")
-        st.button("Choose working folder", icon=":material/folder_open:", key="pick_work_folder", on_click=choose_working_folder, width="stretch")
-    elif not native:
+    if native:
+        # Running on the user's computer: the operating system's own folder window, and the chosen folder is used in place (no copy).
+        st.button("Connect Local folder", icon=":material/folder_open:", key="pick_work_folder", on_click=choose_working_folder, width="stretch")
+    else:
         if link is None:
-            st.caption("Open a folder from your computer to start.")
+            st.caption("Open a folder from your computer to start. The real path of that folder is only available when RK Studio runs on your computer.")
         else:
             listed_note = f" {len(link.listed)} file(s) are listed but not copied." if link.listed else ""
             st.caption(
                 f"Connected to {link.name} on your computer.{listed_note} "
-                "The full path below is the hosted working copy; browsers do not disclose the original local path."
+                "The path below is the hosted working copy: a browser never discloses the original local path. "
+                "Run RK Studio on your computer to work in the folder itself."
             )
+    lost = st.session_state.get("_folder_missing")
+    if lost:
+        st.warning(f"The folder {lost} was moved or deleted. Use Connect Local folder to choose it again.")
+    if current.git_info.error:
+        st.warning(current.git_info.error)
+        if current.git_info.detail:
+            with st.expander("Technical details"):
+                st.code(current.git_info.detail, language=None)
     new_file, new_dir, manage, refresh = st.columns(4)
     with new_file.popover("", icon=":material/note_add:", help="New file", width="stretch"):
         name = st.text_input("File name", key="new_file_name", placeholder="src/example.py")
@@ -124,8 +133,7 @@ def render_explorer() -> None:
             confirm = st.checkbox("Confirm delete (cannot be undone)", key=f"confirm_del:{target}")
             st.button("Delete", key="delete_btn", on_click=_delete, args=(target,), disabled=not confirm, type="primary")
 
-    crumbs = [location_label(current) or "root", *[p for p in S.cwd.split("/") if p]]
-    full_path = "/".join(crumbs)
+    full_path = str(current.path.joinpath(*[p for p in S.cwd.split("/") if p])) if current.path else ""
     st.markdown(
         f"<div class='explorer-path' title='{escape(full_path, quote=True)}'>{escape(full_path)}</div>",
         unsafe_allow_html=True,

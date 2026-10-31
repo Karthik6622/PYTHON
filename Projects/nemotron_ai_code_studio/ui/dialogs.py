@@ -11,11 +11,12 @@ import streamlit as st
 
 from studio.config import settings
 from studio.models import available_models, get_model
-from studio.services import folders, github_auth, local_sync
+from studio.security import redact
+from studio.services import folders, github_auth, local_sync, secret_store
 from studio.services.github_service import GitHubService
 
 from .local_folder import available as browser_folders, picker_supported, render_clone_button
-from .state import S, attempt, log, nvidia, open_workspace, repo, repositories, window_id, window_url
+from .state import S, attempt, friendly_error, log, nvidia, open_workspace, repo, repositories, window_id, window_url
 
 
 def ask_folder(initial: str, title: str) -> str | None:
@@ -164,16 +165,69 @@ def github_user() -> str:
     return _store().get("github_user", "") if settings.github_token else ""
 
 
+def github_status() -> str:
+    """'connected' only after GitHub accepted the token; 'failed' after it refused one; otherwise 'disconnected'."""
+    if settings.github_token and github_user():
+        return "connected"
+    return "failed" if st.session_state.get("_gh_error") else "disconnected"
+
+
+def _remember_failure(exc: Exception, token: str) -> None:
+    detail = redact(f"{type(exc).__name__}: {exc}")
+    st.session_state["_gh_error"] = {"message": friendly_error(exc), "detail": detail.replace(token, "[token]") if token else detail}
+    log(f"GitHub sign-in failed: {friendly_error(exc)}")
+
+
 def _connect_token(token: str) -> bool:
-    """Check a token with GitHub and keep it for this window only."""
-    ok, info = attempt(GitHubService(token).validate_token)
-    if not ok:
+    """Check a token with GitHub through the backend. Only a token GitHub accepts is kept (in memory, and in the operating
+    system's credential store on the user's own computer); a refused one is dropped and the reason is remembered for the UI."""
+    try:
+        info = GitHubService(token).validate_token()
+    except Exception as exc:  # network errors, a revoked or expired token, missing scopes
+        _remember_failure(exc, token)
         return False
     store = _store()
     settings.set_secrets(github_token=token, store=store)
     store["github_user"] = str(info.get("login") or "")
+    st.session_state.pop("_gh_error", None)
+    secret_store.save(token)
     log(f"GitHub connected as {store['github_user'] or 'unknown user'}")
     return True
+
+
+def disconnect_github() -> None:
+    settings.clear_github()
+    secret_store.delete()
+    st.session_state.pop("_gh_error", None)
+    log("GitHub disconnected")
+
+
+def sync_github() -> None:
+    """Once per opened folder: for a Git repository, bring back the saved token, ask GitHub whether it still works, and decide
+    whether to offer the connect window. A folder that is not a repository gets none of this."""
+    current = repo()
+    ident = str(current.path) if current is not None else ""
+    if st.session_state.get("_gh_synced") == ident:
+        return
+    st.session_state["_gh_synced"] = ident
+    st.session_state.pop("_gh_error", None)
+    if current is None or current.git is None:
+        return
+    store = _store()
+    if not settings.github_token:
+        saved = secret_store.load()
+        if saved:
+            settings.set_secrets(github_token=saved, store=store)
+    if settings.github_token and not store.get("github_user"):
+        token = settings.github_token
+        with st.spinner("Checking GitHub..."):
+            try:
+                store["github_user"] = str(GitHubService(token).validate_token().get("login") or "")
+            except Exception as exc:  # expired, revoked or offline: the repository stays usable, the indicator says why
+                _remember_failure(exc, token)
+                store.pop("github_token", None)  # the saved copy stays; it is tried again the next time a folder is opened
+    if github_status() != "connected":
+        st.session_state["_ask_github"] = True
 
 
 def _cancel_signin() -> None:
@@ -228,47 +282,69 @@ def _device_signin(client_id: str) -> None:
 @st.dialog("Connect GitHub", width="medium")
 def github_dialog() -> None:
     store = _store()
-    if settings.github_token:
+    if github_status() == "connected":
         user = github_user()
-        st.success(f"GitHub is connected{' as ' + user if user else ''}.")
+        st.success(f"GitHub Connected{' as ' + user if user else ''}.")
+        where = {
+            "keyring": "in your operating system's credential manager",
+            "dpapi": "encrypted for your Windows account",
+        }.get(secret_store.backend())
         st.caption(
-            "You can clone private repositories, pull, push, and use git push in the terminal. The token belongs to this browser window only: "
-            "it is kept in the server's memory, never written to disk and never shared with other visitors."
+            "You can clone private repositories, pull, push, and use git push in the terminal. "
+            + (f"The token is stored {where}; it is never shown again and never written to the repository." if where else
+               "The token is kept in the server's memory only and is never written to disk.")
         )
+        left, right = st.columns(2)
         if store.get("github_token"):
-            if st.button("Disconnect", icon=":material/link_off:"):
-                settings.clear_github()
+            if left.button("Disconnect", icon=":material/link_off:", width="stretch"):
+                disconnect_github()
                 st.rerun()
         else:
             st.caption("This token comes from the server's own environment.")
+        if right.button("Close", width="stretch", key="gh_close"):
+            st.rerun()
         return
 
-    st.markdown("Connect your GitHub account to use **your own** repositories (including private ones) and to push your commits.")
-    st.caption("Optional: public repositories and the editor work without it.")
+    failure = st.session_state.get("_gh_error")
+    if failure:
+        st.error(f"GitHub could not be connected. {failure['message']}")
+        with st.expander("Technical details"):
+            st.code(failure["detail"], language=None)
+    else:
+        st.markdown("Connect your GitHub account to use **your own** repositories (including private ones) and to push your commits.")
+        st.caption("Optional: the editor, the terminal and local Git commands work without it.")
     client_id = settings.github_client_id
     if client_id:
         _device_signin(client_id)
         st.markdown("<div style='text-align:center;opacity:.6;margin:.4rem 0'>or use a personal access token</div>", unsafe_allow_html=True)
     with st.form("gh_token_form", border=False):
         value = st.text_input("Personal access token", type="password", autocomplete="off", placeholder="ghp_... or github_pat_...")
-        go = st.form_submit_button("Connect with token", type="primary" if not client_id else "secondary", icon=":material/key:", width="stretch")
+        connect, cancel = st.columns(2)
+        go = connect.form_submit_button("Connect", type="primary", icon=":material/key:", width="stretch")
+        dismissed = cancel.form_submit_button("Cancel", width="stretch")
     st.link_button(
         "Create a token on GitHub", "https://github.com/settings/tokens/new?scopes=repo&description=RK%20Studio",
         icon=":material/open_in_new:", help="Opens GitHub with the repo permission already selected",
     )
+    if dismissed:
+        st.rerun()
     if go:
         if len(value.strip()) < 8:
             st.warning("Paste the token you created on GitHub.")
         elif _connect_token(value.strip()):
             st.toast("GitHub connected.", icon=":material/check:")
             st.rerun()
+        else:
+            st.rerun(scope="fragment")  # redraw the dialog with the reason
 
 
 def prompt_github_if_needed() -> None:
-    """Open the Connect GitHub window only when something asked for it (a private repository, a push or pull that needs a login).
-
-    Opening the app, or a folder that is not a GitHub repository, never opens it."""
-    if not st.session_state.pop("_ask_github", False) or settings.github_token:
+    """Open the Connect GitHub window for a detected Git repository that is not connected yet (when the folder is opened, or when a
+    fetch, pull or push needs the account). A folder that is not a Git repository never opens it."""
+    current = repo()
+    if not st.session_state.pop("_ask_github", False) or github_status() == "connected":
+        return
+    if current is None or current.git is None:
         return
     github_dialog()
 
@@ -287,9 +363,12 @@ def settings_dialog() -> None:
     github_token = st.text_input("GitHub token", type="password", autocomplete="off", placeholder="ghp_... or github_pat_...", label_visibility="collapsed")
 
     if st.button("Save", type="primary", disabled=not (nvidia_key.strip() or github_token.strip()), icon=":material/save:"):
-        settings.set_secrets(nvidia_api_key=nvidia_key.strip() or None, github_token=github_token.strip() or None)
-        st.toast("Settings saved for this session.", icon=":material/check:")
-        st.rerun()
+        settings.set_secrets(nvidia_api_key=nvidia_key.strip() or None)
+        if github_token.strip() and not _connect_token(github_token.strip()):
+            st.error("GitHub did not accept that token. See Connect GitHub for the details.")  # nothing is kept for a refused token
+        else:
+            st.toast("Settings saved.", icon=":material/check:")
+            st.rerun()
 
     st.divider()
     left, right = st.columns(2)
