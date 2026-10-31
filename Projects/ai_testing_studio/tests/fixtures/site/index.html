@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><title>Acme Shop - Home</title></head>
+<body>
+<header>
+  <nav aria-label="Main">
+    <a href="/index.html">Home</a>
+    <a href="/products.html">Products</a>
+    <a href="/contact.html">Contact</a>
+    <a href="/admin/secret.html">Admin</a>
+    <a href="/login.html">Sign in</a>
+  </nav>
+</header>
+<main>
+  <h1>Welcome to Acme Shop</h1>
+  <p>Find the best gadgets.</p>
+  <form role="search" action="/products.html" method="get">
+    <input type="search" name="q" placeholder="Search products" aria-label="Search products">
+    <button type="submit">Search</button>
+  </form>
+  <button id="subscribe" onclick="document.getElementById('msg').textContent='Subscribed!'">Subscribe</button>
+  <p id="msg" role="status"></p>
+  <a href="/products.html">Browse products</a>
+  <a href="/files/manual.pdf">User manual</a>
+</main>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Runner image for generated Selenium + Java (JUnit 5, Maven) projects.
+# Built automatically by the studio on the first Docker run, or manually:
+#   docker build -t ats-runner-selenium-java -f docker/runners/Dockerfile.selenium-java docker/runners
+FROM maven:3.9-eclipse-temurin-17
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CHROME_BIN=/usr/bin/chromium \
+    CHROMEDRIVER=/usr/bin/chromedriver
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium chromium-driver fonts-liberation ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work

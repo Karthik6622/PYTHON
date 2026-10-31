@@ -1,0 +1,21 @@
+# Run the studio in a container. Tests run in sibling containers through the Docker socket.
+#
+#   cp .env.example .env     # add NVIDIA_API_KEY
+#   docker compose up --build
+#
+# Runner containers bind-mount their workspace from the HOST, so the data directory must have the same
+# absolute path inside and outside this container. ATS_DATA_DIR defaults to /opt/ats-data.
+services:
+  studio:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: ${ATS_DATA_DIR:-/opt/ats-data}
+      EXECUTION_MODE: docker
+    volumes:
+      - ${ATS_DATA_DIR:-/opt/ats-data}:${ATS_DATA_DIR:-/opt/ats-data}
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

@@ -1,0 +1,18 @@
+# Runner image for generated Selenium + Python (pytest) projects.
+# Built automatically by the studio on the first Docker run, or manually:
+#   docker build -t ats-runner-selenium-python -f docker/runners/Dockerfile.selenium-python docker/runners
+FROM python:3.12-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    CHROME_BIN=/usr/bin/chromium \
+    CHROMEDRIVER=/usr/bin/chromedriver
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium chromium-driver firefox-esr fonts-liberation ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir pytest selenium
+
+WORKDIR /work
