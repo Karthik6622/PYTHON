@@ -219,6 +219,18 @@ hr { border: none !important; height: 1px; background: linear-gradient(90deg, tr
   border-color: var(--orange) !important; box-shadow: 0 0 0 3px rgba(255, 106, 31, .25), 0 0 22px -6px var(--glow) !important;
 }
 [data-baseweb="select"] svg, [data-testid="stNumberInput"] button svg { color: var(--amber); fill: var(--amber); }
+/* Current Streamlit draws its boxes with a border that has the same colour as the fill, so give them a soft visible edge. */
+[data-testid="stTextAreaRootElement"], [data-testid="stTextInputRootElement"], [data-testid="stNumberInputContainer"],
+[data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"] {
+  border: 1px solid rgba(255, 150, 80, .38) !important; border-radius: 12px !important;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+[data-testid="stTextAreaRootElement"]:hover, [data-testid="stTextInputRootElement"]:hover, [data-testid="stNumberInputContainer"]:hover,
+[data-testid="stSelectbox"] [role="group"]:hover, [data-testid="stMultiSelect"] [role="group"]:hover { border-color: rgba(255, 160, 90, .6) !important; }
+[data-testid="stTextAreaRootElement"]:focus-within, [data-testid="stTextInputRootElement"]:focus-within, [data-testid="stNumberInputContainer"]:focus-within,
+[data-testid="stSelectbox"] [role="group"]:focus-within, [data-testid="stMultiSelect"] [role="group"]:focus-within {
+  border-color: var(--orange) !important; box-shadow: 0 0 0 3px rgba(255, 106, 31, .22) !important;
+}
 [data-testid="stNumberInput"] button { background: rgba(255, 255, 255, .05); border-color: var(--line); color: var(--ink); }
 [data-testid="stNumberInput"] button:hover { background: rgba(255, 106, 31, .2); }
 [data-baseweb="tag"] { background: rgba(255, 106, 31, .22) !important; border: 1px solid var(--line-2); border-radius: 999px !important; }
