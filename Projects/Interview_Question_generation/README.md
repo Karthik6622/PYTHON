@@ -1,13 +1,13 @@
 # Interview Studio
 
-A Streamlit chat-style interviewer workspace with a **futuristic/cyberpunk theme** and **red color palette**. Save a resume and job description, choose the question count (3-30), complexity level (Low/Medium/High), and coding toggle, then generate enterprise-level interview guides with Nemotron. Questions are project-based, scenario-driven, and reference specific facts from the candidate's resume.
+A Streamlit chat-style interviewer workspace with a **futuristic/cyberpunk theme** and a **yellow + gold color palette**. Save a resume and job description, choose the question count (3-30), complexity level (Low/Medium/High), and coding toggle, then generate enterprise-level interview guides with Nemotron. Questions are project-based, scenario-driven, and reference specific facts from the candidate's resume.
 
 ## Features
 
-- **Cyberpunk UI**: Dark futuristic theme with red accent colors, animated backgrounds, and glow effects
+- **Cyberpunk UI**: Dark futuristic theme with yellow/gold accent colors, animated grid background, scanlines, and neon glow effects
 - **Question Count**: 3-30 questions via slider
 - **Complexity Levels**: Low (foundational), Medium (practical application), High (strategic/system mastery)
-- **Coding Questions**: Optional ~15% coding questions based on resume tech stack
+- **Coding Questions**: On by default, ~25% coding questions based on the resume tech stack (toggle in the sidebar)
 - **Project-Based Questions**: Every question references specific resume facts (companies, projects, technologies, metrics)
 - **Enterprise Quality**: Probes system design, scalability, reliability, security, team impact, business value
 - **Nemotron Optimized**: Prompts engineered for NVIDIA Nemotron 3.5 Bolt for high-quality output
