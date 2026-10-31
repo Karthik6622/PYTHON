@@ -126,3 +126,72 @@ def test_window_link_is_remembered_and_marked_synced(tmp_path, monkeypatch):
     service.remember("win-2", tmp_path)
     assert service.window_link("win-2") == ("", False)
     assert service.window_link("unknown") == ("", False)
+
+
+def test_clean_location_keeps_a_typed_path_with_forward_slashes():
+    assert local_sync.clean_location("c:\\Desktop\\books\\code\\") == "c:/Desktop/books/code"
+    assert local_sync.clean_location(None) == ""
+    assert local_sync.clean_location("  \"d:/x\"  ") == "d:/x"
+    assert local_sync.clean_location(5) == ""
+
+
+def test_clean_listing_drops_malformed_and_unsafe_entries():
+    listed = local_sync.clean_listing([
+        {"path": "a/b.xlsx", "size": 10, "why": "binary file"},
+        {"path": "../x", "size": 1, "why": "binary file"},
+        {"path": "a/../b", "size": 1, "why": "binary file"},
+        "not a dict",
+        {"path": "bad\x00name.bin", "size": 1, "why": "binary file"},
+        {"path": "c\\d.bin", "size": 2},
+        {"path": "e.bin", "size": -1, "why": "too large"},
+        {"path": "f.bin", "size": "big", "why": "too large"},
+    ])
+    assert listed == [
+        {"path": "a/b.xlsx", "size": 10, "why": "binary file"},
+        {"path": "c/d.bin", "size": 2, "why": "not copied"},
+        {"path": "e.bin", "size": 0, "why": "too large"},
+        {"path": "f.bin", "size": 0, "why": "too large"},
+    ]
+    assert local_sync.clean_listing("nope") == []
+
+
+def test_listed_entries_shows_root_files_and_folders_for_a_directory():
+    listed = local_sync.clean_listing([
+        {"path": "README.xlsx", "size": 3, "why": "binary file"},
+        {"path": "src/a.bin", "size": 4, "why": "too large"},
+        {"path": "src/deep/b.bin", "size": 5, "why": "secret file"},
+    ])
+    root_entries = {entry["name"]: entry for entry in local_sync.listed_entries(listed, "")}
+    assert set(root_entries) == {"README.xlsx", "src"}
+    assert root_entries["README.xlsx"]["type"] == "file"
+    assert root_entries["README.xlsx"]["listed"] is True
+    assert root_entries["README.xlsx"]["why"] == "binary file"
+    assert root_entries["src"]["type"] == "dir"
+    assert root_entries["src"]["listed"] is True
+
+    src_entries = {entry["name"]: entry for entry in local_sync.listed_entries(listed, "src")}
+    assert set(src_entries) == {"a.bin", "deep"}
+    assert src_entries["a.bin"]["type"] == "file"
+    assert src_entries["deep"]["type"] == "dir"
+    assert "README.xlsx" not in src_entries
+
+
+def test_sidecar_round_trip_stays_outside_the_folder(tmp_path):
+    root = tmp_path / "proj"
+    root.mkdir()
+    local_sync.update_sidecar(root, location="c:/x", listed=[])
+    assert local_sync.load_sidecar(root)["location"] == "c:/x"
+    assert local_sync.sidecar_path(root).parent == tmp_path
+    assert not local_sync.sidecar_path(root).is_relative_to(root)
+    assert local_sync.load_sidecar(tmp_path / "missing") == {}
+
+
+def test_locallink_carries_location_and_listed():
+    link = LocalLink(
+        "proj",
+        known={},
+        location="c:/x",
+        listed=local_sync.clean_listing([{"path": "a.xlsx", "size": 1, "why": "binary file"}]),
+    )
+    assert link.location == "c:/x"
+    assert link.listed[0]["path"] == "a.xlsx"

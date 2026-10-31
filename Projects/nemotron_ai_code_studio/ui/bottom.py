@@ -14,7 +14,7 @@ from studio.services.terminal_hints import hint_for
 from studio.tools import devtools
 
 from .dialogs import ensure_folder
-from .state import CommandRun, S, attempt, log, open_file, reload_paths, repo
+from .state import CommandRun, S, attempt, location_label, log, open_file, reload_paths, repo
 
 PANEL_HEIGHT = 240
 POLL_SECONDS = 0.5
@@ -65,17 +65,18 @@ def _start(attr: str, command: str, kind: str = "", cwd: str = "", timeout: int 
 
 # ------------------------------------------------------------------ terminal
 def _prompt() -> str:
-    """The shell prompt, like a real terminal: PS <absolute path of the repository (or sub-folder)>>"""
+    """The shell prompt, like a real terminal: PS <full folder path>> with forward slashes, e.g. PS c:/desktop/books/code>"""
     current = repo()
     if current is None:
         return "PS>"
     link = st.session_state.get("_link")
-    if link is not None:  # hosted: the folder on the user's computer, not the server's copy
-        sub = "\\" + S.term_cwd.replace("/", "\\") if S.term_cwd else ""
-        return f"PS {link.name}{sub}>"
+    if link is not None:  # hosted: the folder on the user's computer (the path typed once), not the server's copy
+        base = (location_label(current) or link.name).rstrip("/")
+        sub = f"/{S.term_cwd}" if S.term_cwd else ""
+        return f"PS {base}{sub}>"
     base = current.terminal.root
     path = base / S.term_cwd if S.term_cwd else base
-    return f"PS {path}>"
+    return f"PS {path.as_posix()}>"
 
 
 def _terminal_html(live: CommandRun | None) -> str:

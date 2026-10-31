@@ -70,64 +70,111 @@ async function isEmpty(dir) {
 }
 
 // The branch and remote of a Git repository live in two small text files; the server rebuilds the repository from them.
+// null means the folder has no .git folder at all. A missing or unreadable file is an empty text.
 async function readGit(dir) {
-  try {
-    const git = await dir.getDirectoryHandle(".git");
-    const found = {};
-    for (const name of ["HEAD", "config"]) {
-      try {
-        const file = await (await git.getFileHandle(name)).getFile();
-        if (file.size < 200000) found[name] = await file.text();
-      } catch (error) { /* missing file */ }
-    }
-    return found.HEAD ? { head: found.HEAD, config: found.config || "" } : null;
-  } catch (error) { return null; }
+  let git;
+  try { git = await dir.getDirectoryHandle(".git"); } catch (error) { return null; }
+  const found = { head: "", config: "" };
+  for (const name of ["HEAD", "config"]) {
+    try {
+      const file = await (await git.getFileHandle(name)).getFile();
+      if (file.size < 200000) found[name === "HEAD" ? "head" : "config"] = await file.text();
+    } catch (error) { /* missing or unreadable */ }
+  }
+  return found;
 }
 
-async function walk(dir, prefix, files, stats, cfg) {
-  for await (const [name, entry] of dir.entries()) {
-    if (files.length >= cfg.max_files || stats.bytes > cfg.max_total) { stats.truncated = true; return; }
-    if (entry.kind === "directory") {
-      if (!cfg.skip.includes(name)) await walk(entry, prefix + name + "/", files, stats, cfg);
-      continue;
+// Every file and folder, breadth first: the files of the top folder come before anything nested, so a deep folder never
+// pushes them out. Stops once there are far more files than the copy can hold; the rest is reported as not copied.
+async function collect(root, cfg) {
+  const found = [];
+  const cap = cfg.max_files + cfg.list_limit;
+  let level = [[root, ""]];
+  while (level.length && found.length < cap) {
+    const next = [];
+    for (const [dir, prefix] of level) {
+      for await (const [name, entry] of dir.entries()) {
+        if (entry.kind === "directory") {
+          if (!cfg.skip.includes(name)) next.push([entry, prefix + name + "/"]);
+        } else {
+          found.push({ path: prefix + name, name, entry });
+        }
+      }
     }
-    const dot = name.lastIndexOf(".");
-    const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
-    if (cfg.binary.includes(ext) || (SENSITIVE.test(name) && !TEMPLATES.has(name.toLowerCase()))) { stats.skipped++; continue; }
-    const file = await entry.getFile();
-    if (file.size > cfg.max_file) { stats.skipped++; continue; }
-    const text = await file.text();
-    if (text.includes("\u0000") || text.includes("\ufffd")) { stats.skipped++; continue; }
-    files.push({ path: prefix + name, content: text });
-    stats.bytes += file.size;
+    level = next;
   }
+  return found;
+}
+
+// Reads one file, or says why it is not copied. Nothing is dropped silently: a file that is left out is still listed.
+async function readOne(item, cfg) {
+  const file = await item.entry.getFile();
+  const dot = item.name.lastIndexOf(".");
+  const ext = dot > 0 ? item.name.slice(dot).toLowerCase() : "";
+  if (cfg.binary.includes(ext)) return { size: file.size, why: "binary file (" + ext + ")" };
+  if (SENSITIVE.test(item.name) && !TEMPLATES.has(item.name.toLowerCase())) return { size: file.size, why: "secret file" };
+  if (file.size > cfg.max_file) return { size: file.size, why: "larger than " + Math.round(cfg.max_file / 1000) + " KB" };
+  const text = await file.text();
+  if (text.includes("\u0000") || text.includes("\ufffd")) return { size: file.size, why: "binary content" };
+  return { size: file.size, text };
+}
+
+const READ_AT_ONCE = 8;
+
+// Reads the files a few at a time (in order) until the copy is full. Files that do not fit are listed with the reason.
+async function readAll(found, cfg) {
+  const files = [];
+  const listed = [];
+  let bytes = 0;
+  let left = 0;
+  const full = () => files.length >= cfg.max_files || bytes >= cfg.max_total;
+  const leave = (item, size, why) => {
+    if (why.startsWith("left out")) left += 1;
+    if (listed.length < cfg.list_limit) listed.push({ path: item.path, size: size || 0, why });
+  };
+  for (let start = 0; start < found.length; start += READ_AT_ONCE) {
+    const group = found.slice(start, start + READ_AT_ONCE);
+    say("Reading files " + Math.min(start + group.length, found.length) + " of " + found.length + " ...");
+    const reads = await Promise.all(group.map((item) => (
+      full() ? null : readOne(item, cfg).catch(() => ({ why: "could not be read" }))
+    )));
+    group.forEach((item, k) => {
+      const result = reads[k];
+      if (result === null) { leave(item, 0, "left out: the hosted copy is full"); return; }
+      if (result.text === undefined) { leave(item, result.size, result.why); return; }
+      if (full()) { leave(item, result.size, "left out: the hosted copy is full"); return; }
+      files.push({ path: item.path, content: result.text });
+      bytes += result.size;
+    });
+  }
+  return { files, listed, left };
 }
 
 async function openFolder(self) {
   const chosen = await pick();
   if (!chosen) return;
-  say("Reading " + chosen.name + " ...");
-  const files = [];
-  const stats = { bytes: 0, skipped: 0, truncated: false };
+  say("Scanning " + chosen.name + " ...");
+  let read;
+  let git;
   try {
-    await walk(chosen, "", files, stats, self.cfg);
+    read = await readAll(await collect(chosen, self.cfg), self.cfg);
+    git = await readGit(chosen);
   } catch (error) {
     say("Could not read the folder: " + (error.message || error));
     return;
   }
-  const git = await readGit(chosen);
   try { await remember(self.cfg.window, chosen); } catch (error) { /* the folder still works for this page */ }
   shared.handle = chosen;
   shared.job = {
-    id: Math.random().toString(36).slice(2) + Date.now().toString(36), name: chosen.name, files: files.length,
-    groups: pieces(files), meta: { skipped: stats.skipped, truncated: stats.truncated, git }, sent: 0, acked: 0,
+    id: Math.random().toString(36).slice(2) + Date.now().toString(36), name: chosen.name, files: read.files.length,
+    groups: pieces(read.files), meta: { listed: read.listed, left: read.left, git }, sent: 0, acked: 0,
   };
   sendNext();
 }
 
-// The folder goes to the server in pieces of about 1.5 MB. The server confirms each piece before the next one is sent,
+// The folder goes to the server in pieces of about 4 MB. The server confirms each piece before the next one is sent,
 // so no single message is huge and nothing is dropped when the connection is slow.
-const PIECE_CHARS = 1500000;
+const PIECE_CHARS = 4000000;
 
 function pieces(files) {
   const groups = [];
@@ -165,7 +212,7 @@ function sendNext() {
       shared.handle = null;
       say("The server did not confirm the folder. Try again, or open a smaller folder.");
     }
-  }, 60000);
+  }, 180000);
 }
 
 // The server reports how many pieces it has received; the next piece goes out only after the previous one was confirmed.
@@ -385,10 +432,10 @@ def _adopt_git(destination, meta: object) -> str:
 
     Returns a short sentence for the notice. GitHub sign-in is only requested here when GitHub really needs it (a private remote)."""
     if not isinstance(meta, dict):
-        return ""
+        return " No .git folder was found in this folder, so Git features are off."
     branch, url = parse_git_metadata(meta.get("head"), meta.get("config"))
     if not branch:
-        return ""
+        return " The Git branch could not be read (HEAD does not name a branch), so Git features are off."
     outcome = adopt_local_repository(destination, branch, url)
     if outcome["needs_login"] and not settings.github_token:
         st.session_state["_ask_github"] = True
@@ -435,8 +482,12 @@ def _finish(pending: dict) -> None:
     name = pending["name"]
     meta = pending.get("meta") or {}
     destination = (settings.workspace_path / "local" / window_id() / name).resolve()
+    listed = local_sync.clean_listing(meta.get("listed"))
+    browser_left = meta.get("left") if isinstance(meta.get("left"), int) else 0
     try:
         result = local_sync.import_files(destination, pending["files"])
+        location = local_sync.clean_location(local_sync.load_sidecar(destination).get("location"))
+        local_sync.update_sidecar(destination, listed=listed)
         git_note = _adopt_git(destination, meta.get("git"))
         folder = repositories.open_scratch(str(destination))
     except (local_sync.SyncError, RepositoryError) as exc:
@@ -445,16 +496,19 @@ def _finish(pending: dict) -> None:
     except Exception as exc:  # report the failure instead of leaving the page stuck on "Sending files"
         _notify(f"Could not open {name}: {exc.__class__.__name__}. Try again, or open a smaller folder.", ":material/error:")
         return
-    open_workspace(folder, local_sync.LocalLink(name, known=local_sync.snapshot(destination)))
+    open_workspace(folder, local_sync.LocalLink(
+        name, known=local_sync.snapshot(destination), location=location, listed=listed,
+    ))
     st.session_state["_reload_all"] = True
-    extra = " Some large, binary or secret files were left out." if meta.get("skipped") else ""
-    if result.left_out:
+    left = browser_left + result.left_out
+    extra = ""
+    if listed:
+        extra += f" {len(listed)} file(s) are shown in the explorer but not copied; each one shows its reason."
+    if left:
         extra += (
-            f" The hosted copy holds {local_sync.MAX_TOTAL_BYTES // 1_000_000} MB of text, so {result.left_out} more files "
-            "were left out. Run the Studio on your computer to open the whole folder."
+            f" The hosted copy holds {local_sync.MAX_TOTAL_BYTES // 1_000_000} MB of text, so {left} file(s) were left out. "
+            "Run the Studio on your computer to open the whole folder."
         )
-    elif meta.get("truncated"):
-        extra += " The folder is large, so only part of it was opened."
     _notify(f"Opened {name}: {result.count} files.{git_note}{extra}", ":material/folder_open:")
 
 
@@ -508,6 +562,7 @@ def _panel() -> None:
             "ack": st.session_state.get(_ACK_KEY),
             "skip": sorted(local_sync.SKIP_DIRS), "binary": sorted(local_sync.BINARY_EXTENSIONS),
             "max_file": settings.max_file_bytes, "max_files": local_sync.MAX_FILES, "max_total": local_sync.MAX_TOTAL_BYTES,
+            "list_limit": local_sync.LISTED_LIMIT,
         },
         on_chunk_change=_on_chunk, on_relinked_change=_on_relinked, on_synced_change=_on_synced,
     )

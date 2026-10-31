@@ -9,6 +9,7 @@ from the browser is validated here: relative paths only, nothing outside the wor
 from __future__ import annotations
 
 import base64
+import json
 import os
 import re
 import secrets
@@ -25,6 +26,7 @@ MAX_TOTAL_BYTES = 25_000_000
 BATCH_FILES = 200
 BATCH_BYTES = 6_000_000
 EXPORT_FILE_LIMIT = 8_000_000  # largest single file written back to the user's folder
+LISTED_LIMIT = 5000  # files the browser found but did not copy; they are still shown in the explorer
 
 
 class SyncError(Exception):
@@ -147,6 +149,8 @@ class LocalLink:
     known: dict[str, tuple[int, int]] = field(default_factory=dict)
     pending: dict | None = None
     fresh: bool = False
+    location: str = ""  # the folder's path on the user's computer, as typed by the user (display only)
+    listed: list[dict] = field(default_factory=list)  # found on the user's computer but not copied: {path, size, why}
 
     def plan(self, root: Path) -> dict | None:
         """The next batch of changes for the browser to write, or None when everything is in sync."""
@@ -186,3 +190,77 @@ class LocalLink:
         for path in batch["deletes"]:
             self.known.pop(path, None)
         self.pending = None
+
+
+def clean_location(text: object) -> str:
+    """The folder's path on the user's computer as the user typed it, with forward slashes. It is only shown, never used for file access."""
+    if not isinstance(text, str):
+        return ""
+    cleaned = re.sub(r"[\x00-\x1f]", "", text).strip().strip("\"'").replace("\\", "/")
+    return re.sub(r"/{2,}", "/", cleaned).rstrip("/")[:200]
+
+
+def sidecar_path(root: Path) -> Path:
+    """Where the link details are kept: next to the workspace copy, never inside it, so they never sync to the user's folder."""
+    return root.parent / f".{root.name}.rk.json"
+
+
+def load_sidecar(root: Path) -> dict:
+    try:
+        data = json.loads(sidecar_path(root).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def update_sidecar(root: Path, **changes: object) -> dict:
+    data = load_sidecar(root)
+    data.update(changes)
+    try:
+        sidecar_path(root).write_text(json.dumps(data), encoding="utf-8")
+    except OSError:
+        pass
+    return data
+
+
+def clean_listing(items: object) -> list[dict]:
+    """The files the browser found but did not copy, as {path, size, why}. Malformed entries are dropped."""
+    if not isinstance(items, list):
+        return []
+    cleaned: list[dict] = []
+    for item in items[:LISTED_LIMIT]:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        if not isinstance(path, str) or not path or "\x00" in path or len(path) > 500:
+            continue
+        parts = path.replace("\\", "/").strip("/").split("/")
+        if any(part in {"", ".", ".."} for part in parts):
+            continue
+        size = item.get("size")
+        why = item.get("why")
+        cleaned.append({
+            "path": "/".join(parts),
+            "size": int(size) if isinstance(size, (int, float)) and size >= 0 else 0,
+            "why": why[:80] if isinstance(why, str) and why else "not copied",
+        })
+    return cleaned
+
+
+def listed_entries(listed: list[dict], cwd: str) -> list[dict]:
+    """The not-copied files directly inside folder `cwd`, shaped like `list_dir` entries, plus the folders that only exist for them."""
+    prefix = f"{cwd}/" if cwd else ""
+    entries: dict[str, dict] = {}
+    for item in listed:
+        path = item["path"]
+        if not path.startswith(prefix):
+            continue
+        head, sep, _ = path[len(prefix):].partition("/")
+        if not head:
+            continue
+        if sep:
+            full = prefix + head
+            entries.setdefault(full, {"name": head, "path": full, "type": "dir", "size": 0, "ignored": False, "language": None, "listed": True, "why": ""})
+        else:
+            entries[path] = {"name": head, "path": path, "type": "file", "size": item["size"], "ignored": False, "language": None, "listed": True, "why": item["why"]}
+    return list(entries.values())

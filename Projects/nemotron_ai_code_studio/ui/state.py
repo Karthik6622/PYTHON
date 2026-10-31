@@ -22,7 +22,7 @@ from studio.services.repository_service import ActiveRepository, RepositoryError
 __all__ = [
     "AgentRun", "CommandRun", "broker", "coding_agent", "conversations", "nvidia", "repository_agent", "repositories",
     "S", "init_state", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
-    "window_id", "open_workspace", "new_window_url", "window_url",
+    "window_id", "open_workspace", "new_window_url", "window_url", "location_label", "repo_label",
 ]
 
 _WINDOW_ID = re.compile(r"[A-Za-z0-9_-]{4,32}")
@@ -74,7 +74,12 @@ def _open_this_window() -> None:
         name, fresh = repositories.window_link(wid)
         if name:  # this window mirrors a folder on the user's computer: keep mirroring it after a reload
             known = {} if fresh else local_sync.snapshot(current.path)
-            st.session_state["_link"] = local_sync.LocalLink(name, known=known, fresh=fresh)
+            sidecar = local_sync.load_sidecar(current.path)
+            st.session_state["_link"] = local_sync.LocalLink(
+                name, known=known, fresh=fresh,
+                location=local_sync.clean_location(sidecar.get("location")),
+                listed=local_sync.clean_listing(sidecar.get("listed")),
+            )
 
 
 def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None = None) -> None:
@@ -96,6 +101,38 @@ def open_workspace(current: ActiveRepository, link: local_sync.LocalLink | None 
     repositories.remember(
         window_id(), current.path, current.github, current.scratch, link.name if link else "", bool(link and link.fresh),
     )
+
+
+def location_label(current: ActiveRepository | None) -> str:
+    """The folder's path to show. A local run shows the real path. A hosted window shows the path the user typed for the
+    folder on their computer (a browser never exposes that path by itself), or nothing when it was not typed yet."""
+    if current is None:
+        return ""
+    link = st.session_state.get("_link")
+    if link is not None:
+        return link.location
+    return "" if is_hosted() else current.path.as_posix()
+
+
+_REMOTE_NAME = re.compile(r"[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$")
+
+
+def repo_label(current: ActiveRepository | None) -> str:
+    """owner/repo of the repository when it is known (GitHub or the Git remote), otherwise the folder name."""
+    if current is None:
+        return ""
+    full = (current.github or {}).get("full_name")
+    if full:
+        return str(full)
+    if current.git is not None:
+        try:
+            url = current.git.remote_url()
+        except Exception:  # an unreadable repository must not break the status bar
+            url = ""
+        match = _REMOTE_NAME.search(url or "")
+        if match:
+            return f"{match.group(1)}/{match.group(2)}"
+    return current.name
 
 
 def window_url(wid: str) -> str:

@@ -10,7 +10,7 @@ from studio.config import settings
 from studio.models import get_model
 
 from .dialogs import github_user
-from .state import S, attempt, repo
+from .state import S, attempt, repo, repo_label
 
 
 def _item(text: str, kind: str = "", title: str = "") -> str:
@@ -21,6 +21,8 @@ def _item(text: str, kind: str = "", title: str = "") -> str:
 def render_status_bar() -> None:
     current = repo()
     left = ["<span class='it remote'>RK STUDIO</span>"]
+    if current is not None:
+        left.append(_item(escape(repo_label(current)), title="Repository"))
     if current is not None and current.git is not None:
         branch = current.git.current_branch()
         left.append(_item(f"&#9095; {escape(branch)}", title="Current branch"))
@@ -30,8 +32,6 @@ def render_status_bar() -> None:
                 left.append(_item(f"&uarr;{status['ahead']} &darr;{status['behind']}", title="Commits ahead / behind upstream"))
             changes = len(status.get("files", []))
             left.append(_item(f"{changes} change{'s' if changes != 1 else ''}", "warn" if changes else "ok", "Uncommitted changes"))
-    elif current is not None:
-        left.append(_item("not a git repository", "warn"))
     lint = S.lint_result
     if lint is not None:
         count = len(lint["problems"])
