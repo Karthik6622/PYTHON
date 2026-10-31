@@ -27,6 +27,7 @@ LOGGER = get_logger("discovery")
 Progress = Callable[[str], None]
 
 INSTALL_HINT = "Install the browser tooling with: pip install playwright  and  python -m playwright install chromium"
+SYSTEM_LIBS_HINT = "Add the project's packages.txt to the host (Streamlit Community Cloud), or rebuild the Docker image so the Chromium system libraries are installed."
 
 
 def playwright_available() -> bool:
@@ -126,6 +127,8 @@ def _run_worker_once(job: dict[str, Any], timeout: int, on_progress: Progress | 
         text = str(data["error"])
         if "Executable doesn't exist" in text or "playwright install" in text:
             raise BrowserMissingError("The browser is not installed. " + INSTALL_HINT)
+        if "TargetClosedError" in text or "BrowserType.launch" in text or "shared libraries" in text:
+            raise DiscoveryError("Chromium is installed but could not start on this host, usually because system libraries are missing. " + SYSTEM_LIBS_HINT)
         raise DiscoveryError(f"Browser analysis failed: {mask(text)[:300]}")
     return data
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import colorsys
 import io
 import math
 import os
@@ -53,6 +54,56 @@ VARIANTS = {
     "plain": {},
 }
 _WORKING: dict[str, str] = {}
+
+# ----------------------------- color themes -----------------------------
+# The base stylesheet is written in one gold palette. A theme re-maps those colors (hex and rgb/rgba forms)
+# by rotating hue and scaling saturation, so the layout, glow and contrast stay the same.
+GOLD_PALETTE = (
+    "#fffbe6", "#fff2a8", "#ffe066", "#ffd700", "#f0b90b", "#c99700", "#8a6a1f", "#ffb300", "#6b5316",
+    "#07060a", "#08070a", "#0d0b12", "#12100a", "#14110a", "#17130b", "#1c170d", "#1a1400",
+    "#3a3116", "#3d3110", "#2b2308", "#9c9068", "#e9e1c6", "#fffdf2",
+)
+# name: (hue shift in degrees, saturation multiplier)
+COLOR_THEMES = {
+    "Cyber Gold": (0, 1.0),
+    "Solar Yellow": (8, 1.15),
+    "Acid Lime": (26, 1.05),
+    "Amber Ember": (-12, 1.1),
+    "Champagne Chrome": (-4, 0.7),
+}
+DEFAULT_THEME = "Cyber Gold"
+
+
+def _hex_to_rgb(color: str) -> tuple[int, int, int]:
+    return tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def _shift_hex(color: str, hue_deg: float, sat_scale: float) -> str:
+    red, green, blue = (channel / 255 for channel in _hex_to_rgb(color))
+    hue, light, sat = colorsys.rgb_to_hls(red, green, blue)
+    if not 15 <= hue * 360 <= 100:  # keep the blue-black backgrounds unchanged
+        return color
+    red, green, blue = colorsys.hls_to_rgb((hue + hue_deg / 360) % 1.0, light, min(1.0, sat * sat_scale))
+    return "#" + "".join(f"{round(channel * 255):02x}" for channel in (red, green, blue))
+
+
+def _recolor_css(css: str, hue_deg: float, sat_scale: float) -> str:
+    """Re-map every gold color in the base stylesheet, in hex and rgb/rgba form, to the chosen theme."""
+    hex_map = {base: _shift_hex(base, hue_deg, sat_scale) for base in GOLD_PALETTE}
+    rgb_map = {_hex_to_rgb(base): _hex_to_rgb(new) for base, new in hex_map.items()}
+
+    def replace_hex(match: re.Match) -> str:
+        return hex_map.get(match.group(0).lower(), match.group(0))
+
+    def replace_rgb(match: re.Match) -> str:
+        key = (int(match.group(1)), int(match.group(3)), int(match.group(5)))
+        if key not in rgb_map:
+            return match.group(0)
+        red, green, blue = rgb_map[key]
+        return f"{red}{match.group(2)}{green}{match.group(4)}{blue}"
+
+    css = re.sub(r"#[0-9a-fA-F]{6}\b", replace_hex, css)
+    return re.sub(r"\b(\d{1,3})(,\s?)(\d{1,3})(,\s?)(\d{1,3})\b", replace_rgb, css)
 
 
 # ----------------------------- sessions -----------------------------
@@ -345,11 +396,29 @@ QUESTION_QUALITY_RULES = (
 )
 
 
+MISSING_RESUME_NOTE = (
+    "(not provided. Build the questions from the job description, and ask the candidate to walk through their own "
+    "matching experience. Do not invent projects or employers.)"
+)
+MISSING_JD_NOTE = (
+    "(not provided. Infer the most likely target role, seniority and core requirements from the resume, and name the "
+    "inferred role in the header. Do not invent requirements the resume does not support.)"
+)
+MISSING_INPUT_RULES = (
+    "MISSING INPUT RULES: one document is missing, so do not stop or ask for it. Keep every question grounded in the "
+    "document that exists, keep the quality bar above, and label any inference (role, level, skills) as inferred."
+)
+
+
 def _documents(resume: str, jd: str) -> str:
-    return (
-        f"JOB DESCRIPTION:\n<job_description>\n{jd}\n</job_description>\n\n"
-        f"CANDIDATE RESUME:\n<resume>\n{resume}\n</resume>"
+    resume, jd = resume.strip(), jd.strip()
+    text = (
+        f"JOB DESCRIPTION:\n<job_description>\n{jd or MISSING_JD_NOTE}\n</job_description>\n\n"
+        f"CANDIDATE RESUME:\n<resume>\n{resume or MISSING_RESUME_NOTE}\n</resume>"
     )
+    if not (resume and jd):
+        text += "\n\n" + MISSING_INPUT_RULES
+    return text
 
 
 def _section_messages(resume, jd, sec_no, focus, start, end, first=False, coding=False, complexity="Medium") -> list[dict]:
@@ -560,9 +629,10 @@ def update_time(session: dict, session_id: str | None = None) -> None:
         st.session_state.interview_session_order.insert(0, session_id)
 
 
-def apply_theme() -> None:
-    """Futuristic/Cyberpunk theme with a yellow + gold color palette."""
-    st.markdown(
+def apply_theme(theme_name: str) -> None:
+    """Futuristic/Cyberpunk theme. The gold base stylesheet is re-mapped to the selected color theme."""
+    hue_deg, sat_scale = COLOR_THEMES.get(theme_name, COLOR_THEMES[DEFAULT_THEME])
+    css = _recolor_css(
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -1461,10 +1531,50 @@ def apply_theme() -> None:
             .hero-mark { width: 50px; height: 50px; font-size: 24px; }
             .chat-brand { font-size: 1rem; }
         }
+
+        /* ---- futuristic scan beam ---- */
+        body::after {
+            content: '';
+            position: fixed;
+            left: 0; right: 0; top: 0;
+            height: 14vh;
+            background: linear-gradient(180deg, transparent 0%, rgba(255,215,0,0.07) 50%, transparent 100%);
+            pointer-events: none;
+            z-index: 2;
+            animation: scanBeam 9s linear infinite;
+        }
+
+        @keyframes scanBeam {
+            0% { transform: translateY(-20vh); }
+            100% { transform: translateY(120vh); }
+        }
+
+        /* ---- HUD status line (sidebar) ---- */
+        .hud-status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+            letter-spacing: 0.14em;
+            line-height: 1.7;
+            color: var(--text-muted) !important;
+            margin: -0.5rem 0 1rem;
+        }
+
+        .hud-status::before {
+            content: '● ';
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px var(--accent-glow);
+            animation: hudBlink 1.6s steps(2, start) infinite;
+        }
+
+        @keyframes hudBlink {
+            to { visibility: hidden; }
+        }
         </style>
         """,
-        unsafe_allow_html=True,
+        hue_deg,
+        sat_scale,
     )
+    st.markdown(css, unsafe_allow_html=True)
 
 
 def session_title(session: dict) -> str:
@@ -1479,6 +1589,11 @@ def create_new_session() -> None:
 def render_sidebar() -> tuple[str, dict, int, int, int, str]:
     with st.sidebar:
         st.markdown('<div class="chat-brand">✳ Interview <span>Studio</span></div>', unsafe_allow_html=True)
+        theme_name = st.selectbox("Color theme", list(COLOR_THEMES), key="color_theme")
+        st.markdown(
+            f'<div class="hud-status">SYSTEM ONLINE<br>THEME // {escape(theme_name.upper())}</div>',
+            unsafe_allow_html=True,
+        )
         if st.button("＋  New chat", type="primary", use_container_width=True, key="new_chat_button"):
             create_new_session()
             st.rerun()
@@ -1567,7 +1682,10 @@ def render_sidebar() -> tuple[str, dict, int, int, int, str]:
 def save_context_panel(session_id: str, session: dict) -> None:
     expanded = not bool(session.get("resume_text") and session.get("job_description"))
     with st.expander("Candidate and role context", expanded=expanded):
-        st.caption("Upload PDF, DOCX, or TXT files (5 MB max). Files are parsed locally; extracted text stays in this browser tab session for follow-ups.")
+        st.caption(
+            "Add a resume, a job description, or both (PDF, DOCX, or TXT, 5 MB max). If one is missing, the questions are "
+            "inferred from the other. Files are parsed locally; extracted text stays in this browser tab session for follow-ups."
+        )
         resume_col, job_col = st.columns(2)
         with resume_col:
             resume_upload = st.file_uploader(
@@ -1595,8 +1713,6 @@ def save_context_panel(session_id: str, session: dict) -> None:
         if st.button("Save context", key=f"save_context_{session_id}"):
             try:
                 resume_text = extract_text(resume_upload, "The resume") if resume_upload else session.get("resume_text", "")
-                if not resume_text:
-                    raise ValueError("Upload a candidate resume first.")
                 # Use pasted text if provided, otherwise fall back to uploaded file, then saved session
                 if job_text and job_text.strip():
                     job_description = job_text.strip()
@@ -1607,15 +1723,17 @@ def save_context_panel(session_id: str, session: dict) -> None:
                 else:
                     job_description = session.get("job_description", "")
                     job_name = session.get("job_name", "")
-                if not job_description:
-                    raise ValueError("Provide a job description (paste text or upload a file).")
+                if not resume_text and not job_description:
+                    raise ValueError("Add a resume, a job description, or both.")
 
                 session["resume_text"] = resume_text
-                session["resume_name"] = resume_upload.name if resume_upload else session.get("resume_name", "Saved resume")
+                session["resume_name"] = (resume_upload.name if resume_upload else session.get("resume_name", "")) if resume_text else ""
                 session["job_description"] = job_description
-                session["job_name"] = job_name
+                session["job_name"] = job_name if job_description else ""
                 update_time(session, session_id)
-                st.success("Context saved to this interview chat. You can now ask for a guide or follow-up questions.")
+                missing = [label for label, value in (("resume", resume_text), ("job description", job_description)) if not value]
+                note = f" The missing {' and '.join(missing)} will be inferred from the other document." if missing else ""
+                st.success("Context saved to this interview chat. You can now ask for a guide or follow-up questions." + note)
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
             except Exception as exc:
@@ -1756,22 +1874,23 @@ def main() -> None:
         st.stop()
     for pending_id in st.session_state.pop("rename_widget_sync", set()):
         st.session_state.pop(f"rename_chat_{pending_id}", None)
-    apply_theme()
+    apply_theme(st.session_state.get("color_theme", DEFAULT_THEME))
 
     session_id, session, total_count, project_count, coding_count, complexity = render_sidebar()
     st.title(session_title(session))
     st.caption("Interviewer workspace · NVIDIA Nemotron 3.5 Bolt")
     save_context_panel(session_id, session)
 
-    if not session.get("resume_text") or not session.get("job_description"):
+    has_context = bool(session.get("resume_text") or session.get("job_description"))
+    if not has_context:
         st.markdown(
-            """<div class="hero"><div class="hero-mark">✳</div><h1>Build a better interview guide</h1><p>Save the candidate resume and job description above. Then ask for a complete guide, a focused question set, or follow-ups based on this chat.</p></div>""",
+            """<div class="hero"><div class="hero-mark">✳</div><h1>Build a better interview guide</h1><p>Save a candidate resume, a job description, or both above. If one is missing, the questions are inferred from the other. Then ask for a complete guide, a focused question set, or follow-ups based on this chat.</p></div>""",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f'<span class="source-pill">Resume · {escape(session.get("resume_name") or "saved")}</span>'
-            f'<span class="source-pill">Role · {escape(session.get("job_name") or "saved")}</span>',
+            f'<span class="source-pill">Resume · {escape(session.get("resume_name") or "not provided")}</span>'
+            f'<span class="source-pill">Role · {escape(session.get("job_name") or "inferred from resume")}</span>',
             unsafe_allow_html=True,
         )
         first_guide_exists = any(
