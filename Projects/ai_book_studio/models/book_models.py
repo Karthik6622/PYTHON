@@ -369,6 +369,7 @@ class BookProject(_Model):
     """A complete book project, including generated content."""
 
     project_id: str
+    owner: str = ""  # private id of the browser that created the project; empty for projects made before owners existed
     created_at: str = Field(default_factory=utc_now)
     updated_at: str = Field(default_factory=utc_now)
     book_input: BookInput = Field(default_factory=BookInput)

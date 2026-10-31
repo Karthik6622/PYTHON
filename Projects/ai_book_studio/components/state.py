@@ -18,6 +18,7 @@ from config import (
     ROOT_DIR,
     get_chapter_workers,
 )
+from components.identity import owner_id
 from models.book_models import BookInput, BookProject
 from services.book_pipeline import BookPipeline
 from services.job_runner import GenerationJob
@@ -184,10 +185,16 @@ def start_plan(project: BookProject, new_book: bool = False) -> bool:
 
 
 def _finalize_plan_jobs() -> None:
-    """Once per finished plan job: adopt the new plan (or report the error) and forget the job."""
+    """Once per finished plan job of THIS browser: adopt the new plan (or report the error) and forget the job.
+
+    Jobs started by other browsers are never touched; they are finalized by the session that owns them.
+    """
     registry = _plan_registry()
+    me = owner_id()
     for project_id, job in list(registry.items()):
         if job.running or job.handled:
+            continue
+        if job.project is None or job.project.owner != me:
             continue
         job.handled = True
         registry.pop(project_id, None)
@@ -346,7 +353,7 @@ def bump_content() -> None:
 def open_project(project_id: str) -> None:
     """Callback: load a saved project and show its input in the Create tab."""
     try:
-        project = get_storage().load_project(project_id)
+        project = get_storage().load_project(project_id, owner=owner_id())
     except AIBookError as exc:
         flash(exc.user_message, "error")
         return
@@ -367,7 +374,7 @@ def new_book() -> None:
 def delete_project(project_id: str) -> None:
     """Callback: delete one saved project folder."""
     try:
-        get_storage().delete_project(project_id)
+        get_storage().delete_project(project_id, owner=owner_id())
     except (AIBookError, OSError) as exc:
         flash(f"The project could not be deleted: {redact(exc)}", "error")
         return

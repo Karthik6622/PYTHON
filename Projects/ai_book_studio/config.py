@@ -258,6 +258,8 @@ class ImageSettings:
     ai_horde_concurrency: int = 3
     ai_horde_steps: int = 16  # sampling steps for SDXL-type models; fewer steps = faster
     ai_horde_fast_only: bool = False  # fast workers only: AI Horde demands upfront kudos for such requests
+    retries: int = 2  # extra attempts per illustration when the first one fails or comes back blurry
+    min_sharpness: float = 25.0  # edge-contrast score below which a picture counts as blurry (0 turns the check off)
 
     @property
     def ai_horde_models(self) -> list[str]:
@@ -333,6 +335,8 @@ def get_image_settings() -> ImageSettings:
         ai_horde_concurrency=int(_number("AI_HORDE_CONCURRENCY", 3, 1, 10)),
         ai_horde_steps=int(_number("AI_HORDE_STEPS", 16, 4, 50)),
         ai_horde_fast_only=get_setting("AI_HORDE_FAST_ONLY", "false").strip().lower() in {"1", "true", "yes", "on"},
+        retries=int(_number("IMAGE_RETRIES", 2, 0, 5)),
+        min_sharpness=_number("IMAGE_MIN_SHARPNESS", 25.0, 0.0, 200.0),
     )
 
 

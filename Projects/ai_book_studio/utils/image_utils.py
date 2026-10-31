@@ -8,7 +8,7 @@ import os
 from collections.abc import Iterator
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageStat
 
 from config import FONTS_DIR
 
@@ -179,6 +179,15 @@ def validate_image(path: str | Path) -> tuple[bool, str]:
     except Exception as exc:  # noqa: BLE001
         return False, f"image is unreadable ({type(exc).__name__})"
     return True, ""
+
+
+def sharpness_score(path: str | Path) -> float:
+    """Edge-contrast score (variance of a Laplacian filter on a 512 px greyscale copy). Soft or blurry pictures score low."""
+    with Image.open(path) as image:
+        grey = image.convert("L")
+    grey.thumbnail((512, 512), Image.LANCZOS)
+    edges = grey.filter(ImageFilter.Kernel((3, 3), [0, -1, 0, -1, 4, -1, 0, -1, 0], scale=1, offset=128))
+    return float(ImageStat.Stat(edges).var[0])
 
 
 def normalize_png(path: str | Path, max_size: tuple[int, int]) -> Path:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components.identity import owner_id
 from components.state import current_project, get_storage, guarded, plan_job_here, start_plan
 from config import (
     AUDIENCES,
@@ -122,7 +123,7 @@ def _create_plan(book_input: BookInput) -> None:
             project.book_input = book_input
             storage.save_project_meta(project)
         else:
-            project = storage.create_project(book_input)
+            project = storage.create_project(book_input, owner=owner_id())
             created = True
         started = start_plan(project, new_book=created)
     if not started:

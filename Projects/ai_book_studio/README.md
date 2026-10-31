@@ -89,6 +89,8 @@ AI Horde (`Flux.1-Schnell fp8 (Compact)` by default: 4 steps and small images, s
 Requests wait in AI Horde's shared queue, so each image can take from seconds to a few minutes. FLUX always uses 4 steps.
 Options: `AI_HORDE_MODEL` (comma separated list), `AI_HORDE_STEPS` (default 16, used by SDXL-type models), `AI_HORDE_FAST_ONLY` (default false; true needs upfront kudos),
 `AI_HORDE_TIMEOUT` (seconds to wait per image, default 600) and `AI_HORDE_CONCURRENCY` (images at once, default 3).
+Every picture is checked. If it fails or comes back blurry it is generated again (`IMAGE_RETRIES`, default 2 extra tries, with a sharper prompt); a good first image is used at once and the book moves on to the next chapter.
+If every try is soft, the sharpest one is kept; the placeholder art is used only when no try produced a picture. `IMAGE_MIN_SHARPNESS` (default 25, 0 turns the blur check off) sets how strict the check is.
 To use FLUX on AI Horde, set `AI_HORDE_MODEL=Flux.1-Schnell fp8 (Compact)`. It has far fewer workers, so its queue is often longer than SDXL's.
 
 **Parallel chapters.** `CHAPTER_WORKERS` (default 4, max 8) writes chapters at the same time. Each chapter sees the book bible and the

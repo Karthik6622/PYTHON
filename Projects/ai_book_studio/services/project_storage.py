@@ -34,6 +34,7 @@ from utils.retry_utils import ProjectLoadError
 LOGGER = logging.getLogger("ai_book_studio.storage")
 _PROJECT_ID = re.compile(r"^[A-Za-z0-9_\-]{6,64}$")
 _CHAPTER_FILE = re.compile(r"^chapter_(\d+)\.md$")
+_NOT_YOURS = "That book belongs to a different browser, so it cannot be opened here."
 _WRITE_LOCK = threading.RLock()  # chapters are saved from several worker threads; replacing a file must not overlap
 
 
@@ -104,17 +105,20 @@ class ProjectStorage:
         return path if path.exists() and path.stat().st_size > 0 else None
 
     # ------------------------------------------------------------------ create / list / delete
-    def create_project(self, book_input: BookInput) -> BookProject:
+    def create_project(self, book_input: BookInput, owner: str = "") -> BookProject:
         project_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
-        project = BookProject(project_id=project_id, book_input=book_input.model_dump())
+        project = BookProject(project_id=project_id, owner=owner, book_input=book_input.model_dump())
         for folder in (self.chapters_dir(project_id), self.images_dir(project_id), self.exports_dir(project_id)):
             folder.mkdir(parents=True, exist_ok=True)
         self.save_project_meta(project)
         self.save_status(project)
         return project
 
-    def list_projects(self) -> list[dict[str, str]]:
-        """Saved projects, newest first, as ``{id, title, updated_at, stage}`` dictionaries."""
+    def list_projects(self, owner: str | None = None) -> list[dict[str, str]]:
+        """Saved projects, newest first, as ``{id, title, updated_at, stage}`` dictionaries.
+
+        With ``owner`` only that browser's projects are returned; ``None`` returns every project.
+        """
         found: list[dict[str, str]] = []
         for folder in self.root.iterdir() if self.root.exists() else []:
             meta = folder / "project.json"
@@ -122,6 +126,8 @@ class ProjectStorage:
                 continue
             try:
                 data = json.loads(meta.read_text(encoding="utf-8"))
+                if owner is not None and (not owner or str(data.get("owner", "")) != owner):
+                    continue
                 status = self._read_json(folder / "generation_status.json") or {}
                 found.append(
                     {
@@ -135,16 +141,44 @@ class ProjectStorage:
                 LOGGER.warning("Skipping unreadable project folder %s", folder.name)
         return sorted(found, key=lambda item: item["updated_at"], reverse=True)
 
-    def latest_project_id(self) -> str | None:
-        projects = self.list_projects()
+    def latest_project_id(self, owner: str | None = None) -> str | None:
+        projects = self.list_projects(owner)
         return projects[0]["id"] if projects else None
 
-    def delete_project(self, project_id: str) -> None:
-        """Delete one saved project folder (only folders directly under the projects root)."""
+    def owner_of(self, project_id: str) -> str:
+        """Owner id stored with a project (empty for projects created before owners existed)."""
+        meta = self._read_json(self.project_dir(project_id) / "project.json") or {}
+        return str(meta.get("owner", ""))
+
+    def delete_project(self, project_id: str, owner: str | None = None) -> None:
+        """Delete one saved project folder (only folders directly under the projects root).
+
+        With ``owner`` the folder is only deleted when it belongs to that owner.
+        """
         folder = self.project_dir(project_id).resolve()
         if folder.parent != self.root.resolve() or not folder.exists():
             return
+        if owner is not None and (not owner or self.owner_of(project_id) != owner):
+            raise ProjectLoadError(_NOT_YOURS)
         shutil.rmtree(folder)
+
+    def adopt_unowned(self, owner: str) -> int:
+        """Give projects that predate owners to ``owner``. Returns how many were adopted."""
+        adopted = 0
+        for folder in self.root.iterdir() if self.root.exists() else []:
+            meta_path = folder / "project.json"
+            if not folder.is_dir() or not meta_path.exists() or not self.is_valid_id(folder.name):
+                continue
+            try:
+                meta = self._read_json(meta_path) or {}
+                if str(meta.get("owner", "")):
+                    continue
+                meta["owner"] = owner
+                self._write_json(meta_path, meta)
+                adopted += 1
+            except (OSError, ProjectLoadError):
+                LOGGER.warning("Could not adopt project folder %s", folder.name)
+        return adopted
 
     def clear_generated(self, project: BookProject) -> None:
         """Remove generated content (bible, front matter, chapters, images, exports) but keep the input and plan."""
@@ -169,6 +203,7 @@ class ProjectStorage:
         project.updated_at = utc_now()
         meta = {
             "project_id": project.project_id,
+            "owner": project.owner,
             "title": project.title,
             "created_at": project.created_at,
             "updated_at": project.updated_at,
@@ -227,15 +262,21 @@ class ProjectStorage:
         self.save_status(project)
 
     # ------------------------------------------------------------------ load
-    def load_project(self, project_id: str) -> BookProject:
-        """Load a project. Raises ``ProjectLoadError`` with a clear message when it cannot be read."""
+    def load_project(self, project_id: str, owner: str | None = None) -> BookProject:
+        """Load a project. Raises ``ProjectLoadError`` with a clear message when it cannot be read.
+
+        With ``owner`` the project is only loaded when it belongs to that owner.
+        """
         folder = self.project_dir(project_id)
         meta = self._read_json(folder / "project.json")
         if not meta:
             raise ProjectLoadError()
+        if owner is not None and (not owner or str(meta.get("owner", "")) != owner):
+            raise ProjectLoadError(_NOT_YOURS)
         try:
             project = BookProject(
                 project_id=project_id,
+                owner=str(meta.get("owner", "")),
                 created_at=str(meta.get("created_at", utc_now())),
                 updated_at=str(meta.get("updated_at", utc_now())),
                 book_input=BookInput.model_validate(meta.get("book_input", {})),

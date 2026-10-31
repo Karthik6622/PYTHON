@@ -234,3 +234,90 @@ def test_provider_selection_prefers_cloudflare_with_horde_backup():
     only_cf = ImageSettings(api_key="", cloudflare_account_id="a", cloudflare_token="t")
     assert isinstance(get_image_generator(only_cf), CloudflareImageGenerator)
     assert isinstance(get_image_generator(ImageSettings(api_key="", ai_horde_key="k")), AIHordeImageGenerator)
+
+
+# --------------------------------------------------------------------------------------
+# Retry when an image fails or is blurry
+# --------------------------------------------------------------------------------------
+class _ScriptedGenerator:
+    """Returns one scripted outcome per call: 'sharp', 'blurry', 'error' or 'garbage'."""
+
+    name = "scripted"
+
+    def __init__(self, *outcomes):
+        self.outcomes = list(outcomes)
+        self.prompts: list[str] = []
+
+    def generate_image(self, prompt, output_path, orientation):
+        import random
+
+        from PIL import Image, ImageFilter
+
+        self.prompts.append(prompt)
+        kind = self.outcomes.pop(0)
+        if kind == "error":
+            from utils.retry_utils import ImageGenerationError
+
+            raise ImageGenerationError("The provider is busy.")
+        if kind == "garbage":
+            output_path.write_bytes(b"not an image")
+            return output_path
+        rng = random.Random(len(self.prompts))
+        image = Image.new("RGB", (256, 256))
+        image.putdata([(rng.randrange(256),) * 3 for _ in range(256 * 256)])
+        if kind == "blurry":
+            image = image.filter(ImageFilter.GaussianBlur(25))
+        image.save(output_path, "PNG")
+        return output_path
+
+
+def _illustrate(generator, tmp_path, retries=2):
+    from services.image_generator import generate_illustration
+
+    return generate_illustration(generator, "a lighthouse", tmp_path / "i.png", "square", retries=retries, min_sharpness=25.0)
+
+
+def test_first_good_image_is_used_without_retry(tmp_path):
+    generator = _ScriptedGenerator("sharp")
+    result = _illustrate(generator, tmp_path)
+    assert result.attempts == 1 and not result.placeholder_used and not result.warning
+    assert len(generator.prompts) == 1
+
+
+def test_failed_first_image_is_retried(tmp_path):
+    generator = _ScriptedGenerator("error", "sharp")
+    result = _illustrate(generator, tmp_path)
+    assert result.attempts == 2 and not result.placeholder_used
+    assert generator.prompts[1].startswith("a lighthouse") and "sharp focus" in generator.prompts[1]
+
+
+def test_blurry_image_is_retried_up_to_two_times(tmp_path):
+    generator = _ScriptedGenerator("blurry", "blurry", "sharp")
+    result = _illustrate(generator, tmp_path)
+    assert result.attempts == 3 and not result.placeholder_used and not result.warning
+
+
+def test_all_blurry_keeps_the_sharpest_not_a_placeholder(tmp_path):
+    generator = _ScriptedGenerator("blurry", "blurry", "blurry")
+    result = _illustrate(generator, tmp_path)
+    assert not result.placeholder_used and "sharpest" in result.warning
+    assert (tmp_path / "i.png").exists()
+
+
+def test_placeholder_only_after_every_attempt_fails(tmp_path):
+    generator = _ScriptedGenerator("error", "garbage", "error")
+    result = _illustrate(generator, tmp_path)
+    assert result.placeholder_used and result.attempts == 3 and "3 attempt" in result.warning
+
+
+def test_zero_retries_means_one_attempt(tmp_path):
+    generator = _ScriptedGenerator("error")
+    result = _illustrate(generator, tmp_path, retries=0)
+    assert result.placeholder_used and len(generator.prompts) == 1
+
+
+def test_placeholder_provider_is_not_retried(tmp_path):
+    from services.image_generator import PlaceholderImageGenerator, generate_illustration
+
+    result = generate_illustration(PlaceholderImageGenerator(), "x", tmp_path / "p.png", "square")
+    assert result.attempts == 1 and not result.placeholder_used

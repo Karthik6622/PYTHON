@@ -24,6 +24,7 @@ from utils.image_utils import (
     ORIENTATION_SIZES,
     make_placeholder_image,
     normalize_png,
+    sharpness_score,
     validate_image,
 )
 from utils.retry_utils import (
@@ -44,6 +45,7 @@ class ImageResult:
     path: Path
     placeholder_used: bool = False
     warning: str = ""
+    attempts: int = 1
 
 
 class ImageGenerator(ABC):
@@ -484,28 +486,76 @@ class AIHordeImageGenerator(ImageGenerator):
             raise ImageGenerationError("The AI Horde image could not be decoded.") from exc
 
 
-def generate_illustration(
-    generator: ImageGenerator, prompt: str, output_path: str | Path, orientation: str
-) -> ImageResult:
-    """Generate, validate and normalise an image. Falls back to a placeholder and says so when it fails."""
-    path = Path(output_path)
-    size = COVER_SIZE if orientation == "cover" else ORIENTATION_SIZES.get(orientation, ORIENTATION_SIZES["square"])
-    reason = ""
+_RETRY_SUFFIX = ", sharp focus, crisp fine detail, high quality"
+
+
+def _attempt_illustration(
+    generator: ImageGenerator, prompt: str, path: Path, orientation: str, size: tuple[int, int]
+) -> tuple[bool, str]:
+    """One try: generate, validate and normalise. Returns (usable, reason when not usable)."""
     try:
         generated = generator.generate_image(prompt, path, orientation)
         ok, problem = validate_image(generated)
-        if ok:
-            normalize_png(generated, size)
-            return ImageResult(path=Path(generated))
-        reason = f"The provider returned an unusable image ({problem})."
+        if not ok:
+            return False, f"The provider returned an unusable image ({problem})."
+        normalize_png(generated, size)
+        return True, ""
     except AIBookError as exc:
-        reason = exc.user_message
+        return False, exc.user_message
     except Exception as exc:  # noqa: BLE001
         LOGGER.error("Unexpected image error: %s: %s", type(exc).__name__, redact(exc))
-        reason = f"Unexpected image error ({type(exc).__name__})."
-    LOGGER.warning("Using placeholder image: %s", reason)
+        return False, f"Unexpected image error ({type(exc).__name__})."
+
+
+def generate_illustration(
+    generator: ImageGenerator,
+    prompt: str,
+    output_path: str | Path,
+    orientation: str,
+    retries: int | None = None,
+    min_sharpness: float | None = None,
+) -> ImageResult:
+    """Generate, validate and normalise an image, retrying when it fails or comes back blurry.
+
+    The first good picture is used straight away. If an attempt fails or is blurry it is tried again, up to
+    ``retries`` more times (default 2). When every attempt is soft, the sharpest picture is kept; only when no
+    attempt produced a usable picture does the placeholder art take its place (and the result says so).
+    """
+    path = Path(output_path)
+    size = COVER_SIZE if orientation == "cover" else ORIENTATION_SIZES.get(orientation, ORIENTATION_SIZES["square"])
+    if isinstance(generator, PlaceholderImageGenerator):
+        retries, min_sharpness = 0, 0.0  # the development art is soft by design
+    elif retries is None or min_sharpness is None:
+        settings = get_image_settings()
+        retries = settings.retries if retries is None else retries
+        min_sharpness = settings.min_sharpness if min_sharpness is None else min_sharpness
+    attempts = 1 + max(0, retries)
+
+    reason = ""
+    best_bytes: bytes | None = None
+    best_score = -1.0
+    for attempt in range(1, attempts + 1):
+        text = prompt if attempt == 1 or len(prompt) + len(_RETRY_SUFFIX) > 1000 else prompt + _RETRY_SUFFIX
+        usable, problem = _attempt_illustration(generator, text, path, orientation, size)
+        if not usable:
+            reason = problem
+            LOGGER.info("Image attempt %s of %s failed: %s", attempt, attempts, problem)
+            continue
+        score = sharpness_score(path) if min_sharpness > 0 else float("inf")
+        if score >= min_sharpness:
+            if attempt > 1:
+                LOGGER.info("Image was good on attempt %s of %s.", attempt, attempts)
+            return ImageResult(path=path, attempts=attempt)
+        LOGGER.info("Image attempt %s of %s is blurry (sharpness %.1f < %.1f).", attempt, attempts, score, min_sharpness)
+        reason = "The picture came back blurry."
+        if score > best_score:
+            best_score, best_bytes = score, path.read_bytes()
+    if best_bytes is not None:
+        path.write_bytes(best_bytes)
+        return ImageResult(path=path, attempts=attempts, warning=f"Kept the sharpest of {attempts} attempts; it is still a little soft. Regenerate it if you want a crisper one.")
+    LOGGER.warning("Using placeholder image after %s attempt(s): %s", attempts, reason)
     PlaceholderImageGenerator().generate_image(prompt, path, orientation)
-    return ImageResult(path=path, placeholder_used=True, warning=f"Placeholder used. {reason}")
+    return ImageResult(path=path, placeholder_used=True, attempts=attempts, warning=f"Placeholder used after {attempts} attempt(s). {reason}")
 
 
 def get_image_generator(settings: ImageSettings | None = None) -> ImageGenerator:
