@@ -21,7 +21,7 @@ from ui.explorer import render_explorer, render_search  # noqa: E402
 from ui.layout import install_layout  # noqa: E402
 from ui.local_folder import render_local_folder  # noqa: E402
 from ui.source_control import render_source_control  # noqa: E402
-from ui.state import init_state  # noqa: E402
+from ui.state import attempt, init_state, repo  # noqa: E402
 from ui.statusbar import render_status_bar  # noqa: E402
 from ui.theme import inject_theme  # noqa: E402
 from ui.topbar import render_top_bar  # noqa: E402
@@ -37,11 +37,31 @@ def _pick(panel: str) -> None:
     st.session_state["side"] = panel
 
 
+def _scm_pending() -> str:
+    """What waits to be committed or pushed. Empty unless the workspace is a Git repository whose origin is on GitHub."""
+    current = repo()
+    if current is None or current.git is None or not current.git_info.is_repo:
+        return ""
+    if "github.com" not in (current.git_info.remote_url or "").lower():
+        return ""
+    ok, status = attempt(current.git.cached_status, current.workspace.version, quiet=True)
+    if not ok or not status:
+        return ""
+    changes, ahead = len(status.get("files", [])), int(status.get("ahead") or 0)
+    parts = ([f"{changes} uncommitted change{'s' if changes != 1 else ''}"] if changes else []) + ([f"{ahead} commit{'s' if ahead != 1 else ''} not pushed"] if ahead else [])
+    return ", ".join(parts)
+
+
 def _activity_bar() -> None:
     current = st.session_state.get("side") or "Explorer"
+    pending = _scm_pending()
     with st.container(key="activity"):
         for panel, icon, tip in SIDE_PANELS:
-            st.button("", icon=icon, help=tip, key=f"act_{panel}", type="primary" if panel == current else "tertiary", on_click=_pick, args=(panel,))
+            marked = panel == "Source Control" and bool(pending)
+            st.button(
+                "", icon=icon, help=f"{tip}: {pending}" if marked else tip, key=f"act_{panel}{'_pending' if marked else ''}",
+                type="primary" if panel == current else "tertiary", on_click=_pick, args=(panel,),
+            )
 
 
 def main() -> None:

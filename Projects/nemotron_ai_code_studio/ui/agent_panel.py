@@ -17,7 +17,7 @@ from studio.runner import register_run, release_run
 from studio.services.attachments import ACCEPTED_TYPES, DEFAULT_QUESTION, MAX_FILE_MB, attachment_block, process_uploads
 
 from .dialogs import ensure_folder
-from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, repo, sync_after_change
+from .state import AgentRun, S, attempt, broker, coding_agent, conversations, log, reload_paths, remember_mode, repo, sync_after_change
 
 POLL_SECONDS = 0.4
 SUGGESTIONS = [
@@ -452,7 +452,8 @@ def render_agent_panel() -> None:
         S.model = ids[0]
     if S.mode not in MODES:  # the removed PLAN mode (or an empty choice) falls back to ASK
         S.mode = "ASK"
-    st.session_state["_keep_mode"], st.session_state["_keep_model"] = S.mode, S.model  # survive the run, when the pickers are not drawn
+    remember_mode(S.mode)
+    st.session_state["_keep_model"] = S.model  # survives the run, when the picker is not drawn
 
     first_prompt = next((m.text.strip().splitlines()[0] for m in S.messages if m.role == "user" and m.text.strip()), "")
     title = first_prompt[:48] + ("…" if len(first_prompt) > 48 else "")
@@ -480,7 +481,7 @@ def render_agent_panel() -> None:
         mode_col, model_col = st.columns([1, 2], vertical_alignment="center", gap="small")
         mode_col.selectbox(
             "Mode", MODES, key="mode", format_func=lambda value: {"ASK": "Ask", "AGENT": "Agent"}.get(value, value),
-            disabled=repo() is None, label_visibility="collapsed",
+            disabled=repo() is None, label_visibility="collapsed", on_change=lambda: remember_mode(st.session_state.get("mode", "")),
         )
         model_col.selectbox(
             "Model", ids, key="model", format_func=lambda value: labels.get(value, value),

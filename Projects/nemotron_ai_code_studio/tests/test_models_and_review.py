@@ -21,11 +21,15 @@ def key():
     settings.set_secrets(nvidia_api_key="")
 
 
-def test_catalog_has_the_three_models():
+def test_catalog_has_the_seven_models_best_coder_first():
     ids = [m.id for m in available_models()]
     assert default_model_id() in ids
-    assert "nvidia/nemotron-3.5-super-vl-120b-a12b" in ids
-    assert "nvidia/nemotron-3.5-lightning-30b-a3b" in ids
+    assert ids[0] == "nvidia/nemotron-3-ultra-550b-a55b"
+    assert ids[:7] == [
+        "nvidia/nemotron-3-ultra-550b-a55b", "deepseek-ai/deepseek-v4.1-flash", "minimaxai/minimax-m3.1-flash",
+        "poolside/laguna-xs-2.1", "nvidia/nemotron-3.5-super-vl-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "meta/muse-glimmer-30b",
+    ]
 
 
 def test_extra_models_from_environment(monkeypatch):

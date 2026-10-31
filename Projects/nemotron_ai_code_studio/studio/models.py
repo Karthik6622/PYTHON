@@ -23,9 +23,22 @@ class ModelInfo:
     extra_body: dict[str, Any] = field(default_factory=dict)
 
 
+# Best for coding and agentic edits first, the least suited last: this is the order of the dropdown.
 CATALOG: tuple[ModelInfo, ...] = (
     ModelInfo(
         id=DEFAULT_NVIDIA_MODEL, label="Nemotron 3 Ultra 550B", note="Largest model; best for hard multi-file tasks.",
+    ),
+    ModelInfo(
+        id="deepseek-ai/deepseek-v4.1-flash", label="DeepSeek V4.1 Flash", note="Strong coder with a very long context; good for agent edits.",
+        top_p=0.95,
+    ),
+    ModelInfo(
+        id="minimaxai/minimax-m3.1-flash", label="MiniMax M3.1 Flash", note="Fast and agent-friendly; reliable tool use.",
+        top_p=0.95,
+    ),
+    ModelInfo(
+        id="poolside/laguna-xs-2.1", label="Laguna XS 2.1", note="Compact coding model; good for focused edits.",
+        top_p=0.95, max_tokens=8192,
     ),
     ModelInfo(
         id="nvidia/nemotron-3.5-super-vl-120b-a12b", label="Nemotron 3.5 Super VL 120B", note="Vision-language model with thinking.",
@@ -34,6 +47,10 @@ CATALOG: tuple[ModelInfo, ...] = (
     ModelInfo(
         id="nvidia/nemotron-3.5-lightning-30b-a3b", label="Nemotron 3.5 Lightning 30B", note="Fast and light; good for quick edits.",
         top_p=0.95, extra_body={"chat_template_kwargs": {"enable_thinking": True}, "reasoning_budget": 16384},
+    ),
+    ModelInfo(
+        id="meta/muse-glimmer-30b", label="Muse Glimmer 30B", note="General chat model; least suited to code edits.",
+        top_p=0.95, max_tokens=8192,
     ),
 )
 

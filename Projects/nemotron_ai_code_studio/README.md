@@ -6,9 +6,15 @@ A repository-aware AI coding IDE built entirely in Python with Streamlit. It use
 
 Pick the model in the agent panel; the choice applies to ASK, PLAN and AGENT runs.
 
+In the dropdown order (best for coding and agent edits first):
+
 - `nvidia/nemotron-3-ultra-550b-a55b` (default)
+- `deepseek-ai/deepseek-v4.1-flash`
+- `minimaxai/minimax-m3.1-flash`
+- `poolside/laguna-xs-2.1`
 - `nvidia/nemotron-3.5-super-vl-120b-a12b`
 - `nvidia/nemotron-3.5-lightning-30b-a3b`
+- `meta/muse-glimmer-30b`
 
 Add more with `NVIDIA_MODELS=org/model-a,org/model-b`. Only text is sent; the VL model is used as a text model.
 

@@ -11,7 +11,7 @@ from studio.models import get_model
 from studio.services.git_detect import GitInfo, connection_state
 
 from .dialogs import github_status, github_user
-from .state import S, attempt, location_label, repo
+from .state import S, attempt, repo
 
 
 def _item(text: str, kind: str = "", title: str = "", style: str = "") -> str:
@@ -26,9 +26,6 @@ def render_status_bar() -> None:
     state = connection_state(current is not None, info, github_status())  # A none, B folder, C repo, D repo + GitHub, E error
 
     left = ["<span class='it remote'>RK STUDIO</span>"]
-    if current is not None and st.session_state.get("_link") is None:
-        path = location_label(current)  # the real folder on this computer, as the backend reports it
-        left.append(_item(escape(path), title=path, style="max-width:42vw;overflow:hidden;text-overflow:ellipsis"))
     if info.error:
         left.append(_item(escape(info.error[:90]), "bad", info.error))
     if current is not None and info.is_repo and current.git is not None:

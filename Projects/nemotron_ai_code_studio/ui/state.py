@@ -21,7 +21,7 @@ from studio.services.repository_service import ActiveRepository, RepositoryError
 
 __all__ = [
     "AgentRun", "CommandRun", "broker", "coding_agent", "conversations", "nvidia", "repository_agent", "repositories",
-    "S", "init_state", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
+    "S", "init_state", "remember_mode", "repo", "log", "attempt", "friendly_error", "open_file", "close_file", "reload_paths", "sync_after_change",
     "window_id", "open_workspace", "new_window_url", "window_url", "location_label", "repo_label",
 ]
 
@@ -152,6 +152,20 @@ def new_window_url(path: Path, github: dict[str, Any]) -> str:
     return window_url(wid)
 
 
+def remembered_mode() -> str:
+    """The mode the user chose (ASK or AGENT). It only changes when the user changes it: it is kept in the session and in the page
+    address, so a run, a page reload or a dropped connection never switches the picker back to Ask."""
+    kept = st.session_state.get("_keep_mode") or str(st.query_params.get("mode", "")).upper()
+    return kept if kept in ("ASK", "AGENT") else "ASK"
+
+
+def remember_mode(mode: str) -> None:
+    if mode in ("ASK", "AGENT"):
+        st.session_state["_keep_mode"] = mode
+        if str(st.query_params.get("mode", "")).upper() != mode:
+            st.query_params["mode"] = mode.lower()
+
+
 def init_state() -> None:
     _load_prefs_once()
     wid = window_id()
@@ -169,7 +183,7 @@ def init_state() -> None:
         "approvals": {},       # pending approval requests by id
         "run": None,           # AgentRun in progress
         "cursor": 0,           # how many events of the current run were applied
-        "mode": st.session_state.get("_keep_mode", "ASK"),   # Streamlit forgets a picker's value while it is not drawn (during a run)
+        "mode": remembered_mode(),   # Streamlit forgets a picker's value while it is not drawn (during a run) or after a reconnect
         "model": st.session_state.get("_keep_model") or default_model_id(),
         "conversation_id": wid,
         "output_log": [],
