@@ -349,9 +349,34 @@ div.st-key-agent [data-baseweb="select"] > div { min-height:32px !important; fon
 .act code.tgt { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:none !important; padding:0 !important; color:#c4b5fd !important; }
 .act .res { color:var(--dim); flex:0 1 auto; max-width:32%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .act .dur { color:var(--dim); flex:none; font-size:10.5px; }
-.rev-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12.5px; }
-.rev-head span { font:500 11.5px var(--mono); color:var(--muted); }
-.rev-head i { font-style:normal; } .rev-head i.add { color:var(--green); } .rev-head i.del { color:var(--red); }
+/* agent review card (approve / revert): dark card, sans font, blue primary action */
+div[class*="st-key-review_"], div[class*="st-key-approval_"] {
+  background:#1e1e1e !important; border:1px solid #2d2d2d !important; border-radius:12px !important; padding:.75rem .85rem !important;
+  box-shadow:0 10px 26px -18px rgba(0,0,0,.8);
+}
+div[class*="st-key-review_"] *, div[class*="st-key-approval_"] * { font-family:Inter,"Segoe UI",system-ui,sans-serif !important; }
+div[class*="st-key-review_"] code, div[class*="st-key-approval_"] code { font-family:var(--mono) !important; }
+.rev-head { display:flex; align-items:center; gap:10px; font-size:13.5px; color:#e6e6e6; margin:0 0 .55rem; }
+.rev-title { font-weight:600; letter-spacing:.01em; }
+.rev-stat { font-size:12px; color:#9a9a9a; } .rev-stat i { font-style:normal; font-weight:600; }
+.rev-stat i.add { color:#4ade80; } .rev-stat i.del { color:#f87171; }
+.rev-pill { margin-left:auto; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; color:#fff; background:#2563eb; white-space:nowrap; }
+.rev-pill.wait { background:#2563eb; } .rev-pill.run { background:#52525b; } .rev-pill.ok { background:#2563eb; } .rev-pill.rev { background:#52525b; color:#e4e4e7; }
+div[class*="st-key-review_"] [data-testid="stBaseButton-primary"], div[class*="st-key-approval_"] [data-testid="stBaseButton-primary"] {
+  background:#2563eb !important; border:1px solid #2563eb !important; color:#fff !important; box-shadow:none !important; filter:none !important;
+}
+div[class*="st-key-review_"] [data-testid="stBaseButton-primary"]:hover, div[class*="st-key-approval_"] [data-testid="stBaseButton-primary"]:hover {
+  background:#1d4ed8 !important; border-color:#1d4ed8 !important; box-shadow:none !important; filter:none !important;
+}
+div[class*="st-key-review_"] [data-testid="stBaseButton-primary"] p, div[class*="st-key-approval_"] [data-testid="stBaseButton-primary"] p { color:#fff !important; }
+div[class*="st-key-review_"] [data-testid="stBaseButton-secondary"], div[class*="st-key-approval_"] [data-testid="stBaseButton-secondary"] {
+  background:#2a2a2a !important; border:1px solid #3a3a3a !important; color:#e6e6e6 !important; box-shadow:none !important; border-radius:8px !important;
+}
+div[class*="st-key-review_"] [data-testid="stBaseButton-secondary"]:hover, div[class*="st-key-approval_"] [data-testid="stBaseButton-secondary"]:hover { background:#333 !important; }
+div[class*="st-key-review_"] [data-testid="stBaseButton-secondary"] p, div[class*="st-key-approval_"] [data-testid="stBaseButton-secondary"] p { color:#e6e6e6 !important; }
+div[class*="st-key-review_"] [data-testid="stExpander"] { background:#171717 !important; border:1px solid #2d2d2d !important; border-radius:9px !important; }
+div[class*="st-key-review_"] [data-testid="stExpander"] summary p { font-size:12.5px !important; color:#e6e6e6 !important; }
+div[class*="st-key-review_"] [data-testid="stCaptionContainer"] p { color:#9a9a9a !important; }
 .pending-banner { flex:none; padding:6px 10px; border-radius:10px; border:1px solid rgba(251,191,36,.4); background:rgba(251,191,36,.08); color:var(--amber); font:500 12px var(--sans); }
 
 /* ---------- terminal ---------- */

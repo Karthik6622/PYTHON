@@ -84,13 +84,22 @@ def snapshot(root: Path) -> dict[str, tuple[int, int]]:
     return scan(root, text_only=False, limit=EXPORT_FILE_LIMIT)
 
 
-def import_files(root: Path, files: object) -> int:
-    """Replace the workspace copy with the files the browser read from the user's folder. Returns how many files were written."""
+@dataclass(frozen=True)
+class ImportResult:
+    count: int  # files written to the workspace copy
+    left_out: int  # files that did not fit into the copy budget (MAX_TOTAL_BYTES) or the file limit
+
+
+def import_files(root: Path, files: object) -> ImportResult:
+    """Replace the workspace copy with the files the browser read from the user's folder.
+
+    The copy has a size budget. Files that do not fit are left out and counted, instead of refusing the whole folder.
+    Smaller files are kept first so that the most files fit into the budget."""
     if not isinstance(files, list):
         raise SyncError("The folder contents were not understood.")
     root.mkdir(parents=True, exist_ok=True)
-    written: set[str] = set()
-    total = 0
+    candidates: list[tuple[str, bytes]] = []
+    left_out = max(0, len(files) - MAX_FILES)
     for item in files[:MAX_FILES]:
         if not isinstance(item, dict):
             continue
@@ -101,13 +110,19 @@ def import_files(root: Path, files: object) -> int:
         data = content.encode("utf-8")
         if len(data) > settings.max_file_bytes:
             continue
-        total += len(data)
-        if total > MAX_TOTAL_BYTES:
-            raise SyncError("That folder is too large to open here (more than 25 MB of text). Open a smaller folder.")
+        candidates.append((rel, data))
+    candidates.sort(key=lambda entry: len(entry[1]))
+    written: set[str] = set()
+    total = 0
+    for rel, data in candidates:
+        if total + len(data) > MAX_TOTAL_BYTES:
+            left_out += 1
+            continue
         try:
             target = resolve_in_root(root, rel, allow_root=False)
         except PathSecurityError:
             continue
+        total += len(data)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         written.add(rel)
@@ -117,7 +132,7 @@ def import_files(root: Path, files: object) -> int:
                 (root / rel).unlink()
             except OSError:
                 pass
-    return len(written)
+    return ImportResult(count=len(written), left_out=left_out)
 
 
 @dataclass

@@ -436,7 +436,7 @@ def _finish(pending: dict) -> None:
     meta = pending.get("meta") or {}
     destination = (settings.workspace_path / "local" / window_id() / name).resolve()
     try:
-        count = local_sync.import_files(destination, pending["files"])
+        result = local_sync.import_files(destination, pending["files"])
         git_note = _adopt_git(destination, meta.get("git"))
         folder = repositories.open_scratch(str(destination))
     except (local_sync.SyncError, RepositoryError) as exc:
@@ -448,9 +448,14 @@ def _finish(pending: dict) -> None:
     open_workspace(folder, local_sync.LocalLink(name, known=local_sync.snapshot(destination)))
     st.session_state["_reload_all"] = True
     extra = " Some large, binary or secret files were left out." if meta.get("skipped") else ""
-    if meta.get("truncated"):
+    if result.left_out:
+        extra += (
+            f" The hosted copy holds {local_sync.MAX_TOTAL_BYTES // 1_000_000} MB of text, so {result.left_out} more files "
+            "were left out. Run the Studio on your computer to open the whole folder."
+        )
+    elif meta.get("truncated"):
         extra += " The folder is large, so only part of it was opened."
-    _notify(f"Opened {name}: {count} files.{git_note}{extra}", ":material/folder_open:")
+    _notify(f"Opened {name}: {result.count} files.{git_note}{extra}", ":material/folder_open:")
 
 
 def _on_relinked() -> None:

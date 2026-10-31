@@ -38,7 +38,7 @@ def test_import_writes_text_files_skips_the_rest_and_removes_stale_ones(tmp_path
         {"path": "bin.png", "content": "x"},
         {"path": "n.py", "content": 5},
     ]
-    assert local_sync.import_files(root, files) == 2
+    assert local_sync.import_files(root, files).count == 2
     assert (root / "app.py").read_text(encoding="utf-8") == "print(1)\n"
     assert (root / "src" / "util.py").exists()
     assert not (root / "old.py").exists()
@@ -51,6 +51,19 @@ def test_import_keeps_line_endings_and_rejects_bad_input(tmp_path):
     assert (tmp_path / "ws" / "a.txt").read_bytes() == b"a\r\nb\r\n"
     with pytest.raises(SyncError):
         local_sync.import_files(tmp_path / "ws", "not a list")
+
+
+def test_import_over_the_budget_leaves_files_out_instead_of_refusing(tmp_path, monkeypatch):
+    monkeypatch.setattr(local_sync, "MAX_TOTAL_BYTES", 10)
+    files = [
+        {"path": "big.py", "content": "x" * 8},
+        {"path": "a.py", "content": "y" * 4},
+        {"path": "b.py", "content": "z" * 5},
+    ]
+    result = local_sync.import_files(tmp_path / "ws", files)
+    assert result.count == 2 and result.left_out == 1
+    assert (tmp_path / "ws" / "a.py").exists() and (tmp_path / "ws" / "b.py").exists()
+    assert not (tmp_path / "ws" / "big.py").exists()
 
 
 def test_link_sends_new_changed_and_deleted_files_once_acknowledged(tmp_path):

@@ -270,41 +270,49 @@ def _changes_card(message: ChatMessage, changes: ChangeSet) -> None:
     adds = sum(int(i.get("additions", 0)) for i in changes.files)
     dels = sum(int(i.get("deletions", 0)) for i in changes.files)
     count = len(changes.files)
+    if live:
+        status, pill = "Working", "run"
+    elif pending:
+        status, pill = "Needs approval", "wait"
+    elif changes.state == "rejected":
+        status, pill = "Reverted", "rev"
+    else:
+        status, pill = "Done", "ok"
     with st.container(border=True, key=f"review_{message.id}"):
-        title = "Changes so far" if live else ("Review changes" if pending else "Changes reviewed")
         st.markdown(
-            f"<div class='rev-head'><b>{title}</b><span>{count} file{'s' if count != 1 else ''} "
-            f"<i class='add'>+{adds}</i> <i class='del'>-{dels}</i></span></div>",
+            f"<div class='rev-head'><span class='rev-title'>{count} file{'s' if count != 1 else ''} changed</span>"
+            f"<span class='rev-stat'><i class='add'>+{adds}</i> <i class='del'>-{dels}</i></span>"
+            f"<span class='rev-pill {pill}'>{status}</span></div>",
             unsafe_allow_html=True,
         )
         if not live and pending:
-            keep_all, revert_all = st.columns(2)
-            if keep_all.button("Keep all", key=f"keepall:{message.id}", type="primary", icon=":material/check:", width="stretch"):
+            approve_all, revert_all = st.columns(2)
+            if approve_all.button("Approve all", key=f"keepall:{message.id}", type="primary", icon=":material/check:", width="stretch"):
                 _keep(message, pending)
                 st.rerun()
             if revert_all.button("Revert all", key=f"revertall:{message.id}", icon=":material/undo:", width="stretch"):
                 _revert(message, pending)
                 st.rerun()
-            st.caption("The edits are already in your working copy. Keep them, or revert to the previous version.")
+            st.caption("The edits are already in your working copy. Approve to keep them, or revert to the previous version.")
         for item in changes.files:
             path = item["path"]
-            decided = "kept" if path in changes.kept else "reverted" if path in changes.reverted else ""
+            decided = "approved" if path in changes.kept else "reverted" if path in changes.reverted else ""
             label = f"`{STATUS_LETTER.get(item['status'], '?')}` {path}  :green[+{item['additions']}] :red[-{item['deletions']}]"
             if decided:
                 label += f"  :gray[{decided}]"
             with st.expander(label, expanded=bool(not live and not decided and len(pending) <= 3)):
                 st.code(changes.diffs.get(path) or "(no textual diff)", language="diff", line_numbers=False)
                 if not live and not decided:
-                    keep, revert = st.columns(2)
-                    if keep.button("Keep", key=f"keep:{message.id}:{path}", icon=":material/check:", width="stretch"):
+                    approve, revert = st.columns(2)
+                    if approve.button("Approve", key=f"keep:{message.id}:{path}", icon=":material/check:", width="stretch"):
                         _keep(message, [path])
                         st.rerun()
                     if revert.button("Revert", key=f"revert:{message.id}:{path}", icon=":material/undo:", width="stretch"):
                         _revert(message, [path])
                         st.rerun()
         if not live and not pending:
-            st.caption({"accepted": "All changes kept. Commit them from Source Control.", "rejected": "All changes reverted; the files were restored.",
-                        "mixed": "Some changes kept, some reverted."}.get(changes.state, ""))
+            st.caption({"accepted": "All changes approved. Commit them from Source Control.", "rejected": "All changes reverted; the files were restored.",
+                        "mixed": "Some changes approved, some reverted."}.get(changes.state, ""))
 
 
 # ------------------------------------------------------------------ messages
@@ -352,7 +360,7 @@ def _render_message(message: ChatMessage) -> None:
 
 def _render_approvals() -> None:
     for approval_id, approval in list(S.approvals.items()):
-        with st.container(border=True):
+        with st.container(border=True, key=f"approval_{approval_id}"):
             st.markdown(f"**Approval needed: {approval.get('title', 'Action')}**")
             st.caption(approval.get("reason", ""))
             for key, value in (approval.get("details") or {}).items():
@@ -409,7 +417,7 @@ def _pending_banner() -> None:
             count = len(_pending(message.changes))
             if count:
                 st.markdown(
-                    f"<div class='pending-banner'>{count} file{'s' if count != 1 else ''} awaiting review. Keep or revert them above.</div>",
+                    f"<div class='pending-banner'>{count} file{'s' if count != 1 else ''} awaiting review. Approve or revert them above.</div>",
                     unsafe_allow_html=True,
                 )
             break
