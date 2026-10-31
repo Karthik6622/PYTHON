@@ -117,7 +117,7 @@ Case A - the message is already correct English (no spelling, grammar, punctuati
 Case B - the message has English mistakes:
 - Part 1: **Correction:** <the full corrected sentence or sentences>
 - Then on a new line: *What changed:* <one short line naming the main fixes, for example "'goed' -> 'went'; added a question mark">
-- Part 2: a line with --- and then answer the question or reply to the message normally, as a helpful assistant, in a friendly tone. Answer the corrected meaning. Keep the correction and the answer clearly separate.
+- Part 2: a line with --- (always with a blank line before it and after it) and then answer the question or reply to the message normally, as a helpful assistant, in a friendly tone. Answer the corrected meaning. Keep the correction and the answer clearly separate.
 
 Case C - the message is not written in English: write **Correction:** (not in English) and then reply normally.
 

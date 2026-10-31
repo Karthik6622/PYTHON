@@ -25,7 +25,10 @@ LOCK_SECONDS = 10 * 60
 MIN_PASSWORD = 8
 MAX_PASSWORD = 128
 
-_EMAIL = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}$")
+_EMAIL = re.compile(
+    r"^[A-Za-z0-9_%+\-]+(\.[A-Za-z0-9_%+\-]+)*"  # name: no leading, trailing or double dots
+    r"@([A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"  # domain with a dot and a real ending, e.g. gmail.com
+)
 
 
 class AuthError(ValueError):

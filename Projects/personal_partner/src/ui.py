@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -469,7 +470,7 @@ def _show_conversation(conversation: dict[str, Any], mode: str = "Normal") -> No
             continue
         avatar = "🙂" if role == "user" else _assistant_avatar(mode)
         with st.chat_message(role, avatar=avatar):
-            st.markdown(str(message.get("content", "")))
+            st.markdown(re.sub(r"(?m)^[ \t]*-{3,}[ \t]*$", "\n---\n", str(message.get("content", ""))))
             attached = message.get("attachments")
             if isinstance(attached, list) and attached:
                 names = ", ".join(
