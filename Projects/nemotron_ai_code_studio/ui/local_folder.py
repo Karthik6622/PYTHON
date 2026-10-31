@@ -118,13 +118,64 @@ async function openFolder(self) {
   const git = await readGit(chosen);
   try { await remember(self.cfg.window, chosen); } catch (error) { /* the folder still works for this page */ }
   shared.handle = chosen;
-  say("Sending " + files.length + " files ...");
-  try {
-    self.api.setTriggerValue("opened", { name: chosen.name, files, git, skipped: stats.skipped, truncated: stats.truncated, nonce: Math.random() });
-  } catch (error) {
-    shared.handle = null;
-    say("The folder is too large to send. Open a smaller folder.");
+  shared.job = {
+    id: Math.random().toString(36).slice(2) + Date.now().toString(36), name: chosen.name, files: files.length,
+    groups: pieces(files), meta: { skipped: stats.skipped, truncated: stats.truncated, git }, sent: 0, acked: 0,
+  };
+  sendNext();
+}
+
+// The folder goes to the server in pieces of about 1.5 MB. The server confirms each piece before the next one is sent,
+// so no single message is huge and nothing is dropped when the connection is slow.
+const PIECE_CHARS = 1500000;
+
+function pieces(files) {
+  const groups = [];
+  let group = [];
+  let size = 0;
+  for (const file of files) {
+    if (group.length && size + file.content.length > PIECE_CHARS) { groups.push(group); group = []; size = 0; }
+    group.push(file);
+    size += file.content.length;
   }
+  groups.push(group);
+  return groups;
+}
+
+function sendNext() {
+  const job = shared.job;
+  if (!job || job.sent !== job.acked || job.sent >= job.groups.length) return;
+  const index = job.sent;
+  job.sent += 1;
+  say("Sending " + job.files + " files (part " + job.sent + " of " + job.groups.length + ") ...");
+  try {
+    shared.api.setTriggerValue("chunk", {
+      job: job.id, index, total: job.groups.length, name: job.name, files: job.groups[index],
+      meta: index === 0 ? job.meta : null, nonce: Math.random(),
+    });
+  } catch (error) {
+    shared.job = null;
+    shared.handle = null;
+    say("Could not send the folder: " + (error.message || error));
+    return;
+  }
+  setTimeout(() => {
+    if (shared.job === job && job.acked <= index) {
+      shared.job = null;
+      shared.handle = null;
+      say("The server did not confirm the folder. Try again, or open a smaller folder.");
+    }
+  }, 60000);
+}
+
+// The server reports how many pieces it has received; the next piece goes out only after the previous one was confirmed.
+function acknowledge(cfg) {
+  const job = shared.job;
+  const ack = cfg.ack;
+  if (!job || !ack || ack.job !== job.id) return;
+  job.acked = Math.max(job.acked, ack.count);
+  if (job.acked >= job.groups.length) { shared.job = null; say(""); return; }
+  sendNext();
 }
 
 async function reconnect(self) {
@@ -271,6 +322,8 @@ export default function (component) {
     component.setStateValue("picker", supported());
   }
   if (cfg.role === "explorer") {
+    shared.api = component;
+    acknowledge(cfg);
     if (cfg.linked) restore(self);
     flushPending();
   }
@@ -343,24 +396,59 @@ def _adopt_git(destination, meta: object) -> str:
     return f" Git branch {branch}."
 
 
-def _on_opened() -> None:
-    event = _event(_KEY, "opened")
-    name = local_sync.clean_name(event.get("name"))
+_IMPORT_KEY = "_local_import"  # the folder that is arriving piece by piece
+_ACK_KEY = "_local_ack"  # how many pieces of which folder the server has received so far
+
+
+def _on_chunk() -> None:
+    """One piece of the folder from the browser. The browser sends the next piece only after this acknowledgement.
+
+    Callbacks must stay light: pieces are only stored here; the last piece triggers the import."""
+    event = _event(_KEY, "chunk")
+    job, index, total = event.get("job"), event.get("index"), event.get("total")
+    if not isinstance(job, str) or not isinstance(index, int) or not isinstance(total, int) or total < 1:
+        return
+    pending = st.session_state.get(_IMPORT_KEY)
+    if index == 0 or not isinstance(pending, dict) or pending.get("job") != job:
+        meta = event.get("meta")
+        pending = {
+            "job": job, "name": local_sync.clean_name(event.get("name")), "files": [], "count": 0,
+            "meta": meta if isinstance(meta, dict) else {},
+        }
+        st.session_state[_IMPORT_KEY] = pending
+    if index != pending["count"]:
+        return  # out of order or repeated: no acknowledgement, so the browser waits and then reports the problem
+    piece = event.get("files")
+    if isinstance(piece, list):
+        pending["files"].extend(piece)
+    pending["count"] = index + 1
+    if pending["count"] < total:
+        st.session_state[_ACK_KEY] = {"job": job, "count": pending["count"]}
+        return
+    st.session_state.pop(_IMPORT_KEY, None)
+    st.session_state[_ACK_KEY] = {"job": job, "count": total}
+    _finish(pending)
+
+
+def _finish(pending: dict) -> None:
+    """Writes the received folder into this window's workspace and opens it."""
+    name = pending["name"]
+    meta = pending.get("meta") or {}
     destination = (settings.workspace_path / "local" / window_id() / name).resolve()
     try:
-        count = local_sync.import_files(destination, event.get("files"))
-        git_note = _adopt_git(destination, event.get("git"))
+        count = local_sync.import_files(destination, pending["files"])
+        git_note = _adopt_git(destination, meta.get("git"))
         folder = repositories.open_scratch(str(destination))
     except (local_sync.SyncError, RepositoryError) as exc:
         _notify(getattr(exc, "message", None) or str(exc), ":material/error:")
         return
-    except Exception as exc:  # a callback that raises leaves the page stuck on "Sending files"; say what went wrong instead
+    except Exception as exc:  # report the failure instead of leaving the page stuck on "Sending files"
         _notify(f"Could not open {name}: {exc.__class__.__name__}. Try again, or open a smaller folder.", ":material/error:")
         return
     open_workspace(folder, local_sync.LocalLink(name, known=local_sync.snapshot(destination)))
     st.session_state["_reload_all"] = True
-    extra = " Some large, binary or secret files were left out." if event.get("skipped") else ""
-    if event.get("truncated"):
+    extra = " Some large, binary or secret files were left out." if meta.get("skipped") else ""
+    if meta.get("truncated"):
         extra += " The folder is large, so only part of it was opened."
     _notify(f"Opened {name}: {count} files.{git_note}{extra}", ":material/folder_open:")
 
@@ -412,10 +500,11 @@ def _panel() -> None:
         data={
             "role": "explorer", "window": window_id(), "visible": bool(st.session_state.get("_local_visible", True)),
             "linked": link is not None, "name": link.name if link else "", "outbox": outbox,
+            "ack": st.session_state.get(_ACK_KEY),
             "skip": sorted(local_sync.SKIP_DIRS), "binary": sorted(local_sync.BINARY_EXTENSIONS),
             "max_file": settings.max_file_bytes, "max_files": local_sync.MAX_FILES, "max_total": local_sync.MAX_TOTAL_BYTES,
         },
-        on_opened_change=_on_opened, on_relinked_change=_on_relinked, on_synced_change=_on_synced,
+        on_chunk_change=_on_chunk, on_relinked_change=_on_relinked, on_synced_change=_on_synced,
     )
 
 
