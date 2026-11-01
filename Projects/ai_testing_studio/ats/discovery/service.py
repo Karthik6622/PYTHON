@@ -27,7 +27,7 @@ LOGGER = get_logger("discovery")
 Progress = Callable[[str], None]
 
 INSTALL_HINT = "Install the browser tooling with: pip install playwright  and  python -m playwright install chromium"
-SYSTEM_LIBS_HINT = "Add the project's packages.txt to the host (Streamlit Community Cloud), or rebuild the Docker image so the Chromium system libraries are installed."
+SYSTEM_LIBS_HINT = "Add the project's packages.txt to the host (Streamlit Community Cloud), or rebuild the Docker image so the Chromium system libraries are installed. Required: libnss3, libnspr4, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libxkbcommon0, libxcomposite1, libxdamage1, libxfixes3, libxrandr2, libgbm1, libasound2, fonts-liberation."
 
 
 def playwright_available() -> bool:
@@ -65,7 +65,7 @@ def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None =
             raise DiscoveryError(
                 "Chromium is installed but could not start. This usually means system libraries are missing. "
                 "On Linux, install: `apt-get update && apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 "
-                "libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`. "
+                "libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 fonts-liberation`. "
                 "Or use the provided Docker image which has all dependencies."
             ) from exc
         raise

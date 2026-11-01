@@ -25,6 +25,7 @@ def run_discovery(svc: Services, project) -> None:
             st.error("Discovery failed. Common causes:")
             st.markdown("""
             - **Chromium not installed**: Run `python -m playwright install chromium` in your terminal
+            - **System libraries missing**: On Linux, install: `apt-get update && apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`
             - **Network issues**: Check if the target URL is accessible from this machine
             - **Authentication required**: Configure authentication in Project Settings
             - **Bot protection**: The site may block automated access
