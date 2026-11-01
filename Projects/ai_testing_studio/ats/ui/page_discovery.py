@@ -21,6 +21,14 @@ def run_discovery(svc: Services, project) -> None:
             status.update(label=f"Discovery complete: {len(result.pages)} pages", state="complete")
         else:
             status.update(label="Discovery failed", state="error")
+            # Show helpful error message
+            st.error("Discovery failed. Common causes:")
+            st.markdown("""
+            - **Chromium not installed**: Run `python -m playwright install chromium` in your terminal
+            - **Network issues**: Check if the target URL is accessible from this machine
+            - **Authentication required**: Configure authentication in Project Settings
+            - **Bot protection**: The site may block automated access
+            """)
 
 
 def authentication_panel(svc: Services, project) -> None:
@@ -63,6 +71,25 @@ def render(svc: Services) -> None:
     if not get_settings().model.configured:
         st.warning("The AI model is not configured (MODEL_API_KEY). Discovery still works; the AI summary and locator notes are skipped.")
     authentication_panel(svc, project)
+
+    # Preflight check button
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        if st.button("🔍 Preflight Check", help="Quick connectivity test before running full discovery"):
+            with st.spinner("Checking connectivity..."):
+                from ats.discovery.preflight import preflight
+                check = preflight(project.url, project.limits.ignore_https_errors)
+                if check.ok:
+                    st.success(f"✅ {check.message} (Status: {check.status})")
+                    if check.final_url != project.url:
+                        st.info(f"Redirects to: {check.final_url}")
+                    for w in check.warnings:
+                        st.warning(w)
+                else:
+                    st.error(f"❌ {check.message}")
+                    st.caption(f"Category: {check.category}")
+    with col2:
+        st.caption("Run a quick connectivity test before starting full discovery.")
 
     latest = svc.repo.latest_discovery(project.id)
     if st.button("Run discovery" if not latest else "Run discovery again", type="primary"):

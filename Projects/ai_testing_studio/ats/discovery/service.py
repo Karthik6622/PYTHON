@@ -54,6 +54,21 @@ def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None =
             return _run_worker_once(job, timeout, on_progress, cancel)
         except BrowserMissingError as exc:
             raise DiscoveryError("The browser is not installed. " + INSTALL_HINT) from exc
+    except DiscoveryError as exc:
+        # Re-raise with more context
+        if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
+            raise DiscoveryError(
+                "Chromium browser is not installed. Please run: `python -m playwright install chromium` "
+                "in your terminal, or rebuild the Docker image with the browser installed."
+            ) from exc
+        if "shared libraries" in str(exc) or "TargetClosedError" in str(exc) or "BrowserType.launch" in str(exc):
+            raise DiscoveryError(
+                "Chromium is installed but could not start. This usually means system libraries are missing. "
+                "On Linux, install: `apt-get update && apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 "
+                "libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`. "
+                "Or use the provided Docker image which has all dependencies."
+            ) from exc
+        raise
 
 
 class BrowserMissingError(DiscoveryError):
@@ -176,6 +191,13 @@ class DiscoveryService:
     def run(self, project: Project, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> DiscoveryResult:
         say = on_progress or (lambda _m: None)
         settings = get_settings()
+        
+        # Check if Playwright is available
+        if not playwright_available():
+            raise DiscoveryError(
+                "Playwright is not installed. Please run: `pip install playwright && python -m playwright install chromium`"
+            )
+        
         discovery_id = self.repo.start_discovery(project.id)
         try:
             say("Checking that the website is reachable")

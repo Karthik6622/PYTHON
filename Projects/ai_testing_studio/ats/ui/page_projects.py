@@ -135,4 +135,6 @@ def render(svc: Services) -> None:
         if project:
             select_project(project.id)
             notify(f"Project '{project.name}' created. Continue with Discovery.")
+            # Navigate to Discovery page
+            st.switch_page("discovery")
             st.rerun()
