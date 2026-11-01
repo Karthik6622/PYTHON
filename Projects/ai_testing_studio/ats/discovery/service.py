@@ -212,6 +212,7 @@ class DiscoveryService:
                 "ignore_https_errors": project.limits.ignore_https_errors, "allow_private": settings.allow_private_network,
                 "browser": "chromium", "time_budget_seconds": max(settings.discovery_timeout_seconds - 30, 60),
                 "storage_state": str(storage_state_path(project.auth.storage_state_file) or ""),
+                "headless": True,
             }
             if project.url != job["start_url"]:
                 job["limits"]["allowed_domains"] = [*job["limits"]["allowed_domains"], project.url]

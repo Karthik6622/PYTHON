@@ -56,6 +56,13 @@ def main() -> None:
     svc = get_services()
     owner_id()
     flush_cookie()
+    
+    # Handle navigation from form submissions
+    if "navigate_to" in st.session_state:
+        target = st.session_state.pop("navigate_to")
+        if target == "discovery":
+            st.switch_page("discovery")
+    
     pages = [
         st.Page(partial(page_projects.render, svc), title="Projects", icon=":material/folder:", url_path="projects", default=True),
         st.Page(partial(page_discovery.render, svc), title="Discovery", icon=":material/travel_explore:", url_path="discovery"),

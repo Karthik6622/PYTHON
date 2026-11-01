@@ -111,7 +111,32 @@ def validate_selectors(page: Any, selectors: list[dict[str, Any]]) -> list[dict[
 
 def launch(playwright: Any, browser_name: str = "chromium", headless: bool = True) -> Any:
     kind = getattr(playwright, browser_name)
-    return kind.launch(headless=headless, args=["--disable-dev-shm-usage"] if browser_name == "chromium" else [])
+    if browser_name == "chromium":
+        return kind.launch(
+            headless=headless,
+            args=[
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-breakpad",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-ipc-flooding-protection",
+                "--disable-renderer-backgrounding",
+                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--force-color-profile=srgb",
+                "--metrics-recording-only",
+                "--use-mock-keychain",
+            ]
+        )
+    return kind.launch(headless=headless)
 
 
 # ------------------------------------------------------------------------------------------
@@ -325,7 +350,7 @@ def discover(job: dict[str, Any]) -> dict[str, Any]:
         return None
 
     with sync_playwright() as pw:
-        browser = launch(pw, job.get("browser", "chromium"))
+        browser = launch(pw, job.get("browser", "chromium"), headless=job.get("headless", True))
         context = new_context(browser, job)
         context.set_default_timeout(20000)
         page = context.new_page()
@@ -417,7 +442,7 @@ def with_html_page(job: dict[str, Any], action: Any) -> Any:
 
     html = Path(job["html_file"]).read_text(encoding="utf-8")
     with sync_playwright() as pw:
-        browser = launch(pw)
+        browser = launch(pw, headless=job.get("headless", True))
         context = browser.new_context()
         context.route("**/*", lambda route: route.abort() if not route.request.url.startswith(("data:", "about:")) else route.continue_())
         page = context.new_page()
@@ -432,7 +457,7 @@ def validate_url(job: dict[str, Any]) -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
-        browser = launch(pw, job.get("browser", "chromium"))
+        browser = launch(pw, job.get("browser", "chromium"), headless=job.get("headless", True))
         context = new_context(browser, job)
         page = context.new_page()
         page.goto(job["url"], wait_until="domcontentloaded")
