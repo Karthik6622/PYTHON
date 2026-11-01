@@ -1,4 +1,4 @@
-﻿"""Discovery page: run website analysis, inspect pages and the locator repository, manage authentication sessions."""
+"""Discovery page: run website analysis, inspect pages and the locator repository, manage authentication sessions."""
 
 from __future__ import annotations
 

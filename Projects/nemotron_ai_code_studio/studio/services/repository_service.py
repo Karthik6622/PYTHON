@@ -1,4 +1,4 @@
-﻿"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
+"""Connects to a GitHub repository (or opens a local workspace folder) and holds everything tied to the active repository."""
 
 from __future__ import annotations
 

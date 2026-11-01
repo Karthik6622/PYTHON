@@ -57,12 +57,7 @@ def main() -> None:
     owner_id()
     flush_cookie()
     
-    # Handle navigation from form submissions
-    if "navigate_to" in st.session_state:
-        target = st.session_state.pop("navigate_to")
-        if target == "discovery":
-            st.switch_page("discovery")
-    
+    # Create pages first so navigation is initialized before any switch_page calls
     pages = [
         st.Page(partial(page_projects.render, svc), title="Projects", icon=":material/folder:", url_path="projects", default=True),
         st.Page(partial(page_discovery.render, svc), title="Discovery", icon=":material/travel_explore:", url_path="discovery"),
@@ -75,6 +70,13 @@ def main() -> None:
         st.Page(partial(page_reports.render, svc), title="Reports", icon=":material/description:", url_path="reports"),
         st.Page(partial(page_audit.render, svc), title="Status and audit", icon=":material/shield:", url_path="audit"),
     ]
+    
+    # Handle navigation from form submissions (must be after pages are created)
+    if "navigate_to" in st.session_state:
+        target = st.session_state.pop("navigate_to")
+        if target == "discovery":
+            st.switch_page("discovery")
+    
     sidebar(svc)
     st.navigation(pages).run()
 
