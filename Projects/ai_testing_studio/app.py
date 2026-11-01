@@ -79,8 +79,8 @@ def main() -> None:
     nav_target = st.session_state.get("nav_to")
     if nav_target == "discovery":
         st.session_state["nav_to"] = None  # Clear the param
-        # Navigate to discovery page using st.switch_page
-        st.switch_page("discovery")
+        # Navigate to discovery page using st.rerun with URL path
+        st.rerun(url_path="discovery")
 
     sidebar(svc)
     pg.run()
