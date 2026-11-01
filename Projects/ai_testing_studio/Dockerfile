@@ -24,6 +24,8 @@ RUN apt-get update \
         libpango-1.0-0 \
         libcairo2 \
         libatspi2.0-0 \
+        libdbus-1-3 \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Docker CLI only: test runs happen in sibling containers started through the mounted Docker socket.
