@@ -71,14 +71,17 @@ def main() -> None:
         st.Page(partial(page_audit.render, svc), title="Status and audit", icon=":material/shield:", url_path="audit"),
     ]
     
+    # Initialize navigation (registers pages so st.switch_page can work)
+    pg = st.navigation(pages)
+
     # Handle navigation from form submissions (must be after pages are created)
     if "navigate_to" in st.session_state:
         target = st.session_state.pop("navigate_to")
         if target == "discovery":
             st.switch_page("discovery")
-    
+
     sidebar(svc)
-    st.navigation(pages).run()
+    pg.run()
 
 
 main()
