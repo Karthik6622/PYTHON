@@ -5,11 +5,15 @@ from __future__ import annotations
 import functools
 import http.server
 import os
+import sys
 import tempfile
 import threading
 from pathlib import Path
 
 import pytest
+
+# Add the project root to sys.path so 'ats' module can be imported
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 _TMP = tempfile.mkdtemp(prefix="ats_tests_")
 os.environ["DATA_DIR"] = _TMP

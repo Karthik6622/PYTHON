@@ -74,11 +74,11 @@ def main() -> None:
     # Initialize navigation (registers pages so st.switch_page can work)
     pg = st.navigation(pages)
 
-    # Handle navigation from form submissions (must be after pages are created)
-    if "navigate_to" in st.session_state:
-        target = st.session_state.pop("navigate_to")
-        if target == "discovery":
-            st.switch_page("discovery")
+    # Handle navigation from form submissions using session state
+    nav_target = st.session_state.get("nav_to")
+    if nav_target == "discovery":
+        st.session_state["nav_to"] = None  # Clear the param
+        st.switch_page("discovery")
 
     sidebar(svc)
     pg.run()

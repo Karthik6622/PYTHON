@@ -135,6 +135,6 @@ def render(svc: Services) -> None:
         if project:
             select_project(project.id)
             notify(f"Project '{project.name}' created. Continue with Discovery.")
-            # Navigate to Discovery page using session state (works reliably after form submit)
-            st.session_state["navigate_to"] = "discovery"
+            # Navigate to Discovery page using session state
+            st.session_state["nav_to"] = "discovery"
             st.rerun()
