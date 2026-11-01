@@ -75,10 +75,13 @@ def main() -> None:
     pg = st.navigation(pages)
 
     # Handle navigation from form submissions using session state
+    # Use st.rerun() to navigate to the discovery page
     nav_target = st.session_state.get("nav_to")
     if nav_target == "discovery":
         st.session_state["nav_to"] = None  # Clear the param
-        st.switch_page("discovery")
+        # Navigate to discovery page by setting the query param and rerunning
+        st.query_params = {"page": "discovery"}
+        st.rerun()
 
     sidebar(svc)
     pg.run()
