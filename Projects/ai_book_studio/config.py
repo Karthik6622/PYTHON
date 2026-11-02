@@ -171,6 +171,7 @@ FICTION_TYPES = {"Fiction", "Fantasy", "Science Fiction", "Mystery", "Adventure"
 MIN_PAGES = 10
 MAX_PAGES = 400
 DEFAULT_PAGES = 50
+MAX_IDEA_CHARS = 10_000
 
 # --------------------------------------------------------------------------------------
 # Secrets

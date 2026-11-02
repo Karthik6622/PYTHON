@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from config import MAX_PAGES, MIN_PAGES
+from config import MAX_IDEA_CHARS, MAX_PAGES, MIN_PAGES
 from models.book_models import BookInput, BookPlan, BookProject
 from utils.retry_utils import ContentPolicyError
 
@@ -37,8 +37,8 @@ def validate_book_input(book_input: BookInput) -> list[str]:
         problems.append("Please enter a book idea.")
     elif len(idea) < 20:
         problems.append("Please describe your book idea in a little more detail (at least 20 characters).")
-    elif len(idea) > 6000:
-        problems.append("The book idea is too long. Please keep it under 6,000 characters.")
+    elif len(idea) > MAX_IDEA_CHARS:
+        problems.append(f"The book idea is too long. Please keep it under {MAX_IDEA_CHARS:,} characters.")
     if not book_input.author_name.strip():
         problems.append("Please enter the author name.")
     if book_input.book_type == "Custom" and not book_input.custom_book_type.strip():
@@ -73,7 +73,9 @@ _COPY_REQUEST = re.compile(
     r"(?i)\b(exact copy|word[- ]for[- ]word|reproduce|recreate|copy of|clone of|extended version of|"
     r"continuation of|sequel to|next book in|new chapters? (of|for)|rewrite)\b.{0,80}\b(book|novel|series|story|trilogy|saga)\b"
 )
-_STYLE_IMITATION = re.compile(r"(?i)\b(in the style of|written like|imitate|mimic|sound like)\s+[A-Z][\w.'-]+(\s+[A-Z][\w.'-]+)?")
+# The trigger phrase is case-insensitive, but the author name that follows must be capitalised: a global (?i)
+# made [A-Z] match lowercase words, so ordinary text such as "sound like a real city" was wrongly rejected.
+_STYLE_IMITATION = re.compile(r"\b(?i:in the style of|written like|imitate|mimic|sound like)\s+[A-Z][\w.'-]+(\s+[A-Z][\w.'-]+)?")
 _REAL_PERSON_BIOGRAPHY = re.compile(r"(?i)\b(secret|scandal|affair|crime|criminal|abuse)\w*\b.{0,40}\b(real|actual|living)\b")
 
 

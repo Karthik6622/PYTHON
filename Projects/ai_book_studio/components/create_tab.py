@@ -13,6 +13,7 @@ from config import (
     ILLUSTRATION_FREQUENCIES,
     IMAGE_STYLES,
     LANGUAGES,
+    MAX_IDEA_CHARS,
     MAX_PAGES,
     MIN_PAGES,
     WRITING_STYLES,
@@ -62,7 +63,7 @@ def render() -> None:
             "Book idea *",
             key="in_idea",
             height=190,
-            max_chars=6000,
+            max_chars=MAX_IDEA_CHARS,
             placeholder="Example: A retired lighthouse keeper discovers that her lantern can guide lost ships through time.",
         )
         st.text_input("Preferred book title (optional)", key="in_title", max_chars=150, help="Leave empty to let the AI suggest a title.")
