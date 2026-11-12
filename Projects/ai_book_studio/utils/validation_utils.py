@@ -6,7 +6,15 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from config import MAX_IDEA_CHARS, MAX_PAGES, MIN_PAGES
+from config import (
+    COLORING_LAYOUTS,
+    COLORING_MAX_PAGES,
+    COLORING_MIN_PAGES,
+    MAX_IDEA_CHARS,
+    MAX_PAGES,
+    MIN_COLORING_IDEA_CHARS,
+    MIN_PAGES,
+)
 from models.book_models import BookInput, BookPlan, BookProject
 from utils.retry_utils import ContentPolicyError
 
@@ -33,6 +41,16 @@ def validate_book_input(book_input: BookInput) -> list[str]:
     """Return user-facing problems with the Create tab form."""
     problems: list[str] = []
     idea = book_input.book_idea.strip()
+    if book_input.is_coloring:
+        if len(idea) < MIN_COLORING_IDEA_CHARS:
+            problems.append("Please describe what the coloring book should show (for example: friendly dinosaurs in a jungle).")
+        elif len(idea) > MAX_IDEA_CHARS:
+            problems.append(f"The prompt is too long. Please keep it under {MAX_IDEA_CHARS:,} characters.")
+        if not COLORING_MIN_PAGES <= book_input.coloring_pages <= COLORING_MAX_PAGES:
+            problems.append(f"Number of coloring pages must be between {COLORING_MIN_PAGES} and {COLORING_MAX_PAGES}.")
+        if book_input.coloring_layout not in COLORING_LAYOUTS:
+            problems.append("Please choose a coloring page layout.")
+        return problems
     if not idea:
         problems.append("Please enter a book idea.")
     elif len(idea) < 20:
@@ -190,9 +208,10 @@ def collect_warnings(project: BookProject, storage: "ProjectStorage | None" = No
         elif image.status == "failed":
             warnings.append(f"{image.label or key}: image generation failed. {image.warning}".strip())
     if storage and project.plan:
+        noun = "Page" if project.book_input.is_coloring else "Chapter"
         for chapter in project.plan.chapters:
             if chapter.requires_image and not storage.image_file(project, f"chapter_{chapter.chapter_number:02d}"):
-                warnings.append(f"Chapter {chapter.chapter_number} is missing its planned illustration.")
+                warnings.append(f"{noun} {chapter.chapter_number} is missing its planned illustration.")
     return warnings
 
 

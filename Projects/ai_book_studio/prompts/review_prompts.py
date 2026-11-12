@@ -30,6 +30,8 @@ What to check:
 
 6. Check the language: the chapter must be entirely in the book's language. Report English words, mixed scripts or garbled characters as an issue.
 
+7. Proofread every word and sentence: spelling mistakes, wrong or non-existent words, broken grammar, run-on or incomplete sentences and wrongly repeated words are issues. Quote the faulty text and give the corrected wording in corrections_required.
+
 How to judge:
 
 - Judge quality, never length. The chapter may be shorter or LONGER than any word target. Do not lower the score or list an issue because of its length.

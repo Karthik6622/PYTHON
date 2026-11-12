@@ -12,9 +12,13 @@ from typing import Any
 import streamlit as st
 
 from config import (
+    COLORING_AUDIENCES,
     CONTENT_OPTIONS,
+    DEFAULT_COLORING_PAGES,
     DEFAULT_CONTENT_KEYS,
     DEFAULT_PAGES,
+    FORMAT_EBOOK,
+    LAYOUT_PAGE_ONLY,
     ROOT_DIR,
     get_chapter_workers,
 )
@@ -81,6 +85,18 @@ NAV_LABELS: dict[str, str] = {
     "export": "📤 Export",
     "audio": "🎧 Audio",
 }
+# A coloring book has no chapters, preview or audio: its pictures are the "pages" (same section key as the eBook's chapters).
+COLORING_NAV_LABELS: dict[str, str] = {
+    "create": "✍️ Create",
+    "plan": "🗺️ Plan",
+    "chapters": "🎨 Pages",
+    "export": "📤 Export",
+}
+
+
+def nav_labels(project: BookProject | None) -> dict[str, str]:
+    """Sections shown for the open project (an eBook unless the project is a coloring book)."""
+    return COLORING_NAV_LABELS if project is not None and project.book_input.is_coloring else NAV_LABELS
 
 
 @st.cache_resource
@@ -136,6 +152,8 @@ def start_generation(project: BookProject) -> bool:
         )
 
     workers = get_chapter_workers()
+    if project.book_input.is_coloring:
+        workers = max(workers, 3)  # drawing pages waits on the image service, so a few at a time is much faster
     job = GenerationJob(build)
     try:
         job.start()
@@ -204,7 +222,12 @@ def _finalize_plan_jobs() -> None:
         if job.plan_ready and project is not None:
             if job.new_book or is_current:
                 set_project(project)
-            flash("Your book plan is ready. Review and edit it below, then generate the book.", "success")
+            flash(
+                "Your coloring plan is ready. Review the pages below, then generate the book."
+                if project.book_input.is_coloring
+                else "Your book plan is ready. Review and edit it below, then generate the book.",
+                "success",
+            )
             go_to("plan")
         else:
             if job.new_book:
@@ -237,8 +260,12 @@ def finalize_job() -> None:
     if job.summary is not None:
         st.session_state["export_summary"] = job.summary
         extra = f" {len(job.summary.warnings)} warning(s) need your attention." if job.summary.warnings else ""
-        flash(f"Your book is ready ({job.summary.pages} PDF pages). Review it here, then download it on the Export tab.{extra}", "success")
-        go_to("preview")
+        if project.book_input.is_coloring:
+            flash(f"Your coloring book is ready ({job.summary.pages} PDF pages including the cover). Download it on the Export tab.{extra}", "success")
+            go_to("export")
+        else:
+            flash(f"Your book is ready ({job.summary.pages} PDF pages). Review it here, then download it on the Export tab.{extra}", "success")
+            go_to("preview")
     elif job.stopped:
         flash("Generation stopped. Your progress is saved; press Continue to carry on.", "warning")
     elif job.error:
@@ -263,6 +290,10 @@ def input_defaults() -> dict[str, Any]:
         "in_frequency": "One image every chapter",
         "in_image_style": "Cinematic digital art",
         "in_options": [_LABEL_BY_KEY[key] for key in DEFAULT_CONTENT_KEYS],
+        "in_format": FORMAT_EBOOK,
+        "in_coloring_audience": COLORING_AUDIENCES[0],
+        "in_coloring_pages": DEFAULT_COLORING_PAGES,
+        "in_coloring_layout": LAYOUT_PAGE_ONLY,
     }
 
 
@@ -334,8 +365,16 @@ def populate_inputs(book_input: BookInput) -> None:
             "in_frequency": book_input.illustration_frequency,
             "in_image_style": book_input.image_style,
             "in_options": [_LABEL_BY_KEY[key] for key in book_input.content_options if key in _LABEL_BY_KEY],
+            "in_format": book_input.book_format,
+            "in_coloring_pages": book_input.coloring_pages,
+            "in_coloring_layout": book_input.coloring_layout,
         }
     )
+    if book_input.is_coloring:
+        # The eBook audience list differs from the coloring one, so each keeps its own widget value.
+        st.session_state["in_coloring_audience"] = book_input.audience if book_input.audience in COLORING_AUDIENCES else COLORING_AUDIENCES[0]
+        for key in ("in_audience", "in_style", "in_type", "in_language", "in_frequency", "in_image_style", "in_pages", "in_custom_type", "in_bio"):
+            st.session_state[key] = input_defaults()[key]
 
 
 def set_project(project: BookProject | None) -> None:

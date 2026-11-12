@@ -101,3 +101,60 @@ def test_two_browsers_do_not_affect_each_other(tmp_path, monkeypatch):
     storage = state_module.get_storage()
     assert len(storage.list_projects(owner=first.session_state["owner_id"])) == 1
     assert storage.list_projects(owner=second.session_state["owner_id"]) == []
+
+
+def test_coloring_book_flow_in_the_app(tmp_path, monkeypatch):
+    import time
+
+    import components.state as state_module
+    import services.project_storage as storage_module
+    from test_coloring import ColoringLLM
+
+    monkeypatch.setattr(storage_module, "PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(state_module, "NvidiaClient", ColoringLLM)
+    state_module.get_storage.clear()
+
+    at = signed_in_app("u" + "c" * 32).run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.radio(key="in_format").value == "ebook"  # the eBook form is the default
+    assert any("Create Book Plan" in b.label for b in at.button)
+
+    at.radio(key="in_format").set_value("coloring_book").run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert not any("Create Book Plan" in b.label for b in at.button)  # no eBook options in coloring mode
+    assert "in_bio" not in [t.key for t in at.text_area]
+
+    at.session_state["in_idea"] = "Friendly dinosaurs in a magical jungle"
+    at.session_state["in_coloring_pages"] = 4
+    at.run()
+    next(b for b in at.button if "Create Coloring Book Plan" in b.label).click()
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    deadline = time.time() + 60
+    while time.time() < deadline and at.session_state["generation_status"] != "planned":
+        time.sleep(0.2)
+        at.run()
+    assert at.session_state["generation_status"] == "planned"
+    assert list(at.radio(key="nav").options) == ["create", "plan", "chapters", "export"]
+
+    at.radio(key="nav").set_value("plan").run()
+    assert not at.exception, [e.value for e in at.exception]
+    next(b for b in at.button if "Generate Coloring Book" in b.label).click()
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["nav"] == "chapters"
+
+    deadline = time.time() + 90
+    while time.time() < deadline and not (at.session_state["project"].status.stage == "completed" and at.session_state["nav"] == "export"):
+        time.sleep(0.2)
+        at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["project"].status.stage == "completed"
+    assert at.session_state["nav"] == "export"
+    storage = state_module.get_storage()
+    assert storage.export_file(at.session_state["project"], "pdf") is not None
+    assert storage.export_file(at.session_state["project"], "zip") is not None
+
+    at.radio(key="nav").set_value("chapters").run()
+    assert not at.exception, [e.value for e in at.exception]

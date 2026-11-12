@@ -106,12 +106,16 @@ def chapter_rows(project: BookProject, job: GenerationJob | None) -> list[dict[s
 
 
 def _resume_hint(project: BookProject) -> str:
+    if project.book_input.is_coloring:
+        next_page = next((n for n in project.chapter_numbers if not image_if_exists(project, f"chapter_{n:02d}")), None)
+        return f"Continues from page {next_page}." if next_page else "Continues with the cover and the PDF."
     next_chapter = next((n for n in project.chapter_numbers if not project.chapter_done(n)), None)
     return f"Continues from chapter {next_chapter}." if next_chapter else "Continues with the images and the export."
 
 
 def controls(project: BookProject, where: str) -> None:
     """The one place with Start / Stop / Continue buttons."""
+    coloring = project.book_input.is_coloring
     job = job_for(project)
     stage = project.status.stage
     if job and job.running:
@@ -120,6 +124,9 @@ def controls(project: BookProject, where: str) -> None:
             stop_generation(project)
         return
     if stage == "completed":
+        if coloring:
+            st.success("The coloring book is complete. Open the Pages and Export tabs.")
+            return
         pending = [n for n in project.chapter_numbers if not ((r := project.reviews.get(n)) and r.passed)]
         st.success("The book is complete. Open the Preview and Export tabs.")
         if pending and st.button(
@@ -128,7 +135,8 @@ def controls(project: BookProject, where: str) -> None:
             if start_generation(project):
                 st.rerun()
         return
-    started = bool(project.chapters) or stage in {"running", "stopped", "failed"}
+    started = bool(project.images) if coloring else bool(project.chapters)
+    started = started or stage in {"running", "stopped", "failed"}
     if started:
         if stage == "failed" and project.status.error:
             st.error(f"Stopped by an error: {project.status.error}")
@@ -139,7 +147,7 @@ def controls(project: BookProject, where: str) -> None:
         st.caption(_resume_hint(project))
         label = "▶️ Continue generation"
     else:
-        label = "🚀 Generate Complete Book"
+        label = "🚀 Generate Coloring Book" if coloring else "🚀 Generate Complete Book"
     if st.button(label, key=f"{where}_start", type="primary", width="stretch"):
         if start_generation(project):
             st.rerun()
@@ -258,12 +266,16 @@ def _sidebar_body() -> None:
         st.caption(message)
     if project.status.total_chapters or project.plan:
         total = len(project.chapter_numbers)
-        done = sum(1 for n in project.chapter_numbers if project.chapter_done(n))
-        st.caption(f"Chapters complete: {done} / {total}")
+        if project.book_input.is_coloring:
+            drawn = sum(1 for n in project.chapter_numbers if image_if_exists(project, f"chapter_{n:02d}"))
+            st.caption(f"Pages drawn: {drawn} / {total}")
+        else:
+            done = sum(1 for n in project.chapter_numbers if project.chapter_done(n))
+            st.caption(f"Chapters complete: {done} / {total}")
     if running and job:
         st.caption(f"Running for {_clock(job.elapsed_seconds)}")
     elif project.status.stage in {"running", "stopped", "failed"}:
-        st.caption("Open the Chapters tab and press Continue generation.")
+        st.caption("Open the Pages tab and press Continue generation." if project.book_input.is_coloring else "Open the Chapters tab and press Continue generation.")
         if project.status.error:
             st.error(project.status.error)
     elif job is not None and not getattr(job, "handled", True):

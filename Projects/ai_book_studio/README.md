@@ -14,6 +14,7 @@ Turn an idea into a planned, written, reviewed, illustrated and exported book (P
 - Cover (artwork plus real, readable title/subtitle/author text), chapter illustrations with orientation control.
 - 6x9 inch PDF with a table of contents and real page numbers; DOCX with heading styles and a TOC field.
 - Retry with backoff (2s, 5s, 10s), JSON repair and validation, secret redaction in logs, content screening.
+- Two formats on the Create tab: **eBook** (default, everything above) and **Coloring book** (section 12a).
 
 ## 2. Architecture
 
@@ -149,6 +150,21 @@ If the editor's or the summary's JSON reply cannot be read (even after repair an
 taken from the chapter text instead of stopping the run. Temporary API errors are retried automatically. You can still edit, regenerate or review a chapter manually.
 
 For Tamil, Hindi and Japanese, generated text is cleaned of junk symbols and foreign scripts, and paragraphs that still contain English words are rewritten by the model.
+
+Every English chapter also gets a spelling and sentence check without the model (`utils/proofread.py`): obvious typos and spacing are corrected automatically, and garbled or repeated words,
+broken characters or a chapter that stops mid-sentence fail the review, so the normal revision loop rewrites the chapter. The eBook cover has a gold double frame.
+
+## 12a. Coloring books
+
+Choose **Coloring book** at the top of the Create tab. The form only asks for the theme, an optional title and author, the audience, the number of pages (4 to 100) and the page style.
+There is no text, chapters, writing style or other eBook option.
+
+- **Page style 1, coloring page only:** a full black-and-white line-art page.
+- **Page style 2, coloring page with small color preview:** the same black-and-white page plus a small colored picture of the same drawing at the top. The preview is made by coloring the line art itself, so it is always the same picture.
+- **Which model draws what:** Nemotron is a text model, so it plans the title, the cover scene and one unique scene per page. The configured image model (section 7) draws the pictures, then Pillow turns each into clean black-and-white line art (no grey, closed outlines). If the image model fails three times for a page, a simple drawn pattern is used and the page is flagged so it can be redrawn.
+- **Cover:** a colored illustration with the title, subtitle and author as real text, a frame and a page-count badge.
+- **Tabs:** Create, Plan (edit the title, cover scene, page scenes and page style), Pages (live progress, gallery, redraw a page or the cover) and Export (PDF, ZIP of page images, cover JPG).
+- Pages are drawn a few at a time and every page is saved immediately, so a stopped run continues where it left off.
 
 ## 13. Safety and content policy
 

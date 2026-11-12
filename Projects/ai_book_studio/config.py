@@ -174,6 +174,26 @@ DEFAULT_PAGES = 50
 MAX_IDEA_CHARS = 10_000
 
 # --------------------------------------------------------------------------------------
+# Coloring books (a separate product from the eBook: pictures only, no chapters and no text on the pages)
+# --------------------------------------------------------------------------------------
+FORMAT_EBOOK = "ebook"
+FORMAT_COLORING = "coloring_book"
+BOOK_FORMATS: dict[str, str] = {FORMAT_EBOOK: "📖 eBook", FORMAT_COLORING: "🎨 Coloring book"}
+
+LAYOUT_PAGE_ONLY = "page_only"
+LAYOUT_PAGE_WITH_ICON = "page_with_icon"
+COLORING_LAYOUTS: dict[str, str] = {
+    LAYOUT_PAGE_ONLY: "Only coloring page (black and white)",
+    LAYOUT_PAGE_WITH_ICON: "Coloring page with a small colored preview of the same picture at the top",
+}
+COLORING_AUDIENCES = ["Children", "Teenagers", "Adults"]
+COLORING_MIN_PAGES = 4
+COLORING_MAX_PAGES = 100
+DEFAULT_COLORING_PAGES = 20
+MIN_COLORING_IDEA_CHARS = 5
+COLORING_PAGE_SIZE = (1275, 1650)  # 8.5 x 11 inch at 150 dpi
+
+# --------------------------------------------------------------------------------------
 # Secrets
 # --------------------------------------------------------------------------------------
 _PLACEHOLDER_PREFIXES = ("your-", "your_", "$", "<", "changeme", "replace")

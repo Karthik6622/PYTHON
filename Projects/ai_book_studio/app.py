@@ -12,17 +12,17 @@ from config import APP_ICON, APP_NAME, ROOT_DIR, get_image_settings, get_nvidia_
 st.set_page_config(page_title=APP_NAME, page_icon=APP_ICON, layout="wide", initial_sidebar_state="expanded")
 load_dotenv(ROOT_DIR / ".env")
 
-from components import audio_tab, chapters_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
+from components import audio_tab, chapters_tab, coloring_tab, create_tab, export_tab, images_tab, plan_tab, preview_tab  # noqa: E402
 from components.auth_session import current_user, require_login, sign_out  # noqa: E402
 from components.progress_panel import render_sidebar_status  # noqa: E402
 from components.identity import adopt_legacy_books, owner_id, remember_browser  # noqa: E402
 from components.state import (  # noqa: E402
-    NAV_LABELS,
     current_project,
     delete_project,
     finalize_job,
     get_storage,
     init_state,
+    nav_labels,
     new_book,
     open_project,
     render_flash,
@@ -39,6 +39,14 @@ _SECTIONS = {
     "preview": preview_tab,
     "export": export_tab,
     "audio": audio_tab,
+}
+
+# A coloring book shares the Create tab; its plan, pages and export screens live in coloring_tab.
+_COLORING_RENDER = {
+    "create": create_tab.render,
+    "plan": coloring_tab.render_plan,
+    "chapters": coloring_tab.render_pages,
+    "export": coloring_tab.render_export,
 }
 
 
@@ -118,10 +126,18 @@ def main() -> None:
     render_flash()
 
     target = st.session_state.pop("nav_target", None)
-    if target in NAV_LABELS:
+    project = current_project()
+    labels = nav_labels(project)
+    if target in labels:
         st.session_state["nav"] = target
-    section = st.radio("Section", list(NAV_LABELS), format_func=NAV_LABELS.get, key="nav", horizontal=True, label_visibility="collapsed")
-    _SECTIONS[section].render()
+    elif "nav" in st.session_state and st.session_state["nav"] not in labels:
+        # The open book has no such section (for example Preview in a coloring book): fall back to the closest one.
+        st.session_state["nav"] = "export" if st.session_state.get("nav") == "preview" else "chapters"
+    section = st.radio("Section", list(labels), format_func=labels.get, key="nav", horizontal=True, label_visibility="collapsed")
+    if project is not None and project.book_input.is_coloring:
+        _COLORING_RENDER[section]()
+    else:
+        _SECTIONS[section].render()
 
 
 main()

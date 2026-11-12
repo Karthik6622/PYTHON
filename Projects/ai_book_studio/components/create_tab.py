@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components import coloring_tab
 from components.identity import owner_id
 from components.state import current_project, get_storage, guarded, plan_job_here, start_plan
 from config import (
     AUDIENCES,
+    BOOK_FORMATS,
     BOOK_TYPES,
     CONTENT_OPTIONS,
+    FORMAT_COLORING,
     ILLUSTRATION_FREQUENCIES,
     IMAGE_STYLES,
     LANGUAGES,
@@ -32,6 +35,16 @@ _LANGUAGE_NOTES = {
 def collect_input() -> BookInput:
     """Build a ``BookInput`` from the Create tab widgets."""
     state = st.session_state
+    if state.get("in_format") == FORMAT_COLORING:
+        return BookInput(
+            book_idea=state["in_idea"].strip(),
+            preferred_title=state["in_title"].strip(),
+            author_name=state["in_author"].strip(),
+            audience=state["in_coloring_audience"],
+            book_format=FORMAT_COLORING,
+            coloring_pages=state["in_coloring_pages"],
+            coloring_layout=state["in_coloring_layout"],
+        )
     return BookInput(
         book_idea=state["in_idea"].strip(),
         preferred_title=state["in_title"].strip(),
@@ -51,11 +64,24 @@ def collect_input() -> BookInput:
 
 def render() -> None:
     st.subheader("Describe your book")
-    st.markdown('<p class="section-note">Tell us the idea; the app plans, writes, reviews and illustrates the book.</p>', unsafe_allow_html=True)
+    st.radio("What do you want to create?", list(BOOK_FORMATS), format_func=BOOK_FORMATS.get, key="in_format", horizontal=True)
 
     job = plan_job_here()
     if job is not None and job.running:
         st.info("Your book plan is being created. Watch the live status on the **Plan** tab or in the sidebar.")
+
+    if st.session_state["in_format"] == FORMAT_COLORING:
+        if coloring_tab.render_form():
+            book_input = collect_input()
+            problems = validate_book_input(book_input)
+            if problems:
+                for problem in problems:
+                    st.error(problem)
+                return
+            _create_plan(book_input)
+        return
+
+    st.markdown('<p class="section-note">Tell us the idea; the app plans, writes, reviews and illustrates the book.</p>', unsafe_allow_html=True)
 
     left, right = st.columns([3, 2], gap="large")
     with left:
@@ -120,7 +146,13 @@ def _create_plan(book_input: BookInput) -> None:
     created = False
     started = False
     with guarded("Creating the plan"):
-        if project is not None and not project.chapters:
+        # An open project without chapters is reused, except a coloring book that already has drawn pages (or would receive them).
+        reusable = (
+            project is not None
+            and not project.chapters
+            and not (project.images and (book_input.is_coloring or project.book_input.is_coloring))
+        )
+        if reusable:
             project.book_input = book_input
             storage.save_project_meta(project)
         else:

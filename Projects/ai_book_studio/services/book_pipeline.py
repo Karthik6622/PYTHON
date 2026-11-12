@@ -48,13 +48,14 @@ class GenerationStopped(AIBookError):
 
 @dataclass
 class ExportSummary:
-    """Result of assembling the PDF and DOCX."""
+    """Result of assembling the exports: PDF and DOCX for an eBook, PDF and a ZIP of page images for a coloring book."""
 
     pdf_path: Path
-    docx_path: Path
-    pages: int
+    docx_path: Path | None = None
+    pages: int = 0
     warnings: list[str] = field(default_factory=list)
     docx_no_cover_path: Path | None = None
+    zip_path: Path | None = None
 
 
 class BookPipeline:
@@ -85,8 +86,22 @@ class BookPipeline:
         self._abort = threading.Event()  # set when one chapter worker fails so the others stop at their next step
         self._total = 1
         self._done = 0
+        self._coloring = None
 
     # ------------------------------------------------------------------ lazy providers
+    @property
+    def is_coloring(self) -> bool:
+        return self.project.book_input.is_coloring
+
+    @property
+    def coloring(self):
+        """The coloring-book runner (imported on first use because it builds on this module)."""
+        if self._coloring is None:
+            from services.coloring_book import ColoringRunner
+
+            self._coloring = ColoringRunner(self)
+        return self._coloring
+
     @property
     def llm(self) -> LLMClient:
         if self._llm is None:
@@ -147,8 +162,13 @@ class BookPipeline:
 
     def _sync_status(self) -> None:
         status = self.project.status
-        status.total_chapters = len(self.project.chapter_numbers)
-        status.completed_chapters = [n for n in self.project.chapter_numbers if self.project.chapter_done(n)]
+        if self.is_coloring:  # a coloring page is complete when its drawing has been saved
+            numbers = self.project.chapter_numbers
+            status.total_chapters = len(numbers)
+            status.completed_chapters = [n for n in numbers if self.storage.image_file(self.project, f"chapter_{n:02d}")]
+        else:
+            status.total_chapters = len(self.project.chapter_numbers)
+            status.completed_chapters = [n for n in self.project.chapter_numbers if self.project.chapter_done(n)]
         status.warnings = collect_warnings(self.project, self.storage)
 
     def _set_stage(self, stage: str, message: str = "", error: str | None = None) -> None:
@@ -179,6 +199,8 @@ class BookPipeline:
 
     def create_plan(self):
         """Validate the request, ask Nemotron for a plan and save it."""
+        if self.is_coloring:
+            return self.coloring.create_plan()
         book_input = self.project.book_input
         problems = validate_book_input(book_input)
         if problems:
@@ -206,6 +228,8 @@ class BookPipeline:
     # ------------------------------------------------------------------ steps 4-16: the whole book
     def generate_complete_book(self) -> ExportSummary:
         """Generate everything that is missing and export the book. Safe to call again after a failure."""
+        if self.is_coloring:
+            return self.coloring.generate_complete_book()
         plan = self._require_plan()
         options = self.project.book_input
         front_keys = [key for key in ("dedication", "preface", "introduction") if options.has(key)]
@@ -274,21 +298,23 @@ class BookPipeline:
             self._finish()
         self._note(number, "done")
 
-    def _run_chapters(self, chapters) -> None:
+    def _run_chapters(self, chapters, job: Callable | None = None) -> None:
         """Run every chapter, several at a time when ``chapter_workers`` > 1.
 
         A chapter that fails (or a Stop request) makes the other workers stop at their next step; everything that
-        finished is already saved, so Continue resumes with only the missing chapters.
+        finished is already saved, so Continue resumes with only the missing chapters. ``job`` replaces the chapter job
+        (coloring books run one drawing per page).
         """
+        job = job or self._chapter_job
         chapters = list(chapters)
         if self._workers <= 1 or len(chapters) <= 1:
             for chapter in chapters:
-                self._chapter_job(chapter)
+                job(chapter)
             return
         self._abort.clear()
         first_error: BaseException | None = None
         with ThreadPoolExecutor(max_workers=min(self._workers, len(chapters)), thread_name_prefix="chapter") as pool:
-            futures = [pool.submit(self._chapter_job, chapter) for chapter in chapters]
+            futures = [pool.submit(job, chapter) for chapter in chapters]
             for future in as_completed(futures):
                 if future.cancelled():
                     continue
@@ -422,6 +448,8 @@ class BookPipeline:
         self, number: int, new_prompt: bool = False, prompt: str | None = None, orientation: str | None = None
     ) -> IllustrationPlan:
         """Create (or recreate) a chapter illustration. Failures are recorded on the image, not raised."""
+        if self.is_coloring:
+            return self.coloring.generate_page(number, new_prompt, prompt, orientation)
         plan = self._require_plan()
         chapter = plan.chapter(number)
         if chapter is None:
@@ -457,6 +485,8 @@ class BookPipeline:
 
     def generate_cover(self, new_prompt: bool = False, prompt: str | None = None) -> IllustrationPlan:
         """Create the cover artwork and compose the final cover with the title and author."""
+        if self.is_coloring:
+            return self.coloring.generate_cover(new_prompt, prompt)
         plan = self._require_plan()
         record = self.project.images.get("cover")
         art_path = self.storage.image_path(self.project, "cover_art")
@@ -492,6 +522,8 @@ class BookPipeline:
 
     def recompose_cover(self) -> Path:
         """Draw the title, subtitle and author onto the cover artwork (typographic cover when no artwork exists)."""
+        if self.is_coloring:
+            return self.coloring.recompose_cover()
         plan = self._require_plan()
         art = self.storage.image_file(self.project, "cover_art")
         return compose_cover(
@@ -507,6 +539,8 @@ class BookPipeline:
     def assemble_exports(self, progress: ProgressCallback | None = None) -> ExportSummary:
         """Validate the book and create the PDF and DOCX files. ``progress(fraction, message)`` reports each stage."""
         report_progress = progress or (lambda fraction, message: None)
+        if self.is_coloring:
+            return self.coloring.assemble_exports(report_progress)
         self._require_plan()
         report_progress(0.05, "Composing the front cover...")
         cover = self.recompose_cover()

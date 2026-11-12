@@ -15,6 +15,7 @@ from prompts.chapter_prompts import (
 from services.language_service import ensure_language
 from services.nvidia_client import LLMClient
 from utils.language_utils import language_rules
+from utils.proofread import autocorrect_text
 from utils.retry_utils import EmptyResponseError
 from utils.text_utils import (
     PageBudget,
@@ -84,6 +85,7 @@ def write_chapter(llm: LLMClient, project: BookProject, chapter: ChapterPlan) ->
         more = llm.generate(follow_up, preset_for("chapter", plan.language), max_tokens=max(1024, limit // 2))
         text = f"{text.rstrip()}\n\n{more.text.lstrip()}"
     cleaned = clean_chapter_text(text, chapter.chapter_number, chapter.title)
+    cleaned = autocorrect_text(cleaned, plan.language)
     cleaned = ensure_language(llm, cleaned, plan.language)
     if not cleaned:
         raise EmptyResponseError(f"Chapter {chapter.chapter_number} came back empty.")
@@ -138,6 +140,7 @@ def revise_chapter(
     limit = chapter_max_tokens(int(max(chapter.target_words, len(content.split())) * 1.3), plan.language)
     result = llm.generate(prompt, preset_for("revision", plan.language), max_tokens=limit)
     cleaned = clean_chapter_text(result.text, chapter.chapter_number, chapter.title)
+    cleaned = autocorrect_text(cleaned, plan.language)
     cleaned = ensure_language(llm, cleaned, plan.language)
     return cleaned or content
 

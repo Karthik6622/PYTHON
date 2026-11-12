@@ -13,8 +13,14 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from config import (
+    COLORING_MAX_PAGES,
+    COLORING_MIN_PAGES,
+    DEFAULT_COLORING_PAGES,
     DEFAULT_CONTENT_KEYS,
     DEFAULT_PAGES,
+    FORMAT_COLORING,
+    FORMAT_EBOOK,
+    LAYOUT_PAGE_ONLY,
     MAX_PAGES,
     MIN_PAGES,
 )
@@ -194,6 +200,7 @@ class BookPlan(_Model):
     estimated_pages: int = 0
     estimated_words: int = 0
     visual_style: str = ""
+    cover_concept: str = ""  # coloring books: the scene drawn on the cover
     chapters: list[ChapterPlan] = Field(default_factory=list)
 
     @field_validator("estimated_pages", "estimated_words", mode="before")
@@ -213,6 +220,7 @@ class BookPlan(_Model):
         "main_theme",
         "tone",
         "visual_style",
+        "cover_concept",
         mode="before",
     )
     @classmethod
@@ -336,11 +344,29 @@ class BookInput(_Model):
     illustration_frequency: str = "One image every chapter"
     image_style: str = "Cinematic digital art"
     content_options: list[str] = Field(default_factory=lambda: list(DEFAULT_CONTENT_KEYS))
+    # Coloring book only (the eBook ignores these three fields)
+    book_format: str = FORMAT_EBOOK  # ebook | coloring_book
+    coloring_pages: int = DEFAULT_COLORING_PAGES
+    coloring_layout: str = LAYOUT_PAGE_ONLY  # page_only | page_with_icon
 
     @field_validator("pages", mode="before")
     @classmethod
     def _pages(cls, value: Any) -> int:
         return max(MIN_PAGES, min(MAX_PAGES, to_int(value, DEFAULT_PAGES)))
+
+    @field_validator("coloring_pages", mode="before")
+    @classmethod
+    def _coloring_pages(cls, value: Any) -> int:
+        return max(COLORING_MIN_PAGES, min(COLORING_MAX_PAGES, to_int(value, DEFAULT_COLORING_PAGES)))
+
+    @field_validator("book_format", mode="before")
+    @classmethod
+    def _format(cls, value: Any) -> str:
+        return FORMAT_COLORING if str(value).strip() == FORMAT_COLORING else FORMAT_EBOOK
+
+    @property
+    def is_coloring(self) -> bool:
+        return self.book_format == FORMAT_COLORING
 
     @property
     def effective_book_type(self) -> str:

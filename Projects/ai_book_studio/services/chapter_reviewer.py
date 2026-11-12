@@ -12,6 +12,7 @@ from prompts.review_prompts import RECHECK_BLOCK, REVIEW_PROMPT
 from services.language_service import ensure_language
 from services.nvidia_client import LLMClient
 from utils.language_utils import language_rules, split_paragraphs
+from utils.proofread import proofread_issues
 from utils.retry_utils import AIBookError, InvalidModelResponseError, NvidiaAuthError, NvidiaKeyMissingError
 from utils.text_utils import compact_json, format_previous_summaries, render_template
 
@@ -68,6 +69,16 @@ def review_chapter(
             editor_summary="The automatic quality check could not be read, so the chapter was accepted as written.",
         )
     report.passed = bool(report.passed and report.score >= PASS_SCORE)
+    # Deterministic word and sentence check on top of the editor's opinion: garbled words or a chapter that stops mid-sentence
+    # fail the chapter, so the normal revision loop rewrites it automatically.
+    found = proofread_issues(content, plan.language)
+    if found:
+        report.passed = False
+        for item in found:
+            if item not in report.issues:
+                report.issues.append(item)
+            if item not in report.corrections_required:
+                report.corrections_required.append(item)
     return report
 
 
