@@ -196,13 +196,13 @@ def render_plan() -> None:
     plan = project.plan
     locked = job_running(project) or plan_job_running_for(project)
     started = drawn_count(project) > 0
-, m4 = st.columns(4)
+
+    st.subheader("Coloring book plan")
+    m1, m2, m3, m4 = st.columns(4)
     m1.metric("Coloring pages", len(plan.chapters))
     m2.metric("Audience", project.book_input.audience)
     m3.metric("Complexity", COLORING_COMPLEXITIES.get(project.book_input.coloring_complexity, "Medium"))
-    m4.metric("Page style", "With preview" if project.book_input.coloring_layout == LAYOUT_PAGE_WITH_ICON else "P
-    m2.metric("Audience", project.book_input.audience)
-    m3.metric("Page style", "With color preview" if project.book_input.coloring_layout == LAYOUT_PAGE_WITH_ICON else "Coloring page only")
+    m4.metric("Page style", "With preview" if project.book_input.coloring_layout == LAYOUT_PAGE_WITH_ICON else "Page only")
     if started:
         st.warning("Pages are already drawn. Changed scenes are drawn again only when you redraw that page on the Pages tab.")
 
