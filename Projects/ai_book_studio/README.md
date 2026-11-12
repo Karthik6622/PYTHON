@@ -156,14 +156,17 @@ broken characters or a chapter that stops mid-sentence fail the review, so the n
 
 ## 12a. Coloring books
 
-Choose **Coloring book** at the top of the Create tab. The form only asks for the theme, an optional title and author, the audience, the number of pages (4 to 100) and the page style.
+Choose **Coloring book** at the top of the Create tab. The form only asks for the theme, an optional title and author, the audience, the number of pages (4 to 100), the complexity and the page style.
 There is no text, chapters, writing style or other eBook option.
 
-- **Page style 1, coloring page only:** a full black-and-white line-art page.
-- **Page style 2, coloring page with small color preview:** the same black-and-white page plus a small colored picture of the same drawing at the top. The preview is made by coloring the line art itself, so it is always the same picture.
-- **Which model draws what:** Nemotron is a text model, so it plans the title, the cover scene and one unique scene per page. The configured image model (section 7) draws the pictures, then Pillow turns each into clean black-and-white line art (no grey, closed outlines). If the image model fails three times for a page, a simple drawn pattern is used and the page is flagged so it can be redrawn.
+- **Complexity:** **Easy** (one big subject, few large shapes, thick lines, lots of white space), **Medium** (moderate detail, simple background) or **Hard** (very intricate pages with many small areas). It changes the scene plan, the image prompt and the checks below.
+- **Page style, "Page only":** a full black-and-white line-art page.
+- **Page style, "Page + color preview":** the same black-and-white page plus a small colored picture of the same drawing in the top-left corner. The preview is made by coloring the line art itself, so it is always the same picture.
+- **Every page can be colored:** solid black areas are turned into outlines, then each page is measured (share of dark lines, number and size of white areas, room to color) against the chosen complexity. A page that fails is redrawn up to three times; after that a drawn mandala of the same complexity is used and the page is flagged so it can be redrawn.
+- **Which model draws what:** Nemotron is a text model, so it plans the title, the cover scene and one unique scene per page. The configured image model (section 7) draws the pictures, then Pillow turns each into clean black-and-white line art (no grey, closed outlines).
 - **Cover:** a colored illustration with the title, subtitle and author as real text, a frame and a page-count badge.
-- **Tabs:** Create, Plan (edit the title, cover scene, page scenes and page style), Pages (live progress, gallery, redraw a page or the cover) and Export (PDF, ZIP of page images, cover JPG).
+- **Tabs:** Create, Plan (edit the title, cover scene, page scenes and page style), Pages (live progress, gallery, redraw a page or the cover) and Export.
+- **Export:** the same files as an eBook: PDF, DOCX, DOCX without the cover, cover JPG, cover PDF and project JSON, plus a ZIP of the page images.
 - Pages are drawn a few at a time and every page is saved immediately, so a stopped run continues where it left off.
 
 ## 13. Safety and content policy

@@ -126,6 +126,7 @@ def test_coloring_book_flow_in_the_app(tmp_path, monkeypatch):
 
     at.session_state["in_idea"] = "Friendly dinosaurs in a magical jungle"
     at.session_state["in_coloring_pages"] = 4
+    at.session_state["in_coloring_complexity"] = "easy"
     at.run()
     next(b for b in at.button if "Create Coloring Book Plan" in b.label).click()
     at.run()
@@ -155,6 +156,8 @@ def test_coloring_book_flow_in_the_app(tmp_path, monkeypatch):
     storage = state_module.get_storage()
     assert storage.export_file(at.session_state["project"], "pdf") is not None
     assert storage.export_file(at.session_state["project"], "zip") is not None
-
+    assert storage.export_file(at.session_state["project"], "docx") is not None
+    assert storage.export_file(at.session_state["project"], "no_cover.docx") is not None
+    assert at.session_state["project"].book_input.coloring_complexity == "easy"
     at.radio(key="nav").set_value("chapters").run()
     assert not at.exception, [e.value for e in at.exception]

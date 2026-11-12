@@ -13,9 +13,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from config import (
+    COLORING_COMPLEXITIES,
     COLORING_MAX_PAGES,
     COLORING_MIN_PAGES,
     DEFAULT_COLORING_PAGES,
+    DEFAULT_COMPLEXITY,
     DEFAULT_CONTENT_KEYS,
     DEFAULT_PAGES,
     FORMAT_COLORING,
@@ -348,6 +350,13 @@ class BookInput(_Model):
     book_format: str = FORMAT_EBOOK  # ebook | coloring_book
     coloring_pages: int = DEFAULT_COLORING_PAGES
     coloring_layout: str = LAYOUT_PAGE_ONLY  # page_only | page_with_icon
+    coloring_complexity: str = DEFAULT_COMPLEXITY  # easy | medium | hard
+
+    @field_validator("coloring_complexity", mode="before")
+    @classmethod
+    def _complexity(cls, value: Any) -> str:
+        text = str(value).strip().lower()
+        return text if text in COLORING_COMPLEXITIES else DEFAULT_COMPLEXITY
 
     @field_validator("pages", mode="before")
     @classmethod

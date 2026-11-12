@@ -8,15 +8,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from docx import Document
 from PIL import Image
 
-from config import COLORING_PAGE_SIZE, LAYOUT_PAGE_ONLY, LAYOUT_PAGE_WITH_ICON
+from config import COLORING_PAGE_SIZE, COMPLEXITY_EASY, COMPLEXITY_HARD, COMPLEXITY_MEDIUM, LAYOUT_PAGE_ONLY, LAYOUT_PAGE_WITH_ICON
 from models.book_models import BookInput
+from prompts.coloring_prompts import detail_for, page_prompt
 from services.book_pipeline import BookPipeline
 from services.coloring_book import generate_coloring_plan, line_key, page_key
 from services.image_generator import ImageGenerator, PlaceholderImageGenerator
 from services.nvidia_client import ChatResult
-from utils.coloring_utils import colorize, compose_page, ink_ratio, is_usable_line_art, make_line_art_placeholder, to_line_art
+from utils.coloring_utils import colorize, compose_page, hollow_solid_areas, ink_ratio, is_usable_line_art, make_line_art_placeholder, to_line_art
 from utils.proofread import autocorrect_text, proofread_issues
 from utils.retry_utils import AIBookError
 from utils.validation_utils import validate_book_input
@@ -123,8 +125,10 @@ def _grey_drawing() -> Image.Image:
     from PIL import ImageDraw
 
     draw = ImageDraw.Draw(image)
-    draw.ellipse((60, 80, 240, 300), outline=(20, 20, 20), width=6, fill=(200, 200, 200))
-    draw.rectangle((120, 150, 180, 220), outline=(30, 30, 30), width=5)
+    for row in range(4):
+        for column in range(3):
+            x, y = 55 + column * 95, 55 + row * 95
+            draw.ellipse((x - 38, y - 38, x + 38, y + 38), outline=(20, 20, 20), width=5, fill=(200, 200, 200))
     return image
 
 
@@ -155,19 +159,73 @@ def _has_color(image: Image.Image) -> bool:
     return any(data[i] != data[i + 1] or data[i + 1] != data[i + 2] for i in range(0, len(data), 3))
 
 
-def test_pages_are_print_size_and_the_icon_layout_adds_a_colored_strip() -> None:
+def test_pages_are_print_size_and_the_icon_layout_adds_a_colored_preview_top_left() -> None:
     art = make_line_art_placeholder((1024, 1024), "x")
     plain = compose_page(art)
     with_icon = compose_page(art, with_icon=True, seed="x")
     assert plain.size == with_icon.size == COLORING_PAGE_SIZE
     assert not _has_color(plain)  # black, white and grey only
-    assert _has_color(with_icon.crop((400, 60, 880, 400)))  # the preview strip has color
-    assert not _has_color(with_icon.crop((0, 500, 1275, 1650)))  # the drawing stays black and white
+    assert _has_color(with_icon.crop((80, 80, 360, 360)))  # the preview sits in the top-left corner
+    assert not _has_color(with_icon.crop((400, 60, 1275, 380)))  # nothing colored to its right
+    assert not _has_color(with_icon.crop((0, 420, 1275, 1650)))  # the drawing stays black and white
 
 
 def test_drawn_fallback_is_a_usable_coloring_page() -> None:
     art = make_line_art_placeholder((768, 1152), "a prompt")
     assert is_usable_line_art(art)[0] and 0.015 < ink_ratio(art) < 0.42
+
+
+@pytest.mark.parametrize("level", [COMPLEXITY_EASY, COMPLEXITY_MEDIUM, COMPLEXITY_HARD])
+def test_drawn_fallback_suits_every_complexity(level) -> None:
+    art = make_line_art_placeholder((1100, 1100), "demo", level)
+    assert is_usable_line_art(art, level)[0]
+
+
+def test_harder_fallbacks_have_more_lines() -> None:
+    inks = [ink_ratio(make_line_art_placeholder((1100, 1100), "demo", level)) for level in (COMPLEXITY_EASY, COMPLEXITY_MEDIUM, COMPLEXITY_HARD)]
+    assert inks[0] < inks[1] < inks[2]
+
+
+def test_complexity_input_defaults_and_validates() -> None:
+    assert BookInput(book_format="coloring_book").coloring_complexity == COMPLEXITY_MEDIUM
+    assert BookInput(book_format="coloring_book", coloring_complexity="hard").coloring_complexity == COMPLEXITY_HARD
+    assert BookInput(book_format="coloring_book", coloring_complexity="nonsense").coloring_complexity == COMPLEXITY_MEDIUM
+
+
+def test_solid_black_areas_become_outlines_with_room_to_color() -> None:
+    from PIL import ImageDraw
+
+    image = Image.new("L", (600, 600), 255)
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((100, 100, 400, 400), fill=0)  # a solid black blob
+    draw.line((450, 50, 450, 550), fill=0, width=5)  # a thin line
+    hollow = hollow_solid_areas(image)
+    assert hollow.getpixel((250, 250)) == 255  # inside the blob is white now
+    assert hollow.getpixel((250, 101)) == 0  # the blob keeps its outline
+    assert hollow.getpixel((450, 300)) == 0  # thin lines are untouched
+
+
+def test_crowded_picture_is_rejected_for_easy_but_fine_for_hard() -> None:
+    from PIL import ImageDraw
+
+    image = Image.new("L", (600, 600), 255)
+    draw = ImageDraw.Draw(image)
+    for row in range(14):
+        for column in range(14):
+            x, y = 21 + column * 42, 21 + row * 42
+            draw.ellipse((x - 19, y - 19, x + 19, y + 19), outline=0, width=4)
+    assert 0.2 < ink_ratio(image) < 0.36
+    assert is_usable_line_art(image, COMPLEXITY_HARD)[0]
+    assert not is_usable_line_art(image, COMPLEXITY_EASY)[0]  # too many dark lines for an easy page
+
+
+def test_prompts_change_with_complexity() -> None:
+    easy = page_prompt("A dinosaur", "Children", COMPLEXITY_EASY)
+    hard = page_prompt("A dinosaur", "Children", COMPLEXITY_HARD)
+    assert easy != hard and "very simple" in easy and "intricate" in hard
+    assert all("white" in text and len(text) <= 950 for text in (easy, hard))
+    assert detail_for("Children", COMPLEXITY_EASY) != detail_for("Children", COMPLEXITY_HARD)
+    assert detail_for("Adults")  # still works without a complexity
 
 
 # --------------------------------------------------------------------------------------
@@ -201,8 +259,10 @@ def test_complete_coloring_book_has_cover_pages_pdf_and_zip(storage, layout) -> 
     pipeline.create_plan()
     summary = pipeline.generate_complete_book()
     project = pipeline.project
-    assert project.status.stage == "completed" and summary.docx_path is None
+    assert project.status.stage == "completed" and summary.docx_path and summary.docx_no_cover_path
     assert summary.pages == 5  # cover + 4 pages
+    assert len(Document(str(summary.docx_path)).inline_shapes) == 5  # the cover and 4 pages
+    assert len(Document(str(summary.docx_no_cover_path)).inline_shapes) == 4  # pages only
     for number in range(1, 5):
         assert storage.image_file(project, line_key(number)) and storage.image_file(project, page_key(number))
         with Image.open(storage.image_path(project, page_key(number))) as page:
@@ -224,6 +284,47 @@ def test_blank_pictures_are_retried_then_replaced_by_a_drawn_pattern(storage) ->
     assert is_usable_line_art(Image.open(storage.image_path(pipeline.project, line_key(1))))[0]
     again = pipeline.generate_chapter_image(1)  # the model works from now on
     assert again.status == "generated"
+
+
+def test_pages_follow_the_chosen_complexity(storage) -> None:
+    """The model returns a crowded picture: an easy page falls back to a drawn easy pattern, a hard page accepts it."""
+
+    class Crowded(_ModelPictures):
+        def generate_image(self, prompt: str, output_path: str | Path, orientation: str) -> Path:
+            from PIL import ImageDraw
+
+            self.calls += 1
+            path = Path(output_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            image = Image.new("RGB", (1100, 1100), "white")
+            draw = ImageDraw.Draw(image)
+            for row in range(14):
+                for column in range(14):
+                    x, y = 40 + column * 77, 40 + row * 77
+                    draw.ellipse((x - 33, y - 33, x + 33, y + 33), outline="black", width=7)
+            image.save(path)
+            return path
+
+    easy = _pipeline(storage, _input(pages=4, coloring_complexity=COMPLEXITY_EASY), images=Crowded())
+    easy.create_plan()
+    assert easy.generate_chapter_image(1).status == "placeholder"
+    hard = _pipeline(storage, _input(pages=4, coloring_complexity=COMPLEXITY_HARD), images=Crowded())
+    hard.create_plan()
+    assert hard.generate_chapter_image(1).status == "generated"
+
+
+def test_docx_export_has_one_picture_per_page_with_and_without_cover(tmp_path) -> None:
+    from generators.coloring_pdf import build_coloring_docx
+
+    files = []
+    for index in range(3):
+        path = tmp_path / f"p{index}.png"
+        Image.new("RGB", COLORING_PAGE_SIZE, "white").save(path)
+        files.append(path)
+    with_cover = build_coloring_docx("Book", "Me", files[0], files[1:], tmp_path / "a.docx")
+    without = build_coloring_docx("Book", "Me", files[0], files[1:], tmp_path / "b.docx", include_cover=False)
+    assert len(Document(str(with_cover)).inline_shapes) == 3 and len(Document(str(without)).inline_shapes) == 2
+    assert Document(str(with_cover)).core_properties.title == "Book"
 
 
 def test_resume_does_not_redraw_finished_pages(storage) -> None:

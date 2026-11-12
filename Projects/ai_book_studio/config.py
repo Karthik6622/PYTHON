@@ -183,9 +183,13 @@ BOOK_FORMATS: dict[str, str] = {FORMAT_EBOOK: "ðŸ“– eBook", FORMAT_COLORING: "ðŸ
 LAYOUT_PAGE_ONLY = "page_only"
 LAYOUT_PAGE_WITH_ICON = "page_with_icon"
 COLORING_LAYOUTS: dict[str, str] = {
-    LAYOUT_PAGE_ONLY: "Only coloring page (black and white)",
-    LAYOUT_PAGE_WITH_ICON: "Coloring page with a small colored preview of the same picture at the top",
+    LAYOUT_PAGE_ONLY: "Page only (black & white)",
+    LAYOUT_PAGE_WITH_ICON: "Page + color preview",
 }
+COMPLEXITY_EASY, COMPLEXITY_MEDIUM, COMPLEXITY_HARD = "easy", "medium", "hard"
+COLORING_COMPLEXITIES: dict[str, str] = {COMPLEXITY_EASY: "Easy", COMPLEXITY_MEDIUM: "Medium", COMPLEXITY_HARD: "Hard"}
+COMPLEXITY_HELP = "Easy: a few big simple shapes. Medium: balanced detail. Hard: very detailed, intricate pages."
+DEFAULT_COMPLEXITY = COMPLEXITY_MEDIUM
 COLORING_AUDIENCES = ["Children", "Teenagers", "Adults"]
 COLORING_MIN_PAGES = 4
 COLORING_MAX_PAGES = 100

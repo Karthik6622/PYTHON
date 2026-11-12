@@ -44,6 +44,7 @@ def collect_input() -> BookInput:
             book_format=FORMAT_COLORING,
             coloring_pages=state["in_coloring_pages"],
             coloring_layout=state["in_coloring_layout"],
+            coloring_complexity=state["in_coloring_complexity"],
         )
     return BookInput(
         book_idea=state["in_idea"].strip(),

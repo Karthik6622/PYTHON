@@ -13,6 +13,9 @@ from pathlib import Path
 
 import streamlit as st
 from PIL import Image
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
 
 from components.progress_panel import controls, render_plan_live, stage_pill
 from components.state import (
@@ -33,9 +36,11 @@ from components.state import (
 from components.export_tab import _cover_jpg_bytes, _safe_name
 from config import (
     COLORING_AUDIENCES,
+    COLORING_COMPLEXITIES,
     COLORING_LAYOUTS,
     COLORING_MAX_PAGES,
     COLORING_MIN_PAGES,
+    COMPLEXITY_HELP,
     LAYOUT_PAGE_WITH_ICON,
     MAX_IDEA_CHARS,
     get_image_settings,
@@ -65,6 +70,20 @@ def _thumbnail(path: str, modified: float, width: int = 360) -> bytes:
 
 def _show(path: Path, caption: str = "", width: int = 360) -> None:
     st.image(_thumbnail(str(path), path.stat().st_mtime, width), caption=caption, width="stretch")
+
+
+def _cover_pdf_bytes(path: Path | None, title: str) -> bytes:
+    """The front cover alone as a one-page US Letter PDF."""
+    if not path:
+        return b""
+    buffer = io.BytesIO()
+    width, height = letter
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setTitle(f"{title} - Cover")
+    pdf.drawImage(ImageReader(str(path)), 0, 0, width=width, height=height)
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
 
 
 def _report(entry: IllustrationPlan, success_message: str) -> None:
@@ -136,11 +155,20 @@ def render_form() -> bool:
             help="Pages inside the book. The cover is extra.",
         )
         st.radio(
+            "Complexity",
+            list(COLORING_COMPLEXITIES),
+            format_func=COLORING_COMPLEXITIES.get,
+            key="in_coloring_complexity",
+            horizontal=True,
+            help=COMPLEXITY_HELP,
+        )
+        st.radio(
             "Page style",
             list(COLORING_LAYOUTS),
             format_func=COLORING_LAYOUTS.get,
             key="in_coloring_layout",
-            help="The small colored picture shows how the finished page can look.",
+            horizontal=True,
+            help="The small colored picture (top-left corner) shows how the finished page can look.",
         )
     settings = get_image_settings()
     if settings.configured:
@@ -168,10 +196,11 @@ def render_plan() -> None:
     plan = project.plan
     locked = job_running(project) or plan_job_running_for(project)
     started = drawn_count(project) > 0
-
-    st.subheader("Coloring book plan")
-    m1, m2, m3 = st.columns(3)
+, m4 = st.columns(4)
     m1.metric("Coloring pages", len(plan.chapters))
+    m2.metric("Audience", project.book_input.audience)
+    m3.metric("Complexity", COLORING_COMPLEXITIES.get(project.book_input.coloring_complexity, "Medium"))
+    m4.metric("Page style", "With preview" if project.book_input.coloring_layout == LAYOUT_PAGE_WITH_ICON else "P
     m2.metric("Audience", project.book_input.audience)
     m3.metric("Page style", "With color preview" if project.book_input.coloring_layout == LAYOUT_PAGE_WITH_ICON else "Coloring page only")
     if started:
@@ -420,7 +449,7 @@ def render_export() -> None:
         st.info("Create a coloring book plan first.")
         return
     if job_running(project):
-        st.info("The coloring book is still being drawn. The PDF is built automatically at the end; see the Pages tab.")
+        st.info("The coloring book is still being drawn. The PDF and DOCX are built automatically at the end; see the Pages tab.")
         return
     storage = get_storage()
     st.subheader("Export")
@@ -428,10 +457,10 @@ def render_export() -> None:
     missing = [n for n in project.chapter_numbers if not image_if_exists(project, line_key(n))]
     if missing:
         st.warning("These pages are not drawn yet: " + ", ".join(map(str, missing)) + ". Generate or continue the book first.")
-    if st.button("🛠️ Build PDF and Page Images", type="primary", width="stretch", disabled=bool(missing)):
+    if st.button("🛠️ Build PDF and DOCX", type="primary", width="stretch", disabled=bool(missing)):
         with guarded("Building the export files"):
             started = time.time()
-            with st.status("Building the PDF...", expanded=True) as status:
+            with st.status("Building the PDF and DOCX...", expanded=True) as status:
                 bar = st.progress(0.0, text="Starting...")
 
                 def on_progress(fraction: float, message: str) -> None:
@@ -443,7 +472,7 @@ def render_export() -> None:
                 except BaseException:
                     status.update(label="The export failed", state="error", expanded=True)
                     raise
-                status.update(label=f"PDF built in {time.time() - started:.0f}s", state="complete", expanded=False)
+                status.update(label=f"PDF and DOCX built in {time.time() - started:.0f}s", state="complete", expanded=False)
             st.session_state["export_summary"] = summary
             flash(f"The files were built. The PDF has {summary.pages} pages including the cover.", "success")
             refresh()
@@ -451,26 +480,47 @@ def render_export() -> None:
     summary = st.session_state.get("export_summary")
     warnings = summary.warnings if summary else project.status.warnings
     if summary:
-        st.success(f"PDF: {summary.pages} pages (cover + {len(project.chapter_numbers)} coloring pages).")
+        st.success(f"PDF and DOCX: {summary.pages} pages (cover + {len(project.chapter_numbers)} coloring pages).")
     if warnings:
         with st.expander(f"Warnings ({len(warnings)})", expanded=True):
             for warning in warnings:
                 st.markdown(f"- {warning}")
 
     name = _safe_name(project.title)
-    pdf, archive, cover = storage.export_file(project, "pdf"), storage.export_file(project, "zip"), image_if_exists(project, "cover_final")
+    pdf, docx, cover = storage.export_file(project, "pdf"), storage.export_file(project, "docx"), image_if_exists(project, "cover_final")
+    docx_plain, archive = storage.export_file(project, "no_cover.docx"), storage.export_file(project, "zip")
+    word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     c1, c2, c3 = st.columns(3)
     c1.download_button(
         "📕 Download PDF", pdf.read_bytes() if pdf else b"", f"{name}.pdf", "application/pdf",
         disabled=pdf is None, width="stretch", key="dl_pdf",
     )
     c2.download_button(
-        "🗂️ Download Page Images (ZIP)", archive.read_bytes() if archive else b"", f"{name}_pages.zip", "application/zip",
-        disabled=archive is None, width="stretch", key="dl_zip",
+        "📘 Download DOCX", docx.read_bytes() if docx else b"", f"{name}.docx", word,
+        disabled=docx is None, width="stretch", key="dl_docx",
     )
     c3.download_button(
+        "📗 Download DOCX without cover", docx_plain.read_bytes() if docx_plain else b"", f"{name}_no_cover.docx", word,
+        disabled=docx_plain is None, width="stretch", key="dl_docx_no_cover",
+    )
+    c4, c5, c6 = st.columns(3)
+    c4.download_button(
         "🖼️ Download Cover JPG", _cover_jpg_bytes(cover), f"{name}_cover.jpg", "image/jpeg",
         disabled=cover is None, width="stretch", key="dl_cover",
     )
+    c5.download_button(
+        "📄 Download Cover PDF", _cover_pdf_bytes(cover, project.title), f"{name}_cover.pdf", "application/pdf",
+        disabled=cover is None, width="stretch", key="dl_cover_pdf",
+    )
+    c6.download_button(
+        "🗂️ Download Page Images (ZIP)", archive.read_bytes() if archive else b"", f"{name}_pages.zip", "application/zip",
+        disabled=archive is None, width="stretch", key="dl_zip",
+    )
+    st.download_button(
+        "📦 Download Project JSON", project.model_dump_json(indent=2).encode("utf-8"), f"{name}_project.json", "application/json",
+        width="stretch", key="dl_json",
+    )
     if not pdf:
-        st.caption("Build the files first to enable the downloads.")
+        st.caption("Build the files first to enable the PDF and DOCX downloads.")
+    elif not docx_plain:
+        st.caption("Click \"Build PDF and DOCX\" again to create the DOCX without the cover.")

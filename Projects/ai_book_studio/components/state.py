@@ -15,6 +15,7 @@ from config import (
     COLORING_AUDIENCES,
     CONTENT_OPTIONS,
     DEFAULT_COLORING_PAGES,
+    DEFAULT_COMPLEXITY,
     DEFAULT_CONTENT_KEYS,
     DEFAULT_PAGES,
     FORMAT_EBOOK,
@@ -294,6 +295,7 @@ def input_defaults() -> dict[str, Any]:
         "in_coloring_audience": COLORING_AUDIENCES[0],
         "in_coloring_pages": DEFAULT_COLORING_PAGES,
         "in_coloring_layout": LAYOUT_PAGE_ONLY,
+        "in_coloring_complexity": DEFAULT_COMPLEXITY,
     }
 
 
@@ -368,6 +370,7 @@ def populate_inputs(book_input: BookInput) -> None:
             "in_format": book_input.book_format,
             "in_coloring_pages": book_input.coloring_pages,
             "in_coloring_layout": book_input.coloring_layout,
+            "in_coloring_complexity": book_input.coloring_complexity,
         }
     )
     if book_input.is_coloring:

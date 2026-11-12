@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from config import LAYOUT_PAGE_WITH_ICON
-from generators.coloring_pdf import build_coloring_pdf, build_pages_zip
+from config import COMPLEXITY_HARD, LAYOUT_PAGE_WITH_ICON
+from generators.coloring_pdf import build_coloring_docx, build_coloring_pdf, build_pages_zip
 from generators.cover_generator import compose_coloring_cover
 from models.book_models import BookInput, BookPlan, ChapterPlan, GenerationStatus, IllustrationPlan, utc_now
 from prompts.coloring_prompts import COLORING_PLAN_PROMPT, MORE_SCENES_PROMPT, cover_art_prompt, detail_for, page_prompt
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("ai_book_studio.coloring")
 DRAW_ATTEMPTS = 3  # tries per page before a drawn pattern takes its place
 _LONG_SIDE = {"portrait": 1728, "square": 1536}  # pixels of the stored line art (enlarged so the lines stay crisp when printed)
-_RETRY_SUFFIX = " Simple bold black outlines on pure white only, no shading."
+_RETRY_SUFFIX = " Fewer, larger shapes, simple bold black outlines on pure white only, white space inside every shape, no shading or hatching."
 _FOLLOW_UPS = 3
 _MIN_SCENE_CHARS = 3
 
@@ -167,7 +167,7 @@ def generate_coloring_plan(llm: "LLMClient", book_input: BookInput, on_step: Cal
     A reply with too few scenes is topped up with follow-up requests; the page count always matches what the user chose.
     """
     count = book_input.coloring_pages
-    detail = detail_for(book_input.audience)
+    detail = detail_for(book_input.audience, book_input.coloring_complexity)
     prompt = render_template(
         COLORING_PLAN_PROMPT,
         book_idea=book_input.book_idea.strip(),
@@ -267,9 +267,10 @@ class ColoringRunner:
         p = self.p
         long_side = _LONG_SIDE.get(orientation, _LONG_SIDE["portrait"])
         generator = p.images
+        complexity = p.project.book_input.coloring_complexity
         if isinstance(generator, PlaceholderImageGenerator):  # development mode: no image model is configured
-            return make_line_art_placeholder(self._size(None, orientation, long_side), prompt), "generated", ""
-        thicken = p.project.book_input.audience != "Adults"
+            return make_line_art_placeholder(self._size(None, orientation, long_side), prompt, complexity), "generated", ""
+        thicken = complexity != COMPLEXITY_HARD
         reason = ""
         raw = work_path.with_name(work_path.stem + ".raw.png")
         for attempt in range(1, DRAW_ATTEMPTS + 1):
@@ -282,8 +283,9 @@ class ColoringRunner:
                     reason = f"The provider returned an unusable image ({problem})."
                     continue
                 picture = _load_flat(raw)
-                art = to_line_art(picture, self._size(picture, orientation, long_side), thicken=thicken)
-                usable, problem = is_usable_line_art(art)
+                # Solid black areas become outlines, so every shape has room to color; then the page is checked for that room.
+                art = to_line_art(picture, self._size(picture, orientation, long_side), thicken=thicken, hollow=True)
+                usable, problem = is_usable_line_art(art, complexity)
                 if usable:
                     return art, "generated", ""
                 reason = problem
@@ -295,7 +297,7 @@ class ColoringRunner:
             finally:
                 raw.unlink(missing_ok=True)
             LOGGER.info("Coloring page attempt %s of %s failed: %s", attempt, DRAW_ATTEMPTS, reason)
-        art = make_line_art_placeholder(self._size(None, orientation, long_side), prompt)
+        art = make_line_art_placeholder(self._size(None, orientation, long_side), prompt, complexity)
         return art, "placeholder", f"A drawn pattern is used after {DRAW_ATTEMPTS} attempts. {reason} Regenerate the page to try the image model again."
 
     def generate_page(self, number: int, new_prompt: bool = False, prompt: str | None = None, orientation: str | None = None) -> IllustrationPlan:
@@ -310,7 +312,7 @@ class ColoringRunner:
         record = p.project.images.get(key)
         text = prompt or (record.prompt if record and record.prompt and not new_prompt and record.orientation == chosen else "")
         if not text:
-            text = page_prompt(chapter.image_concept or chapter.title, p.project.book_input.audience)
+            text = page_prompt(chapter.image_concept or chapter.title, p.project.book_input.audience, p.project.book_input.coloring_complexity)
         entry = IllustrationPlan(
             key=key,
             label=f"Page {number}: {chapter.title}",
@@ -426,7 +428,7 @@ class ColoringRunner:
             if not (p.storage.image_file(p.project, "cover_art") and "cover" in p.project.images):
                 self.generate_cover()
             p._finish()
-            p._begin("Building the PDF and the page files...")
+            p._begin("Building the PDF, the DOCX and the page files...")
             summary = self.assemble_exports()
             p._finish()
         except GenerationStopped as exc:
@@ -449,7 +451,7 @@ class ColoringRunner:
 
     # ------------------------------------------------------------------ export
     def assemble_exports(self, progress: Callable[[float, str], None] | None = None) -> ExportSummary:
-        """Compose the cover, check every page, and write the PDF (cover first) and the ZIP of page images."""
+        """Compose the cover, check every page, and write the PDF and DOCX (each with and without the cover) and the ZIP of page images."""
         report = progress or (lambda fraction, message: None)
         p = self.p
         plan = p._require_plan()
@@ -464,12 +466,18 @@ class ColoringRunner:
                 raise ExportError(f"Page {number} ({chapter.title}) has not been drawn yet.")
             pages.append(page)
         pdf_path = p.storage.export_path(p.project, "pdf")
-        report(0.4, "Building the PDF...")
+        report(0.3, "Building the PDF...")
         count = build_coloring_pdf(plan.title, plan.author, cover, pages, pdf_path)
+        report(0.5, "Building the DOCX...")
+        docx_path = build_coloring_docx(plan.title, plan.author, cover, pages, p.storage.export_path(p.project, "docx"))
+        report(0.65, "Building the DOCX without the cover...")
+        docx_plain = build_coloring_docx(plan.title, plan.author, cover, pages, p.storage.export_path(p.project, "no_cover.docx"), include_cover=False)
         report(0.8, "Packing the page images...")
         archive = build_pages_zip(pages, p.storage.export_path(p.project, "zip"), cover)
         p._sync_status()
         warnings = list(p.project.status.warnings)
         p.storage.save_status(p.project)
-        report(1.0, "PDF and page images are ready.")
-        return ExportSummary(pdf_path=pdf_path, pages=count, warnings=warnings, zip_path=archive)
+        report(1.0, "PDF, DOCX and page images are ready.")
+        return ExportSummary(
+            pdf_path=pdf_path, docx_path=docx_path, pages=count, warnings=warnings, docx_no_cover_path=docx_plain, zip_path=archive
+        )
