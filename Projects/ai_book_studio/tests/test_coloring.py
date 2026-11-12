@@ -170,6 +170,18 @@ def test_pages_are_print_size_and_the_icon_layout_adds_a_colored_preview_top_lef
     assert not _has_color(with_icon.crop((0, 420, 1275, 1650)))  # the drawing stays black and white
 
 
+def test_drawing_uses_the_space_beside_the_preview_without_touching_it() -> None:
+    from PIL import ImageDraw
+
+    art = Image.new("L", (1000, 1000), 255)
+    ImageDraw.Draw(art).rounded_rectangle((300, 0, 700, 999), radius=40, outline=0, width=8)  # a tall drawing
+    page = compose_page(art, with_icon=True, seed="x")
+    dark = lambda box: page.convert("L").crop(box).getextrema()[0] < 100  # noqa: E731
+    assert dark((700, 90, 1180, 300))  # the drawing starts next to the preview, in the same row
+    assert not dark((388, 97, 396, 380))  # ... but keeps clear of the preview's frame
+    assert not dark((97, 388, 380, 396))
+
+
 def test_drawn_fallback_is_a_usable_coloring_page() -> None:
     art = make_line_art_placeholder((768, 1152), "a prompt")
     assert is_usable_line_art(art)[0] and 0.015 < ink_ratio(art) < 0.42

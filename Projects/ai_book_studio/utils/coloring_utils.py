@@ -216,17 +216,52 @@ def compose_page(
         width=_BORDER_WIDTH,
     )
     inner = _PAGE_MARGIN + _BORDER_WIDTH + 28
-    top = inner
-    if with_icon:
-        icon = _fit(colorize(line_art, _ICON_SIZE, seed), _ICON_SIZE, _ICON_SIZE)
-        frame = (inner, inner, inner + icon.width + 2 * _ICON_PAD, inner + icon.height + 2 * _ICON_PAD)
-        draw.rounded_rectangle(frame, radius=18, fill=(255, 255, 255), outline=(45, 38, 38), width=4)
-        page.paste(icon, (inner + _ICON_PAD, inner + _ICON_PAD))
-        top = frame[3] + 26
-        draw.line((inner, top - 12, width - inner, top - 12), fill=(45, 38, 38), width=3)
-    art = _fit(line_art.convert("L"), width - 2 * inner, height - inner - top)
-    page.paste(art.convert("RGB"), ((width - art.width) // 2, top + (height - inner - top - art.height) // 2))
+    area_w, area_h = width - 2 * inner, height - 2 * inner
+    if not with_icon:
+        art = _fit(line_art.convert("L"), area_w, height - inner - inner)
+        page.paste(art.convert("RGB"), ((width - art.width) // 2, inner + (area_h - art.height) // 2))
+        return page
+
+    icon = _fit(colorize(line_art, _ICON_SIZE, seed), _ICON_SIZE, _ICON_SIZE)
+    frame = (inner, inner, inner + icon.width + 2 * _ICON_PAD, inner + icon.height + 2 * _ICON_PAD)
+    draw.rounded_rectangle(frame, radius=18, fill=(255, 255, 255), outline=(45, 38, 38), width=4)
+    page.paste(icon, (inner + _ICON_PAD, inner + _ICON_PAD))
+
+    # The drawing uses the whole page (also the space next to the preview). It is cropped to its content, made as big as possible
+    # and placed so that none of its lines touch the preview frame.
+    gray = line_art.convert("L")
+    box = ImageOps.invert(gray).getbbox()
+    if box:
+        pad = 8
+        gray = gray.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(gray.width, box[2] + pad), min(gray.height, box[3] + pad)))
+    keep_out = (frame[0] - 14, frame[1] - 14, frame[2] + 14, frame[3] + 14)
+    options: list[tuple[Image.Image, int, int]] = []
+    full = _fit(gray, area_w, area_h)
+    x = inner + (area_w - full.width) // 2
+    for y in (inner + (area_h - full.height) // 2, inner + area_h - full.height):
+        if not _has_ink_in(full, x, y, keep_out):
+            options.append((full, x, y))
+            break
+    if not options:
+        below = _fit(gray, area_w, area_h - (keep_out[3] - inner))  # under the preview, full width
+        right = _fit(gray, area_w - (keep_out[2] - inner), area_h)  # beside the preview, full height
+        options = [
+            (below, inner + (area_w - below.width) // 2, inner + area_h - below.height),
+            (right, inner + area_w - right.width, inner + (area_h - right.height) // 2),
+        ]
+        options = [max(options, key=lambda option: option[0].width * option[0].height)]
+    art, x, y = options[0]
+    page.paste(art.convert("RGB"), (x, y))
     return page
+
+
+def _has_ink_in(art: Image.Image, left: int, top: int, rect: tuple[int, int, int, int]) -> bool:
+    """True when a line of ``art`` (placed at left, top) lies inside ``rect``."""
+    x0, y0 = max(rect[0], left), max(rect[1], top)
+    x1, y1 = min(rect[2], left + art.width), min(rect[3], top + art.height)
+    if x0 >= x1 or y0 >= y1:
+        return False
+    return art.crop((x0 - left, y0 - top, x1 - left, y1 - top)).getextrema()[0] < 140
 
 
 # --------------------------------------------------------------------------------------
