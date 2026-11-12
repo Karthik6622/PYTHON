@@ -27,6 +27,7 @@ from prompts.coloring_prompts import COLORING_PLAN_PROMPT, MORE_SCENES_PROMPT, c
 from services.book_pipeline import ExportSummary, GenerationStopped
 from services.image_generator import PlaceholderImageGenerator, generate_illustration
 from utils.coloring_utils import compose_page, is_usable_line_art, make_line_art_placeholder, to_line_art
+from utils.coloring_front_matter import render_front_pages
 from utils.image_utils import ORIENTATION_SIZES, validate_image
 from utils.proofread import autocorrect_text, proofread_issues
 from utils.retry_utils import (
@@ -401,6 +402,19 @@ class ColoringRunner:
         p.storage.save_status(p.project)
         return entry
 
+    def _front_pages(self, title: str, author: str) -> list[Path]:
+        """Write the extra front pages the user asked for (none by default) and return their files."""
+        p = self.p
+        chosen = p.project.book_input.coloring_extras
+        owner = p.project.book_input.coloring_copyright_name or author  # one name on every extra page
+        files: list[Path] = []
+        for key, image in render_front_pages(chosen, title, owner):
+            path = p.storage.exports_dir(p.project.project_id) / f"front_{key}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _save_png(image, path)
+            files.append(path)
+        return files
+
     def recompose_cover(self) -> Path:
         p = self.p
         plan = p._require_plan()
@@ -465,15 +479,17 @@ class ColoringRunner:
             if page is None:
                 raise ExportError(f"Page {number} ({chapter.title}) has not been drawn yet.")
             pages.append(page)
+        front = self._front_pages(plan.title, plan.author)
+        sheets = front + pages
         pdf_path = p.storage.export_path(p.project, "pdf")
         report(0.3, "Building the PDF...")
-        count = build_coloring_pdf(plan.title, plan.author, cover, pages, pdf_path)
+        count = build_coloring_pdf(plan.title, plan.author, cover, sheets, pdf_path)
         report(0.5, "Building the DOCX...")
-        docx_path = build_coloring_docx(plan.title, plan.author, cover, pages, p.storage.export_path(p.project, "docx"))
+        docx_path = build_coloring_docx(plan.title, plan.author, cover, sheets, p.storage.export_path(p.project, "docx"))
         report(0.65, "Building the DOCX without the cover...")
-        docx_plain = build_coloring_docx(plan.title, plan.author, cover, pages, p.storage.export_path(p.project, "no_cover.docx"), include_cover=False)
+        docx_plain = build_coloring_docx(plan.title, plan.author, cover, sheets, p.storage.export_path(p.project, "no_cover.docx"), include_cover=False)
         report(0.8, "Packing the page images...")
-        archive = build_pages_zip(pages, p.storage.export_path(p.project, "zip"), cover)
+        archive = build_pages_zip(pages, p.storage.export_path(p.project, "zip"), cover, front)
         p._sync_status()
         warnings = list(p.project.status.warnings)
         p.storage.save_status(p.project)

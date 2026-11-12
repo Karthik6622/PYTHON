@@ -190,6 +190,14 @@ COMPLEXITY_EASY, COMPLEXITY_MEDIUM, COMPLEXITY_HARD = "easy", "medium", "hard"
 COLORING_COMPLEXITIES: dict[str, str] = {COMPLEXITY_EASY: "Easy", COMPLEXITY_MEDIUM: "Medium", COMPLEXITY_HARD: "Hard"}
 COMPLEXITY_HELP = "Easy: a few big simple shapes. Medium: balanced detail. Hard: very detailed, intricate pages."
 DEFAULT_COMPLEXITY = COMPLEXITY_MEDIUM
+# Optional front pages (all off by default). They are added before the coloring pages in every export.
+COLORING_EXTRA_PAGES: dict[str, str] = {
+    "title_page": "Title Page",
+    "copyright_page": "Copyright Page",
+    "belongs_page": "This Book Belongs To",
+    "welcome_page": "Welcome Page",
+    "tips_page": "Coloring Tips",
+}
 COLORING_AUDIENCES = ["Children", "Teenagers", "Adults"]
 COLORING_MIN_PAGES = 4
 COLORING_MAX_PAGES = 100

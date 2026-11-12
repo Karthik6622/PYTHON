@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from config import (
     COLORING_COMPLEXITIES,
+    COLORING_EXTRA_PAGES,
     COLORING_MAX_PAGES,
     COLORING_MIN_PAGES,
     DEFAULT_COLORING_PAGES,
@@ -351,6 +352,19 @@ class BookInput(_Model):
     coloring_pages: int = DEFAULT_COLORING_PAGES
     coloring_layout: str = LAYOUT_PAGE_ONLY  # page_only | page_with_icon
     coloring_complexity: str = DEFAULT_COMPLEXITY  # easy | medium | hard
+    coloring_extras: list[str] = Field(default_factory=list)  # keys of COLORING_EXTRA_PAGES; none by default
+    coloring_copyright_name: str = ""  # printed on every extra page that shows a name; empty = the author name
+
+    @field_validator("coloring_copyright_name", mode="before")
+    @classmethod
+    def _copyright_name(cls, value: Any) -> str:
+        return " ".join(str(value or "").split())[:100]
+
+    @field_validator("coloring_extras", mode="before")
+    @classmethod
+    def _extras(cls, value: Any) -> list[str]:
+        items = value if isinstance(value, (list, tuple, set)) else []
+        return [key for key in COLORING_EXTRA_PAGES if key in items]
 
     @field_validator("coloring_complexity", mode="before")
     @classmethod

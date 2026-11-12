@@ -287,6 +287,51 @@ def test_complete_coloring_book_has_cover_pages_pdf_and_zip(storage, layout) -> 
     assert project.chapters == {} and project.reviews == {}  # no chapters, no text
 
 
+def test_extra_front_pages_are_off_by_default_and_added_before_the_pictures_when_chosen(storage) -> None:
+    assert BookInput(book_format="coloring_book").coloring_extras == []
+    assert BookInput(book_format="coloring_book", coloring_extras=["tips_page", "bogus", "title_page"]).coloring_extras == ["title_page", "tips_page"]
+
+    chosen = ["title_page", "copyright_page", "belongs_page", "welcome_page", "tips_page"]
+    pipeline = _pipeline(storage, _input(pages=4, coloring_extras=chosen), images=_ModelPictures())
+    pipeline.create_plan()
+    summary = pipeline.generate_complete_book()
+    assert summary.pages == 10  # cover + 5 extra pages + 4 pictures
+    assert len(Document(str(summary.docx_path)).inline_shapes) == 10
+    assert len(Document(str(summary.docx_no_cover_path)).inline_shapes) == 9
+    with zipfile.ZipFile(summary.zip_path) as archive:
+        names = sorted(archive.namelist())
+    assert names == ["cover.png"] + [f"front_{n:02d}.png" for n in range(1, 6)] + [f"page_{n:02d}.png" for n in range(1, 5)]
+
+
+def test_the_copyright_name_is_used_on_every_extra_page_and_falls_back_to_the_author(storage, monkeypatch) -> None:
+    import services.coloring_book as coloring_book
+
+    seen: list[str] = []
+    real = coloring_book.render_front_pages
+    monkeypatch.setattr(coloring_book, "render_front_pages", lambda keys, title, name: seen.append(name) or real(keys, title, name))
+
+    named = _pipeline(storage, _input(pages=4, coloring_extras=["copyright_page", "title_page"], coloring_copyright_name="  Sam   Lee Studio "), images=_ModelPictures())
+    named.create_plan()
+    assert named.project.book_input.coloring_copyright_name == "Sam Lee Studio"
+    named.generate_complete_book()
+    plain = _pipeline(storage, _input(pages=4, coloring_extras=["copyright_page"]), images=_ModelPictures())
+    plain.create_plan()
+    plain.generate_complete_book()
+    assert seen[0] == "Sam Lee Studio"
+    assert seen[1] == plain.project.plan.author
+
+
+def test_each_extra_front_page_has_text_on_a_full_size_page() -> None:
+    from config import COLORING_EXTRA_PAGES
+    from utils.coloring_front_matter import render_front_pages
+
+    pages = render_front_pages(list(COLORING_EXTRA_PAGES), "Dino Jungle", "Sam Lee")
+    assert [key for key, _ in pages] == list(COLORING_EXTRA_PAGES)
+    for _, image in pages:
+        assert image.size == COLORING_PAGE_SIZE and ink_ratio(image.convert("L")) > 0.005
+    assert render_front_pages([], "Dino Jungle", "Sam Lee") == []
+
+
 def test_blank_pictures_are_retried_then_replaced_by_a_drawn_pattern(storage) -> None:
     generator = _ModelPictures(blank_first=3)
     pipeline = _pipeline(storage, _input(pages=4), images=generator)

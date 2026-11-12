@@ -37,6 +37,7 @@ from components.export_tab import _cover_jpg_bytes, _safe_name
 from config import (
     COLORING_AUDIENCES,
     COLORING_COMPLEXITIES,
+    COLORING_EXTRA_PAGES,
     COLORING_LAYOUTS,
     COLORING_MAX_PAGES,
     COLORING_MIN_PAGES,
@@ -170,6 +171,18 @@ def render_form() -> bool:
             horizontal=True,
             help="The small colored picture (top-left corner) shows how the finished page can look.",
         )
+    st.markdown("**Extra pages before the pictures**")
+    for column, (name, label) in zip(st.columns(len(COLORING_EXTRA_PAGES)), COLORING_EXTRA_PAGES.items()):
+        with column:
+            st.radio(label, [False, True], format_func=lambda on: "Yes" if on else "No", key=f"in_extra_{name}", horizontal=True)
+            if name == "copyright_page":
+                st.text_input(
+                    "Copyright name",
+                    key="in_coloring_copyright",
+                    max_chars=100,
+                    placeholder="Name to print",
+                    help="Printed on the copyright page and on every other extra page that shows a name. Empty = the author name.",
+                )
     settings = get_image_settings()
     if settings.configured:
         st.markdown(pill(f"Pictures drawn by {settings.provider_label}", "ok"), unsafe_allow_html=True)

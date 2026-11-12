@@ -13,6 +13,7 @@ import streamlit as st
 
 from config import (
     COLORING_AUDIENCES,
+    COLORING_EXTRA_PAGES,
     CONTENT_OPTIONS,
     DEFAULT_COLORING_PAGES,
     DEFAULT_COMPLEXITY,
@@ -296,6 +297,8 @@ def input_defaults() -> dict[str, Any]:
         "in_coloring_pages": DEFAULT_COLORING_PAGES,
         "in_coloring_layout": LAYOUT_PAGE_ONLY,
         "in_coloring_complexity": DEFAULT_COMPLEXITY,
+        **{f"in_extra_{key}": False for key in COLORING_EXTRA_PAGES},
+        "in_coloring_copyright": "",
     }
 
 
@@ -371,6 +374,8 @@ def populate_inputs(book_input: BookInput) -> None:
             "in_coloring_pages": book_input.coloring_pages,
             "in_coloring_layout": book_input.coloring_layout,
             "in_coloring_complexity": book_input.coloring_complexity,
+            **{f"in_extra_{key}": key in book_input.coloring_extras for key in COLORING_EXTRA_PAGES},
+            "in_coloring_copyright": book_input.coloring_copyright_name,
         }
     )
     if book_input.is_coloring:

@@ -74,8 +74,8 @@ def build_coloring_docx(
     return output_path
 
 
-def build_pages_zip(pages: list[Path], output_path: Path, cover: Path | None = None) -> Path:
-    """A ZIP with every page as a separate PNG (page_01.png ...) and the cover (cover.png)."""
+def build_pages_zip(pages: list[Path], output_path: Path, cover: Path | None = None, front: list[Path] | None = None) -> Path:
+    """A ZIP with every page as a separate PNG (page_01.png ...), the cover (cover.png) and any extra front pages (front_01.png ...)."""
     if not pages:
         raise ExportError("There are no coloring pages to export yet.")
     output_path = Path(output_path)
@@ -85,6 +85,8 @@ def build_pages_zip(pages: list[Path], output_path: Path, cover: Path | None = N
         with zipfile.ZipFile(temp, "w", zipfile.ZIP_STORED) as archive:  # PNG is already compressed
             if cover:
                 archive.write(cover, "cover.png")
+            for index, sheet in enumerate(front or [], start=1):
+                archive.write(sheet, f"front_{index:02d}.png")
             for index, page in enumerate(pages, start=1):
                 archive.write(page, f"page_{index:02d}.png")
         os.replace(temp, output_path)

@@ -11,6 +11,7 @@ from config import (
     AUDIENCES,
     BOOK_FORMATS,
     BOOK_TYPES,
+    COLORING_EXTRA_PAGES,
     CONTENT_OPTIONS,
     FORMAT_COLORING,
     ILLUSTRATION_FREQUENCIES,
@@ -45,6 +46,8 @@ def collect_input() -> BookInput:
             coloring_pages=state["in_coloring_pages"],
             coloring_layout=state["in_coloring_layout"],
             coloring_complexity=state["in_coloring_complexity"],
+            coloring_extras=[key for key in COLORING_EXTRA_PAGES if state.get(f"in_extra_{key}")],
+            coloring_copyright_name=state.get("in_coloring_copyright", ""),
         )
     return BookInput(
         book_idea=state["in_idea"].strip(),
