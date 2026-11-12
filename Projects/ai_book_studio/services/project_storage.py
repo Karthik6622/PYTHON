@@ -228,6 +228,7 @@ class ProjectStorage:
             "created_at": project.created_at,
             "updated_at": project.updated_at,
             "book_input": project.book_input.model_dump(mode="json"),
+            "cover_text": project.cover_text,
         }
         self._write_json(self.project_dir(project.project_id) / "project.json", meta)
 
@@ -309,6 +310,7 @@ class ProjectStorage:
             project.front_matter = {str(k): str(v) for k, v in (front or {}).items()}
             images = self._read_json(folder / "images.json") or {}
             project.images = {key: IllustrationPlan.model_validate(value) for key, value in images.items()}
+            project.cover_text = {str(k): str(v) for k, v in (meta.get("cover_text") or {}).items()}
             status = self._read_json(folder / "generation_status.json")
             project.status = GenerationStatus.model_validate(status) if status else GenerationStatus()
             chapters_dir = folder / "chapters"

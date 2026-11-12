@@ -432,12 +432,21 @@ class BookProject(_Model):
     reviews: dict[int, QualityReport] = Field(default_factory=dict)
     images: dict[str, IllustrationPlan] = Field(default_factory=dict)
     status: GenerationStatus = Field(default_factory=GenerationStatus)
+    cover_text: dict[str, str] = Field(default_factory=dict)  # cover-only overrides for title, subtitle, author
 
     @property
     def title(self) -> str:
         if self.plan and self.plan.title:
             return self.plan.title
         return self.book_input.preferred_title or "Untitled book"
+
+    def cover_words(self, title: str, subtitle: str, author: str) -> tuple[str, str, str]:
+        """Title, subtitle and author printed on the front cover. Saved cover text wins over the plan values."""
+        return (
+            self.cover_text.get("title", title),
+            self.cover_text.get("subtitle", subtitle),
+            self.cover_text.get("author", author),
+        )
 
     @property
     def chapter_numbers(self) -> list[int]:

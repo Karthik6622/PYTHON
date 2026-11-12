@@ -28,11 +28,29 @@ def _cover_jpg_bytes(path) -> bytes:
     return buffer.getvalue()
 
 
-def _cover_pdf_bytes(path, title: str) -> bytes:
-    """Full-bleed 13.632 x 9.250 in landscape wrap cover: back and spine on the left, front artwork on the right.
+_TRIM_H = 9 * inch  # the finished front cover is 6 x 9 in
+_BLEED = 0.125 * inch  # printer bleed on the right, top and bottom
 
-    The artwork keeps its aspect ratio (scaled to the full page height, flush with the right edge). The rest of the page
-    is filled with the cover's own dark background colour, so there are no white margins and nothing leaves the canvas.
+
+def _extend_edges(rgb: Image.Image, pad: int) -> Image.Image:
+    """Add a bleed strip on the right, top and bottom by repeating the cover's outer pixels."""
+    if pad <= 0:
+        return rgb
+    w, h = rgb.size
+    out = Image.new("RGB", (w + pad, h + 2 * pad))
+    out.paste(rgb, (0, pad))
+    out.paste(out.crop((w - 1, pad, w, pad + h)).resize((pad, h)), (w, pad))
+    out.paste(out.crop((0, pad, w + pad, pad + 1)).resize((w + pad, pad)), (0, 0))
+    out.paste(out.crop((0, pad + h - 1, w + pad, pad + h)).resize((w + pad, pad)), (0, pad + h))
+    return out
+
+
+def _cover_pdf_bytes(path, title: str) -> bytes:
+    """Wrap cover PDF: 13.632 x 9.250 in landscape with back and spine on the left and the front on the right.
+
+    The front artwork is placed exactly on its 6 x 9 in trim, flush with the right trim line, so the gold frame and the
+    text stay inside the guides. The 0.125 in bleed is added by repeating the cover's edge pixels. The rest of the page
+    is filled with the cover's own dark background colour.
     """
     if not path:
         return b""
@@ -40,15 +58,17 @@ def _cover_pdf_bytes(path, title: str) -> bytes:
     with Image.open(path) as image:
         rgb = image.convert("RGB")
     img_w, img_h = rgb.size
-    scale = page_h / img_h
-    draw_w = img_w * scale
+    px_per_pt = img_h / _TRIM_H
+    pad = round(_BLEED * px_per_pt)
+    art = _extend_edges(rgb, pad)
+    art_w, art_h = art.width / px_per_pt, art.height / px_per_pt
     background = tuple(c / 255 for c in rgb.getpixel((2, 2)))
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(page_w, page_h))
     pdf.setTitle(f"{title} - Cover")
     pdf.setFillColorRGB(*background)
     pdf.rect(0, 0, page_w, page_h, stroke=0, fill=1)
-    pdf.drawImage(ImageReader(rgb), page_w - draw_w, 0, draw_w, page_h)
+    pdf.drawImage(ImageReader(art), page_w - art_w, page_h - art_h, art_w, art_h)
     pdf.showPage()
     pdf.save()
     return buffer.getvalue()
@@ -121,7 +141,7 @@ def render() -> None:
         disabled=cover is None, width="stretch", key="dl_cover",
     )
     c5.download_button(
-        "📄 Download Cover PDF", _cover_pdf_bytes(cover, project.title), f"{name}_cover.pdf", "application/pdf",
+        "📄 Download cover page as a PDF", _cover_pdf_bytes(cover, project.title), f"{name}_cover.pdf", "application/pdf",
         disabled=cover is None, width="stretch", key="dl_cover_pdf",
     )
     c6.download_button(

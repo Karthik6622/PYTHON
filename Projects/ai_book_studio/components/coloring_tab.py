@@ -17,6 +17,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
+from components.cover_text_editor import open_cover_text_editor, render_cover_text_editor
 from components.progress_panel import controls, render_plan_live, stage_pill
 from components.state import (
     bump_content,
@@ -374,13 +375,10 @@ def render_pages() -> None:
             width="stretch",
             key="cover_text",
             disabled=not image_if_exists(project, "cover_art"),
-            help="Use after you changed the title in the plan.",
+            help="Edit the title, subtitle and author printed on the front cover.",
         ):
-            with guarded("Updating the cover"):
-                make_pipeline(project).recompose_cover()
-                flash("The cover text was refreshed from the current title.", "success")
-                bump_content()
-                refresh()
+            open_cover_text_editor(project)
+        render_cover_text_editor(project, version)
         if record and record.warning:
             st.warning(record.warning)
 

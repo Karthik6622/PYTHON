@@ -418,11 +418,12 @@ class ColoringRunner:
     def recompose_cover(self) -> Path:
         p = self.p
         plan = p._require_plan()
+        title, subtitle, author = p.project.cover_words(plan.title, plan.subtitle, plan.author)
         return compose_coloring_cover(
             p.storage.image_file(p.project, "cover_art"),
-            plan.title,
-            plan.subtitle,
-            plan.author,
+            title,
+            subtitle,
+            author,
             p.storage.image_path(p.project, "cover_final"),
             badge=f"{len(plan.chapters)} coloring pages",
             language=plan.language or "English",

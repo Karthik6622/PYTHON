@@ -526,11 +526,12 @@ class BookPipeline:
             return self.coloring.recompose_cover()
         plan = self._require_plan()
         art = self.storage.image_file(self.project, "cover_art")
+        title, subtitle, author = self.project.cover_words(plan.title, plan.subtitle, plan.author)
         return compose_cover(
             art,
-            plan.title,
-            plan.subtitle,
-            plan.author,
+            title,
+            subtitle,
+            author,
             self.storage.image_path(self.project, "cover_final"),
             plan.language,
         )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components.cover_text_editor import open_cover_text_editor, render_cover_text_editor
 from components.state import bump_content, current_project, flash, guarded, image_if_exists, job_running, make_pipeline, refresh
 from components.styles import pill
 from config import get_image_settings
@@ -61,11 +62,8 @@ def render() -> None:
         if b.button("✨ New Prompt and Cover", width="stretch", key="cover_new"):
             _run("Generating the cover", lambda p: p.generate_cover(new_prompt=True), "A new cover was created.")
         if c.button("🖋️ Update Cover Text", width="stretch", key="cover_text", disabled=not image_if_exists(project, "cover_art")):
-            with guarded("Updating the cover"):
-                make_pipeline(project).recompose_cover()
-                flash("The cover text was refreshed from the current title and author.", "success")
-                bump_content()
-                refresh()
+            open_cover_text_editor(project)
+        render_cover_text_editor(project, version)
         if cover_record and cover_record.warning:
             st.warning(cover_record.warning)
 
