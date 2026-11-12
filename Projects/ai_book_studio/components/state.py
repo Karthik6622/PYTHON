@@ -411,6 +411,7 @@ def new_book() -> None:
     """Callback: start from a blank form."""
     st.session_state.update(input_defaults())
     set_project(None)
+    go_to("create")
 
 
 def delete_project(project_id: str) -> None:
