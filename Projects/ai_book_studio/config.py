@@ -171,7 +171,7 @@ FICTION_TYPES = {"Fiction", "Fantasy", "Science Fiction", "Mystery", "Adventure"
 MIN_PAGES = 10
 MAX_PAGES = 400
 DEFAULT_PAGES = 50
-MAX_IDEA_CHARS = 10_000
+MAX_IDEA_CHARS = 20_000
 
 # --------------------------------------------------------------------------------------
 # Coloring books (a separate product from the eBook: pictures only, no chapters and no text on the pages)
