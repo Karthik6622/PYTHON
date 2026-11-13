@@ -7,14 +7,26 @@ import zipfile
 from pathlib import Path
 
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from utils.retry_utils import ExportError
 
+_DOCX_MAX_WIDTH_IN = 7.6  # 8.5 in page minus 0.45 in margins on each side
+_DOCX_MAX_HEIGHT_IN = 10.1  # 11 in page minus 0.45 in margins top and bottom
+
+
+def _fit_in_box(sheet: Path, box_w: float, box_h: float) -> tuple[float, float, float, float]:
+    """Largest size of ``sheet`` that fits inside the box, keeping its proportions, and the offset that centers it."""
+    image_w, image_h = ImageReader(str(sheet)).getSize()
+    scale = min(box_w / image_w, box_h / image_h)
+    width, height = image_w * scale, image_h * scale
+    return (box_w - width) / 2, (box_h - height) / 2, width, height
+
 
 def build_coloring_pdf(title: str, author: str, cover: Path | None, pages: list[Path], output_path: Path) -> int:
-    """Write the PDF and return the number of pages in it. Every image fills a whole page (the images are 8.5x11 in at 150 dpi)."""
+    """Write the PDF and return the number of pages in it. Each image is fitted to a US Letter page by its proportions, centered, never stretched."""
     sheets = ([cover] if cover else []) + list(pages)
     if not sheets:
         raise ExportError("There are no coloring pages to export yet.")
@@ -29,7 +41,8 @@ def build_coloring_pdf(title: str, author: str, cover: Path | None, pages: list[
             pdf.setAuthor(author)
         pdf.setCreator("AI Book Studio")
         for sheet in sheets:
-            pdf.drawImage(ImageReader(str(sheet)), 0, 0, width=width, height=height)
+            x, y, fit_w, fit_h = _fit_in_box(sheet, width, height)
+            pdf.drawImage(ImageReader(str(sheet)), x, y, width=fit_w, height=fit_h)
             pdf.showPage()
         pdf.save()
         os.replace(temp, output_path)
@@ -44,7 +57,7 @@ def build_coloring_docx(
     """A Word document with one picture per US Letter page (the cover first unless ``include_cover`` is False)."""
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches
+    from docx.shared import Inches, Pt
 
     sheets = ([cover] if cover and include_cover else []) + list(pages)
     if not sheets:
@@ -66,7 +79,8 @@ def build_coloring_docx(
             paragraph.paragraph_format.space_before = 0
             paragraph.paragraph_format.space_after = 0
             paragraph.paragraph_format.page_break_before = index > 0
-            paragraph.add_run().add_picture(str(sheet), width=Inches(7.6))
+            _, _, fit_w, _ = _fit_in_box(sheet, _DOCX_MAX_WIDTH_IN * inch, _DOCX_MAX_HEIGHT_IN * inch)
+            paragraph.add_run().add_picture(str(sheet), width=Pt(fit_w))
         document.save(str(temp))
         os.replace(temp, output_path)
     except OSError as exc:

@@ -14,6 +14,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
@@ -74,15 +75,41 @@ def _show(path: Path, caption: str = "", width: int = 360) -> None:
     st.image(_thumbnail(str(path), path.stat().st_mtime, width), caption=caption, width="stretch")
 
 
+_BLEED = 0.125 * inch  # printer bleed on all four sides, the same as the eBook cover
+
+
+def _bleed_art(rgb: Image.Image, pad_x: int, pad_y: int) -> Image.Image:
+    """Add a bleed strip on every side by repeating the outer pixels of the cover."""
+    w, h = rgb.size
+    out = Image.new("RGB", (w + 2 * pad_x, h + 2 * pad_y))
+    out.paste(rgb, (pad_x, pad_y))
+    out.paste(out.crop((pad_x, pad_y, pad_x + 1, pad_y + h)).resize((pad_x, h)), (0, pad_y))
+    out.paste(out.crop((pad_x + w - 1, pad_y, pad_x + w, pad_y + h)).resize((pad_x, h)), (pad_x + w, pad_y))
+    out.paste(out.crop((0, pad_y, out.width, pad_y + 1)).resize((out.width, pad_y)), (0, 0))
+    out.paste(out.crop((0, pad_y + h - 1, out.width, pad_y + h)).resize((out.width, pad_y)), (0, pad_y + h))
+    return out
+
+
 def _cover_pdf_bytes(path: Path | None, title: str) -> bytes:
-    """The front cover alone as a one-page US Letter PDF."""
+    """The front cover as a one-page PDF: the trim is US Letter (8.5 x 11 in) with a 0.125 in bleed on every side.
+
+    The cover is never stretched. Its own proportions set the scale, so the gold frame and the text stay inside the
+    trim line, and the bleed repeats the cover's edge pixels so the artwork runs off the trim cleanly.
+    """
     if not path:
         return b""
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+    trim_w, trim_h = letter
+    img_w, img_h = rgb.size
+    pad_x = round(_BLEED * img_w / trim_w)
+    pad_y = round(_BLEED * img_h / trim_h)
+    art = _bleed_art(rgb, pad_x, pad_y)
+    page_w, page_h = trim_w + 2 * _BLEED, trim_h + 2 * _BLEED
     buffer = io.BytesIO()
-    width, height = letter
-    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf = canvas.Canvas(buffer, pagesize=(page_w, page_h))
     pdf.setTitle(f"{title} - Cover")
-    pdf.drawImage(ImageReader(str(path)), 0, 0, width=width, height=height)
+    pdf.drawImage(ImageReader(art), 0, 0, width=page_w, height=page_h)
     pdf.showPage()
     pdf.save()
     return buffer.getvalue()
