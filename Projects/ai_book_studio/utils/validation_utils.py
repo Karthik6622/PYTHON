@@ -91,6 +91,13 @@ _COPY_REQUEST = re.compile(
     r"(?i)\b(exact copy|word[- ]for[- ]word|reproduce|recreate|copy of|clone of|extended version of|"
     r"continuation of|sequel to|next book in|new chapters? (of|for)|rewrite)\b.{0,80}\b(book|novel|series|story|trilogy|saga)\b"
 )
+# Only the continuation phrases of the pattern above may be excused, and only when the writer is clearly continuing their
+# own series ("Book One", "my first book", "my own series"). Copy/reproduce requests stay blocked either way.
+_CONTINUATION_PHRASE = re.compile(r"(?i)\b(continuation of|sequel to|next book in|new chapters? (of|for))\b")
+_OWN_SERIES = re.compile(
+    r"(?i)\b(book (one|two|three|four|five|1|2|3|4|5)|(first|previous|earlier|last) (book|volume|novel)|"
+    r"my (own|previous|earlier|first|existing) (book|novel|series|story|trilogy)|(book|volume) \d+ of (my|this))\b"
+)
 # The trigger phrase is case-insensitive, but the author name that follows must be capitalised: a global (?i)
 # made [A-Z] match lowercase words, so ordinary text such as "sound like a real city" was wrongly rejected.
 _STYLE_IMITATION = re.compile(r"\b(?i:in the style of|written like|imitate|mimic|sound like)\s+[A-Z][\w.'-]+(\s+[A-Z][\w.'-]+)?")
@@ -106,7 +113,8 @@ def screen_request(book_input: BookInput) -> None:
     for pattern, reason in _BLOCKED:
         if pattern.search(text):
             raise ContentPolicyError(reason)
-    if _COPY_REQUEST.search(text):
+    own_series = bool(_OWN_SERIES.search(text))
+    if any(not (own_series and _CONTINUATION_PHRASE.match(m.group(1))) for m in _COPY_REQUEST.finditer(text)):
         raise ContentPolicyError(
             "AI Book Studio cannot reproduce or extend an existing copyrighted book. Describe your own premise and "
             "the app will create a new, original book inspired by broad themes."
