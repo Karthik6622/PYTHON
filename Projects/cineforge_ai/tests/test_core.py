@@ -1,0 +1,272 @@
+"""Tests for CineForge AI: API client, prompt engine, helpers and the end-to-end UI flow."""
+
+from __future__ import annotations
+
+import base64
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+import requests
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+import api_client  # noqa: E402
+import config  # noqa: E402
+import prompt_engine  # noqa: E402
+import video_utils  # noqa: E402
+import youtube_tools  # noqa: E402
+
+FAKE_KEY = "nvapi-TESTKEY1234567890"
+FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 64
+FAKE_B64 = base64.b64encode(FAKE_MP4).decode()
+
+
+def fake_response(status: int = 200, json_body=None, text: str = "") -> MagicMock:
+    response = MagicMock()
+    response.status_code = status
+    response.text = text or str(json_body)
+    response.headers = {"nvcf-reqid": "req-1"}
+    if isinstance(json_body, Exception):
+        response.json.side_effect = json_body
+    else:
+        response.json.return_value = json_body
+    return response
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setenv("NVIDIA_API_KEY", FAKE_KEY)
+
+
+# ------------------------------- api_client -------------------------------- #
+def test_generate_video_success_sends_only_confirmed_fields(monkeypatch):
+    post = MagicMock(return_value=fake_response(200, {"b64_video": "data:video/mp4;base64," + FAKE_B64}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+    stages: list[str] = []
+
+    result = api_client.generate_video(
+        "A car driving", "blurry", FAKE_KEY, {"seed": 5, "duration": 10}, on_stage=stages.append
+    )
+
+    assert result.video_bytes == FAKE_MP4
+    assert stages == [
+        api_client.STAGE_PREPARING,
+        api_client.STAGE_CONNECTING,
+        api_client.STAGE_GENERATING,
+        api_client.STAGE_DECODING,
+    ]
+    sent = post.call_args.kwargs
+    assert sent["json"] == {"model_mode": "text2video", "prompt": "A car driving", "negative_prompt": "blurry"}
+    assert sent["headers"]["Authorization"] == f"Bearer {FAKE_KEY}"
+    assert "b64_video" not in result.metadata.get("response_fields", [])
+
+
+@pytest.mark.parametrize(
+    ("status", "error_class"),
+    [
+        (400, api_client.BadRequestError),
+        (401, api_client.AuthenticationError),
+        (403, api_client.AccessDeniedError),
+        (404, api_client.EndpointNotFoundError),
+        (422, api_client.InvalidRequestFieldError),
+        (429, api_client.RateLimitError),
+        (503, api_client.ServerError),
+    ],
+)
+def test_http_errors_are_mapped_and_redacted(monkeypatch, status, error_class):
+    body = fake_response(status, {}, text=f"denied for {FAKE_KEY}")
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=body))
+    with pytest.raises(error_class) as caught:
+        api_client.generate_video("A car driving", "", FAKE_KEY)
+    assert FAKE_KEY not in str(caught.value.to_safe_dict())
+    assert caught.value.status_code == status
+
+
+def test_missing_key_and_network_failures(monkeypatch):
+    with pytest.raises(api_client.MissingApiKeyError):
+        api_client.generate_video("A car driving", "", None)
+
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(side_effect=requests.Timeout()))
+    with pytest.raises(api_client.RequestTimeoutError):
+        api_client.generate_video("A car driving", "", FAKE_KEY)
+
+    monkeypatch.setattr(
+        api_client.requests, "post", MagicMock(side_effect=requests.ConnectionError(f"boom {FAKE_KEY}"))
+    )
+    with pytest.raises(api_client.NetworkError) as caught:
+        api_client.generate_video("A car driving", "", FAKE_KEY)
+    assert FAKE_KEY not in caught.value.details
+
+
+@pytest.mark.parametrize(
+    ("body", "error_class"),
+    [
+        ({}, api_client.ResponseFormatError),
+        ({"b64_video": "!!!not base64!!!"}, api_client.InvalidVideoDataError),
+        ({"b64_video": base64.b64encode(b"not an mp4 at all").decode()}, api_client.UnsupportedVideoFormatError),
+        (ValueError("bad json"), api_client.ResponseFormatError),
+    ],
+)
+def test_bad_success_bodies(monkeypatch, body, error_class):
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=fake_response(200, body)))
+    with pytest.raises(error_class):
+        api_client.generate_video("A car driving", "", FAKE_KEY)
+
+
+def test_config_drops_unconfirmed_parameters():
+    payload = config.build_payload("prompt", "", {"seed": 1, "fps": 24})
+    assert payload == {"model_mode": "text2video", "prompt": "prompt"}
+
+
+# ------------------------------ prompt engine ------------------------------ #
+def test_prompt_validation_and_sanitizing():
+    assert prompt_engine.validate_prompt("hi")
+    assert not prompt_engine.validate_prompt("A sports car driving in a city")
+    assert prompt_engine.sanitize_prompt("a\x00  b\n\nc") == "a b c"
+
+
+def test_enhance_prompt_reflects_settings():
+    settings = prompt_engine.GenerationSettings(
+        platform="YouTube Shorts: 9:16", camera="Orbit shot", lighting="Neon lighting", duration_seconds=10
+    )
+    text = prompt_engine.enhance_prompt("A sports car driving in a city", settings)
+    assert text.startswith("A sports car driving in a city.")
+    for expected in ("9:16", "orbit shot", "neon lighting", "10-second"):
+        assert expected in text.lower()
+    assert len(text) <= config.MAX_FINAL_PROMPT_CHARS
+
+
+@pytest.mark.parametrize(("story", "count"), [("A robot explores a garden.", 4), ("One. Two. Three. Four. Five.", 3)])
+def test_scene_splitting_returns_requested_count(story, count):
+    scenes = prompt_engine.build_scene_texts(story, count)
+    assert len(scenes) == count and all(scenes)
+
+
+def test_youtube_package_is_complete():
+    package = youtube_tools.build_youtube_package(
+        "A sports car driving through a city at night", "YouTube Short", "Cinematic realism", "YouTube Shorts: 9:16"
+    )
+    assert len(package.alternative_titles) == 5
+    assert "#Shorts" in package.hashtags
+    assert package.filename.endswith(".mp4") and " " not in package.filename
+    assert all(len(title) <= 100 for title in [package.title, *package.alternative_titles])
+
+
+# ------------------------------- video utils ------------------------------- #
+def test_storage_is_session_scoped_and_safe(tmp_path):
+    session = "a" * 16
+    path = video_utils.save_video_bytes(FAKE_MP4, session)
+    assert path.parent.name == session and video_utils.read_video_bytes(path) == FAKE_MP4
+    outside = tmp_path / "outside.mp4"
+    outside.write_bytes(b"x")
+    assert not video_utils.delete_video_file(outside) and outside.exists()
+    assert video_utils.clear_generated_files(session) == 1
+    with pytest.raises(video_utils.VideoProcessingError):
+        video_utils.clear_generated_files("../evil")
+
+
+def test_audio_validation():
+    assert video_utils.validate_audio_upload("song.mp3", b"ID3" + b"\x00" * 20) is None
+    assert video_utils.validate_audio_upload("song.exe", b"x")
+    assert video_utils.validate_audio_upload("song.wav", b"not wav data....")
+
+
+def test_merge_command_builds_crossfade_chain():
+    infos = [video_utils.ClipInfo(5.0, 1280, 720)] * 3
+    clips = [Path(f"c{i}.mp4") for i in range(3)]
+    command = video_utils.build_merge_command("ffmpeg", clips, infos, Path("out.mp4"), True)
+    graph = command[command.index("-filter_complex") + 1]
+    assert "xfade=transition=fade:duration=0.5:offset=4.500[x1]" in graph
+    assert "offset=9.000[outv]" in graph
+    plain = video_utils.build_merge_command("ffmpeg", clips, infos, Path("out.mp4"), False, Path("a.mp3"))
+    assert "concat=n=3" in plain[plain.index("-filter_complex") + 1] and "3:a:0" in plain
+
+
+# --------------------------- end-to-end UI flow ---------------------------- #
+def _click(at, label_part: str):
+    button = next(b for b in at.button if label_part in b.label)
+    button.click()
+    return at.run(timeout=30)
+
+
+def test_text_to_video_flow_end_to_end(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    assert not at.exception
+
+    at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
+    at = _click(at, "Enhance Prompt")
+    assert "sports car" in at.text_area(key="enhanced_prompt").value
+
+    at = _click(at, "Generate Video")
+    assert not at.exception, at.exception
+    assert post.call_count == 1
+    sent = post.call_args.kwargs["json"]
+    assert set(sent) == {"model_mode", "prompt", "negative_prompt"}
+    assert sent["prompt"] == at.session_state["enhanced_prompt"]
+
+    history = at.session_state["history"]
+    assert history[0]["status"] == "success"
+    assert Path(history[0]["video_path"]).read_bytes() == FAKE_MP4
+    assert FAKE_KEY not in repr(history) + repr(at.session_state["last_error"])
+    assert not at.session_state["busy"]
+
+
+def test_short_prompt_is_rejected_without_api_call(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    post = MagicMock()
+    monkeypatch.setattr(api_client.requests, "post", post)
+    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at.text_area(key="prompt_text").set_value("hi").run()
+    at = _click(at, "Generate Video")
+    post.assert_not_called()
+    assert any("at least" in w.value for w in at.warning)
+
+
+def test_api_failure_is_shown_without_leaking_key(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    body = fake_response(403, {}, text=f"forbidden {FAKE_KEY}")
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=body))
+    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
+    at = _click(at, "Generate Video")
+    assert any("Access denied" in e.value for e in at.error)
+    assert FAKE_KEY not in repr(at.session_state["last_error"])
+
+
+def test_storyboard_regenerate_and_delete(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+
+    post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+    monkeypatch.setattr(config, "REQUEST_COOLDOWN_SECONDS", 0.0)
+    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+
+    at.radio(key="t2v_mode").set_value("Multi-Scene Storyboard (experimental)").run()
+    at.text_area(key="story_text").set_value("A robot wakes in a garden. It finds a flower.").run()
+    at.slider(key="scene_count").set_value(2).run()
+    at = _click(at, "Build scene cards")
+    at = _click(at, "Generate 2 scenes")
+    assert not at.exception, at.exception
+    assert post.call_count == 2
+    assert len(at.session_state["storyboard_clip_ids"]) == 2
+    prompts = [call.kwargs["json"]["prompt"] for call in post.call_args_list]
+    assert all(p.startswith("Consistent visual style") for p in prompts)
+
+    at = _click(at, "Regenerate")
+    assert post.call_count == 3
+    assert len([r for r in at.session_state["history"] if r["status"] == "success"]) == 3
+
+    at = _click(at, "Delete")
+    at = _click(at, "Yes, delete")
+    assert len(at.session_state["history"]) == 2
