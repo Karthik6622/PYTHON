@@ -38,6 +38,7 @@ K_LAST_RESULT = "last_result_id"
 K_LAST_ERROR = "last_error"
 K_FORM_ERRORS = "form_errors"
 K_PROMPT = "prompt_text"
+K_EXAMPLE = "example_choice"
 K_ENHANCED = "enhanced_prompt"
 K_ENHANCED_SIG = "enhanced_signature"
 K_NEGATIVE = "negative_prompt"
@@ -64,13 +65,14 @@ W_QUALITY = "w_quality"
 W_MOTION = "w_motion"
 W_CREATIVITY = "w_creativity"
 W_ADHERENCE = "w_adherence"
+W_SEED = "w_seed"
 W_KEEP_ORIGINAL = "w_keep_original"
 W_SHOW_ENHANCED = "w_show_enhanced"
 W_SAFETY = "w_safety_confirmation"
 
 MODE_SINGLE = "Single clip"
-MODE_STORYBOARD = "Multi-Scene Storyboard (experimental)"
-FEEDBACK_VIDEO_READY = "Video ready"
+MODE_STORYBOARD = "Storyboard (experimental)"
+EXAMPLE_PLACEHOLDER = "Pick an example prompt…"
 
 
 def scene_key(index: int) -> str:
@@ -80,9 +82,9 @@ def scene_key(index: int) -> str:
 
 PERSISTENT_KEYS = [
     K_PROMPT, K_ENHANCED, K_ENHANCED_SIG, K_NEGATIVE, K_PROJECT, K_MODE, K_STORY,
-    K_SCENE_COUNT, K_PREFIX, K_CROSSFADE, W_CONTENT, W_PLATFORM, W_DURATION,
+    K_SCENE_COUNT, K_PREFIX, K_CROSSFADE, K_EXAMPLE, W_CONTENT, W_PLATFORM, W_DURATION,
     W_CUSTOM_DURATION, W_STYLE, W_CAMERA, W_LIGHTING, W_QUALITY, W_MOTION,
-    W_CREATIVITY, W_ADHERENCE, W_KEEP_ORIGINAL, W_SHOW_ENHANCED, W_SAFETY,
+    W_CREATIVITY, W_ADHERENCE, W_SEED, W_KEEP_ORIGINAL, W_SHOW_ENHANCED, W_SAFETY,
     *[scene_key(i) for i in range(config.MAX_SCENES)],
 ]  # fmt: skip
 
@@ -104,6 +106,7 @@ def init_state() -> None:
         K_LAST_ERROR: None,
         K_FORM_ERRORS: [],
         K_PROMPT: "",
+        K_EXAMPLE: EXAMPLE_PLACEHOLDER,
         K_ENHANCED: "",
         K_ENHANCED_SIG: None,
         K_NEGATIVE: config.DEFAULT_NEGATIVE_PROMPT,
@@ -122,7 +125,7 @@ def init_state() -> None:
         W_CONTENT: "YouTube Video",
         W_PLATFORM: "YouTube Landscape: 16:9",
         W_DURATION: "8 seconds",
-        W_CUSTOM_DURATION: 12,
+        W_CUSTOM_DURATION: 6,
         W_STYLE: "Cinematic realism",
         W_CAMERA: "Slow cinematic push-in",
         W_LIGHTING: "Dramatic cinematic lighting",
@@ -130,6 +133,7 @@ def init_state() -> None:
         W_MOTION: "Balanced",
         W_CREATIVITY: "Balanced",
         W_ADHERENCE: "Balanced",
+        W_SEED: 0,
         W_KEEP_ORIGINAL: True,
         W_SHOW_ENHANCED: True,
         W_SAFETY: True,
@@ -142,24 +146,88 @@ def init_state() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Styling                                                                     #
+# Styling: red cyberpunk                                                      #
 # --------------------------------------------------------------------------- #
 APP_CSS = """
 <style>
-.block-container {padding-top: 1.2rem; max-width: 1400px;}
-.cf-brand {font-size: 1.7rem; font-weight: 800; letter-spacing: .3px; line-height: 1.1;}
-.cf-brand span {background: linear-gradient(90deg,#8B5CF6,#22D3EE); -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;}
-.cf-sub {color: #A9B4CC; font-size: .85rem; margin-top: 2px;}
-.cf-badge {display:inline-block; padding: 4px 12px; border-radius: 999px; font-size: .8rem;
-  font-weight: 600; border: 1px solid transparent;}
-.cf-ok {background:#0F2E22; color:#6EE7B7; border-color:#14532D;}
-.cf-warn {background:#33270A; color:#FCD34D; border-color:#78350F;}
-.cf-bad {background:#35121A; color:#FDA4AF; border-color:#7F1D1D;}
-.cf-empty {text-align:center; color:#A9B4CC; padding: 2.5rem 1rem; border: 1px dashed #2B3550;
-  border-radius: 14px;}
-.cf-footer {color:#8793AE; font-size:.78rem; text-align:center; margin-top: 2rem;}
-div[data-testid="stTabs"] button[role="tab"] {font-weight: 600;}
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+:root {--red:#FF2A4D; --red-deep:#B3001B; --cyan:#00E5FF; --panel:#10070C; --line:rgba(255,42,77,.38);}
+
+.stApp {
+  background:
+    radial-gradient(1100px 560px at 88% -8%, rgba(255,42,77,.20), transparent 60%),
+    radial-gradient(900px 520px at -8% 108%, rgba(0,229,255,.07), transparent 60%),
+    #07040A;
+}
+.stApp::before {content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px);}
+.block-container {padding-top: 1.1rem; max-width: 1380px;}
+header[data-testid="stHeader"] {background: transparent;}
+
+.stApp [data-testid="stMarkdownContainer"], .stApp label p, .stApp input, .stApp textarea,
+.stApp button p, .stApp [data-baseweb="select"] div {font-family: 'Rajdhani', 'Segoe UI', sans-serif;}
+.stApp label p {font-size: .95rem; letter-spacing: .04em; color:#F3D9DE;}
+
+/* header */
+.cf-brand {font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.75rem; letter-spacing:.14em;
+  color:#fff; text-shadow:0 0 14px rgba(255,42,77,.9);}
+.cf-brand b {color: var(--red);}
+.cf-brand i {color: var(--cyan); font-style:normal; text-shadow:0 0 12px rgba(0,229,255,.8);}
+.cf-sub {color:#C79AA4; font-size:.82rem; letter-spacing:.24em; text-transform:uppercase; margin-top:2px;}
+
+/* section labels, chips, badges */
+.cf-kicker {font-family:'Orbitron',sans-serif; font-size:.72rem; letter-spacing:.24em; color:var(--red);
+  text-transform:uppercase; margin-bottom:.15rem; text-shadow:0 0 8px rgba(255,42,77,.6);}
+.cf-chip {display:inline-block; margin:2px 6px 2px 0; padding:2px 10px; font-size:.8rem; color:#9CF3FF;
+  border:1px solid rgba(0,229,255,.45); background:rgba(0,229,255,.06);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));}
+.cf-badge {display:inline-block; padding:5px 14px; font-size:.8rem; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; border:1px solid transparent;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));}
+.cf-ok {background:rgba(0,229,255,.10); color:#7DF3FF; border-color:rgba(0,229,255,.55);}
+.cf-warn {background:rgba(255,176,32,.10); color:#FFC95C; border-color:rgba(255,176,32,.5);}
+.cf-bad {background:rgba(255,42,77,.14); color:#FF8FA3; border-color:rgba(255,42,77,.65);}
+.cf-empty {text-align:center; color:#C79AA4; padding:2.2rem 1rem; border:1px dashed var(--line);}
+.cf-empty h4 {font-family:'Orbitron',sans-serif; color:#fff; letter-spacing:.1em;}
+.cf-footer {color:#8E6A73; font-size:.76rem; text-align:center; margin-top:2rem; letter-spacing:.04em;}
+
+/* cards */
+div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div[data-testid="stVerticalBlock"]) {
+  border:1px solid var(--line) !important; border-radius:2px !important;
+  background: linear-gradient(160deg, rgba(255,42,77,.07), rgba(16,7,12,.92) 55%);
+  box-shadow: 0 0 22px rgba(255,42,77,.10), inset 0 0 0 1px rgba(255,42,77,.05);
+}
+
+/* buttons */
+.stApp button[kind="primary"] {
+  background: linear-gradient(90deg, #FF1744, var(--red-deep)); border:1px solid #FF5C75; color:#fff;
+  font-family:'Orbitron',sans-serif; text-transform:uppercase; letter-spacing:.14em; font-weight:700;
+  box-shadow: 0 0 18px rgba(255,42,77,.55); border-radius:2px;
+}
+.stApp button[kind="primary"]:hover {box-shadow: 0 0 30px rgba(255,42,77,.9); filter:brightness(1.12);}
+.stApp button[kind="primary"]:disabled {box-shadow:none; filter:grayscale(.6) brightness(.7);}
+.stApp button[kind="secondary"], .stApp [data-testid="stDownloadButton"] button {
+  background: rgba(255,42,77,.06); border:1px solid var(--line); color:#FFD7DE; border-radius:2px;
+}
+.stApp button[kind="secondary"]:hover, .stApp [data-testid="stDownloadButton"] button:hover {
+  border-color: var(--red); box-shadow: 0 0 14px rgba(255,42,77,.45); color:#fff;
+}
+
+/* inputs */
+.stApp textarea, .stApp input, .stApp [data-baseweb="select"] > div {
+  background-color:#0B0509 !important; border-color: rgba(255,42,77,.28) !important; border-radius:2px !important;
+}
+.stApp textarea:focus, .stApp input:focus {border-color: var(--red) !important; box-shadow:0 0 0 1px var(--red);}
+
+/* tabs, sidebar, expanders */
+div[data-testid="stTabs"] button[role="tab"] {font-family:'Orbitron',sans-serif; font-size:.8rem;
+  letter-spacing:.12em; text-transform:uppercase;}
+section[data-testid="stSidebar"] {background:#0A0509; border-right:1px solid var(--line);}
+section[data-testid="stSidebar"] h3 {font-family:'Orbitron',sans-serif; letter-spacing:.12em;}
+div[data-testid="stExpander"] details {border:1px solid var(--line); border-radius:2px; background:rgba(255,42,77,.03);}
+div[data-testid="stExpander"] summary p {font-family:'Orbitron',sans-serif; font-size:.78rem;
+  letter-spacing:.14em; text-transform:uppercase;}
+hr {border-color: var(--line) !important;}
 </style>
 """
 
@@ -169,11 +237,22 @@ def badge(text: str, tone: str) -> str:
     return f'<span class="cf-badge cf-{tone}">{html.escape(text)}</span>'
 
 
+def kicker(text: str) -> None:
+    st.markdown(f'<div class="cf-kicker">{html.escape(text)}</div>', unsafe_allow_html=True)
+
+
+def chips(items: list[str]) -> None:
+    st.markdown(
+        "".join(f'<span class="cf-chip">{html.escape(item)}</span>' for item in items),
+        unsafe_allow_html=True,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Settings and records                                                        #
 # --------------------------------------------------------------------------- #
 def collect_settings() -> GenerationSettings:
-    """Read all prompt-shaping options from the session state."""
+    """Read all prompt- and API-shaping options from the session state."""
     state = st.session_state
     seconds = config.DURATION_OPTIONS.get(state[W_DURATION])
     if seconds is None:
@@ -190,6 +269,15 @@ def collect_settings() -> GenerationSettings:
         creativity=state[W_CREATIVITY],
         adherence=state[W_ADHERENCE],
         keep_original=bool(state[W_KEEP_ORIGINAL]),
+        seed=int(state[W_SEED]),
+    )
+
+
+def plan_for(settings: GenerationSettings) -> config.VideoPlan:
+    """Translate UI settings into documented API parameters."""
+    preset = config.PLATFORM_PRESETS[settings.platform]
+    return config.plan_video(
+        preset.ratio, settings.quality, settings.duration_seconds, settings.adherence, settings.seed
     )
 
 
@@ -232,9 +320,12 @@ def preview(text: str, width: int = 90) -> str:
 # --------------------------------------------------------------------------- #
 # Callbacks (run before the script reruns)                                    #
 # --------------------------------------------------------------------------- #
-def cb_use_example(example: str) -> None:
-    st.session_state[K_PROMPT] = example
-    st.session_state[K_FORM_ERRORS] = []
+def cb_pick_example() -> None:
+    choice = st.session_state[K_EXAMPLE]
+    if choice in config.EXAMPLE_PROMPTS:
+        st.session_state[K_PROMPT] = choice
+        st.session_state[K_FORM_ERRORS] = []
+    st.session_state[K_EXAMPLE] = EXAMPLE_PLACEHOLDER
 
 
 def cb_reset_prompt() -> None:
@@ -312,11 +403,12 @@ def make_job(
     label: str,
     user_prompt: str,
     final_prompt: str,
-    settings: dict[str, Any],
+    settings: GenerationSettings,
     kind: str = "single",
     group_id: str | None = None,
     scene_index: int | None = None,
 ) -> dict[str, Any]:
+    plan = plan_for(settings)
     return {
         "label": label,
         "user_prompt": user_prompt,
@@ -324,7 +416,9 @@ def make_job(
         "negative_prompt": prompt_engine.sanitize_prompt(
             st.session_state[K_NEGATIVE], config.MAX_NEGATIVE_PROMPT_CHARS
         ),
-        "settings": settings,
+        "settings": settings.to_dict(),
+        "api_params": plan.params,
+        "plan_summary": plan.summary,
         "kind": kind,
         "group_id": group_id,
         "scene_index": scene_index,
@@ -348,7 +442,7 @@ def cb_generate_single() -> None:
     else:
         final_prompt = prompt_engine.enhance_prompt(prompt, settings)
     queue_jobs(
-        [make_job("Generating video", prompt_engine.sanitize_prompt(prompt), final_prompt, settings.to_dict())]
+        [make_job("Generating video", prompt_engine.sanitize_prompt(prompt), final_prompt, settings)]
     )
 
 
@@ -387,7 +481,7 @@ def cb_generate_storyboard() -> None:
             f"Generating scene {number} of {built}",
             prompt_engine.sanitize_prompt(text),
             prompt_engine.build_scene_prompt(prefix, text, settings),
-            settings.to_dict(),
+            settings,
             kind="scene",
             group_id=group_id,
             scene_index=number,
@@ -411,9 +505,11 @@ def cb_regenerate(record_id: str) -> None:
         "Regenerating video",
         record["prompt"],
         record["final_prompt"],
-        dict(record["settings"]),
+        GenerationSettings(**record["settings"]),
     )
     job["negative_prompt"] = record["negative_prompt"]
+    job["api_params"] = dict(record["api_params"])
+    job["plan_summary"] = record["plan_summary"]
     queue_jobs([job])
 
 
@@ -478,6 +574,8 @@ def build_record(
         "final_prompt": job["final_prompt"],
         "negative_prompt": job["negative_prompt"],
         "settings": settings,
+        "api_params": job["api_params"],
+        "plan_summary": job["plan_summary"],
         "video_path": str(video_path) if video_path else None,
         "download_name": download_name,
         "youtube": package,
@@ -495,7 +593,11 @@ def run_job(job: dict[str, Any], api_key: str | None) -> bool:
 
         try:
             result = api_client.generate_video(
-                job["final_prompt"], job["negative_prompt"], api_key, on_stage=on_stage
+                job["final_prompt"],
+                job["negative_prompt"],
+                api_key,
+                job["api_params"],
+                on_stage=on_stage,
             )
             on_stage(api_client.STAGE_PREVIEW)
             video_path = video_utils.save_video_bytes(
@@ -517,7 +619,7 @@ def run_job(job: dict[str, Any], api_key: str | None) -> bool:
                 st.session_state[K_STORY_IDS].append(record["id"])
             else:
                 st.session_state[K_LAST_RESULT] = record["id"]
-            status_box.update(label=FEEDBACK_VIDEO_READY, state="complete", expanded=False)
+            status_box.update(label="Video ready", state="complete", expanded=False)
             return True
 
         add_record(build_record(job, "failed", error=failure))
@@ -592,7 +694,7 @@ def show_video(record: dict[str, Any], key_prefix: str) -> bool:
 
 def render_youtube_package(record: dict[str, Any]) -> None:
     package = record["youtube"]
-    with st.expander("📺 YouTube Package", expanded=True):
+    with st.expander("📺 YouTube Package", expanded=False):
         st.markdown("**Suggested title**")
         st.code(package["title"], language=None)
         st.markdown("**Short description**")
@@ -631,15 +733,15 @@ def api_status_badge() -> str:
     if not config.get_api_key():
         return badge("● API key missing", "bad")
     if connection is None:
-        return badge("● API key configured", "warn")
-    return badge("● Connected", "ok") if connection["ok"] else badge("● Connection issue", "bad")
+        return badge("● API key set", "warn")
+    return badge("● Endpoint OK", "ok") if connection["ok"] else badge("● Endpoint issue", "bad")
 
 
 def render_header() -> None:
-    brand, status, action = st.columns([5, 3, 1.4], vertical_alignment="center")
+    brand, status, action = st.columns([5, 3, 1.5], vertical_alignment="center")
     with brand:
         st.markdown(
-            f'<div class="cf-brand">{config.APP_ICON} <span>{html.escape(config.APP_NAME)}</span></div>'
+            '<div class="cf-brand">CINE<b>FORGE</b> <i>AI</i></div>'
             f'<div class="cf-sub">{html.escape(config.APP_TAGLINE)}</div>',
             unsafe_allow_html=True,
         )
@@ -647,7 +749,7 @@ def render_header() -> None:
         st.markdown(api_status_badge(), unsafe_allow_html=True)
     with action:
         st.button(
-            "＋ New Project",
+            "＋ New project",
             on_click=cb_new_project,
             disabled=st.session_state[K_BUSY],
             help="Clear the current prompt, scenes and results (history is kept).",
@@ -658,40 +760,32 @@ def render_header() -> None:
 
 def render_sidebar() -> None:
     with st.sidebar:
-        st.markdown(f"### {config.APP_ICON} {config.APP_NAME}")
+        st.markdown("### PROJECT")
+        st.text_input("Project name", key=K_PROJECT, max_chars=60, label_visibility="collapsed")
 
-        with st.expander("Project settings", expanded=True):
-            st.text_input("Project name", key=K_PROJECT, max_chars=60)
-            st.caption("The project name is stored with each generation in this session.")
+        st.markdown("### HISTORY")
+        history = st.session_state[K_HISTORY]
+        if not history:
+            st.caption("No generations yet.")
+        for record in history[:8]:
+            icon = "✅" if record["status"] == "success" else "❌"
+            st.caption(f"{icon} {record['created_at'][11:]} · {preview(record['prompt'], 34)}")
+        st.caption(f"{len(history)}/{config.MAX_HISTORY_ITEMS} stored this session")
 
-        with st.expander("Generation history", expanded=True):
-            history = st.session_state[K_HISTORY]
-            if not history:
-                st.caption("No generations yet.")
-            for record in history[:10]:
-                icon = "✅" if record["status"] == "success" else "❌"
-                st.caption(f"{icon} {record['created_at'][11:]} — {preview(record['prompt'], 38)}")
-            st.caption(f"{len(history)}/{config.MAX_HISTORY_ITEMS} stored this session")
+        st.markdown("### TOOLS")
+        st.button("Test API connection", on_click=cb_test_connection, width="stretch")
+        connection = st.session_state[K_CONNECTION]
+        if connection:
+            (st.success if connection["ok"] else st.error)(connection["message"])
+        st.checkbox("Allow deleting all videos", key=K_CONFIRM_CLEAR)
+        st.button(
+            "Clear temporary files",
+            on_click=cb_clear_temp_files,
+            disabled=not st.session_state[K_CONFIRM_CLEAR] or st.session_state[K_BUSY],
+            width="stretch",
+        )
 
-        with st.expander("API connection", expanded=False):
-            st.button("Test connection", on_click=cb_test_connection, width="stretch")
-            connection = st.session_state[K_CONNECTION]
-            if connection:
-                (st.success if connection["ok"] else st.error)(connection["message"])
-            st.caption("The test makes no generation request, so it uses no trial quota.")
-
-        with st.expander("Temporary files", expanded=False):
-            st.checkbox(
-                "Delete all generated videos of this session", key=K_CONFIRM_CLEAR
-            )
-            st.button(
-                "Clear temporary files",
-                on_click=cb_clear_temp_files,
-                disabled=not st.session_state[K_CONFIRM_CLEAR] or st.session_state[K_BUSY],
-                width="stretch",
-            )
-
-        with st.expander("About", expanded=False):
+        with st.expander("About"):
             st.markdown(
                 f"**{config.APP_NAME}** turns text prompts into short AI videos with the "
                 "NVIDIA Cosmos3-Nano hosted API."
@@ -704,221 +798,232 @@ def render_sidebar() -> None:
 # --------------------------------------------------------------------------- #
 # Text-to-video tab                                                           #
 # --------------------------------------------------------------------------- #
-def render_shared_options() -> None:
-    """Content, platform, duration and quality (right column)."""
-    st.selectbox("Content type", list(config.CONTENT_TYPES), key=W_CONTENT)
-    st.selectbox(
-        "Platform preset",
-        list(config.PLATFORM_PRESETS),
-        key=W_PLATFORM,
-        help="Shapes the prompt composition. The aspect ratio is not sent to the API.",
-    )
-    st.selectbox("Requested duration", list(config.DURATION_OPTIONS), key=W_DURATION)
-    if config.DURATION_OPTIONS[st.session_state[W_DURATION]] is None:
-        st.number_input(
-            "Custom duration (seconds)",
-            min_value=config.CUSTOM_DURATION_MIN,
-            max_value=config.CUSTOM_DURATION_MAX,
-            step=1,
-            key=W_CUSTOM_DURATION,
+def render_prompt_card() -> None:
+    prompt = st.session_state[K_PROMPT]
+    with st.container(border=True):
+        kicker("01 // Prompt")
+        st.text_area(
+            "Describe your video",
+            key=K_PROMPT,
+            height=130,
+            max_chars=config.MAX_PROMPT_CHARS,
+            placeholder="A sports car driving through a neon city at night…",
+            label_visibility="collapsed",
         )
-    st.caption(config.DURATION_NOTICE)
-    st.selectbox("Quality", list(config.QUALITY_OPTIONS), key=W_QUALITY)
-    st.caption(config.QUALITY_NOTICE)
-
-
-def render_look_options() -> None:
-    col_style, col_camera, col_light = st.columns(3)
-    with col_style:
-        st.selectbox("Visual style", list(config.VISUAL_STYLES), key=W_STYLE)
-    with col_camera:
-        st.selectbox("Camera movement", list(config.CAMERA_MOVEMENTS), key=W_CAMERA)
-    with col_light:
-        st.selectbox("Lighting", list(config.LIGHTING_OPTIONS), key=W_LIGHTING)
-
-
-def render_negative_and_advanced() -> None:
-    st.text_area(
-        "Negative prompt",
-        key=K_NEGATIVE,
-        height=90,
-        max_chars=config.MAX_NEGATIVE_PROMPT_CHARS,
-        help="Things the model should avoid. Editable.",
-    )
-    with st.expander("Advanced settings", expanded=False):
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.number_input(
-                "Seed",
-                min_value=0,
-                value=0,
-                disabled=True,
-                help="Not sent: the seed field is not confirmed for this Preview endpoint.",
+        counter, example = st.columns([1, 2], vertical_alignment="center")
+        with counter:
+            st.caption(f"{len(prompt)}/{config.MAX_PROMPT_CHARS}")
+        with example:
+            st.selectbox(
+                "Example prompts",
+                [EXAMPLE_PLACEHOLDER, *config.EXAMPLE_PROMPTS],
+                key=K_EXAMPLE,
+                on_change=cb_pick_example,
+                label_visibility="collapsed",
             )
-            st.caption("Seed is disabled until NVIDIA documents it for Cosmos3-Nano.")
+        enhance, reset, _ = st.columns([1.4, 1, 1.6])
+        with enhance:
+            st.button("✨ Enhance prompt", on_click=cb_enhance_prompt, width="stretch")
+        with reset:
+            st.button("Reset", on_click=cb_reset_prompt, width="stretch")
+
+        if st.session_state[W_SHOW_ENHANCED]:
+            with st.expander("Enhanced prompt · editable · sent to NVIDIA", expanded=bool(st.session_state[K_ENHANCED])):
+                st.text_area(
+                    "Enhanced prompt",
+                    key=K_ENHANCED,
+                    height=190,
+                    max_chars=config.MAX_FINAL_PROMPT_CHARS,
+                    placeholder="Click “Enhance prompt” to build it, or leave empty to auto-build on generate.",
+                    label_visibility="collapsed",
+                )
+                signature = st.session_state[K_ENHANCED_SIG]
+                if st.session_state[K_ENHANCED] and signature != settings_signature(
+                    prompt, collect_settings()
+                ):
+                    st.caption("⚠ Prompt or settings changed. Click “Enhance prompt” to refresh.")
+
+
+def render_story_card() -> None:
+    with st.container(border=True):
+        kicker("01 // Story")
+        st.info(
+            "Experimental: every scene is a separate clip, so characters and objects "
+            "will not be perfectly consistent between clips.",
+            icon="⚠️",
+        )
+        st.text_area(
+            "Story or concept",
+            key=K_STORY,
+            height=110,
+            max_chars=config.MAX_PROMPT_CHARS,
+            placeholder="A small robot wakes in an abandoned garden, finds a glowing flower, "
+            "and carries it to the city skyline at sunrise.",
+            label_visibility="collapsed",
+        )
+        count, build = st.columns([2, 1.4], vertical_alignment="bottom")
+        with count:
+            st.slider("Number of scenes", config.MIN_SCENES, config.MAX_SCENES, key=K_SCENE_COUNT)
+        with build:
+            st.button("Build scene cards", on_click=cb_build_scenes, width="stretch")
+
+
+def render_output_card() -> None:
+    with st.container(border=True):
+        kicker("02 // Output")
+        st.selectbox(
+            "Platform",
+            list(config.PLATFORM_PRESETS),
+            key=W_PLATFORM,
+            help="Sets the video aspect ratio (16:9, 9:16 or 1:1). 21:9 is not an API option, "
+            "so it only shapes the prompt.",
+        )
+        quality, duration = st.columns(2)
+        with quality:
+            st.selectbox("Quality", list(config.QUALITY_OPTIONS), key=W_QUALITY, help=config.QUALITY_NOTICE)
+        with duration:
+            st.selectbox("Duration", list(config.DURATION_OPTIONS), key=W_DURATION, help=config.DURATION_NOTICE)
+        if config.DURATION_OPTIONS[st.session_state[W_DURATION]] is None:
+            st.slider(
+                "Custom duration (seconds)",
+                config.CUSTOM_DURATION_MIN,
+                config.CUSTOM_DURATION_MAX,
+                key=W_CUSTOM_DURATION,
+            )
+        plan = plan_for(collect_settings())
+        chips([plan.summary])
+        for note in plan.notes:
+            st.caption(f"⚠ {note}")
+
+
+def render_look_card() -> None:
+    with st.container(border=True):
+        kicker("03 // Look")
+        content, style, camera, lighting = st.columns(4)
+        with content:
+            st.selectbox("Content type", list(config.CONTENT_TYPES), key=W_CONTENT)
+        with style:
+            st.selectbox("Visual style", list(config.VISUAL_STYLES), key=W_STYLE)
+        with camera:
+            st.selectbox("Camera", list(config.CAMERA_MOVEMENTS), key=W_CAMERA)
+        with lighting:
+            st.selectbox("Lighting", list(config.LIGHTING_OPTIONS), key=W_LIGHTING)
+
+
+def render_advanced() -> None:
+    with st.expander("Advanced settings", expanded=False):
+        st.text_area(
+            "Negative prompt",
+            key=K_NEGATIVE,
+            height=80,
+            max_chars=config.MAX_NEGATIVE_PROMPT_CHARS,
+            help="Things the model should avoid.",
+        )
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.number_input("Seed (0 = random)", min_value=0, step=1, key=W_SEED)
             st.select_slider(
-                "Motion intensity", list(config.MOTION_LEVELS), key=W_MOTION,
-                help="Used as prompt wording only.",
-            )  # fmt: skip
-            st.select_slider(
-                "Creativity level", list(config.CREATIVITY_LEVELS), key=W_CREATIVITY,
-                help="Used as prompt wording only.",
+                "Prompt adherence", list(config.ADHERENCE_LEVELS), key=W_ADHERENCE,
+                help="Sent as guidance_scale (Flexible 4, Balanced 6, Strict 7) and as prompt wording.",
             )  # fmt: skip
         with col_b:
             st.select_slider(
-                "Prompt adherence", list(config.ADHERENCE_LEVELS), key=W_ADHERENCE,
-                help="Used as prompt wording only (no guidance value is sent).",
+                "Motion intensity", list(config.MOTION_LEVELS), key=W_MOTION,
+                help="Prompt wording only.",
             )  # fmt: skip
+            st.select_slider(
+                "Creativity", list(config.CREATIVITY_LEVELS), key=W_CREATIVITY,
+                help="Prompt wording only.",
+            )  # fmt: skip
+        with col_c:
             st.toggle(
                 "Keep original prompt", key=W_KEEP_ORIGINAL,
                 help="Keeps your exact wording at the start of the enhanced prompt.",
             )  # fmt: skip
             st.toggle(
                 "Show enhanced prompt", key=W_SHOW_ENHANCED,
-                help="When off, the enhanced prompt is built automatically at generation time.",
+                help="When off, the enhanced prompt is built automatically on generate.",
             )  # fmt: skip
-            st.checkbox(
-                "I confirm this prompt contains no confidential or personal data.",
-                key=W_SAFETY,
-            )
+            st.checkbox("No confidential or personal data", key=W_SAFETY)
 
 
-def render_confirmation_summary(settings: GenerationSettings, requests_count: int) -> None:
-    preset = config.PLATFORM_PRESETS[settings.platform]
-    with st.container(border=True):
-        st.markdown("**Confirmation summary**")
-        st.markdown(
-            f"- **Content:** {settings.content_type} · **Style:** {settings.style}\n"
-            f"- **Platform:** {settings.platform} ({preset.ratio}, prompt-shaping only)\n"
-            f"- **Camera:** {settings.camera} · **Lighting:** {settings.lighting}\n"
-            f"- **Pacing hint:** about {settings.duration_seconds}s · **Quality wording:** {settings.quality}\n"
-            f"- **API requests:** {requests_count} (counts toward your NVIDIA trial limits)"
-        )
-
-
-def render_single_mode() -> None:
-    prompt = st.session_state[K_PROMPT]
-    st.text_area(
-        "Describe your video",
-        key=K_PROMPT,
-        height=140,
-        max_chars=config.MAX_PROMPT_CHARS,
-        placeholder="Example: A sports car driving through a city at night",
+def render_generate_bar(
+    settings: GenerationSettings, requests_count: int, label: str, callback: Any, disabled: bool
+) -> None:
+    plan = plan_for(settings)
+    chips(
+        [
+            settings.content_type,
+            settings.style,
+            settings.camera,
+            plan.summary,
+            f"{requests_count} API request{'s' if requests_count != 1 else ''}",
+        ]
     )
-    st.caption(f"{len(prompt)}/{config.MAX_PROMPT_CHARS} characters")
-
-    st.caption("Try an example:")
-    for column, example in zip(st.columns(len(config.EXAMPLE_PROMPTS)), config.EXAMPLE_PROMPTS):
-        with column:
-            st.button(
-                preview(example, 34), key=f"example_{example}", help=example,
-                on_click=cb_use_example, args=(example,), width="stretch",
-            )  # fmt: skip
-
-    col_enhance, col_reset, _ = st.columns([1.3, 1, 3])
-    with col_enhance:
-        st.button("✨ Enhance Prompt", on_click=cb_enhance_prompt, width="stretch")
-    with col_reset:
-        st.button("Reset", on_click=cb_reset_prompt, width="stretch")
-
-
-def render_single_generation() -> None:
-    settings = collect_settings()
-    prompt = st.session_state[K_PROMPT]
-    if st.session_state[W_SHOW_ENHANCED]:
-        st.text_area(
-            "Enhanced prompt (editable, sent to NVIDIA)",
-            key=K_ENHANCED,
-            height=200,
-            max_chars=config.MAX_FINAL_PROMPT_CHARS,
-            placeholder="Click “Enhance Prompt” to build a detailed prompt, or leave empty to auto-build it.",
-        )
-        signature = st.session_state[K_ENHANCED_SIG]
-        if st.session_state[K_ENHANCED] and signature != settings_signature(prompt, settings):
-            st.caption("⚠ Prompt or settings changed since enhancing. Click “Enhance Prompt” to refresh.")
-
-    render_confirmation_summary(settings, 1)
     render_form_errors()
     st.button(
-        "🎬 Generate Video",
+        label,
         type="primary",
-        on_click=cb_generate_single,
-        disabled=st.session_state[K_BUSY],
+        on_click=callback,
+        disabled=st.session_state[K_BUSY] or disabled,
         width="stretch",
     )
 
+
+def render_single_results() -> None:
     record = find_record(st.session_state[K_LAST_RESULT])
     if record is None:
         if not st.session_state[K_HISTORY]:
             render_empty_state(
-                "Your video will appear here",
-                "Describe a scene, optionally enhance the prompt, then press Generate Video.",
+                "Output bay empty",
+                "Describe a scene and press Generate. Your video will appear here.",
             )
         return
-    st.success("Video generated successfully!")
-    if show_video(record, "latest"):
-        meta = record["metadata"]
-        st.caption(
-            f"Generated in {meta.get('elapsed_seconds', '?')}s · "
-            f"{meta.get('size_bytes', 0) / 1_048_576:.1f} MB · {config.SYNTHID_NOTICE}"
-        )
-    render_youtube_package(record)
+    with st.container(border=True):
+        kicker("Output")
+        if show_video(record, "latest"):
+            meta = record["metadata"]
+            st.caption(
+                f"{record['plan_summary']} · generated in {meta.get('elapsed_seconds', '?')}s · "
+                f"{meta.get('size_bytes', 0) / 1_048_576:.1f} MB · {config.SYNTHID_NOTICE}"
+            )
+        render_youtube_package(record)
 
 
-def render_storyboard_mode() -> None:
-    st.info(
-        "Experimental: each scene is generated as a separate clip. Characters and objects "
-        "will **not** be perfectly consistent between clips."
-    )
-    st.text_area(
-        "Story or concept",
-        key=K_STORY,
-        height=120,
-        max_chars=config.MAX_PROMPT_CHARS,
-        placeholder="Example: A small robot wakes up in an abandoned garden. It explores, finds a "
-        "glowing flower, and carries it to the city skyline at sunrise.",
-    )
-    col_count, col_build, _ = st.columns([2, 1.5, 2], vertical_alignment="bottom")
-    with col_count:
-        st.slider("Number of scenes", config.MIN_SCENES, config.MAX_SCENES, key=K_SCENE_COUNT)
-    with col_build:
-        st.button("Build scene cards", on_click=cb_build_scenes, width="stretch")
-
-
-def render_storyboard_generation() -> None:
+def render_storyboard_body() -> None:
     settings = collect_settings()
     built = int(st.session_state[K_SCENES_BUILT])
     if built >= config.MIN_SCENES:
-        if built != int(st.session_state[K_SCENE_COUNT]):
-            st.caption("The scene count changed. Click “Build scene cards” to rebuild.")
-        st.text_area(
-            "Shared style prefix (added to every scene)",
-            key=K_PREFIX,
-            height=90,
-            max_chars=config.MAX_PROMPT_CHARS,
-        )
-        for row_start in range(0, built, 2):
-            columns = st.columns(2)
-            for offset, column in enumerate(columns):
-                index = row_start + offset
-                if index < built:
-                    with column, st.container(border=True):
-                        st.text_area(
-                            f"Scene {index + 1}", key=scene_key(index), height=130,
-                            max_chars=config.MAX_PROMPT_CHARS,
-                        )  # fmt: skip
-        render_confirmation_summary(settings, built)
+        with st.container(border=True):
+            kicker("04 // Scenes")
+            if built != int(st.session_state[K_SCENE_COUNT]):
+                st.caption("The scene count changed. Click “Build scene cards” to rebuild.")
+            st.text_area(
+                "Shared style prefix (added to every scene)",
+                key=K_PREFIX,
+                height=80,
+                max_chars=config.MAX_PROMPT_CHARS,
+            )
+            for row_start in range(0, built, 2):
+                for offset, column in enumerate(st.columns(2)):
+                    index = row_start + offset
+                    if index < built:
+                        with column:
+                            st.text_area(
+                                f"Scene {index + 1}", key=scene_key(index), height=120,
+                                max_chars=config.MAX_PROMPT_CHARS,
+                            )  # fmt: skip
     else:
         render_empty_state(
             "No scenes yet", "Enter a story, choose the scene count and build the scene cards."
         )
-    render_form_errors()
-    st.button(
-        f"🎬 Generate {built} scenes" if built >= config.MIN_SCENES else "🎬 Generate scenes",
-        type="primary",
-        on_click=cb_generate_storyboard,
-        disabled=st.session_state[K_BUSY] or built < config.MIN_SCENES,
-        width="stretch",
+    ready = built >= config.MIN_SCENES
+    render_generate_bar(
+        settings,
+        max(built, 0),
+        f"🎬 Generate {built} scenes" if ready else "🎬 Generate scenes",
+        cb_generate_storyboard,
+        disabled=not ready,
     )
     render_storyboard_results()
 
@@ -927,67 +1032,68 @@ def render_storyboard_results() -> None:
     records = [r for r in map(find_record, st.session_state[K_STORY_IDS]) if r]
     if not records:
         return
-    st.subheader("Generated scenes")
-    for column, record in zip(st.columns(min(len(records), 3)), records):
-        with column:
-            st.markdown(f"**Scene {record['scene_index']}**")
-            show_video(record, "scene")
-            with st.expander("Prompt"):
-                st.write(record["final_prompt"])
+    with st.container(border=True):
+        kicker("Generated scenes")
+        for column, record in zip(st.columns(min(len(records), 3)), records):
+            with column:
+                st.markdown(f"**Scene {record['scene_index']}**")
+                show_video(record, "scene")
+                with st.expander("Prompt"):
+                    st.write(record["final_prompt"])
     render_merge_section(records)
 
 
 def render_merge_section(records: list[dict[str, Any]]) -> None:
-    st.subheader("Combine clips")
-    if not video_utils.ffmpeg_available():
-        st.info(video_utils.FFMPEG_INSTALL_HINT)
-        return
-    if len(records) < 2:
-        st.caption("At least two generated scenes are needed to merge.")
-        return
-    st.checkbox("Add simple crossfades", key=K_CROSSFADE)
-    audio_file = st.file_uploader(
-        "Optional audio track (your own audio only)",
-        type=[ext.lstrip(".") for ext in config.ALLOWED_AUDIO_EXTENSIONS],
-        help=f"Max {config.MAX_AUDIO_BYTES // (1024 * 1024)} MB.",
-    )
-    st.warning("Only upload audio you have the rights to use. This app does not generate music.")
-    if st.button("Merge clips", disabled=st.session_state[K_BUSY]):
-        audio_bytes: bytes | None = None
-        extension = ".mp3"
-        if audio_file is not None:
-            audio_bytes = audio_file.getvalue()
-            extension = Path(audio_file.name).suffix.lower()
-            problem = video_utils.validate_audio_upload(audio_file.name, audio_bytes)
-            if problem:
-                st.error(problem)
-                return
-        paths = [Path(r["video_path"]) for r in records if r.get("video_path")]
-        with st.spinner("Merging clips with FFmpeg…"):
-            try:
-                output = video_utils.merge_clips(
-                    paths, st.session_state[K_CROSSFADE], audio_bytes, extension,
-                    st.session_state[K_SESSION_ID],
+    with st.container(border=True):
+        kicker("Combine clips")
+        if not video_utils.ffmpeg_available():
+            st.info(video_utils.FFMPEG_INSTALL_HINT)
+            return
+        if len(records) < 2:
+            st.caption("At least two generated scenes are needed to merge.")
+            return
+        st.checkbox("Add simple crossfades", key=K_CROSSFADE)
+        audio_file = st.file_uploader(
+            "Optional audio track (your own audio only)",
+            type=[ext.lstrip(".") for ext in config.ALLOWED_AUDIO_EXTENSIONS],
+            help=f"Max {config.MAX_AUDIO_BYTES // (1024 * 1024)} MB. Only upload audio you have rights to use.",
+        )
+        if st.button("Merge clips", disabled=st.session_state[K_BUSY]):
+            audio_bytes: bytes | None = None
+            extension = ".mp3"
+            if audio_file is not None:
+                audio_bytes = audio_file.getvalue()
+                extension = Path(audio_file.name).suffix.lower()
+                problem = video_utils.validate_audio_upload(audio_file.name, audio_bytes)
+                if problem:
+                    st.error(problem)
+                    return
+            paths = [Path(r["video_path"]) for r in records if r.get("video_path")]
+            with st.spinner("Merging clips with FFmpeg…"):
+                try:
+                    output = video_utils.merge_clips(
+                        paths, st.session_state[K_CROSSFADE], audio_bytes, extension,
+                        st.session_state[K_SESSION_ID],
+                    )  # fmt: skip
+                except video_utils.VideoProcessingError as error:
+                    st.error(str(error))
+                    return
+            discard_merged_video()
+            title = records[0]["youtube"]["title"]
+            st.session_state[K_MERGED] = {
+                "path": str(output),
+                "name": video_utils.safe_filename(title + " combined"),
+            }
+        merged = st.session_state[K_MERGED]
+        if merged:
+            data = video_utils.read_video_bytes(merged["path"])
+            if data:
+                st.success("Combined video ready.")
+                st.video(data)
+                st.download_button(
+                    "⬇ Export combined MP4", data=data, file_name=merged["name"],
+                    mime="video/mp4", key="merged_download",
                 )  # fmt: skip
-            except video_utils.VideoProcessingError as error:
-                st.error(str(error))
-                return
-        discard_merged_video()
-        title = records[0]["youtube"]["title"]
-        st.session_state[K_MERGED] = {
-            "path": str(output),
-            "name": video_utils.safe_filename(title + " combined"),
-        }
-    merged = st.session_state[K_MERGED]
-    if merged:
-        data = video_utils.read_video_bytes(merged["path"])
-        if data:
-            st.success("Combined video ready.")
-            st.video(data)
-            st.download_button(
-                "⬇ Export combined MP4", data=data, file_name=merged["name"], mime="video/mp4",
-                key="merged_download",
-            )  # fmt: skip
 
 
 def render_text_to_video_tab() -> None:
@@ -996,29 +1102,26 @@ def render_text_to_video_tab() -> None:
         label_visibility="collapsed", disabled=st.session_state[K_BUSY],
     )  # fmt: skip
     storyboard = st.session_state[K_MODE] == MODE_STORYBOARD
-    left, right = st.columns([3, 2], gap="large")
+    left, right = st.columns([7, 4], gap="medium")
     with left:
         if storyboard:
-            render_storyboard_mode()
+            render_story_card()
         else:
-            render_single_mode()
-        render_look_options()
+            render_prompt_card()
     with right:
-        render_shared_options()
-    render_negative_and_advanced()
+        render_output_card()
+    render_look_card()
+    render_advanced()
     if storyboard:
-        render_storyboard_generation()
+        render_storyboard_body()
     else:
-        render_single_generation()
+        render_generate_bar(collect_settings(), 1, "🎬 Generate video", cb_generate_single, False)
+        render_single_results()
 
 
 # --------------------------------------------------------------------------- #
 # Other tabs                                                                  #
 # --------------------------------------------------------------------------- #
-def render_coming_soon(title: str, detail: str) -> None:
-    render_empty_state(f"{title}: coming soon", detail)
-
-
 def render_creations_tab() -> None:
     history = st.session_state[K_HISTORY]
     successes = [r for r in history if r["status"] == "success"]
@@ -1036,7 +1139,7 @@ def render_creations_tab() -> None:
                 st.markdown(f"**{record['youtube']['title']}**")
                 st.caption(
                     f"{record['created_at']} · {settings['content_type']} · {settings['style']} · "
-                    f"{settings['platform']}"
+                    f"{settings['platform']} · {record['plan_summary']}"
                 )
                 st.write(preview(record["prompt"], 220))
                 regenerate_col, delete_col, _ = st.columns([1, 1, 2])
@@ -1097,14 +1200,14 @@ def main() -> None:
     with tab_text:
         render_text_to_video_tab()
     with tab_image:
-        render_coming_soon(
-            "Image to Video",
-            "The confirmed request schema for image input is not available yet, so no controls are shown.",
+        render_empty_state(
+            "Image to Video: coming soon",
+            "Image input is not implemented yet, so no controls are shown.",
         )
     with tab_video:
-        render_coming_soon(
-            "Video to Video",
-            "The confirmed request schema for video input is not available yet, so no controls are shown.",
+        render_empty_state(
+            "Video to Video: coming soon",
+            "Video input is not implemented yet, so no controls are shown.",
         )
     with tab_creations:
         render_creations_tab()

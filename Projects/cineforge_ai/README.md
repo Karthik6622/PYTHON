@@ -85,6 +85,7 @@ NVIDIA_API_KEY=nvapi-your-key-here
 ```
 
 Secrets take priority over the environment variable. Both files are git-ignored. Never commit a real key.
+Optionally set `NVIDIA_API_URL` the same way to override the invocation URL.
 
 ## Deploy on Streamlit Community Cloud
 
@@ -105,15 +106,17 @@ Secrets take priority over the environment variable. Both files are git-ignored.
 ## Known Preview API limitations
 
 - Cosmos3-Nano is a Preview endpoint; its schema, limits and availability can change.
-- Only `model_mode`, `prompt` and `negative_prompt` are sent. Duration, aspect ratio, resolution, FPS, seed, motion
-  and guidance are **not confirmed** request fields, so they only shape the prompt wording.
-- Output length, resolution and quality are controlled by the model. Requested duration is a pacing hint only.
+- The app sends `model_mode`, `prompt`, `negative_prompt` plus the documented optional fields `resolution`,
+  `num_frames`, `fps`, `num_inference_steps`, `guidance_scale` and `seed`. Everything else (content type, style,
+  camera, lighting, motion, creativity) only shapes the prompt text.
+- Mapping: Platform → `resolution` aspect (16:9, 9:16, 1:1; 21:9 falls back to 16:9), Quality → resolution tier
+  (Draft 256p / Standard 480p / High 720p) and steps, Duration → `num_frames` at 24 fps (max ≈16 s / 12 s / 8 s per
+  tier), Prompt adherence → `guidance_scale`, Seed → `seed` (0 = random).
+- Returned videos use a VP9 track inside an MP4; use a compatible player (current Chrome/Edge/Firefox work).
 - The app expects a synchronous response with `b64_video`. Asynchronous (HTTP 202) responses are not supported.
 - Separate storyboard clips will not have perfect character or object consistency.
 
-**Updating the schema:** all schema-dependent lines are isolated in `config.py` and marked `[SCHEMA]`. Copy the JSON
-body from NVIDIA's **View API Code** panel and adjust `build_payload`, `MODEL_MODE_TEXT2VIDEO`,
-`RESPONSE_VIDEO_FIELD` and `SUPPORTED_OPTIONAL_PARAMS` only.
+**Updating the schema:** all schema-dependent lines are isolated in `config.py` and marked `[SCHEMA]`.
 
 ## Troubleshooting
 
@@ -122,8 +125,8 @@ body from NVIDIA's **View API Code** panel and adjust `build_payload`, `MODEL_MO
 | "NVIDIA API key missing" | No secret or env variable | Add `NVIDIA_API_KEY` to `.streamlit/secrets.toml` or `.env`, restart |
 | 401 Authentication failed | Invalid, expired or revoked key | Create a new key on build.nvidia.com |
 | 403 Access denied | Trial terms not accepted / endpoint not enabled | Open the model page, accept the terms, confirm access |
-| 404 Endpoint not found | Endpoint URL changed | Compare `API_URL` with "View API Code" |
-| 422 Invalid request field | Preview schema changed | Update the `[SCHEMA]` lines in `config.py` |
+| 404 Endpoint not found | NVIDIA's gateway does not serve the URL (it returned 404 even for requests without a valid key when this was checked) | Copy the invocation URL from the model page's **View API Code** panel into `NVIDIA_API_URL` (secrets or `.env`); a self-hosted NIM uses `http://<host>:8000/v1/infer`. Use **Test API connection** in the sidebar to re-check |
+| 422 Invalid request field | Preview schema changed or a value is out of range | Compare with "View API Code" and update the `[SCHEMA]` lines in `config.py` |
 | 429 Rate limit | Free-trial or rate limit reached | Wait and retry later |
 | Timeout | Generation took over 600 s | Retry with a simpler prompt |
 | "Unsupported video format" | Output was not an MP4 | Retry; report if persistent |

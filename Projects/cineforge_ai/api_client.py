@@ -98,7 +98,12 @@ class AccessDeniedError(CineForgeError):
 
 class EndpointNotFoundError(CineForgeError):
     title = "Endpoint not found (404)"
-    hint = "The endpoint URL may have changed. Check API_URL in config.py against NVIDIA's 'View API Code'."
+    hint = (
+        "NVIDIA's gateway does not serve this URL for your request. Open the model page's "
+        "'View API Code' panel, copy the invocation URL and set NVIDIA_API_URL in "
+        ".streamlit/secrets.toml (or .env). A self-hosted NIM uses http://<host>:8000"
+        f"{config.SELF_HOSTED_NIM_PATH}. Use the connection test in the sidebar to re-check."
+    )
 
 
 class InvalidRequestFieldError(CineForgeError):
@@ -271,12 +276,13 @@ def generate_video(
     }
     payload = config.build_payload(prompt.strip(), negative_prompt, optional_supported_parameters)
 
+    api_url = config.get_api_url()
     notify(STAGE_CONNECTING)
     started = time.monotonic()
     try:
         notify(STAGE_GENERATING)
         response = requests.post(
-            config.API_URL,
+            api_url,
             headers=headers,
             json=payload,
             timeout=(config.CONNECT_TIMEOUT_SECONDS, timeout),
@@ -294,7 +300,10 @@ def generate_video(
     elapsed = time.monotonic() - started
 
     if response.status_code != 200:
-        raise _error_from_response(response, api_key)
+        error = _error_from_response(response, api_key)
+        if isinstance(error, EndpointNotFoundError):
+            error.details = f"URL: {api_url}\n{error.details}"
+        raise error
 
     notify(STAGE_DECODING)
     try:
@@ -337,10 +346,10 @@ class ConnectionStatus:
 
 
 def check_connection(api_key: str | None) -> ConnectionStatus:
-    """Check key presence and network reachability without spending quota.
+    """Check key presence and whether the endpoint route exists, without spending quota.
 
-    No generation request is made and the key is not sent, so a passing test
-    does not prove the key is valid; that is confirmed on the first generation.
+    An *unauthenticated* empty request is sent (the key is never transmitted):
+    401/403/422 prove the route exists, 404 proves it does not.
     """
     if not api_key:
         return ConnectionStatus(False, "No API key configured.")
@@ -348,11 +357,22 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
         return ConnectionStatus(
             False, f"The key does not start with '{config.API_KEY_PREFIX}'. Check the value."
         )
+    api_url = config.get_api_url()
     try:
-        requests.head(config.API_URL, timeout=config.CONNECT_TIMEOUT_SECONDS)
+        response = requests.post(
+            api_url, json={}, headers={"Accept": "application/json"},
+            timeout=config.CONNECT_TIMEOUT_SECONDS,
+        )
     except requests.RequestException:
         return ConnectionStatus(False, "NVIDIA could not be reached. Check your network.")
+    if response.status_code == 404:
+        return ConnectionStatus(
+            False,
+            f"Endpoint not found (404) at {api_url}. Set NVIDIA_API_URL to the invocation "
+            "URL from the model page's 'View API Code' panel.",
+        )
+    if response.status_code >= 500:
+        return ConnectionStatus(False, f"NVIDIA returned a server error ({response.status_code}).")
     return ConnectionStatus(
-        True,
-        "Key found and NVIDIA is reachable. The key itself is verified on the first generation.",
+        True, "Endpoint found. The key itself is verified on the first generation."
     )

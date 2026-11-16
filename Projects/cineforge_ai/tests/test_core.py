@@ -43,13 +43,13 @@ def isolated_storage(tmp_path, monkeypatch):
 
 
 # ------------------------------- api_client -------------------------------- #
-def test_generate_video_success_sends_only_confirmed_fields(monkeypatch):
+def test_generate_video_success_sends_only_documented_fields(monkeypatch):
     post = MagicMock(return_value=fake_response(200, {"b64_video": "data:video/mp4;base64," + FAKE_B64}))
     monkeypatch.setattr(api_client.requests, "post", post)
     stages: list[str] = []
 
     result = api_client.generate_video(
-        "A car driving", "blurry", FAKE_KEY, {"seed": 5, "duration": 10}, on_stage=stages.append
+        "A car driving", "blurry", FAKE_KEY, {"seed": 5, "num_frames": 49, "bogus": 1}, on_stage=stages.append
     )
 
     assert result.video_bytes == FAKE_MP4
@@ -60,9 +60,12 @@ def test_generate_video_success_sends_only_confirmed_fields(monkeypatch):
         api_client.STAGE_DECODING,
     ]
     sent = post.call_args.kwargs
-    assert sent["json"] == {"model_mode": "text2video", "prompt": "A car driving", "negative_prompt": "blurry"}
+    assert sent["json"] == {
+        "model_mode": "text2video", "prompt": "A car driving", "negative_prompt": "blurry",
+        "seed": 5, "num_frames": 49,
+    }
     assert sent["headers"]["Authorization"] == f"Bearer {FAKE_KEY}"
-    assert "b64_video" not in result.metadata.get("response_fields", [])
+    assert post.call_args.args[0] == config.DEFAULT_API_URL
 
 
 @pytest.mark.parametrize(
@@ -118,8 +121,36 @@ def test_bad_success_bodies(monkeypatch, body, error_class):
 
 
 def test_config_drops_unconfirmed_parameters():
-    payload = config.build_payload("prompt", "", {"seed": 1, "fps": 24})
-    assert payload == {"model_mode": "text2video", "prompt": "prompt"}
+    payload = config.build_payload("prompt", "", {"seed": 1, "fps": 24, "motion": 3})
+    assert payload == {"model_mode": "text2video", "prompt": "prompt", "seed": 1, "fps": 24}
+
+
+def test_url_override_is_used(monkeypatch):
+    monkeypatch.setenv("NVIDIA_API_URL", "https://example.test/v1/infer")
+    post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+    api_client.generate_video("A car driving", "", FAKE_KEY)
+    assert post.call_args.args[0] == "https://example.test/v1/infer"
+
+
+def test_connection_check_detects_missing_route(monkeypatch):
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=fake_response(404)))
+    status = api_client.check_connection(FAKE_KEY)
+    assert not status.ok and "NVIDIA_API_URL" in status.message
+    monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=fake_response(401)))
+    assert api_client.check_connection(FAKE_KEY).ok
+
+
+def test_plan_video_maps_options_and_clamps():
+    plan = config.plan_video("9:16", "Standard", 8, "Strict", seed=7)
+    assert plan.params == {
+        "resolution": "480_9_16", "num_frames": 192, "fps": 24,
+        "num_inference_steps": 35, "guidance_scale": 7.0, "seed": 7,
+    }
+    high = config.plan_video("21:9", "High quality", 15, "Balanced")
+    assert high.params["resolution"] == "720_16_9" and high.params["num_frames"] == 197
+    assert "seed" not in high.params and len(high.notes) == 2
+    assert config.plan_video("1:1", "Draft", 1, "Flexible").params["num_frames"] == config.MIN_FRAMES
 
 
 # ------------------------------ prompt engine ------------------------------ #
@@ -203,14 +234,15 @@ def test_text_to_video_flow_end_to_end(monkeypatch):
     assert not at.exception
 
     at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
-    at = _click(at, "Enhance Prompt")
+    at = _click(at, "Enhance prompt")
     assert "sports car" in at.text_area(key="enhanced_prompt").value
 
-    at = _click(at, "Generate Video")
+    at = _click(at, "Generate video")
     assert not at.exception, at.exception
     assert post.call_count == 1
     sent = post.call_args.kwargs["json"]
-    assert set(sent) == {"model_mode", "prompt", "negative_prompt"}
+    assert {"model_mode", "prompt", "negative_prompt", "resolution", "num_frames", "fps"} <= set(sent)
+    assert sent["resolution"] == "480_16_9" and sent["num_frames"] == 192
     assert sent["prompt"] == at.session_state["enhanced_prompt"]
 
     history = at.session_state["history"]
@@ -227,7 +259,7 @@ def test_short_prompt_is_rejected_without_api_call(monkeypatch):
     monkeypatch.setattr(api_client.requests, "post", post)
     at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
     at.text_area(key="prompt_text").set_value("hi").run()
-    at = _click(at, "Generate Video")
+    at = _click(at, "Generate video")
     post.assert_not_called()
     assert any("at least" in w.value for w in at.warning)
 
@@ -239,7 +271,7 @@ def test_api_failure_is_shown_without_leaking_key(monkeypatch):
     monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=body))
     at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
     at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
-    at = _click(at, "Generate Video")
+    at = _click(at, "Generate video")
     assert any("Access denied" in e.value for e in at.error)
     assert FAKE_KEY not in repr(at.session_state["last_error"])
 
@@ -252,7 +284,7 @@ def test_storyboard_regenerate_and_delete(monkeypatch):
     monkeypatch.setattr(config, "REQUEST_COOLDOWN_SECONDS", 0.0)
     at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
 
-    at.radio(key="t2v_mode").set_value("Multi-Scene Storyboard (experimental)").run()
+    at.radio(key="t2v_mode").set_value("Storyboard (experimental)").run()
     at.text_area(key="story_text").set_value("A robot wakes in a garden. It finds a flower.").run()
     at.slider(key="scene_count").set_value(2).run()
     at = _click(at, "Build scene cards")

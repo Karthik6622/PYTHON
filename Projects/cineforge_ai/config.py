@@ -27,7 +27,9 @@ APP_ICON = "🎬"
 # --------------------------------------------------------------------------- #
 # NVIDIA API                                                                  #
 # --------------------------------------------------------------------------- #
-API_URL = "https://ai.api.nvidia.com/v1/cosmos/nvidia/cosmos3-nano"
+DEFAULT_API_URL = "https://ai.api.nvidia.com/v1/cosmos/nvidia/cosmos3-nano"
+API_URL_SETTING_NAME = "NVIDIA_API_URL"  # optional override (secrets or environment)
+SELF_HOSTED_NIM_PATH = "/v1/infer"
 API_MODEL_PAGE_URL = "https://build.nvidia.com/nvidia/cosmos3-nano"
 API_KEY_SECRET_NAME = "NVIDIA_API_KEY"
 API_KEY_PREFIX = "nvapi-"
@@ -44,11 +46,18 @@ CONNECT_TIMEOUT_SECONDS = 15
 MODEL_MODE_TEXT2VIDEO = "text2video"  # [SCHEMA] confirmed value of "model_mode"
 RESPONSE_VIDEO_FIELD = "b64_video"  # [SCHEMA] confirmed response field
 
-# [SCHEMA] Optional request fields confirmed to be accepted by the endpoint.
-# Empty on purpose: duration, aspect ratio, resolution, FPS, seed, motion and
-# guidance are NOT confirmed, so they are never sent and only shape the prompt.
-# Add a name here (e.g. "seed") only after verifying it in "View API Code".
-SUPPORTED_OPTIONAL_PARAMS: frozenset[str] = frozenset()
+# [SCHEMA] Optional text2video fields documented on the model page (OpenAPI
+# TextToVideoRequest). Anything not listed here is never sent.
+SUPPORTED_OPTIONAL_PARAMS: frozenset[str] = frozenset(
+    {"resolution", "num_frames", "fps", "seed", "num_inference_steps", "guidance_scale"}
+)
+# [SCHEMA] Limits from the schema: resolution tier -> maximum num_frames.
+MIN_FRAMES = 25
+MAX_FRAMES_BY_TIER: dict[str, int] = {"256": 397, "480": 297, "720": 197}
+RESOLUTION_ASPECT_SUFFIX: dict[str, str] = {"16:9": "16_9", "9:16": "9_16", "1:1": "1_1"}
+FPS_RANGE = (1, 60)
+STEPS_RANGE = (1, 100)
+GUIDANCE_RANGE = (1.0, 7.0)
 
 
 def build_payload(
@@ -71,6 +80,60 @@ def build_payload(
         if name in SUPPORTED_OPTIONAL_PARAMS and value is not None:
             payload[name] = value
     return payload
+
+
+# Friendly UI choice -> documented API value.
+TIER_BY_QUALITY: dict[str, str] = {"Draft": "256", "Standard": "480", "High quality": "720"}
+STEPS_BY_QUALITY: dict[str, int] = {"Draft": 20, "Standard": 35, "High quality": 50}
+GUIDANCE_BY_ADHERENCE: dict[str, float] = {"Flexible": 4.0, "Balanced": 6.0, "Strict": 7.0}
+DEFAULT_FPS = 24
+
+
+@dataclass(frozen=True)
+class VideoPlan:
+    """API parameters derived from UI choices, plus human-readable notes."""
+
+    params: dict[str, Any]
+    actual_seconds: float
+    notes: tuple[str, ...]
+
+    @property
+    def summary(self) -> str:
+        tier = str(self.params["resolution"]).split("_")[0]
+        return (
+            f"{tier}p · {self.params['num_frames']} frames @ {self.params['fps']} fps "
+            f"≈ {self.actual_seconds:.1f}s"
+        )
+
+
+def plan_video(
+    ratio: str, quality: str, duration_seconds: int, adherence: str, seed: int = 0
+) -> VideoPlan:
+    """Map UI options to documented API parameters, clamping to schema limits."""
+    tier = TIER_BY_QUALITY.get(quality, "480")
+    suffix = RESOLUTION_ASPECT_SUFFIX.get(ratio, "16_9")
+    notes: list[str] = []
+    if ratio not in RESOLUTION_ASPECT_SUFFIX:
+        notes.append(f"{ratio} is not an API resolution option; 16:9 is used and {ratio} is prompt-only.")
+    wanted = round(duration_seconds * DEFAULT_FPS)
+    frames = max(MIN_FRAMES, min(wanted, MAX_FRAMES_BY_TIER[tier]))
+    if frames < wanted:
+        notes.append(
+            f"{quality} quality allows at most {frames / DEFAULT_FPS:.1f}s; "
+            "choose a lower quality tier for longer clips."
+        )
+    if frames > wanted:
+        notes.append(f"The model's minimum is {MIN_FRAMES} frames (≈{MIN_FRAMES / DEFAULT_FPS:.1f}s).")
+    params: dict[str, Any] = {
+        "resolution": f"{tier}_{suffix}",
+        "num_frames": frames,
+        "fps": DEFAULT_FPS,
+        "num_inference_steps": STEPS_BY_QUALITY.get(quality, 35),
+        "guidance_scale": GUIDANCE_BY_ADHERENCE.get(adherence, 6.0),
+    }
+    if seed and seed > 0:
+        params["seed"] = int(seed)
+    return VideoPlan(params, frames / DEFAULT_FPS, tuple(notes))
 
 
 # --------------------------------------------------------------------------- #
@@ -145,11 +208,11 @@ DURATION_OPTIONS: dict[str, int | None] = {
     "15 seconds": 15,
     "Custom": None,
 }
-CUSTOM_DURATION_MIN = 3
-CUSTOM_DURATION_MAX = 30
+CUSTOM_DURATION_MIN = 2
+CUSTOM_DURATION_MAX = 16
 DURATION_NOTICE = (
-    "Duration depends on the current NVIDIA API output. "
-    "Longer videos may require multiple generated scenes."
+    "Duration is converted to a frame count at 24 fps. The model allows up to about 8 s at High "
+    "quality, 12 s at Standard and 16 s at Draft; use Storyboard mode for longer videos."
 )
 
 VISUAL_STYLES: dict[str, str] = {
@@ -198,8 +261,8 @@ QUALITY_OPTIONS: dict[str, str] = {
     ),
 }
 QUALITY_NOTICE = (
-    "Quality is expressed through prompt wording only; the final output "
-    "resolution and fidelity are controlled by the model."
+    "Draft = 256p, Standard = 480p, High quality = 720p. Higher tiers add more "
+    "inference steps and take longer."
 )
 
 MOTION_LEVELS: dict[str, str] = {
@@ -240,20 +303,28 @@ SYNTHID_NOTICE = (
 
 
 # --------------------------------------------------------------------------- #
-# API key lookup                                                              #
+# Settings lookup (Streamlit secrets first, environment second)               #
 # --------------------------------------------------------------------------- #
+def _read_setting(name: str) -> str | None:
+    try:
+        import streamlit as st
+
+        secret = st.secrets.get(name)
+        if secret:
+            return str(secret).strip() or None
+    except Exception:  # secrets.toml missing or unreadable
+        pass
+    return os.getenv(name, "").strip() or None
+
+
 def get_api_key() -> str | None:
     """Return the NVIDIA API key from Streamlit secrets or the environment.
 
     The key is read on demand and is never stored in session state or logged.
     """
-    try:
-        import streamlit as st
+    return _read_setting(API_KEY_SECRET_NAME)
 
-        secret = st.secrets.get(API_KEY_SECRET_NAME)
-        if secret:
-            return str(secret).strip() or None
-    except Exception:  # secrets.toml missing or unreadable
-        pass
-    env_value = os.getenv(API_KEY_SECRET_NAME, "").strip()
-    return env_value or None
+
+def get_api_url() -> str:
+    """Return the invocation URL (``NVIDIA_API_URL`` override or the default)."""
+    return _read_setting(API_URL_SETTING_NAME) or DEFAULT_API_URL

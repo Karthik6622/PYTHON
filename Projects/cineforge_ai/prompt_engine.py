@@ -36,7 +36,7 @@ class GenerationSettings:
     creativity: str = "Balanced"
     adherence: str = "Balanced"
     keep_original: bool = True
-
+    seed: int = 0
     def to_dict(self) -> dict[str, object]:
         """Return a plain dict suitable for session storage."""
         return asdict(self)
