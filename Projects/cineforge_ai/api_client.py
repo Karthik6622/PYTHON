@@ -1,7 +1,9 @@
-"""NVIDIA Cosmos3-Nano API client.
+"""Video generation API client.
 
-All HTTP logic lives here so the rest of the app never touches the network or
-the API key directly. Every failure is raised as a :class:`CineForgeError`
+Two providers are supported: a free LTX-Video Hugging Face Space (default, no
+API key needed) and the NVIDIA Cosmos3-Nano hosted API (``VIDEO_PROVIDER=nvidia``).
+All network logic lives here so the rest of the app never touches the network or
+any token directly. Every failure is raised as a :class:`CineForgeError`
 subclass carrying a short user-facing message, a hint and *redacted* technical
 details that are safe to display.
 """
@@ -13,6 +15,7 @@ import binascii
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 import requests
@@ -22,7 +25,7 @@ import config
 StageCallback = Callable[[str], None]
 
 STAGE_PREPARING = "Preparing request"
-STAGE_CONNECTING = "Connecting to NVIDIA"
+STAGE_CONNECTING = "Connecting to the video service"
 STAGE_GENERATING = "Generating video"
 STAGE_DECODING = "Decoding output"
 STAGE_PREVIEW = "Preparing preview"
@@ -30,6 +33,7 @@ STAGES = (STAGE_PREPARING, STAGE_CONNECTING, STAGE_GENERATING, STAGE_DECODING, S
 
 _SECRET_PATTERNS = (
     re.compile(r"nvapi-[A-Za-z0-9_\-]+"),
+    re.compile(r"hf_[A-Za-z0-9]{10,}"),
     re.compile(r"(?i)bearer\s+[A-Za-z0-9_\-\.=]+"),
 )
 _MAX_DETAIL_CHARS = 1500
@@ -264,6 +268,10 @@ def generate_video(
     notify = on_stage or (lambda _stage: None)
 
     notify(STAGE_PREPARING)
+    if config.get_provider() == config.PROVIDER_HUGGINGFACE:
+        return _generate_video_huggingface(
+            prompt, negative_prompt, optional_supported_parameters, notify, timeout
+        )
     api_url = config.get_api_url()
     api_key = (api_key or "").strip()
     if not api_key and config.api_key_required(api_url):
@@ -351,6 +359,8 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
     401/403/422 prove the route exists, 404 proves it does not.
     """
     api_url = config.get_api_url()
+    if config.get_provider() == config.PROVIDER_HUGGINGFACE:
+        return _check_connection_huggingface()
     if config.api_key_required(api_url):
         if not api_key:
             return ConnectionStatus(False, "No API key configured.")
@@ -376,3 +386,132 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
     return ConnectionStatus(
         True, "Endpoint found. The key itself is verified on the first generation."
     )
+
+
+# --------------------------------------------------------------------------- #
+# Free provider: LTX-Video Hugging Face Space                                 #
+# --------------------------------------------------------------------------- #
+def _huggingface_error(error: BaseException, token: str | None) -> CineForgeError:
+    text = f"{type(error).__name__}: {error}"
+    details = _safe_details(text, token)
+    lowered = text.lower()
+    if any(word in lowered for word in ("quota", "zerogpu", "too many requests", "429")):
+        return RateLimitError(
+            "The free GPU quota of the Hugging Face Space has been used up.",
+            hint=(
+                "Wait a while and retry, or add a free Hugging Face token as HF_TOKEN in "
+                ".streamlit/secrets.toml (or .env) to get a larger daily quota."
+            ),
+            details=details,
+        )
+    if isinstance(error, (OSError, ConnectionError)) or "connect" in lowered:
+        return NetworkError("Could not reach the Hugging Face Space.", details=details)
+    return ServerError(
+        "The Hugging Face Space could not generate the video.",
+        hint="The free Space may be busy or restarting. Try again in a minute or two.",
+        details=details,
+    )
+
+
+def _generate_video_huggingface(
+    prompt: str,
+    negative_prompt: str,
+    params: Mapping[str, Any] | None,
+    notify: StageCallback,
+    timeout: int,
+) -> VideoResult:
+    if not prompt or not prompt.strip():
+        raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
+    try:
+        from gradio_client import Client
+    except ImportError as error:
+        raise CineForgeError(
+            "The 'gradio_client' package is not installed.",
+            hint="Run: pip install -r requirements.txt",
+        ) from error
+
+    options = dict(params or {})
+    seed = options.get("seed")
+    token = config.get_hf_token()
+
+    notify(STAGE_CONNECTING)
+    started = time.monotonic()
+    job = None
+    try:
+        client = Client(config.HF_SPACE_ID, token=token, verbose=False)
+        notify(STAGE_GENERATING)
+        job = client.submit(
+            prompt=prompt.strip(),
+            negative_prompt=negative_prompt.strip(),
+            input_image_filepath=None,
+            input_video_filepath=None,
+            height_ui=options.get("height", 512),
+            width_ui=options.get("width", 704),
+            mode="text-to-video",
+            duration_ui=options.get("duration", 2),
+            ui_frames_to_use=9,
+            seed_ui=seed if seed is not None else 42,
+            randomize_seed=seed is None,
+            ui_guidance_scale=1,
+            improve_texture_flag=bool(options.get("improve_texture", True)),
+            api_name=config.HF_API_NAME,
+        )
+        output = job.result(timeout=timeout)
+    except TimeoutError as error:
+        if job is not None:
+            job.cancel()
+        raise RequestTimeoutError(
+            "The Hugging Face Space did not return a video in time.",
+            hint="The free Space may be busy. Try again or use a shorter, lower-quality clip.",
+            details=type(error).__name__,
+        ) from error
+    except CineForgeError:
+        raise
+    except Exception as error:
+        raise _huggingface_error(error, token) from error
+    elapsed = time.monotonic() - started
+
+    notify(STAGE_DECODING)
+    video_ref = output[0] if isinstance(output, (tuple, list)) and output else output
+    if isinstance(video_ref, Mapping):
+        video_ref = video_ref.get("video")
+    if not isinstance(video_ref, str) or not Path(video_ref).is_file():
+        raise ResponseFormatError(
+            "The Space response did not include a video file.",
+            details=f"Response type: {type(output).__name__}",
+        )
+    video_path = Path(video_ref)
+    video_bytes = video_path.read_bytes()
+    video_path.unlink(missing_ok=True)
+    validate_mp4(video_bytes)
+
+    used_seed = output[1] if isinstance(output, (tuple, list)) and len(output) > 1 else None
+    metadata = {
+        "status_code": 200,
+        "elapsed_seconds": round(elapsed, 1),
+        "size_bytes": len(video_bytes),
+        "request_id": "",
+        "response_fields": ["seed"],
+        "provider": config.PROVIDER_HUGGINGFACE,
+        "seed": used_seed,
+    }
+    return VideoResult(video_bytes=video_bytes, metadata=metadata)
+
+
+def _check_connection_huggingface() -> ConnectionStatus:
+    """Check that the Space exists and is running, without spending GPU quota."""
+    try:
+        response = requests.get(
+            f"https://huggingface.co/api/spaces/{config.HF_SPACE_ID}",
+            timeout=config.CONNECT_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException:
+        return ConnectionStatus(False, "Hugging Face could not be reached. Check your network.")
+    if response.status_code != 200:
+        return ConnectionStatus(
+            False, f"The Space '{config.HF_SPACE_ID}' was not found ({response.status_code})."
+        )
+    stage = str((response.json().get("runtime") or {}).get("stage", "UNKNOWN"))
+    if stage != "RUNNING":
+        return ConnectionStatus(False, f"The Space is not running right now (status: {stage}).")
+    return ConnectionStatus(True, "Free LTX-Video Space is running. No API key is needed.")

@@ -730,6 +730,9 @@ def render_empty_state(title: str, message: str) -> None:
 # --------------------------------------------------------------------------- #
 def api_status_badge() -> str:
     connection = st.session_state[K_CONNECTION]
+    if config.get_provider() == config.PROVIDER_HUGGINGFACE:
+        tone = "warn" if connection is None else ("ok" if connection["ok"] else "bad")
+        return badge("● Free LTX-Video Space", tone)
     if not config.api_key_required():
         host = config.get_api_url().split("//")[-1].split("/")[0]
         tone = "warn" if connection is None else ("ok" if connection["ok"] else "bad")
@@ -746,7 +749,7 @@ def render_header() -> None:
     with brand:
         st.markdown(
             '<div class="cf-brand">CINE<b>FORGE</b> <i>AI</i></div>'
-            f'<div class="cf-sub">{html.escape(config.APP_TAGLINE)}</div>',
+            f'<div class="cf-sub">{html.escape(config.app_tagline())}</div>',
             unsafe_allow_html=True,
         )
     with status:
@@ -790,13 +793,23 @@ def render_sidebar() -> None:
         )
 
         with st.expander("About"):
+            nvidia = config.get_provider() == config.PROVIDER_NVIDIA
             st.markdown(
-                f"**{config.APP_NAME}** turns text prompts into short AI videos with the "
-                "NVIDIA Cosmos3-Nano hosted API."
+                f"**{config.APP_NAME}** turns text prompts into short AI videos with "
+                + (
+                    "the NVIDIA Cosmos3-Nano hosted API."
+                    if nvidia
+                    else "LTX-Video running on a free Hugging Face Space."
+                )
             )
-            st.caption(config.PRIVACY_NOTICE)
-            st.caption(config.SYNTHID_NOTICE)
-            st.caption("Check NVIDIA's terms before any commercial use.")
+            st.caption(config.privacy_notice())
+            if config.synthid_notice():
+                st.caption(config.synthid_notice())
+            st.caption(
+                "Check NVIDIA's terms before any commercial use."
+                if nvidia
+                else "Check the LTX-Video license before any commercial use."
+            )
 
 
 # --------------------------------------------------------------------------- #
@@ -832,7 +845,11 @@ def render_prompt_card() -> None:
             st.button("Reset", on_click=cb_reset_prompt, width="stretch")
 
         if st.session_state[W_SHOW_ENHANCED]:
-            with st.expander("Enhanced prompt · editable · sent to NVIDIA", expanded=bool(st.session_state[K_ENHANCED])):
+            with st.expander(
+                "Enhanced prompt · editable · sent to "
+                + ("NVIDIA" if config.get_provider() == config.PROVIDER_NVIDIA else "Hugging Face"),
+                expanded=bool(st.session_state[K_ENHANCED]),
+            ):
                 st.text_area(
                     "Enhanced prompt",
                     key=K_ENHANCED,
@@ -884,9 +901,9 @@ def render_output_card() -> None:
         )
         quality, duration = st.columns(2)
         with quality:
-            st.selectbox("Quality", list(config.QUALITY_OPTIONS), key=W_QUALITY, help=config.QUALITY_NOTICE)
+            st.selectbox("Quality", list(config.QUALITY_OPTIONS), key=W_QUALITY, help=config.quality_notice())
         with duration:
-            st.selectbox("Duration", list(config.DURATION_OPTIONS), key=W_DURATION, help=config.DURATION_NOTICE)
+            st.selectbox("Duration", list(config.DURATION_OPTIONS), key=W_DURATION, help=config.duration_notice())
         if config.DURATION_OPTIONS[st.session_state[W_DURATION]] is None:
             st.slider(
                 "Custom duration (seconds)",
@@ -989,7 +1006,8 @@ def render_single_results() -> None:
             meta = record["metadata"]
             st.caption(
                 f"{record['plan_summary']} · generated in {meta.get('elapsed_seconds', '?')}s · "
-                f"{meta.get('size_bytes', 0) / 1_048_576:.1f} MB · {config.SYNTHID_NOTICE}"
+                f"{meta.get('size_bytes', 0) / 1_048_576:.1f} MB"
+                + (f" · {config.synthid_notice()}" if config.synthid_notice() else "")
             )
         render_youtube_package(record)
 
@@ -1217,8 +1235,8 @@ def main() -> None:
         render_creations_tab()
 
     st.markdown(
-        f'<div class="cf-footer">{html.escape(config.PRIVACY_NOTICE)}<br>'
-        f"{html.escape(config.SYNTHID_NOTICE)}</div>",
+        f'<div class="cf-footer">{html.escape(config.privacy_notice())}<br>'
+        f"{html.escape(config.synthid_notice())}</div>",
         unsafe_allow_html=True,
     )
 

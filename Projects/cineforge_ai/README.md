@@ -63,7 +63,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Get an NVIDIA API key and accept the trial terms
+## Free video provider (default)
+
+Out of the box the app uses **LTX-Video** on the public Hugging Face Space
+[`Lightricks/ltx-video-distilled`](https://huggingface.co/spaces/Lightricks/ltx-video-distilled) through
+`gradio_client`. It is free and needs **no API key**. Limits: clips up to 8.5 s at 24 fps, generation usually takes
+1-3 minutes, and anonymous use shares a small daily ZeroGPU quota. A free Hugging Face token raises that quota; set
+`HF_TOKEN` in `.streamlit/secrets.toml` or `.env`. When the quota is used up the app shows a "Rate limit reached"
+message; wait and retry. To use NVIDIA instead, set `VIDEO_PROVIDER=nvidia` and follow the next section.
+
+## Optional: NVIDIA provider - get an API key and accept the trial terms
 
 1. Sign in at <https://build.nvidia.com> with an NVIDIA account.
 2. Open the Cosmos3-Nano model page: <https://build.nvidia.com/nvidia/cosmos3-nano>.
@@ -124,6 +133,8 @@ needed for non-`nvidia.com` URLs. The server must accept the same request fields
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
+| "Rate limit reached" with the free provider | The Space's free GPU quota is used up | Wait and retry, or add a free `HF_TOKEN` |
+| "Hugging Face Space could not generate the video" | The free Space is busy or restarting | Retry in a minute; use **Test API connection** to check it is running |
 | "NVIDIA API key missing" | No secret or env variable | Add `NVIDIA_API_KEY` to `.streamlit/secrets.toml` or `.env`, restart |
 | 401 Authentication failed | Invalid, expired or revoked key | Create a new key on build.nvidia.com |
 | 403 Access denied | Trial terms not accepted / endpoint not enabled | Open the model page, accept the terms, confirm access |

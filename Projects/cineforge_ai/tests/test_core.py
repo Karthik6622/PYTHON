@@ -40,6 +40,58 @@ def fake_response(status: int = 200, json_body=None, text: str = "") -> MagicMoc
 def isolated_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "GENERATED_DIR", tmp_path / "generated")
     monkeypatch.setenv("NVIDIA_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("VIDEO_PROVIDER", "nvidia")
+
+
+# ------------------------- Hugging Face (free) provider ------------------------- #
+def test_huggingface_is_default_provider_and_needs_no_key(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    monkeypatch.delenv("NVIDIA_API_KEY")
+    assert config.get_provider() == config.PROVIDER_HUGGINGFACE
+    assert not config.api_key_required()
+
+
+def test_huggingface_plan_snaps_sizes_and_clamps_duration(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    plan = config.plan_video("9:16", "Standard", 15, "Balanced", seed=7)
+    assert (plan.params["width"], plan.params["height"]) == (384, 704)
+    assert plan.params["duration"] == config.HF_MAX_SECONDS and plan.notes
+    assert plan.params["seed"] == 7 and plan.params["improve_texture"]
+    assert not config.plan_video("16:9", "Draft", 5, "Balanced").params["improve_texture"]
+
+
+def test_huggingface_generate_video(monkeypatch, tmp_path):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    video = tmp_path / "out.mp4"
+    video.write_bytes(FAKE_MP4)
+    job = MagicMock()
+    job.result.return_value = ({"video": str(video), "subtitles": None}, 123)
+    client = MagicMock()
+    client.submit.return_value = job
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+
+    result = api_client.generate_video(
+        "A car driving", "blurry", None, {"width": 704, "height": 384, "duration": 3.0, "seed": 5}
+    )
+
+    assert result.video_bytes == FAKE_MP4 and result.metadata["seed"] == 123
+    sent = client.submit.call_args.kwargs
+    assert sent["mode"] == "text-to-video" and sent["api_name"] == config.HF_API_NAME
+    assert (sent["width_ui"], sent["height_ui"], sent["duration_ui"]) == (704, 384, 3.0)
+    assert sent["seed_ui"] == 5 and sent["randomize_seed"] is False
+
+
+def test_huggingface_quota_error_is_mapped_and_redacted(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    token = "hf_" + "a" * 20
+    monkeypatch.setenv("HF_TOKEN", token)
+    client = MagicMock()
+    client.submit.side_effect = RuntimeError(f"ZeroGPU quota exceeded for {token}")
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+
+    with pytest.raises(api_client.RateLimitError) as caught:
+        api_client.generate_video("A car driving", "", None)
+    assert token not in caught.value.details
 
 
 # ------------------------------- api_client -------------------------------- #
