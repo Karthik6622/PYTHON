@@ -722,6 +722,12 @@ def run_job(job: dict[str, Any], api_key: str | None) -> bool:
                 job["api_params"],
                 on_progress=on_video_progress,
             )
+            if result.metadata.get("fallback_reason"):
+                status_box.write(
+                    "⚠️ Hugging Face was unavailable "
+                    f"({result.metadata['fallback_reason']}), so this video was made with the quota-free "
+                    "renderer: AI key-frames with camera motion. Retry later for full AI motion."
+                )
             raw_path = video_utils.save_video_bytes(
                 result.video_bytes, st.session_state[K_SESSION_ID]
             )

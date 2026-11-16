@@ -32,6 +32,7 @@ cineforge_ai/
 ├── api_client.py           # NVIDIA request, error mapping, Base64 decoding
 ├── llm_client.py           # AI Director (Nemotron) prompt + narration writer
 ├── audio_tools.py          # Voice-over synthesis and Full HD YouTube export
+├── picture_video.py        # Quota-free fallback: AI key-frames + camera motion + crossfades
 ├── prompt_engine.py        # Sanitising, validation, prompt enhancement, scene prompts
 ├── youtube_tools.py        # Local YouTube package generator
 ├── video_utils.py          # Temp-file handling, audio validation, FFmpeg merge
@@ -76,8 +77,13 @@ Out of the box the app uses **LTX-Video** on the public Hugging Face Space
 [`Lightricks/ltx-video-distilled`](https://huggingface.co/spaces/Lightricks/ltx-video-distilled) through
 `gradio_client`. It is free and needs **no API key**. Limits: clips up to 8.5 s at 24 fps, generation usually takes
 1-3 minutes, and anonymous use shares a small daily ZeroGPU quota. A free Hugging Face token raises that quota; set
-`HF_TOKEN` in `.streamlit/secrets.toml` or `.env`. When the quota is used up the app shows a "Rate limit reached"
-message; wait and retry. To use NVIDIA instead, set `VIDEO_PROVIDER=nvidia` and follow the next section.
+`HF_TOKEN` in `.streamlit/secrets.toml` or `.env`. When the quota is used up (or the Space is down) the app
+automatically switches to a **quota-free renderer**: 2-3 AI key-frames from the free Pollinations image API, each
+animated with a slow camera move and joined with crossfades (needs FFmpeg, bundled via `imageio-ffmpeg`). It is
+less dynamic than real AI motion, and the free image tier allows one picture per 45 s per IP, so it takes about
+1-2 minutes; a free `POLLINATIONS_API_KEY` (https://enter.pollinations.ai) removes that limit and allows up to 6
+shots. Set `VIDEO_PROVIDER=pictures` to always use it. To use NVIDIA instead, set `VIDEO_PROVIDER=nvidia` and
+follow the next section.
 
 ## Optional: NVIDIA provider - get an API key and accept the trial terms
 
@@ -140,7 +146,7 @@ needed for non-`nvidia.com` URLs. The server must accept the same request fields
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| "Rate limit reached" with the free provider | The Space's free GPU quota is used up | Wait and retry, or add a free `HF_TOKEN` |
+| "Rate limit reached" with the free provider | Quota used up and the fallback renderer also failed (e.g. image limit, no internet) | Wait and retry, add a free `HF_TOKEN` or `POLLINATIONS_API_KEY` |
 | "Hugging Face Space could not generate the video" | The free Space is busy or restarting | Retry in a minute; use **Test API connection** to check it is running |
 | "NVIDIA API key missing" | No secret or env variable | Add `NVIDIA_API_KEY` to `.streamlit/secrets.toml` or `.env`, restart |
 | 401 Authentication failed | Invalid, expired or revoked key | Create a new key on build.nvidia.com |

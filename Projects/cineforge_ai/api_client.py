@@ -36,6 +36,7 @@ STAGES = (STAGE_PREPARING, STAGE_CONNECTING, STAGE_GENERATING, STAGE_DECODING, S
 _SECRET_PATTERNS = (
     re.compile(r"nvapi-[A-Za-z0-9_\-]+"),
     re.compile(r"hf_[A-Za-z0-9]{10,}"),
+    re.compile(r"sk_[A-Za-z0-9]{10,}"),
     re.compile(r"(?i)bearer\s+[A-Za-z0-9_\-\.=]+"),
 )
 _MAX_DETAIL_CHARS = 1500
@@ -165,6 +166,9 @@ _STATUS_ERRORS: dict[int, type[CineForgeError]] = {
     429: RateLimitError,
 }
 
+# Hugging Face failures that make the quota-free renderer worth trying.
+_FALLBACK_ERRORS = (RateLimitError, ServerError, NetworkError, RequestTimeoutError)
+
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
@@ -272,9 +276,28 @@ def generate_video(
 
     notify(STAGE_PREPARING)
     if config.get_provider() == config.PROVIDER_HUGGINGFACE:
-        return _generate_video_huggingface(
-            prompt, negative_prompt, optional_supported_parameters, notify, timeout, on_progress
-        )
+        import picture_video  # imported here: picture_video itself imports this module
+
+        if config.pictures_only():
+            if not prompt or not prompt.strip():
+                raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
+            notify(STAGE_GENERATING)
+            return picture_video.generate_video(prompt, optional_supported_parameters, on_progress)
+        try:
+            return _generate_video_huggingface(
+                prompt, negative_prompt, optional_supported_parameters, notify, timeout, on_progress
+            )
+        except _FALLBACK_ERRORS as hf_error:
+            if on_progress:
+                on_progress(0.0, "Hugging Face is busy · switching to the quota-free renderer")
+            notify(STAGE_GENERATING)
+            try:
+                result = picture_video.generate_video(prompt, optional_supported_parameters, on_progress)
+            except CineForgeError as fallback_error:
+                hf_error.details = f"{hf_error.details}\nQuota-free renderer also failed: {fallback_error.message} {fallback_error.details}".strip()
+                raise hf_error from None  # the original failure stays the headline
+            result.metadata["fallback_reason"] = hf_error.message
+            return result
     api_url = config.get_api_url()
     api_key = (api_key or "").strip()
     if not api_key and config.api_key_required(api_url):

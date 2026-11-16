@@ -15,6 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import api_client  # noqa: E402
 import config  # noqa: E402
+import picture_video  # noqa: E402
 import prompt_engine  # noqa: E402
 import video_utils  # noqa: E402
 import youtube_tools  # noqa: E402
@@ -88,10 +89,63 @@ def test_huggingface_quota_error_is_mapped_and_redacted(monkeypatch):
     client = MagicMock()
     client.submit.side_effect = RuntimeError(f"ZeroGPU quota exceeded for {token}")
     monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+    monkeypatch.setattr(
+        picture_video, "generate_video", MagicMock(side_effect=api_client.NetworkError("images down"))
+    )
 
     with pytest.raises(api_client.RateLimitError) as caught:
         api_client.generate_video("A car driving", "", None)
     assert token not in caught.value.details
+    assert "images down" in caught.value.details
+
+
+def test_quota_error_falls_back_to_picture_renderer(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    client = MagicMock()
+    client.submit.side_effect = RuntimeError("ZeroGPU quota exceeded")
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+    fallback = MagicMock(return_value=api_client.VideoResult(FAKE_MP4, {"provider": "pictures"}))
+    monkeypatch.setattr(picture_video, "generate_video", fallback)
+
+    result = api_client.generate_video("A car driving", "", None, {"duration": 6.0})
+
+    assert result.video_bytes == FAKE_MP4
+    assert "quota" in result.metadata["fallback_reason"]
+    assert fallback.call_args.args[:2] == ("A car driving", {"duration": 6.0})
+
+
+def test_pictures_provider_skips_huggingface(monkeypatch):
+    monkeypatch.setenv("VIDEO_PROVIDER", "pictures")
+    gradio = MagicMock()
+    monkeypatch.setitem(sys.modules, "gradio_client", gradio)
+    monkeypatch.setattr(
+        picture_video, "generate_video", MagicMock(return_value=api_client.VideoResult(FAKE_MP4, {}))
+    )
+
+    assert api_client.generate_video("A car driving", "", None).video_bytes == FAKE_MP4
+    gradio.Client.assert_not_called()
+
+
+def test_picture_shot_planning():
+    assert picture_video.shot_count(6) == 2
+    assert picture_video.shot_count(8.5, keyed=False) == picture_video.MAX_SHOTS_ANONYMOUS
+    assert picture_video.shot_count(30) == picture_video.MAX_SHOTS
+    assert picture_video.image_size(704, 384) == (1280, 698)
+    assert "wide establishing shot" in picture_video.shot_prompt("A car", 0)
+
+
+def test_picture_download_waits_out_free_limit(monkeypatch):
+    limited = fake_response(402, {})
+    limited.text = '{"error":{"message":"Free limit reached. Retry after 30s"}}'
+    ok = MagicMock(status_code=200, content=b"\xff\xd8\xff" + b"0" * 10)
+    monkeypatch.setattr(picture_video.requests, "get", MagicMock(side_effect=[limited, ok]))
+    sleeps: list[float] = []
+    monkeypatch.setattr(picture_video.time, "sleep", sleeps.append)
+    messages: list[str] = []
+
+    data = picture_video._download_image("a car", 1280, 720, 1, None, messages.append)
+
+    assert data.startswith(b"\xff\xd8\xff") and sleeps == [31.0] and "31s" in messages[0]
 
 
 # ------------------------------- api_client -------------------------------- #

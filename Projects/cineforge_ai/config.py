@@ -28,9 +28,10 @@ APP_ICON = "🎬"
 # --------------------------------------------------------------------------- #
 # Provider selection                                                          #
 # --------------------------------------------------------------------------- #
-PROVIDER_SETTING_NAME = "VIDEO_PROVIDER"  # optional: "huggingface" (default) or "nvidia"
+PROVIDER_SETTING_NAME = "VIDEO_PROVIDER"  # optional: "huggingface" (default), "nvidia" or "pictures"
 PROVIDER_HUGGINGFACE = "huggingface"
 PROVIDER_NVIDIA = "nvidia"
+PROVIDER_PICTURES = "pictures"  # quota-free AI key-frames with camera motion (also the automatic fallback)
 
 # --------------------------------------------------------------------------- #
 # Free provider: LTX-Video on a Hugging Face Space (no API key required)      #
@@ -433,6 +434,16 @@ def get_provider() -> str:
     """Return the active provider; the free Hugging Face Space unless NVIDIA is chosen."""
     value = (_read_setting(PROVIDER_SETTING_NAME) or "").lower()
     return PROVIDER_NVIDIA if value == PROVIDER_NVIDIA else PROVIDER_HUGGINGFACE
+
+
+def get_pollinations_key() -> str | None:
+    """Optional free Pollinations key (removes the 1-image-per-45 s limit); never logged."""
+    return _read_setting("POLLINATIONS_API_KEY")
+
+
+def pictures_only() -> bool:
+    """True when ``VIDEO_PROVIDER=pictures``: always use the quota-free image-based renderer."""
+    return (_read_setting(PROVIDER_SETTING_NAME) or "").lower() == PROVIDER_PICTURES
 
 
 def get_hf_token() -> str | None:
