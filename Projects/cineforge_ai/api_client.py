@@ -99,10 +99,11 @@ class AccessDeniedError(CineForgeError):
 class EndpointNotFoundError(CineForgeError):
     title = "Endpoint not found (404)"
     hint = (
-        "NVIDIA's gateway does not serve this URL for your request. Open the model page's "
-        "'View API Code' panel, copy the invocation URL and set NVIDIA_API_URL in "
-        ".streamlit/secrets.toml (or .env). A self-hosted NIM uses http://<host>:8000"
-        f"{config.SELF_HOSTED_NIM_PATH}. Use the connection test in the sidebar to re-check."
+        "NVIDIA's gateway does not serve this URL. If a standalone curl/requests call to the same "
+        "URL also returns 404, the hosted endpoint is not live for your account right now and "
+        "nothing in this app can fix it. Check the 'View API Code' panel for a different "
+        "invocation URL and set NVIDIA_API_URL in .streamlit/secrets.toml (or .env). A "
+        f"self-hosted NIM uses http://<host>:8000{config.SELF_HOSTED_NIM_PATH}."
     )
 
 
