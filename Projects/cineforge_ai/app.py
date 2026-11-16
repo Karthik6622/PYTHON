@@ -380,7 +380,7 @@ def can_start_request() -> bool:
 
 def common_form_errors() -> list[str]:
     errors: list[str] = []
-    if not config.get_api_key():
+    if not config.get_api_key() and config.api_key_required():
         errors.append(
             "NVIDIA_API_KEY is missing. Add it to .streamlit/secrets.toml or the environment."
         )
@@ -730,6 +730,10 @@ def render_empty_state(title: str, message: str) -> None:
 # --------------------------------------------------------------------------- #
 def api_status_badge() -> str:
     connection = st.session_state[K_CONNECTION]
+    if not config.api_key_required():
+        host = config.get_api_url().split("//")[-1].split("/")[0]
+        tone = "warn" if connection is None else ("ok" if connection["ok"] else "bad")
+        return badge(f"● Custom endpoint · {host}", tone)
     if not config.get_api_key():
         return badge("● API key missing", "bad")
     if connection is None:

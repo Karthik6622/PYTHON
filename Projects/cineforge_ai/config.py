@@ -14,6 +14,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -328,3 +329,9 @@ def get_api_key() -> str | None:
 def get_api_url() -> str:
     """Return the invocation URL (``NVIDIA_API_URL`` override or the default)."""
     return _read_setting(API_URL_SETTING_NAME) or DEFAULT_API_URL
+
+
+def api_key_required(url: str | None = None) -> bool:
+    """NVIDIA-hosted endpoints need a key; a self-hosted NIM/server usually does not."""
+    host = (urlparse(url or get_api_url()).hostname or "").lower()
+    return host == "nvidia.com" or host.endswith(".nvidia.com")

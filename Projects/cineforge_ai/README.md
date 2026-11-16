@@ -85,7 +85,9 @@ NVIDIA_API_KEY=nvapi-your-key-here
 ```
 
 Secrets take priority over the environment variable. Both files are git-ignored. Never commit a real key.
-Optionally set `NVIDIA_API_URL` the same way to override the invocation URL.
+Optionally set `NVIDIA_API_URL` the same way to override the invocation URL. For a self-hosted Cosmos3 server
+(for example a NIM, which serves `POST /v1/infer`), set `NVIDIA_API_URL=http://<host>:8000/v1/infer`; no API key is
+needed for non-`nvidia.com` URLs. The server must accept the same request fields and return `b64_video`.
 
 ## Deploy on Streamlit Community Cloud
 

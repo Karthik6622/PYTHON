@@ -302,3 +302,16 @@ def test_storyboard_regenerate_and_delete(monkeypatch):
     at = _click(at, "Delete")
     at = _click(at, "Yes, delete")
     assert len(at.session_state["history"]) == 2
+
+
+def test_self_hosted_endpoint_needs_no_key(monkeypatch):
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.setenv("NVIDIA_API_URL", "http://localhost:8000/v1/infer")
+    post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+    assert not config.api_key_required()
+    assert api_client.generate_video("A car driving", "", None).video_bytes == FAKE_MP4
+    assert "Authorization" not in post.call_args.kwargs["headers"]
+    monkeypatch.setenv("NVIDIA_API_URL", config.DEFAULT_API_URL)
+    with pytest.raises(api_client.MissingApiKeyError):
+        api_client.generate_video("A car driving", "", None)

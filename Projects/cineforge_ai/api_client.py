@@ -264,20 +264,18 @@ def generate_video(
     notify = on_stage or (lambda _stage: None)
 
     notify(STAGE_PREPARING)
-    if not api_key or not api_key.strip():
+    api_url = config.get_api_url()
+    api_key = (api_key or "").strip()
+    if not api_key and config.api_key_required(api_url):
         raise MissingApiKeyError("No NVIDIA API key is configured.")
-    api_key = api_key.strip()
     if not prompt or not prompt.strip():
         raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     payload = config.build_payload(prompt.strip(), negative_prompt, optional_supported_parameters)
 
-    api_url = config.get_api_url()
     notify(STAGE_CONNECTING)
     started = time.monotonic()
     try:
@@ -352,13 +350,14 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
     An *unauthenticated* empty request is sent (the key is never transmitted):
     401/403/422 prove the route exists, 404 proves it does not.
     """
-    if not api_key:
-        return ConnectionStatus(False, "No API key configured.")
-    if not api_key.startswith(config.API_KEY_PREFIX):
-        return ConnectionStatus(
-            False, f"The key does not start with '{config.API_KEY_PREFIX}'. Check the value."
-        )
     api_url = config.get_api_url()
+    if config.api_key_required(api_url):
+        if not api_key:
+            return ConnectionStatus(False, "No API key configured.")
+        if not api_key.startswith(config.API_KEY_PREFIX):
+            return ConnectionStatus(
+                False, f"The key does not start with '{config.API_KEY_PREFIX}'. Check the value."
+            )
     try:
         response = requests.post(
             api_url, json={}, headers={"Accept": "application/json"},
