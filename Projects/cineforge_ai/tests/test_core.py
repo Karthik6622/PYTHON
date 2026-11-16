@@ -276,13 +276,21 @@ def _click(at, label_part: str):
     return at.run(timeout=30)
 
 
-def test_text_to_video_flow_end_to_end(monkeypatch):
+def _new_app():
+    """App with the optional AI Director and voice-over off, so only the video API is called."""
     from streamlit.testing.v1 import AppTest
 
+    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30)
+    at.session_state["w_ai_director"] = False
+    at.session_state["w_voiceover"] = False
+    return at
+
+
+def test_text_to_video_flow_end_to_end(monkeypatch):
     post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
     monkeypatch.setattr(api_client.requests, "post", post)
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at = _new_app().run()
     assert not at.exception
 
     at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
@@ -294,7 +302,7 @@ def test_text_to_video_flow_end_to_end(monkeypatch):
     assert post.call_count == 1
     sent = post.call_args.kwargs["json"]
     assert {"model_mode", "prompt", "negative_prompt", "resolution", "num_frames", "fps"} <= set(sent)
-    assert sent["resolution"] == "480_16_9" and sent["num_frames"] == 192
+    assert sent["resolution"] == "720_16_9" and sent["num_frames"] == 192
     assert sent["prompt"] == at.session_state["enhanced_prompt"]
 
     history = at.session_state["history"]
@@ -305,11 +313,9 @@ def test_text_to_video_flow_end_to_end(monkeypatch):
 
 
 def test_short_prompt_is_rejected_without_api_call(monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
     post = MagicMock()
     monkeypatch.setattr(api_client.requests, "post", post)
-    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at = _new_app().run()
     at.text_area(key="prompt_text").set_value("hi").run()
     at = _click(at, "Generate video")
     post.assert_not_called()
@@ -317,11 +323,9 @@ def test_short_prompt_is_rejected_without_api_call(monkeypatch):
 
 
 def test_api_failure_is_shown_without_leaking_key(monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
     body = fake_response(403, {}, text=f"forbidden {FAKE_KEY}")
     monkeypatch.setattr(api_client.requests, "post", MagicMock(return_value=body))
-    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at = _new_app().run()
     at.text_area(key="prompt_text").set_value("A sports car driving through a neon city").run()
     at = _click(at, "Generate video")
     assert any("Access denied" in e.value for e in at.error)
@@ -329,12 +333,10 @@ def test_api_failure_is_shown_without_leaking_key(monkeypatch):
 
 
 def test_storyboard_regenerate_and_delete(monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
     post = MagicMock(return_value=fake_response(200, {"b64_video": FAKE_B64}))
     monkeypatch.setattr(api_client.requests, "post", post)
     monkeypatch.setattr(config, "REQUEST_COOLDOWN_SECONDS", 0.0)
-    at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
+    at = _new_app().run()
 
     at.radio(key="t2v_mode").set_value("Storyboard (experimental)").run()
     at.text_area(key="story_text").set_value("A robot wakes in a garden. It finds a flower.").run()
@@ -354,6 +356,73 @@ def test_storyboard_regenerate_and_delete(monkeypatch):
     at = _click(at, "Delete")
     at = _click(at, "Yes, delete")
     assert len(at.session_state["history"]) == 2
+
+
+# ------------------------- AI Director and audio helpers ------------------------- #
+def _chat_reply(content: str, status: int = 200):
+    return fake_response(status, {"choices": [{"message": {"content": content}}]}, text=content)
+
+
+def test_director_parses_json_trims_narration_and_sends_model(monkeypatch):
+    import llm_client
+
+    reply = (
+        '<think>planning</think>```json\n{"video_prompt": "' + "A detailed cinematic shot of a car. " * 3
+        + '", "narration": "' + " ".join(["word"] * 40) + '"}\n```'
+    )
+    post = MagicMock(return_value=_chat_reply(reply))
+    monkeypatch.setattr(llm_client.requests, "post", post)
+
+    result = llm_client.direct_video("A car", "cinematic", 8, FAKE_KEY, "Nemotron 3.5 Lightning 30B")
+
+    assert result.model == "Nemotron 3.5 Lightning 30B"
+    assert len(result.narration.split()) <= llm_client.narration_word_limit(8)
+    assert post.call_args.kwargs["json"]["model"] == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert post.call_args.kwargs["headers"]["Authorization"] == f"Bearer {FAKE_KEY}"
+
+
+def test_director_falls_back_to_next_model_and_requires_key(monkeypatch):
+    import llm_client
+
+    good = '{"video_prompt": "' + "A detailed cinematic shot of a car. " * 3 + '", "narration": "Hello."}'
+    post = MagicMock(side_effect=[_chat_reply("nope", 500), _chat_reply(good)])
+    monkeypatch.setattr(llm_client.requests, "post", post)
+    result = llm_client.direct_video("A car", "cinematic", 8, FAKE_KEY)
+    assert result.model == list(config.LLM_MODELS)[1] and post.call_count == 2
+
+    with pytest.raises(llm_client.DirectorError):
+        llm_client.direct_video("A car", "cinematic", 8, None)
+    monkeypatch.setattr(llm_client.requests, "post", MagicMock(return_value=_chat_reply("x", 401)))
+    with pytest.raises(llm_client.DirectorError) as caught:
+        llm_client.direct_video("A car", "cinematic", 8, FAKE_KEY)
+    assert caught.value.status_code == 401
+
+
+def test_export_size_is_full_hd_and_even():
+    import audio_tools
+
+    assert audio_tools._target_size(960, 544) == (1920, 1080)
+    assert audio_tools._target_size(544, 960) == (1080, 1920)
+    assert audio_tools._target_size(704, 704) == (1080, 1080)
+
+
+def test_huggingface_progress_is_reported(monkeypatch, tmp_path):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    video = tmp_path / "out.mp4"
+    video.write_bytes(FAKE_MP4)
+    job = MagicMock()
+    job.done.side_effect = [False, False, True]
+    job.result.return_value = ({"video": str(video)}, 1)
+    client = MagicMock()
+    client.submit.return_value = job
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+    monkeypatch.setattr(api_client.time, "sleep", lambda _s: None)
+    updates: list[tuple[float, str]] = []
+
+    api_client.generate_video("A car driving", "", None, {}, on_progress=lambda f, m: updates.append((f, m)))
+
+    fractions = [f for f, _ in updates]
+    assert fractions == sorted(fractions) and fractions[-1] == 1.0 and 0 < fractions[-2] < 1
 
 
 def test_self_hosted_endpoint_needs_no_key(monkeypatch):

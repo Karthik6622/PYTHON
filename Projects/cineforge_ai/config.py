@@ -43,6 +43,34 @@ HF_MIN_SECONDS = 0.3
 HF_MAX_SECONDS = 8.5
 HF_MIN_SIDE, HF_MAX_SIDE, HF_SIDE_STEP = 256, 1280, 32
 HF_LONG_SIDE_BY_QUALITY: dict[str, int] = {"Draft": 512, "Standard": 704, "High quality": 960}
+HF_EXPECTED_SECONDS_BY_QUALITY: dict[str, int] = {"Draft": 60, "Standard": 110, "High quality": 170}
+
+# --------------------------------------------------------------------------- #
+# AI Director: NVIDIA Nemotron models write the video prompt and voice-over    #
+# --------------------------------------------------------------------------- #
+LLM_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+LLM_TIMEOUT_SECONDS = 120
+LLM_MODELS: dict[str, str] = {
+    "Nemotron 3 Ultra 550B": "nvidia/nemotron-3-ultra-550b-a55b",
+    "Nemotron 3.5 Super VL 120B": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "Nemotron 3.5 Lightning 30B": "nvidia/nemotron-3.5-lightning-30b-a3b",
+}
+DEFAULT_LLM_MODEL = "Nemotron 3 Ultra 550B"
+
+# --------------------------------------------------------------------------- #
+# Voice-over (Microsoft Edge neural voices via edge-tts) and YouTube export    #
+# --------------------------------------------------------------------------- #
+VOICES: dict[str, str] = {
+    "Guy · US male": "en-US-GuyNeural",
+    "Aria · US female": "en-US-AriaNeural",
+    "Andrew · US male (warm)": "en-US-AndrewNeural",
+    "Ryan · UK male": "en-GB-RyanNeural",
+    "Sonia · UK female": "en-GB-SoniaNeural",
+    "Prabhat · Indian English male": "en-IN-PrabhatNeural",
+    "Neerja · Indian English female": "en-IN-NeerjaNeural",
+}
+DEFAULT_VOICE = "Guy · US male"
+EXPORT_LONG_SIDE = 1920  # YouTube-ready Full HD export (long side, in pixels)
 
 # --------------------------------------------------------------------------- #
 # NVIDIA API                                                                  #
@@ -189,6 +217,7 @@ def plan_video_huggingface(
         "height": height,
         "duration": seconds,
         "improve_texture": quality != "Draft",
+        "expected_seconds": HF_EXPECTED_SECONDS_BY_QUALITY.get(quality, 110),
     }
     if seed and seed > 0:
         params["seed"] = int(seed)

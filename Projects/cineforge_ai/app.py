@@ -13,7 +13,9 @@ from typing import Any
 import streamlit as st
 
 import api_client
+import audio_tools
 import config
+import llm_client
 import prompt_engine
 import video_utils
 import youtube_tools
@@ -69,7 +71,11 @@ W_SEED = "w_seed"
 W_KEEP_ORIGINAL = "w_keep_original"
 W_SHOW_ENHANCED = "w_show_enhanced"
 W_SAFETY = "w_safety_confirmation"
-
+W_DIRECTOR = "w_ai_director"
+W_LLM_MODEL = "w_llm_model"
+W_VOICEOVER = "w_voiceover"
+W_VOICE = "w_voice"
+K_NARRATION = "narration_text"
 MODE_SINGLE = "Single clip"
 MODE_STORYBOARD = "Storyboard (experimental)"
 EXAMPLE_PLACEHOLDER = "Pick an example prompt…"
@@ -85,6 +91,7 @@ PERSISTENT_KEYS = [
     K_SCENE_COUNT, K_PREFIX, K_CROSSFADE, K_EXAMPLE, W_CONTENT, W_PLATFORM, W_DURATION,
     W_CUSTOM_DURATION, W_STYLE, W_CAMERA, W_LIGHTING, W_QUALITY, W_MOTION,
     W_CREATIVITY, W_ADHERENCE, W_SEED, W_KEEP_ORIGINAL, W_SHOW_ENHANCED, W_SAFETY,
+    W_DIRECTOR, W_LLM_MODEL, W_VOICEOVER, W_VOICE, K_NARRATION,
     *[scene_key(i) for i in range(config.MAX_SCENES)],
 ]  # fmt: skip
 
@@ -129,7 +136,7 @@ def init_state() -> None:
         W_STYLE: "Cinematic realism",
         W_CAMERA: "Slow cinematic push-in",
         W_LIGHTING: "Dramatic cinematic lighting",
-        W_QUALITY: "Standard",
+        W_QUALITY: "High quality",
         W_MOTION: "Balanced",
         W_CREATIVITY: "Balanced",
         W_ADHERENCE: "Balanced",
@@ -137,6 +144,11 @@ def init_state() -> None:
         W_KEEP_ORIGINAL: True,
         W_SHOW_ENHANCED: True,
         W_SAFETY: True,
+        W_DIRECTOR: True,
+        W_LLM_MODEL: config.DEFAULT_LLM_MODEL,
+        W_VOICEOVER: True,
+        W_VOICE: config.DEFAULT_VOICE,
+        K_NARRATION: "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -163,6 +175,11 @@ APP_CSS = """
   background: repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px);}
 .block-container {padding-top: 1.1rem; max-width: 1380px;}
 header[data-testid="stHeader"] {background: transparent;}
+/* hide Streamlit chrome: running indicator + Stop, Share/star/edit/GitHub toolbar, menu, deploy, Manage app */
+[data-testid="stToolbar"], [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"],
+[data-testid="stDeployButton"], [data-testid="stMainMenu"], #MainMenu, [data-testid="stDecoration"],
+[data-testid="manage-app-button"], .stDeployButton, .viewerBadge_container__r5tak,
+[class*="viewerBadge"], footer {display:none !important; visibility:hidden !important;}
 
 .stApp [data-testid="stMarkdownContainer"], .stApp label p, .stApp input, .stApp textarea,
 .stApp button p, .stApp [data-baseweb="select"] div {font-family: 'Rajdhani', 'Segoe UI', sans-serif;}
@@ -399,6 +416,22 @@ def queue_jobs(jobs: list[dict[str, Any]]) -> None:
     st.session_state[K_FORM_ERRORS] = []
 
 
+def describe_brief(settings: GenerationSettings) -> str:
+    """Production brief handed to the AI Director."""
+    preset = config.PLATFORM_PRESETS[settings.platform]
+    return "; ".join(
+        [
+            config.CONTENT_TYPES[settings.content_type],
+            f"{preset.ratio} {preset.orientation} frame, {preset.composition}",
+            f"visual style: {config.VISUAL_STYLES[settings.style]}",
+            f"camera: {config.CAMERA_MOVEMENTS[settings.camera]}",
+            f"lighting: {config.LIGHTING_OPTIONS[settings.lighting]}",
+            f"motion: {config.MOTION_LEVELS[settings.motion]}",
+            config.CREATIVITY_LEVELS[settings.creativity],
+        ]
+    )
+
+
 def make_job(
     label: str,
     user_prompt: str,
@@ -422,6 +455,15 @@ def make_job(
         "kind": kind,
         "group_id": group_id,
         "scene_index": scene_index,
+        "use_director": bool(st.session_state[W_DIRECTOR]),
+        "director_model": st.session_state[W_LLM_MODEL],
+        "brief": describe_brief(settings),
+        "duration": plan.actual_seconds,
+        "voiceover": bool(st.session_state[W_VOICEOVER]),
+        "voice": st.session_state[W_VOICE],
+        "narration": prompt_engine.sanitize_prompt(st.session_state[K_NARRATION], 400)
+        if kind == "single"
+        else "",
     }
 
 
@@ -510,6 +552,8 @@ def cb_regenerate(record_id: str) -> None:
     job["negative_prompt"] = record["negative_prompt"]
     job["api_params"] = dict(record["api_params"])
     job["plan_summary"] = record["plan_summary"]
+    job["use_director"] = False  # reuse the exact prompt and narration of the original
+    job["narration"] = record["metadata"].get("narration", "")
     queue_jobs([job])
 
 
@@ -584,25 +628,109 @@ def build_record(
     }
 
 
+class JobProgress:
+    """Drives one progress bar across the pipeline stages (percentages are overall)."""
+
+    DIRECTOR = (0.00, 0.10)
+    VIDEO = (0.10, 0.80)
+    VOICE = (0.80, 0.88)
+    EXPORT = (0.88, 0.98)
+
+    def __init__(self, bar: Any) -> None:
+        self._bar = bar
+        self._last = 0.0
+
+    def update(self, fraction: float, message: str) -> None:
+        self._last = max(self._last, min(max(fraction, 0.0), 1.0))
+        self._bar.progress(self._last, text=f"{int(self._last * 100)}% · {message}")
+
+    def stage(self, window: tuple[float, float], inner: float, message: str) -> None:
+        start, end = window
+        self.update(start + (end - start) * inner, message)
+
+
+def direct_job(job: dict[str, Any], api_key: str | None, progress: JobProgress, log: Any) -> None:
+    """Let a Nemotron model write the final video prompt (and narration) for ``job``."""
+    if not job["use_director"]:
+        return
+    progress.stage(JobProgress.DIRECTOR, 0.1, f"AI Director ({job['director_model']}) is writing the prompt")
+    try:
+        result = llm_client.direct_video(
+            job["user_prompt"],
+            job["brief"],
+            job["duration"],
+            api_key,
+            job["director_model"],
+            want_narration=job["voiceover"] and not job["narration"],
+        )
+    except llm_client.DirectorError as error:
+        log.write(f"⚠️ AI Director skipped: {error.message} {error.hint} Using the built-in prompt builder.")
+        return
+    job["final_prompt"] = result.video_prompt
+    job["narration"] = job["narration"] or result.narration
+    job["director_used"] = result.model
+    log.write(f"✍️ Prompt written by **{result.model}**")
+
+
+def finish_video(job: dict[str, Any], video_path: Path, progress: JobProgress, log: Any) -> tuple[Path, dict[str, Any]]:
+    """Add the voice-over and export a Full HD YouTube-ready file; degrade gracefully."""
+    session_id = st.session_state[K_SESSION_ID]
+    notes: dict[str, Any] = {}
+    audio_path: Path | None = None
+    if job["voiceover"] and job["narration"]:
+        progress.stage(JobProgress.VOICE, 0.2, "Recording the voice-over")
+        try:
+            audio_path = audio_tools.synthesize_speech(
+                job["narration"], job["voice"], video_utils.new_output_path(".mp3", session_id)
+            )
+            notes["voice"] = job["voice"]
+        except audio_tools.AudioError as error:
+            log.write(f"⚠️ Voice-over skipped: {error}")
+    elif job["voiceover"]:
+        log.write("⚠️ No narration text, so the video has no voice-over.")
+    progress.stage(JobProgress.EXPORT, 0.1, "Mastering for YouTube (Full HD, audio mix)")
+    try:
+        exported = audio_tools.export_for_youtube(
+            video_path, audio_path, video_utils.new_output_path(".mp4", session_id)
+        )
+    except audio_tools.AudioError as error:
+        log.write(f"⚠️ YouTube export skipped, using the original render: {error}")
+        notes.pop("voice", None)
+        return video_path, notes
+    finally:
+        if audio_path is not None:
+            video_utils.delete_video_file(audio_path)
+    video_utils.delete_video_file(video_path)
+    notes["export"] = "Full HD H.264/AAC"
+    return exported, notes
+
+
 def run_job(job: dict[str, Any], api_key: str | None) -> bool:
     """Run one generation inside an ``st.status`` block. Returns True on success."""
     with st.status(job["label"], expanded=True) as status_box:
+        progress = JobProgress(st.progress(0, text="0% · Starting"))
 
-        def on_stage(stage: str) -> None:
-            status_box.write(f"**{stage}…**")
+        def on_video_progress(fraction: float, message: str) -> None:
+            progress.stage(JobProgress.VIDEO, fraction, message)
 
         try:
+            direct_job(job, api_key, progress, status_box)
             result = api_client.generate_video(
                 job["final_prompt"],
                 job["negative_prompt"],
                 api_key,
                 job["api_params"],
-                on_stage=on_stage,
+                on_progress=on_video_progress,
             )
-            on_stage(api_client.STAGE_PREVIEW)
-            video_path = video_utils.save_video_bytes(
+            raw_path = video_utils.save_video_bytes(
                 result.video_bytes, st.session_state[K_SESSION_ID]
             )
+            video_path, notes = finish_video(job, raw_path, progress, status_box)
+            progress.update(0.99, "Preparing preview")
+            result.metadata.update(notes)
+            result.metadata["narration"] = job["narration"] if "voice" in notes else ""
+            result.metadata["director"] = job.get("director_used", "")
+            result.metadata["size_bytes"] = video_path.stat().st_size
         except api_client.CineForgeError as error:
             failure = error.to_safe_dict()
         except video_utils.VideoProcessingError as error:
@@ -613,6 +741,7 @@ def run_job(job: dict[str, Any], api_key: str | None) -> bool:
                 details=api_client.redact_secrets(type(error).__name__, api_key),
             ).to_safe_dict()
         else:
+            progress.update(1.0, "Done")
             record = build_record(job, "success", video_path, result.metadata)
             add_record(record)
             if job["kind"] == "scene":
@@ -850,6 +979,11 @@ def render_prompt_card() -> None:
                 + ("NVIDIA" if config.get_provider() == config.PROVIDER_NVIDIA else "Hugging Face"),
                 expanded=bool(st.session_state[K_ENHANCED]),
             ):
+                if st.session_state[W_DIRECTOR] and config.get_api_key():
+                    st.caption(
+                        "AI Director is on: a Nemotron model writes the final prompt when you "
+                        "generate. This text is only the fallback."
+                    )
                 st.text_area(
                     "Enhanced prompt",
                     key=K_ENHANCED,
@@ -931,6 +1065,47 @@ def render_look_card() -> None:
             st.selectbox("Lighting", list(config.LIGHTING_OPTIONS), key=W_LIGHTING)
 
 
+def render_studio_card() -> None:
+    director = bool(st.session_state[W_DIRECTOR])
+    voiceover = bool(st.session_state[W_VOICEOVER])
+    with st.container(border=True):
+        kicker("04 // AI studio")
+        left, right = st.columns(2)
+        with left:
+            st.toggle(
+                "AI Director (Nemotron)", key=W_DIRECTOR,
+                help="A Nemotron model rewrites your idea into a detailed cinematic prompt and "
+                "writes the voice-over, so the video looks YouTube-ready.",
+            )  # fmt: skip
+            st.selectbox(
+                "Director model", list(config.LLM_MODELS), key=W_LLM_MODEL, disabled=not director,
+                help="If the chosen model is unavailable, the others are tried automatically.",
+            )  # fmt: skip
+            if director and not config.get_api_key():
+                st.warning(
+                    "NVIDIA_API_KEY is not set, so the built-in prompt builder is used. "
+                    "Get a free key at build.nvidia.com and add it to the app secrets."
+                )
+        with right:
+            st.toggle(
+                "AI voice-over", key=W_VOICEOVER,
+                help="Adds a spoken narration and exports Full HD H.264/AAC for YouTube.",
+            )  # fmt: skip
+            st.selectbox("Voice", list(config.VOICES), key=W_VOICE, disabled=not voiceover)
+        if voiceover and st.session_state[K_MODE] == MODE_SINGLE:
+            st.text_area(
+                "Narration (optional)",
+                key=K_NARRATION,
+                height=80,
+                max_chars=400,
+                placeholder="Leave empty to let the AI Director write the narration."
+                if director
+                else "Type the narration to be spoken over the video.",
+            )
+        if not audio_tools.ffmpeg_executable():
+            st.warning("FFmpeg is unavailable (pip install imageio-ffmpeg): no voice-over or Full HD export.")
+
+
 def render_advanced() -> None:
     with st.expander("Advanced settings", expanded=False):
         st.text_area(
@@ -1007,6 +1182,9 @@ def render_single_results() -> None:
             st.caption(
                 f"{record['plan_summary']} · generated in {meta.get('elapsed_seconds', '?')}s · "
                 f"{meta.get('size_bytes', 0) / 1_048_576:.1f} MB"
+                + (f" · {meta['export']}" if meta.get("export") else "")
+                + (f" · voice-over: {meta['voice']}" if meta.get("voice") else "")
+                + (f" · prompt by {meta['director']}" if meta.get("director") else "")
                 + (f" · {config.synthid_notice()}" if config.synthid_notice() else "")
             )
         render_youtube_package(record)
@@ -1133,6 +1311,7 @@ def render_text_to_video_tab() -> None:
     with right:
         render_output_card()
     render_look_card()
+    render_studio_card()
     render_advanced()
     if storyboard:
         render_storyboard_body()
@@ -1216,16 +1395,9 @@ def main() -> None:
 
     render_sidebar()
 
-    tab_text, tab_image, tab_video, tab_creations = st.tabs(
-        ["Text to Video", "Image to Video", "Video to Video", "My Creations"]
-    )
+    tab_text, tab_video, tab_creations = st.tabs(["Text to Video", "Video to Video", "My Creations"])
     with tab_text:
         render_text_to_video_tab()
-    with tab_image:
-        render_empty_state(
-            "Image to Video: coming soon",
-            "Image input is not implemented yet, so no controls are shown.",
-        )
     with tab_video:
         render_empty_state(
             "Video to Video: coming soon",

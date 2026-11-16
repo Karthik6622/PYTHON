@@ -17,7 +17,12 @@ gallery of your creations.
 - **My Creations** – up to 20 items per session with preview, download, regenerate and confirmed delete.
 - **Safe by design** – key only from secrets/env, redacted errors, UUID filenames, per-session temp folders,
   duplicate-request protection, file validation.
-- *Image to Video* and *Video to Video* tabs show "Coming soon" because their request schemas are not implemented.
+- **AI Director** – a Nemotron model (3.5 Super VL 120B, 3.5 Lightning 30B or 3 Ultra 550B) writes the video prompt and
+  narration; falls back to the local prompt engine if the model is unreachable. Needs `NVIDIA_API_KEY`.
+- **Voice-over + YouTube export** – narration is synthesized with a free Microsoft neural voice (`edge-tts`) and the
+  video is mastered to Full HD H.264/AAC with FFmpeg (`imageio-ffmpeg` is bundled).
+- **Progress bar** – one overall percentage across prompt writing, rendering, voice-over and export.
+- The *Video to Video* tab shows "Coming soon" because its request schema is not implemented.
 
 ## Project structure
 
@@ -25,6 +30,8 @@ gallery of your creations.
 cineforge_ai/
 ├── app.py                  # Streamlit UI, session state, generation workflow
 ├── api_client.py           # NVIDIA request, error mapping, Base64 decoding
+├── llm_client.py           # AI Director (Nemotron) prompt + narration writer
+├── audio_tools.py          # Voice-over synthesis and Full HD YouTube export
 ├── prompt_engine.py        # Sanitising, validation, prompt enhancement, scene prompts
 ├── youtube_tools.py        # Local YouTube package generator
 ├── video_utils.py          # Temp-file handling, audio validation, FFmpeg merge

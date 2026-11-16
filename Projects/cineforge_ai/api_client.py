@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ import requests
 import config
 
 StageCallback = Callable[[str], None]
+ProgressCallback = Callable[[float, str], None]
 
 STAGE_PREPARING = "Preparing request"
 STAGE_CONNECTING = "Connecting to the video service"
@@ -259,6 +261,7 @@ def generate_video(
     optional_supported_parameters: Mapping[str, Any] | None = None,
     on_stage: StageCallback | None = None,
     timeout: int = config.REQUEST_TIMEOUT_SECONDS,
+    on_progress: ProgressCallback | None = None,
 ) -> VideoResult:
     """Generate a video with Cosmos3-Nano and return the decoded MP4 bytes.
 
@@ -270,7 +273,7 @@ def generate_video(
     notify(STAGE_PREPARING)
     if config.get_provider() == config.PROVIDER_HUGGINGFACE:
         return _generate_video_huggingface(
-            prompt, negative_prompt, optional_supported_parameters, notify, timeout
+            prompt, negative_prompt, optional_supported_parameters, notify, timeout, on_progress
         )
     api_url = config.get_api_url()
     api_key = (api_key or "").strip()
@@ -413,12 +416,25 @@ def _huggingface_error(error: BaseException, token: str | None) -> CineForgeErro
     )
 
 
+def _queue_message(status: Any, elapsed: float) -> str:
+    """Human-readable GPU queue/render message from a gradio ``StatusUpdate``."""
+    code = str(getattr(getattr(status, "code", None), "name", "") or "").upper()
+    rank = getattr(status, "rank", None)
+    size = getattr(status, "queue_size", None)
+    if code == "PENDING" and rank is not None and size:
+        return f"Waiting for a free GPU · queue position {int(rank) + 1} of {int(size)}"
+    if code in ("PROCESSING", "ITERATING", "PROGRESS"):
+        return "Rendering frames on the GPU"
+    return "Starting the GPU" if elapsed < 10 else "Rendering frames on the GPU"
+
+
 def _generate_video_huggingface(
     prompt: str,
     negative_prompt: str,
     params: Mapping[str, Any] | None,
     notify: StageCallback,
     timeout: int,
+    on_progress: ProgressCallback | None = None,
 ) -> VideoResult:
     if not prompt or not prompt.strip():
         raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
@@ -433,8 +449,11 @@ def _generate_video_huggingface(
     options = dict(params or {})
     seed = options.get("seed")
     token = config.get_hf_token()
+    expected = float(options.get("expected_seconds", 110))
+    progress = on_progress or (lambda _fraction, _message: None)
 
     notify(STAGE_CONNECTING)
+    progress(0.0, "Connecting to the video service")
     started = time.monotonic()
     job = None
     try:
@@ -456,7 +475,19 @@ def _generate_video_huggingface(
             improve_texture_flag=bool(options.get("improve_texture", True)),
             api_name=config.HF_API_NAME,
         )
-        output = job.result(timeout=timeout)
+        generation_started = time.monotonic()
+        while not job.done():
+            elapsed = time.monotonic() - generation_started
+            if time.monotonic() - started > timeout:
+                raise TimeoutError
+            try:
+                message = _queue_message(job.status(), elapsed)
+            except Exception:  # status is informational only
+                message = "Rendering frames on the GPU"
+            # Smooth curve that approaches (but never reaches) 97% while the GPU works.
+            progress(min(0.97, 1.0 - math.exp(-elapsed / expected)), message)
+            time.sleep(1.0)
+        output = job.result(timeout=5)
     except TimeoutError as error:
         if job is not None:
             job.cancel()
@@ -470,6 +501,7 @@ def _generate_video_huggingface(
     except Exception as error:
         raise _huggingface_error(error, token) from error
     elapsed = time.monotonic() - started
+    progress(1.0, "Video rendered")
 
     notify(STAGE_DECODING)
     video_ref = output[0] if isinstance(output, (tuple, list)) and output else output
