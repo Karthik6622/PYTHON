@@ -10,6 +10,7 @@ import streamlit as st
 from ats.execution.executor import run_dir
 from ats.services import Services
 from ats.ui.page_execute import live_run
+from ats.ui import theme
 from ats.ui.session import notify, require_project, safe, show_notices
 from ats.ui.widgets import chip, selected_rows
 from ats.workflow import IN_PROGRESS_STATUSES
@@ -17,9 +18,13 @@ from ats.workflow import IN_PROGRESS_STATUSES
 FAILURES = {"FAIL", "INCONCLUSIVE"}
 
 
-def session_secrets() -> dict[str, str]:
-    """Run-time values the person typed on the Execute page in this browser session."""
-    return {k.removeprefix("secret_"): v for k, v in st.session_state.items() if k.startswith("secret_") and isinstance(v, str) and v}
+def session_secrets(svc: Services, project) -> dict[str, str]:  # noqa: ANN001
+    """Run-time values for reruns: configured secrets the project's files need, then anything typed on the Execute page."""
+    typed = {k.removeprefix("secret_"): v for k, v in st.session_state.items() if k.startswith("secret_") and isinstance(v, str) and v}
+    bundle = svc.repo.latest_bundle(project.id)
+    names = required_variables(project, svc.store.read_all(project.id, bundle["id"])) if bundle else []
+    configured = {name: lookup_secret(name) for name in names if lookup_secret(name)}
+    return {**configured, **typed}
 
 
 def locator_text(data: dict) -> str:
@@ -105,7 +110,7 @@ def healing_panel(svc: Services, project, execution_id: str) -> None:
             cols = st.columns(4)
             if status == "proposed":
                 if cols[0].button("Approve and verify", key=f"{key}_a", type="primary"):
-                    safe(lambda: svc.healer.approve(record["id"], project, session_secrets()))
+                    safe(lambda: svc.healer.approve(record["id"], project, session_secrets(svc, project)))
                     st.rerun()
             if status == "verified":
                 if cols[0].button("Apply to project", key=f"{key}_ap", type="primary"):
@@ -151,7 +156,7 @@ def defects_panel(svc: Services, project, execution_id: str) -> None:
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Results and analysis")
+    theme.page_header("Results", "Per-test outcomes, failure analysis, evidence, self-healing proposals and defect drafts.", "STEP 07 // ANALYZE")
     show_notices()
     executions = svc.repo.list_executions(project.id, ("full",))
     if not executions:
@@ -192,7 +197,7 @@ def render(svc: Services) -> None:
     if failing and not any(r.get("analysis") for r in failing):
         if st.button("Analyze failures now"):
             with st.spinner("Analyzing failures..."):
-                safe(lambda: svc.analysis.reanalyze(project, execution_id, session_secrets()))
+                safe(lambda: svc.analysis.reanalyze(project, execution_id, session_secrets(svc, project)))
             st.rerun()
     healing_panel(svc, project, execution_id)
     defects_panel(svc, project, execution_id)

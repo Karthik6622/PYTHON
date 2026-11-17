@@ -119,6 +119,22 @@ def _next_step(stages: list[Stage], running: bool) -> str:
     return "Everything is up to date."
 
 
+STAGE_PAGE = {
+    "Discover": "discovery", "Scenarios": "scenarios", "Test Cases": "test-cases", "Automation": "automation",
+    "Execute": "execute", "Analyze": "results", "Report": "reports",
+}  # fmt: skip
+
+
+def next_page(state: WorkflowState) -> str:
+    """URL path of the page where the next workflow step is done."""
+    if state.running:
+        return "execute"
+    for stage in state.stages:
+        if stage.name in STAGE_PAGE and stage.status in {"current", "waiting"}:
+            return STAGE_PAGE[stage.name]
+    return "reports"
+
+
 def progress_fraction(state: WorkflowState) -> float:
     done = sum(1 for s in state.stages if s.status == "done")
     return done / len(state.stages)

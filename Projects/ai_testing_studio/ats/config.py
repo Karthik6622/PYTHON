@@ -18,6 +18,14 @@ load_dotenv(ROOT_DIR / ".env")
 APP_NAME = "AI Autonomous Testing Studio"
 APP_ICON = "🧪"
 
+# NVIDIA-hosted models (all use the same NVIDIA key). Chosen by benchmarking structured-JSON test design: Ultra writes
+# the most concise valid output; Super VL is the only one that reads screenshots. muse-glimmer-30b and minimax-m3.1-flash
+# work but took 80-125 s on the same task, and the DeepSeek V4.x models are retired (HTTP 410), so they are not defaults.
+DEFAULT_MAIN_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+DEFAULT_VISION_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b"
+DEFAULT_FAST_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+DEFAULT_FALLBACKS = ("nvidia/nemotron-3.5-super-vl-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b", "poolside/laguna-xs-2.1")
+
 
 def _secret(name: str) -> str | None:
     """Value from the process environment, then from Streamlit secrets (when running inside Streamlit)."""
@@ -36,6 +44,11 @@ def _secret(name: str) -> str | None:
 
 def _str(name: str, default: str) -> str:
     return _secret(name) or default
+
+
+def lookup_secret(name: str) -> str:
+    """Value of a configured secret/environment variable, or an empty string. Used to supply test-run credentials."""
+    return _secret(name) or ""
 
 
 def _int(name: str, default: int) -> int:
@@ -72,10 +85,21 @@ class ModelSettings:
     max_retries: int
     context_budget_tokens: int
     use_vision: bool
+    # Task routing: ``name`` handles reasoning-heavy work, ``vision_name`` handles anything with screenshots,
+    # ``fast_name`` handles short text tasks. ``fallbacks`` are tried in order when a model is retired or unavailable.
+    vision_name: str = ""
+    fast_name: str = ""
+    fallbacks: tuple[str, ...] = ()
 
     @property
     def configured(self) -> bool:
         return bool(self.api_key and self.base_url and self.name)
+
+    def chain(self, role: str = "main") -> list[str]:
+        """Models to try for a role, best first, without duplicates."""
+        first = {"vision": self.vision_name, "fast": self.fast_name}.get(role) or self.name
+        ordered = [first, self.name, *self.fallbacks]
+        return [m for i, m in enumerate(ordered) if m and m not in ordered[:i]]
 
 
 @dataclass(frozen=True)
@@ -143,7 +167,7 @@ def load_settings() -> Settings:
     pw = _str("PLAYWRIGHT_VERSION", "1.49.0")
     model = ModelSettings(
         provider=_str("MODEL_PROVIDER", "nvidia"),
-        name=_str("MODEL_NAME", "nvidia/nemotron-3.5-super-vl-120b-a12b"),
+        name=_str("MODEL_NAME", DEFAULT_MAIN_MODEL),
         base_url=_str("MODEL_BASE_URL", "https://integrate.api.nvidia.com/v1"),
         api_key=_secret("MODEL_API_KEY") or _secret("NVIDIA_API_KEY") or "",
         temperature=_float("MODEL_TEMPERATURE", 0.6),
@@ -155,9 +179,12 @@ def load_settings() -> Settings:
         max_retries=max(_int("MODEL_MAX_RETRIES", 3), 1),
         context_budget_tokens=_int("MODEL_CONTEXT_BUDGET_TOKENS", 60000),
         use_vision=_bool("MODEL_USE_VISION", True),
+        vision_name=_str("MODEL_VISION_NAME", DEFAULT_VISION_MODEL),
+        fast_name=_str("MODEL_FAST_NAME", DEFAULT_FAST_MODEL),
+        fallbacks=tuple(m.strip() for m in _str("MODEL_FALLBACKS", ",".join(DEFAULT_FALLBACKS)).split(",") if m.strip()),
     )
     execution = ExecutionSettings(
-        mode=_str("EXECUTION_MODE", "docker").lower(),
+        mode=_str("EXECUTION_MODE", "auto").lower(),
         timeout_seconds=_int("EXECUTION_TIMEOUT_SECONDS", 1800),
         docker_cpus=_str("DOCKER_CPUS", "2"),
         docker_memory=_str("DOCKER_MEMORY", "3g"),

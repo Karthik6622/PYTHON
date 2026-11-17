@@ -49,6 +49,7 @@ class Agent:
     name = "agent"
     thinking: bool | None = None  # None = use the global MODEL_ENABLE_THINKING setting
     temperature: float | None = None
+    model_role = "main"  # "main" (reasoning), "fast" (short text tasks); screenshots always use the vision model
 
     def __init__(self, client: ModelClient | None = None, repository: Any = None) -> None:
         self.client = client or ModelClient()
@@ -75,8 +76,10 @@ class Agent:
         budget_chars -= len(system)
         user_text = json.dumps(shrink(payload, max(budget_chars, 8000)), ensure_ascii=False, default=str)
         content: Any = user_text
+        role = self.model_role
         if images and settings.use_vision:
             content = [{"type": "text", "text": user_text}, *[image_part(img) for img in images[:3]]]
+            role = "vision"
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": content}]
 
         started = time.time()
@@ -90,6 +93,7 @@ class Agent:
                     thinking=self.thinking if thinking is None else thinking,
                     temperature=self.temperature,
                     on_event=on_event,
+                    role=role,
                 )
                 prompt_tokens += usage.get("prompt_tokens", 0)
                 completion_tokens += usage.get("completion_tokens", 0)

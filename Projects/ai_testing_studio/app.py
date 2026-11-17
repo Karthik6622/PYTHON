@@ -19,20 +19,20 @@ from ats.ui import (
     page_reports,
     page_results,
     page_review,
+    theme,
 )
-from ats.ui.session import current_project, flush_cookie, get_services, owner_id, select_project
-from ats.ui.widgets import stage_tracker
-from ats.workflow import compute_workflow, progress_fraction
+from ats.ui.session import current_project, flush_cookie, get_services, go_to, owner_id, register_pages, select_project
+from ats.workflow import WorkflowState, compute_workflow, next_page, progress_fraction
 
-st.set_page_config(page_title="AI Autonomous Testing Studio", page_icon=":material/science:", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ATS Studio", page_icon=":material/bolt:", layout="wide", initial_sidebar_state="expanded")
 
 
-def sidebar(svc) -> None:  # noqa: ANN001
+def sidebar(svc, project, state: WorkflowState | None) -> None:  # noqa: ANN001
     with st.sidebar:
-        st.markdown("### AI Testing Studio")
+        st.markdown(theme.brand(), unsafe_allow_html=True)
         projects = svc.repo.list_projects(owner_id())
-        names = {p.id: p.name for p in projects}
         if projects:
+            names = {p.id: p.name for p in projects}
             ids = list(names)
             current = st.session_state.get("project_id")
             index = ids.index(current) if current in ids else None
@@ -40,24 +40,20 @@ def sidebar(svc) -> None:  # noqa: ANN001
             if choice and choice != current:
                 select_project(choice)
                 st.rerun()
-        else:
-            st.caption("No projects yet. Create one on the Projects page.")
-        project = current_project(svc)
-        if project:
-            state = compute_workflow(svc.repo, project)
-            st.progress(progress_fraction(state))
-            stage_tracker(state, compact=True)
-            st.info(f"Next: {state.next_step}")
-        st.divider()
-        st.caption("Your projects are private to this browser.")
+        if project and state:
+            st.progress(progress_fraction(state), text=f"{int(progress_fraction(state) * 100)}% complete")
+            st.markdown(f'<div class="ats-next"><b>NEXT</b> // {state.next_step}</div>', unsafe_allow_html=True)
+            if st.button("Go to next step", type="primary", width="stretch"):
+                go_to(next_page(state))
+        st.caption("Projects are private to this browser.")
 
 
 def main() -> None:
     svc = get_services()
     owner_id()
     flush_cookie()
-    
-    # Create pages first so navigation is initialized before any switch_page calls
+    theme.apply()
+
     pages = [
         st.Page(partial(page_projects.render, svc), title="Projects", icon=":material/folder:", url_path="projects", default=True),
         st.Page(partial(page_discovery.render, svc), title="Discovery", icon=":material/travel_explore:", url_path="discovery"),
@@ -68,22 +64,17 @@ def main() -> None:
         st.Page(partial(page_execute.render, svc), title="Execute", icon=":material/play_arrow:", url_path="execute"),
         st.Page(partial(page_results.render, svc), title="Results", icon=":material/fact_check:", url_path="results"),
         st.Page(partial(page_reports.render, svc), title="Reports", icon=":material/description:", url_path="reports"),
-        st.Page(partial(page_audit.render, svc), title="Status and audit", icon=":material/shield:", url_path="audit"),
+        st.Page(partial(page_audit.render, svc), title="Status", icon=":material/shield:", url_path="audit"),
     ]
-    
-    # Initialize navigation (registers pages so st.switch_page can work)
-    pg = st.navigation(pages)
+    register_pages(pages)
+    page = st.navigation(pages)
 
-    # Handle navigation from form submissions using session state
-    # Use st.rerun() to navigate to the discovery page
-    nav_target = st.session_state.get("nav_to")
-    if nav_target == "discovery":
-        st.session_state["nav_to"] = None  # Clear the param
-        # Navigate to discovery page using st.rerun with URL path
-        st.rerun(url_path="discovery")
-
-    sidebar(svc)
-    pg.run()
+    project = current_project(svc)
+    state = compute_workflow(svc.repo, project) if project else None
+    sidebar(svc, project, state)
+    if state:
+        theme.pipeline(state)
+    page.run()
 
 
 main()

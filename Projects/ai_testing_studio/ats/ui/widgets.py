@@ -1,4 +1,4 @@
-"""Reusable Streamlit widgets: status chips, workflow tracker, model-activity stream, generic record editor."""
+"""Reusable Streamlit widgets: status chips, model-activity stream, generic record editor."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 
 import streamlit as st
 
+from ats.ui import theme
 from ats.workflow import WorkflowState
 
 STATUS_COLOR = {
@@ -24,17 +25,8 @@ def chip(status: str) -> str:
 
 
 def stage_tracker(state: WorkflowState, compact: bool = False) -> None:
-    if compact:
-        for stage in state.stages:
-            detail = f" - {stage.detail}" if stage.detail and stage.status != "waiting" else ""
-            st.markdown(f"{STAGE_ICON[stage.status]} **{stage.name}**{detail}")
-        return
-    columns = st.columns(len(state.stages))
-    for column, stage in zip(columns, state.stages, strict=True):
-        with column:
-            st.markdown(f"{STAGE_ICON[stage.status]} **{stage.name}**")
-            if stage.detail:
-                st.caption(stage.detail)
+    """Pipeline stepper (kept for callers that render the tracker outside the app shell)."""
+    theme.pipeline(state)
 
 
 class ModelStream:

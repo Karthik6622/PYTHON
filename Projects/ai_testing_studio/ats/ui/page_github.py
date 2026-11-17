@@ -7,6 +7,7 @@ import streamlit as st
 from ats.config import get_settings
 from ats.security import token_hint
 from ats.services import Services
+from ats.ui import theme
 from ats.ui.session import notify, require_project, safe, show_notices
 
 
@@ -16,7 +17,7 @@ def imported_files(project_id: str) -> tuple[dict[str, str], str] | None:
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    st.header("GitHub")
+    theme.page_header("GitHub", "Optional: commit the generated tests to a branch and open a pull request.", "STEP 05 // GITHUB")
     show_notices()
     st.write("Link a repository to commit generated tests to a **new branch** (never the default branch) and open a pull request, or import existing tests to run them.")
 

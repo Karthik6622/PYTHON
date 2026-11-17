@@ -15,6 +15,7 @@ from typing import Any
 
 from ats.ai.agents import LocatorIntelligenceAgent, WebDiscoveryAgent
 from ats.config import ROOT_DIR, get_settings
+from ats.discovery.diagnostics import explain_launch_failure
 from ats.discovery.preflight import preflight
 from ats.errors import DiscoveryError
 from ats.locators.builder import build_locators
@@ -27,7 +28,10 @@ LOGGER = get_logger("discovery")
 Progress = Callable[[str], None]
 
 INSTALL_HINT = "Install the browser tooling with: pip install playwright  and  python -m playwright install chromium"
-SYSTEM_LIBS_HINT = "Add the project's packages.txt to the host (Streamlit Community Cloud), or rebuild the Docker image so the Chromium system libraries are installed. Required: libnss3, libnspr4, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libxkbcommon0, libxcomposite1, libxdamage1, libxfixes3, libxrandr2, libgbm1, libasound2, libdbus-1-3, fonts-liberation."
+LAUNCH_FAILURE_MARKERS = (
+    "TargetClosedError", "BrowserType.launch", "shared libraries", "Host system is missing dependencies", "Target closed",
+    "browser has been closed", "Browser closed", "Failed to launch",
+)
 
 
 def playwright_available() -> bool:
@@ -54,21 +58,6 @@ def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None =
             return _run_worker_once(job, timeout, on_progress, cancel)
         except BrowserMissingError as exc:
             raise DiscoveryError("The browser is not installed. " + INSTALL_HINT) from exc
-    except DiscoveryError as exc:
-        # Re-raise with more context
-        if "Executable doesn't exist" in str(exc) or "playwright install" in str(exc):
-            raise DiscoveryError(
-                "Chromium browser is not installed. Please run: `python -m playwright install chromium` "
-                "in your terminal, or rebuild the Docker image with the browser installed."
-            ) from exc
-        if "shared libraries" in str(exc) or "TargetClosedError" in str(exc) or "BrowserType.launch" in str(exc):
-            raise DiscoveryError(
-                "Chromium is installed but could not start. This usually means system libraries are missing. "
-                "On Linux, install: `apt-get update && apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 "
-                "libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libdbus-1-3 fonts-liberation`. "
-                "Or use the provided Docker image which has all dependencies."
-            ) from exc
-        raise
 
 
 class BrowserMissingError(DiscoveryError):
@@ -136,14 +125,17 @@ def _run_worker_once(job: dict[str, Any], timeout: int, on_progress: Progress | 
             raise DiscoveryError("Discovery timed out. Reduce the page limit or depth and try again.")
         if not out_file.exists():
             LOGGER.error("Worker produced no output: %s", mask(" | ".join(tail)))
-            raise DiscoveryError("The browser worker stopped unexpectedly. " + INSTALL_HINT)
+            crash = " | ".join(tail)
+            if any(marker in crash for marker in LAUNCH_FAILURE_MARKERS):
+                raise DiscoveryError(explain_launch_failure(mask(crash)))
+            raise DiscoveryError("The browser worker stopped unexpectedly. " + (mask(tail[-1])[:200] + " " if tail else "") + INSTALL_HINT)
         data = json.loads(out_file.read_text(encoding="utf-8"))
     if "error" in data:
         text = str(data["error"])
         if "Executable doesn't exist" in text or "playwright install" in text:
             raise BrowserMissingError("The browser is not installed. " + INSTALL_HINT)
-        if "TargetClosedError" in text or "BrowserType.launch" in text or "shared libraries" in text:
-            raise DiscoveryError("Chromium is installed but could not start on this host, usually because system libraries are missing. " + SYSTEM_LIBS_HINT)
+        if any(marker in text for marker in LAUNCH_FAILURE_MARKERS):
+            raise DiscoveryError(explain_launch_failure(mask(text)))
         raise DiscoveryError(f"Browser analysis failed: {mask(text)[:300]}")
     return data
 

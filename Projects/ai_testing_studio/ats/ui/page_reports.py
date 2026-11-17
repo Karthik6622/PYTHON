@@ -7,13 +7,14 @@ import streamlit as st
 
 from ats.reporting.exporters import report_html, report_json, report_workbook, report_zip
 from ats.services import Services
+from ats.ui import theme
 from ats.ui.session import require_project, safe, show_notices
 from ats.workflow import IN_PROGRESS_STATUSES
 
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Reports")
+    theme.page_header("Reports", "Build an executive summary and export the run as HTML, Excel, JSON or a ZIP with evidence.", "STEP 08 // REPORT")
     show_notices()
     executions = [e for e in svc.repo.list_executions(project.id, ("full",)) if e["status"] not in IN_PROGRESS_STATUSES]
     if not executions:

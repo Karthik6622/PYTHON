@@ -14,7 +14,7 @@ from typing import Any
 from ats.config import get_settings
 from ats.errors import ExecutionError
 from ats.execution.junit import collect
-from ats.execution.runner import RunOutcome, RunRequest, run_project
+from ats.execution.runner import RunOutcome, RunRequest, resolve_mode, run_project
 from ats.logging_setup import get_logger
 from ats.models import Status, utc_now
 from ats.repository import Project, Repository
@@ -126,7 +126,7 @@ class ExecutionService:
         settings = get_settings().execution
         execution_id = self.repo.create_execution(
             project.id, bundle_id=bundle_id, parent_id=parent_id, kind=kind, status="queued", phase="Queued", branch=branch, commit_sha=commit_sha,
-            source=source, framework=framework, browser=browser, environment=project.environment, mode=mode or settings.mode,
+            source=source, framework=framework, browser=browser, environment=project.environment, mode=resolve_mode(mode or settings.mode),
         )  # fmt: skip
         self.repo.audit(project.id, "user" if kind == "full" else "system", f"execution.{kind}.queued", "execution", {"id": execution_id, "framework": framework, "browser": browser, "source": source})
         return execution_id
@@ -168,7 +168,7 @@ class ExecutionService:
         cancel: threading.Event | None = None,
     ) -> ExecutionContext | None:
         settings = get_settings()
-        mode = mode or settings.execution.mode
+        mode = resolve_mode(mode or settings.execution.mode)
         started = time.time()
         base = run_dir(project.id, execution_id)
         workdir = base / "workspace"

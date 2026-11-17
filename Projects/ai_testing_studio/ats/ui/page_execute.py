@@ -7,11 +7,13 @@ import shutil
 import pandas as pd
 import streamlit as st
 
-from ats.config import get_settings
+from ats.config import get_settings, lookup_secret
 from ats.execution.executor import discover_ids
+from ats.execution.runner import resolve_mode
 from ats.generation.adapters.common import ENV_PLACEHOLDER
 from ats.services import Services
 from ats.ui.page_github import imported_files
+from ats.ui import theme
 from ats.ui.session import notify, require_project, safe, show_notices
 from ats.ui.widgets import chip
 from ats.workflow import IN_PROGRESS_STATUSES
@@ -48,7 +50,7 @@ def live_run(svc: Services, project_id: str, execution_id: str) -> None:
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Execute tests")
+    theme.page_header("Execute", "Run the approved tests in Docker or as a local process and watch the live log.", "STEP 06 // EXECUTE")
     show_notices()
     settings = get_settings()
     bundle = svc.repo.latest_bundle(project.id)
@@ -79,22 +81,28 @@ def render(svc: Services) -> None:
         browser, bundle_id = project.browser, None
     st.caption(f"{len(files)} files | framework {framework} | browser {browser} | target {project.app_base_url}")
 
-    mode = settings.execution.mode
+    mode = resolve_mode(settings.execution.mode)
     if mode == "docker" and not shutil.which("docker"):
-        st.error("Docker is required (EXECUTION_MODE=docker) but was not found. Start Docker Desktop, or set EXECUTION_MODE=local to run on this machine.")
+        st.error("Docker is required (EXECUTION_MODE=docker) but was not found. Start Docker Desktop, or set EXECUTION_MODE=local (or auto) to run on this machine.")
     elif mode == "local":
-        st.info("Local execution mode: tests run directly on this machine instead of an isolated Docker container.")
+        st.caption("Local mode: tests run as a separate process on this machine (Docker is not used).")
 
     ids = discover_ids(files)
     chosen = st.multiselect("Test cases to run (empty = all)", ids, key="run_subset")
     variables = required_variables(project, files)
     secrets: dict[str, str] = {}
     if variables:
-        with st.expander("Run-time values (credentials and test data)", expanded=True):
-            st.caption("Values are used for this run only. They are masked in logs and never saved.")
-            cols = st.columns(2)
-            for index, name in enumerate(variables):
-                secrets[name] = cols[index % 2].text_input(name, type="password", key=f"secret_{name}")
+        configured = {name: lookup_secret(name) for name in variables if lookup_secret(name)}
+        secrets.update(configured)
+        missing = [name for name in variables if name not in configured]
+        if configured:
+            st.markdown("".join(theme.tag(name, "ok") for name in configured) + '<span class="ats-card-meta"> supplied from configured secrets</span>', unsafe_allow_html=True)
+        if missing:
+            with st.expander("Run-time values (credentials and test data)", expanded=True):
+                st.caption("Values are used for this run only. They are masked in logs and never saved.")
+                cols = st.columns(2)
+                for index, name in enumerate(missing):
+                    secrets[name] = cols[index % 2].text_input(name, type="password", key=f"secret_{name}")
 
     policy_options = list(POLICY_TEXT)
     current_policy = svc.analysis.policy_for(project.id)

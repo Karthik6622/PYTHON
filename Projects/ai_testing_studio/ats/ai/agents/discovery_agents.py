@@ -73,6 +73,7 @@ class LocatorInput(BaseModel):
 class LocatorIntelligenceAgent(Agent):
     name = "locator_intelligence"
     thinking = False
+    model_role = "fast"
 
     def enrich(self, elements: list[dict[str, Any]], project_id: str = "") -> LocatorEnrichment:
         return self.invoke("locator", {"elements": elements}, LocatorEnrichment, input_model=LocatorInput, project_id=project_id)

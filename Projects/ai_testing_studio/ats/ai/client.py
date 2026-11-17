@@ -12,7 +12,6 @@ from typing import Any
 from ats.config import ModelSettings, get_settings
 from ats.errors import ConfigurationError, ModelError
 from ats.logging_setup import get_logger
-from ats.security import mask
 
 LOGGER = get_logger("ai.client")
 
@@ -46,15 +45,19 @@ def image_part(data: bytes, mime: str = "image/png") -> dict[str, Any]:
 
 
 class ModelClient:
-    """Thin wrapper around the OpenAI SDK. Configuration comes from ``ModelSettings`` only."""
+    """Thin wrapper around the OpenAI SDK. Configuration comes from ``ModelSettings`` only.
+
+    ``complete`` walks the role's model chain (see ``ModelSettings.chain``): transient errors are retried on the same
+    model, and a model that is retired, missing or keeps failing is skipped in favour of the next one."""
 
     def __init__(self, settings: ModelSettings | None = None) -> None:
         self.settings = settings or get_settings().model
         self._client: Any = None
+        self.last_model = ""
 
     @property
     def model_name(self) -> str:
-        return self.settings.name
+        return self.last_model or self.settings.name
 
     def _sdk(self) -> Any:
         if not self.settings.configured:
@@ -78,31 +81,43 @@ class ModelClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         on_event: Callable[[str, str], None] | None = None,
+        role: str = "main",
     ) -> tuple[str, dict[str, int]]:
         """Stream a completion. Returns ``(content, usage)``. ``on_event('reasoning'|'content', text)`` is optional."""
         import openai
 
         settings = self.settings
-        last_error: Exception | None = None
-        for attempt in range(1, settings.max_retries + 1):
-            try:
-                return self._stream_once(messages, thinking, temperature, max_tokens, on_event)
-            except (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError, openai.InternalServerError) as exc:
-                last_error = exc
-                delay = min(2 ** attempt, 20)
-                LOGGER.warning("Model call failed (attempt %s/%s): %s. Retrying in %ss", attempt, settings.max_retries, type(exc).__name__, delay)
-                if attempt < settings.max_retries:
-                    time.sleep(delay)
-            except openai.AuthenticationError as exc:
-                raise ModelError("The model API key was rejected. Check MODEL_API_KEY.") from exc
-            except openai.BadRequestError as exc:
-                raise ModelError(f"The model rejected the request: {mask(str(exc))[:300]}") from exc
-            except openai.APIStatusError as exc:
-                raise ModelError(f"The model service returned an error ({exc.status_code}).") from exc
-        raise ModelError("The model service is unavailable or rate limited. Try again in a moment.") from last_error
+        failures: list[str] = []
+        for position, model in enumerate(settings.chain(role)):
+            # Only the vision model receives screenshots; fallbacks get the same request as text.
+            sendable = messages if position == 0 and role == "vision" else _without_images(messages)
+            for attempt in range(1, settings.max_retries + 1):
+                try:
+                    text, usage = self._stream_once(model, sendable, thinking, temperature, max_tokens, on_event)
+                    self.last_model = model
+                    return text, usage
+                except (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError, openai.InternalServerError) as exc:
+                    delay = min(2 ** attempt, 20)
+                    LOGGER.warning("%s failed (attempt %s/%s): %s", model, attempt, settings.max_retries, type(exc).__name__)
+                    if attempt < settings.max_retries:
+                        time.sleep(delay)
+                    else:
+                        failures.append(f"{model}: {type(exc).__name__}")
+                except openai.AuthenticationError as exc:
+                    raise ModelError("The model API key was rejected. Check MODEL_API_KEY / NVIDIA_API_KEY.") from exc
+                except ModelError as exc:  # empty reply
+                    LOGGER.warning("%s: %s", model, exc)
+                    failures.append(f"{model}: empty reply")
+                    break
+                except openai.APIStatusError as exc:  # retired (410), unknown (404) or rejected (400) for this model
+                    LOGGER.warning("%s returned HTTP %s; trying the next model", model, exc.status_code)
+                    failures.append(f"{model}: HTTP {exc.status_code}")
+                    break
+        raise ModelError("No configured model could answer (" + "; ".join(failures)[:300] + "). Try again in a moment.")
 
     def _stream_once(
         self,
+        model: str,
         messages: list[dict[str, Any]],
         thinking: bool | None,
         temperature: float | None,
@@ -112,7 +127,7 @@ class ModelClient:
         settings = self.settings
         enable = settings.enable_thinking if thinking is None else thinking
         kwargs: dict[str, Any] = {
-            "model": settings.name,
+            "model": model,
             "messages": messages,
             "temperature": settings.temperature if temperature is None else temperature,
             "top_p": settings.top_p,
@@ -121,7 +136,7 @@ class ModelClient:
         }
         if settings.seed is not None:
             kwargs["seed"] = settings.seed
-        if settings.provider.lower() in {"nvidia", "nemotron"}:
+        if settings.provider.lower() in {"nvidia", "nemotron"} and "nemotron" in model:
             kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": bool(enable)}}
         stream = self._sdk().chat.completions.create(**kwargs)
         parts: list[str] = []
@@ -129,7 +144,7 @@ class ModelClient:
             if not getattr(chunk, "choices", None):
                 continue
             delta = chunk.choices[0].delta
-            reasoning = getattr(delta, "reasoning_content", None)
+            reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
             if reasoning and on_event:
                 on_event("reasoning", reasoning)
             if delta.content:
@@ -144,8 +159,21 @@ class ModelClient:
         return content, usage
 
     def ping(self) -> str:
-        """Tiny request used by the Settings page to verify the key, endpoint and model name."""
+        """Tiny request used by the Status page to verify the key, endpoint and model name."""
         content, _ = self.complete(
             [{"role": "user", "content": "Reply with the single word: ready"}], thinking=False, max_tokens=16, temperature=0
         )
         return content.strip()[:80]
+
+
+def _without_images(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Copy of ``messages`` with image parts removed (text-only models reject them)."""
+    cleaned: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if isinstance(content, list):
+            text = "\n".join(part.get("text", "") for part in content if part.get("type") == "text")
+            cleaned.append({**message, "content": text})
+        else:
+            cleaned.append(message)
+    return cleaned

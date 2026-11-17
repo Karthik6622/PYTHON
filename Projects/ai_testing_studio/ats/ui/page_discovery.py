@@ -10,112 +10,60 @@ import streamlit as st
 
 from ats.config import get_settings
 from ats.services import Services
-from ats.ui.session import require_project, safe, show_notices
+from ats.ui import theme
+from ats.ui.session import go_to, notify, require_project, safe, show_notices
 from ats.ui.widgets import chip, progress_logger
 
 
-def run_discovery(svc: Services, project) -> None:
+def run_discovery(svc: Services, project) -> bool:  # noqa: ANN001
     with st.status("Discovering the website...", expanded=True) as status:
         result = safe(lambda: svc.discovery.run(project, on_progress=progress_logger(status)))
         if result:
             status.update(label=f"Discovery complete: {len(result.pages)} pages", state="complete")
-        else:
-            status.update(label="Discovery failed", state="error")
-            # Show helpful error message
-            st.error("Discovery failed. Common causes:")
-            st.markdown("""
-            - **Chromium not installed**: Run `python -m playwright install chromium` in your terminal
-            - **System libraries missing**: On Linux, install: `apt-get update && apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2`
-            - **Network issues**: Check if the target URL is accessible from this machine
-            - **Authentication required**: Configure authentication in Project Settings
-            - **Bot protection**: The site may block automated access
-            """)
+            return True
+        status.update(label="Discovery failed", state="error")
+        return False
 
 
-def authentication_panel(svc: Services, project) -> None:
+def authentication_panel(svc: Services, project) -> None:  # noqa: ANN001
     auth = project.auth
-    with st.expander("Authentication sessions"):
-        st.caption(f"Mode: **{auth.mode}**. Sessions are kept in the secure folder and never exported or committed.")
-        if auth.mode in {"manual_capture", "storage_state"}:
-            login_url = st.text_input("Login URL to open", value=auth.login_url or project.url, key="capture_url")
-            if st.button("Open a browser window and capture my session", help="Works when the studio runs on your own computer."):
-                with st.spinner("A browser window opened. Sign in, then close it..."):
-                    name = safe(lambda: svc.discovery.capture_session(project, login_url))
-                if name:
-                    auth.mode, auth.storage_state_file = "storage_state", name
-                    svc.repo.update_project(project.id, auth=auth)
-                    st.success(f"Session saved as {name}.")
-            upload = st.file_uploader("...or upload a Playwright storage-state JSON file", type=["json"], key="state_upload")
-            if upload is not None and st.button("Save uploaded session"):
-                try:
-                    data = json.loads(upload.getvalue())
-                    if not isinstance(data, dict) or "cookies" not in data:
-                        raise ValueError
-                except ValueError:
-                    st.error("That file is not a Playwright storage-state file.")
-                else:
-                    target = get_settings().secure_dir / f"{project.id}_state.json"
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_text(json.dumps(data), encoding="utf-8")
-                    auth.mode, auth.storage_state_file = "storage_state", target.name
-                    svc.repo.update_project(project.id, auth=auth)
-                    st.success("Session saved.")
-        else:
-            st.write("Change the authentication mode in the project settings to use saved sessions.")
-
-
-def render(svc: Services) -> None:
-    project = require_project(svc)
-    st.header("Website discovery")
-    show_notices()
-    st.write(f"Target: **{project.url}**. A real browser opens the site, follows same-site links within your limits and records visible elements, forms, navigation and screenshots.")
-    if not get_settings().model.configured:
-        st.warning("The AI model is not configured (MODEL_API_KEY). Discovery still works; the AI summary and locator notes are skipped.")
-    authentication_panel(svc, project)
-
-    # Preflight check button
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        if st.button("🔍 Preflight Check", help="Quick connectivity test before running full discovery"):
-            with st.spinner("Checking connectivity..."):
-                from ats.discovery.preflight import preflight
-                check = preflight(project.url, project.limits.ignore_https_errors)
-                if check.ok:
-                    st.success(f"✅ {check.message} (Status: {check.status})")
-                    if check.final_url != project.url:
-                        st.info(f"Redirects to: {check.final_url}")
-                    for w in check.warnings:
-                        st.warning(w)
-                else:
-                    st.error(f"❌ {check.message}")
-                    st.caption(f"Category: {check.category}")
-    with col2:
-        st.caption("Run a quick connectivity test before starting full discovery.")
-
-    latest = svc.repo.latest_discovery(project.id)
-    if st.button("Run discovery" if not latest else "Run discovery again", type="primary"):
-        run_discovery(svc, project)
-        st.rerun()
-    if not latest:
-        st.info("No discovery has been run yet.")
+    if auth.mode not in {"manual_capture", "storage_state"}:
         return
-    row, result = latest
-    st.markdown(f"Last run: {chip(row['status'])} started {row['started_at']}")
-    if row["status"] == "failed":
-        st.error(row.get("error") or "Discovery failed.")
-    if result is None or not result.pages:
-        return
+    with st.expander("Saved sign-in session"):
+        st.caption("Sessions are kept in the secure folder and never exported or committed.")
+        login_url = st.text_input("Login URL to open", value=auth.login_url or project.url, key="capture_url")
+        if st.button("Open a browser window and capture my session", help="Works when the studio runs on your own computer."):
+            with st.spinner("A browser window opened. Sign in, then close it..."):
+                name = safe(lambda: svc.discovery.capture_session(project, login_url))
+            if name:
+                auth.mode, auth.storage_state_file = "storage_state", name
+                svc.repo.update_project(project.id, auth=auth)
+                st.success(f"Session saved as {name}.")
+        upload = st.file_uploader("...or upload a Playwright storage-state JSON file", type=["json"], key="state_upload")
+        if upload is not None and st.button("Save uploaded session"):
+            try:
+                data = json.loads(upload.getvalue())
+                if not isinstance(data, dict) or "cookies" not in data:
+                    raise ValueError
+            except ValueError:
+                st.error("That file is not a Playwright storage-state file.")
+            else:
+                target = get_settings().secure_dir / f"{project.id}_state.json"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(data), encoding="utf-8")
+                auth.mode, auth.storage_state_file = "storage_state", target.name
+                svc.repo.update_project(project.id, auth=auth)
+                st.success("Session saved.")
 
-    locators = svc.repo.list_locators(project.id)
+
+def overview_tab(result, locators) -> None:  # noqa: ANN001
     a, b, c, d = st.columns(4)
     a.metric("Pages", len(result.pages))
     b.metric("Elements", sum(len(p.elements) for p in result.pages))
     c.metric("Locators", len(locators))
     d.metric("Forms", sum(len(p.forms) for p in result.pages))
-    for warning in result.warnings:
-        st.warning(warning)
     if result.summary:
-        st.subheader("Application understanding")
+        st.markdown("### Application understanding")
         st.write(result.summary)
         modules, workflows = result.analysis.get("modules", []), result.analysis.get("workflows", [])
         left, right = st.columns(2)
@@ -127,8 +75,18 @@ def render(svc: Services) -> None:
             right.markdown("**Workflows**")
             for workflow in workflows:
                 right.markdown(f"- {workflow if isinstance(workflow, str) else workflow.get('name', workflow)}")
+        risks = result.analysis.get("risks", [])
+        if risks:
+            st.markdown("**Risks**")
+            for risk in risks:
+                st.markdown(f"- {risk}")
+    if result.warnings:
+        with st.expander(f"Notes from discovery ({len(result.warnings)})"):
+            for warning in result.warnings:
+                st.markdown(f"- {warning}")
 
-    st.subheader("Pages")
+
+def pages_tab(result) -> None:  # noqa: ANN001
     pages = pd.DataFrame(
         [{"Key": p.page_key, "URL": p.final_url or p.url, "Title": p.title, "Depth": p.depth, "Elements": len(p.elements), "Forms": len(p.forms),
           "Needs sign-in": p.requires_auth, "Console errors": len(p.console_errors)} for p in result.pages]
@@ -137,9 +95,7 @@ def render(svc: Services) -> None:
     if result.skipped:
         with st.expander(f"Skipped URLs ({len(result.skipped)})"):
             st.dataframe(pd.DataFrame(result.skipped), hide_index=True, width="stretch")
-
-    keys = [p.page_key for p in result.pages]
-    chosen = st.selectbox("Inspect a page", keys)
+    chosen = st.selectbox("Inspect a page", [p.page_key for p in result.pages])
     page = next(p for p in result.pages if p.page_key == chosen)
     left, right = st.columns([2, 3])
     with left:
@@ -157,12 +113,57 @@ def render(svc: Services) -> None:
         )  # fmt: skip
         st.dataframe(elements, hide_index=True, width="stretch", height=360)
 
-    st.subheader("Locator repository")
+
+def locators_tab(locators) -> None:  # noqa: ANN001
     query = st.text_input("Filter locators", placeholder="login, button, email...")
     rows = [
         {"Element": s.element_key, "Page": s.page_key, "Role": s.role or s.tag, "Name": s.name, "Preferred": s.preferred.display(), "Alternatives": len(s.alternatives),
          "Stability": round(s.stability, 2), "Intent": s.intent}
         for s in locators if not query or query.lower() in f"{s.element_key} {s.name} {s.intent}".lower()
     ]  # fmt: skip
-    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=380)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=420)
     st.caption("Stability is a heuristic: test ids and unique accessible names score highest; positional CSS and XPath score lowest.")
+
+
+def render(svc: Services) -> None:
+    project = require_project(svc)
+    theme.page_header(
+        "Discovery",
+        "A real browser opens the site, follows same-site links within your limits and records elements, forms, navigation and screenshots.",
+        "STEP 01 // DISCOVER",
+    )
+    show_notices()
+    auth_note = "" if project.auth.mode == "none" else theme.tag(f"auth: {project.auth.mode}", "info")
+    ai_note = theme.tag("AI ready", "ok") if get_settings().model.configured else theme.tag("AI key missing", "bad")
+    st.markdown(f'{theme.tag(project.url, "dim")}{auth_note}{ai_note}', unsafe_allow_html=True)
+    if not get_settings().model.configured:
+        st.caption("Discovery works without the AI model; only the application summary and locator notes are skipped.")
+    authentication_panel(svc, project)
+
+    latest = svc.repo.latest_discovery(project.id)
+    if st.button("Run discovery again" if latest else "Run discovery", type="primary"):
+        if run_discovery(svc, project):
+            notify("Discovery finished. Generate the test scenarios next.")
+            st.rerun()
+        latest = svc.repo.latest_discovery(project.id)  # shows the recorded failure below the error
+
+    if not latest:
+        st.info("No discovery has been run yet.")
+        return
+    row, result = latest
+    st.markdown(f"Last run: {chip(row['status'])} started {row['started_at']}")
+    if row["status"] == "failed":
+        st.error(row.get("error") or "Discovery failed.")
+    if result is None or not result.pages:
+        return
+
+    locators = svc.repo.list_locators(project.id)
+    overview, pages, locator_view = st.tabs(["Overview", "Pages", "Locators"])
+    with overview:
+        overview_tab(result, locators)
+        if st.button("Continue to scenarios", type="primary", key="to_scenarios"):
+            go_to("scenarios")
+    with pages:
+        pages_tab(result)
+    with locator_view:
+        locators_tab(locators)

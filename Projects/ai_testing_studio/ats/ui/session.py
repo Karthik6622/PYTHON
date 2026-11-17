@@ -87,6 +87,18 @@ def select_project(project_id: str) -> None:
     st.session_state["project_id"] = project_id
 
 
+def register_pages(pages: list[Any]) -> None:
+    """Remember the ``st.Page`` objects of this run so any page can navigate by URL path (``st.switch_page`` needs the object)."""
+    st.session_state["_pages"] = {page.url_path: page for page in pages}
+
+
+def go_to(url_path: str) -> None:
+    """Jump to another page of the app. Does nothing outside a multipage run (e.g. in isolated tests)."""
+    page = st.session_state.get("_pages", {}).get(url_path)
+    if page is not None:
+        st.switch_page(page)
+
+
 def notify(message: str, kind: str = "success") -> None:
     """Queue a message to show after the next rerun (useful before ``st.rerun``)."""
     st.session_state.setdefault("_notices", []).append((kind, message))

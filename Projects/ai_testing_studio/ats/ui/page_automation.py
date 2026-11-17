@@ -7,6 +7,7 @@ import streamlit as st
 
 from ats.generation.adapters.common import BROWSERS, FRAMEWORKS, browsers_for
 from ats.services import Services
+from ats.ui import theme
 from ats.ui.session import notify, require_project, safe, show_notices
 from ats.ui.widgets import ModelStream, chip, progress_logger
 
@@ -22,7 +23,7 @@ def language_for(path: str) -> str:
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Automation")
+    theme.page_header("Automation", "Turn approved test cases into a runnable project. Every element comes from the discovered locator repository.", "STEP 04 // AUTOMATE")
     show_notices()
     approved = [t for t in svc.repo.list_test_cases(project.id, status="approved") if t.automation_candidate]
     if not approved:

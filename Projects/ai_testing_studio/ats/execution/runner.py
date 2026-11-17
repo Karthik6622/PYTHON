@@ -144,6 +144,21 @@ def docker_status() -> tuple[bool, str]:
     return True, f"Docker {result.stdout.strip()}"
 
 
+_MODE_CACHE: dict[str, tuple[float, str]] = {}
+
+
+def resolve_mode(mode: str) -> str:
+    """``auto`` means Docker when its daemon answers, otherwise a local process (e.g. Streamlit Community Cloud)."""
+    if mode != "auto":
+        return mode
+    cached = _MODE_CACHE.get("auto")
+    if cached and time.time() - cached[0] < 60:
+        return cached[1]
+    chosen = "docker" if docker_status()[0] else "local"
+    _MODE_CACHE["auto"] = (time.time(), chosen)
+    return chosen
+
+
 def image_present(image: str) -> bool:
     result = _run_quiet(["docker", "image", "inspect", image], 20)
     return bool(result and result.returncode == 0)
@@ -205,7 +220,7 @@ def local_requirements(framework: str) -> str:
     """Explain what is missing for a local run, or return an empty string."""
     if framework in {"playwright_python", "selenium_python"}:
         module = "playwright" if framework == "playwright_python" else "selenium"
-        probe = _run_quiet([sys.executable, "-c", f"import pytest, {module}"], 30)
+        probe = _run_quiet([sys.executable, "-c", f"import pytest, {module}" + (", pytest_playwright" if module == "playwright" else "")], 30)
         if probe is None or probe.returncode != 0:
             extra = "pytest-playwright" if module == "playwright" else "selenium"
             return f"Local mode needs pytest and {extra} installed for this Python ({sys.executable}). Run: python -m pip install pytest {extra}"

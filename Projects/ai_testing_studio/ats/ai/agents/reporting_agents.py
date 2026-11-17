@@ -65,6 +65,7 @@ class GitHubAgent(Agent):
     name = "github"
     thinking = False
     temperature = 0.3
+    model_role = "fast"
 
     def describe(self, payload: dict[str, Any], project_id: str = "") -> GitText:
         return self.invoke("github.text", payload, GitText, input_model=GitTextInput, project_id=project_id)

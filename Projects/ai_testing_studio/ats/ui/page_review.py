@@ -8,6 +8,7 @@ import streamlit as st
 from ats.generation.excel_export import cases_workbook, combined_workbook, scenarios_workbook
 from ats.models import PRIORITIES, SUITABILITY, TEST_TYPES, Scenario, TestCase
 from ats.services import Services
+from ats.ui import theme
 from ats.ui.session import notify, require_project, safe, show_notices
 from ats.ui.widgets import ModelStream, chip, edit_fields, progress_logger, selected_rows
 
@@ -48,7 +49,7 @@ def _ai_change(label: str, ids: list[str], action) -> None:
 
 def render_scenarios(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Test scenarios")
+    theme.page_header("Test scenarios", "Business scenarios generated from the discovered application. Review, edit and approve them.", "STEP 02 // SCENARIOS")
     show_notices()
     scenarios = svc.repo.list_scenarios(project.id)
     with st.expander("Generate scenarios" if scenarios else "Generate scenarios", expanded=not scenarios):
@@ -111,7 +112,7 @@ def render_scenarios(svc: Services) -> None:
 
 def render_test_cases(svc: Services) -> None:
     project = require_project(svc)
-    st.header("Test cases")
+    theme.page_header("Test cases", "Detailed, automatable test cases expanded from the approved scenarios.", "STEP 03 // TEST CASES")
     show_notices()
     approved_scenarios = svc.repo.list_scenarios(project.id, status="approved")
     cases = svc.repo.list_test_cases(project.id)
