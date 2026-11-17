@@ -47,6 +47,28 @@ HF_LONG_SIDE_BY_QUALITY: dict[str, int] = {"Draft": 512, "Standard": 704, "High 
 HF_EXPECTED_SECONDS_BY_QUALITY: dict[str, int] = {"Draft": 60, "Standard": 110, "High quality": 170}
 
 # --------------------------------------------------------------------------- #
+# Primary provider when BYTEZ_KEY is set: a Wan-AI text-to-video model on Bytez #
+# --------------------------------------------------------------------------- #
+BYTEZ_KEY_SETTING_NAME = "BYTEZ_KEY"
+BYTEZ_MODEL_SETTING_NAME = "BYTEZ_MODEL"  # optional override of the model id
+BYTEZ_DEFAULT_MODEL = "Wan-AI/Wan2.1-T2V-14B"
+BYTEZ_API_BASE = "https://api.bytez.com/models/v2"
+BYTEZ_EXPECTED_SECONDS = 240
+BYTEZ_MAX_PROMPT_CHARS = 1500
+
+# --------------------------------------------------------------------------- #
+# Top provider when OPENROUTER_API_KEY is set: Google Veo 3.1 (video + audio)  #
+# --------------------------------------------------------------------------- #
+OPENROUTER_KEY_SETTING_NAME = "OPENROUTER_API_KEY"
+OPENROUTER_MODEL_SETTING_NAME = "OPENROUTER_VIDEO_MODEL"  # e.g. google/veo-3.1-fast is ~3x cheaper
+OPENROUTER_DEFAULT_MODEL = "google/veo-3.1"
+OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
+OPENROUTER_DURATIONS = (4, 6, 8)  # seconds Veo 3.1 can produce
+OPENROUTER_POLL_SECONDS = 8
+OPENROUTER_EXPECTED_SECONDS = 150
+OPENROUTER_MAX_PROMPT_CHARS = 1800
+
+# --------------------------------------------------------------------------- #
 # AI Director: NVIDIA Nemotron models write the video prompt and voice-over    #
 # --------------------------------------------------------------------------- #
 LLM_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -436,6 +458,24 @@ def get_provider() -> str:
     return PROVIDER_NVIDIA if value == PROVIDER_NVIDIA else PROVIDER_HUGGINGFACE
 
 
+def get_openrouter_key() -> str | None:
+    """Optional OpenRouter key; when set, Veo 3.1 is tried first. Never logged."""
+    return _read_setting(OPENROUTER_KEY_SETTING_NAME)
+
+
+def get_openrouter_model() -> str:
+    return _read_setting(OPENROUTER_MODEL_SETTING_NAME) or OPENROUTER_DEFAULT_MODEL
+
+
+def get_bytez_key() -> str | None:
+    """Optional Bytez key; when set, Bytez is tried first. Never logged."""
+    return _read_setting(BYTEZ_KEY_SETTING_NAME)
+
+
+def get_bytez_model() -> str:
+    return _read_setting(BYTEZ_MODEL_SETTING_NAME) or BYTEZ_DEFAULT_MODEL
+
+
 def get_pollinations_key() -> str | None:
     """Optional free Pollinations key (removes the 1-image-per-45 s limit); never logged."""
     return _read_setting("POLLINATIONS_API_KEY")
@@ -453,11 +493,20 @@ def get_hf_token() -> str | None:
 
 def app_tagline() -> str:
     if get_provider() == PROVIDER_HUGGINGFACE:
+        if get_openrouter_key() and not pictures_only():
+            return f"Powered by {get_openrouter_model().split('/')[-1].replace('-', ' ').title()} · OpenRouter"
+        if get_bytez_key() and not pictures_only():
+            return f"Powered by {get_bytez_model().split('/')[-1]} · Bytez"
         return "Powered by LTX-Video · free Hugging Face Space"
     return APP_TAGLINE
 
 
 def privacy_notice() -> str:
+    if get_provider() == PROVIDER_HUGGINGFACE and (get_openrouter_key() or get_bytez_key()) and not pictures_only():
+        return (
+            "Prompts are sent to OpenRouter/Google (and, if it is unavailable, to Bytez, a public Hugging Face "
+            "Space or Pollinations) and may be logged there. Do not submit confidential or personal data."
+        )
     return HF_PRIVACY_NOTICE if get_provider() == PROVIDER_HUGGINGFACE else PRIVACY_NOTICE
 
 

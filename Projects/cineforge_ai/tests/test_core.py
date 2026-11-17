@@ -42,6 +42,8 @@ def isolated_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "GENERATED_DIR", tmp_path / "generated")
     monkeypatch.setenv("NVIDIA_API_KEY", FAKE_KEY)
     monkeypatch.setenv("VIDEO_PROVIDER", "nvidia")
+    monkeypatch.setattr(config, "get_bytez_key", lambda: None)  # never use a developer's real key in tests
+    monkeypatch.setattr(config, "get_openrouter_key", lambda: None)
 
 
 # ------------------------- Hugging Face (free) provider ------------------------- #
@@ -124,6 +126,128 @@ def test_pictures_provider_skips_huggingface(monkeypatch):
 
     assert api_client.generate_video("A car driving", "", None).video_bytes == FAKE_MP4
     gradio.Client.assert_not_called()
+
+
+OPENROUTER_TEST_KEY = "sk-or-v1-" + "a" * 40
+
+
+@pytest.fixture
+def openrouter(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    monkeypatch.setattr(config, "get_openrouter_key", lambda: OPENROUTER_TEST_KEY)
+    monkeypatch.setattr(api_client.time, "sleep", lambda _s: None)
+
+
+def test_openrouter_request_options_snap_to_veo_limits():
+    assert api_client.openrouter_request_options({"duration": 3.0, "width": 704, "height": 384}) == {
+        "duration": 4, "aspect_ratio": "16:9", "resolution": "1080p"}
+    assert api_client.openrouter_request_options({"duration": 8.5, "width": 384, "height": 704})["aspect_ratio"] == "9:16"
+    assert api_client.openrouter_request_options({"duration": 5, "width": 512, "height": 288})["duration"] == 6
+    assert api_client.openrouter_request_options({"duration": 5, "width": 512, "height": 288})["resolution"] == "720p"
+
+
+def test_openrouter_submits_polls_and_downloads(monkeypatch, openrouter):
+    responses = [
+        fake_response(202, {"id": "job1", "polling_url": "https://openrouter.ai/api/v1/videos/job1", "status": "pending"}),
+        fake_response(200, {"id": "job1", "status": "in_progress"}),
+        fake_response(200, {"id": "job1", "status": "completed", "unsigned_urls": ["https://x/content?index=0"],
+                            "usage": {"cost": 1.6}}),
+        MagicMock(status_code=200, content=FAKE_MP4),
+    ]
+    request = MagicMock(side_effect=responses)
+    monkeypatch.setattr(api_client.requests, "request", request)
+
+    result = api_client.generate_video(
+        "A cat playing with a rose", "blurry", None, {"duration": 6.0, "width": 704, "height": 384, "seed": 3}
+    )
+
+    assert result.video_bytes == FAKE_MP4
+    assert result.metadata["provider"] == "openrouter" and result.metadata["cost_usd"] == 1.6
+    method, url = request.call_args_list[0].args
+    sent = request.call_args_list[0].kwargs
+    assert (method, url) == ("POST", "https://openrouter.ai/api/v1/videos")
+    assert sent["headers"]["Authorization"] == f"Bearer {OPENROUTER_TEST_KEY}"
+    assert sent["json"]["model"] == "google/veo-3.1" and sent["json"]["duration"] == 6
+    assert sent["json"]["generate_audio"] is True and sent["json"]["seed"] == 3
+    assert sent["json"]["provider"]["options"]["google-vertex"]["parameters"]["negativePrompt"] == "blurry"
+
+
+def test_openrouter_failure_falls_back_with_note(monkeypatch, openrouter, tmp_path):
+    monkeypatch.setattr(
+        api_client.requests, "request", MagicMock(return_value=fake_response(402, {}, text="no credits"))
+    )
+    video = tmp_path / "out.mp4"
+    video.write_bytes(FAKE_MP4)
+    job = MagicMock()
+    job.result.return_value = ({"video": str(video)}, 1)
+    client = MagicMock()
+    client.submit.return_value = job
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+
+    result = api_client.generate_video("A car driving", "", None)
+
+    assert result.metadata["provider"] == "huggingface"
+    assert "OpenRouter" in result.metadata["fallback_note"] and "credits" in result.metadata["fallback_note"]
+
+
+def test_openrouter_job_failure_and_key_redaction(monkeypatch, openrouter):
+    failed = fake_response(200, {"id": "j", "status": "failed", "error": f"blocked {OPENROUTER_TEST_KEY}"})
+    submit = fake_response(202, {"id": "j", "status": "pending"})
+    monkeypatch.setattr(api_client.requests, "request", MagicMock(side_effect=[submit, failed]))
+
+    with pytest.raises(api_client.ServerError) as caught:
+        api_client._generate_video_openrouter("A car driving", "", None, lambda _s: None, 600)
+    assert OPENROUTER_TEST_KEY not in caught.value.details and "blocked" in caught.value.details
+
+
+BYTEZ_TEST_KEY = "bytez-test-key-0123456789abcdef"
+
+
+@pytest.fixture
+def bytez(monkeypatch):
+    monkeypatch.delenv("VIDEO_PROVIDER")
+    monkeypatch.setattr(config, "get_bytez_key", lambda: BYTEZ_TEST_KEY)
+
+
+def test_bytez_generates_video_with_wan_model(monkeypatch, bytez):
+    post = MagicMock(return_value=fake_response(200, {"error": None, "output": "https://api.bytez.com/video/1"}))
+    monkeypatch.setattr(api_client.requests, "post", post)
+    download = MagicMock(status_code=200, content=FAKE_MP4)
+    monkeypatch.setattr(api_client.requests, "get", MagicMock(return_value=download))
+
+    result = api_client.generate_video("A cat playing with a rose", "", None)
+
+    assert result.video_bytes == FAKE_MP4
+    assert result.metadata["provider"] == "bytez" and result.metadata["model"] == "Wan-AI/Wan2.1-T2V-14B"
+    assert post.call_args.args[0].endswith("/Wan-AI/Wan2.1-T2V-14B")
+    assert post.call_args.kwargs["headers"]["Authorization"] == BYTEZ_TEST_KEY
+    assert post.call_args.kwargs["json"] == {"text": "A cat playing with a rose"}
+
+
+def test_bytez_plan_error_falls_back_to_huggingface_with_note(monkeypatch, bytez, tmp_path):
+    monkeypatch.setattr(
+        api_client.requests, "post", MagicMock(return_value=fake_response(403, {"error": "plan"}))
+    )
+    video = tmp_path / "out.mp4"
+    video.write_bytes(FAKE_MP4)
+    job = MagicMock()
+    job.result.return_value = ({"video": str(video)}, 1)
+    client = MagicMock()
+    client.submit.return_value = job
+    monkeypatch.setitem(sys.modules, "gradio_client", MagicMock(Client=MagicMock(return_value=client)))
+
+    result = api_client.generate_video("A car driving", "", None)
+
+    assert result.metadata["provider"] == "huggingface"
+    assert "Bytez" in result.metadata["fallback_note"] and "plan" in result.metadata["fallback_note"]
+
+
+def test_bytez_errors_are_mapped_and_key_redacted(bytez):
+    missing = fake_response(404, {}, text=f"gone {BYTEZ_TEST_KEY}")
+    error = api_client._bytez_error(missing, BYTEZ_TEST_KEY, "a/b")
+    assert isinstance(error, api_client.EndpointNotFoundError) and BYTEZ_TEST_KEY not in error.details
+    assert isinstance(api_client._bytez_error(fake_response(402), BYTEZ_TEST_KEY, "a/b"), api_client.AccessDeniedError)
+    assert isinstance(api_client._bytez_error(fake_response(429), BYTEZ_TEST_KEY, "a/b"), api_client.RateLimitError)
 
 
 def test_picture_shot_planning():

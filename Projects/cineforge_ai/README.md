@@ -71,6 +71,25 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## OpenRouter + Veo 3.1 (top of the fallback chain)
+
+If `OPENROUTER_API_KEY` is set (`.streamlit/secrets.toml` or `.env`), every video is first requested from
+**Google Veo 3.1** through OpenRouter's asynchronous video API (`POST /api/v1/videos`, then polling). Veo makes real
+AI motion with **native audio** (ambience and effects, kept quietly under the narration). Durations are snapped to
+4/6/8 s, aspect to 16:9 or 9:16, and Draft = 720p, Standard/High quality = 1080p. This is **paid**: roughly
+$0.40/s with audio (a 6 s clip is about $2.40); set `OPENROUTER_VIDEO_MODEL=google/veo-3.1-fast` (about $0.12/s) or
+`google/veo-3.1-lite` (about $0.08/s) to spend less. The account needs purchased credits at
+<https://openrouter.ai/settings/credits>; a key's "limit" is only a cap, not a balance. *Test API connection* shows
+the real balance. The full chain is **OpenRouter → Bytez → Hugging Face Space → quota-free renderer**.
+
+## Bytez + free providers (fallback chain)
+
+If `BYTEZ_KEY` is set (`.streamlit/secrets.toml` or `.env`), every video is first requested from **Bytez** using the
+model in `BYTEZ_MODEL` (default `Wan-AI/Wan2.1-T2V-14B`). Bytez's free plan only runs open models up to 7B
+parameters, so a 14B Wan model needs purchased credits (about $10) and must exist in the Bytez catalog; if Bytez
+rejects the request the app moves on automatically and tells you why. The chain is:
+**Bytez → Hugging Face Space → quota-free renderer**.
+
 ## Free video provider (default)
 
 Out of the box the app uses **LTX-Video** on the public Hugging Face Space

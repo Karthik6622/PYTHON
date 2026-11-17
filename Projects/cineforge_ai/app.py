@@ -722,12 +722,8 @@ def run_job(job: dict[str, Any], api_key: str | None) -> bool:
                 job["api_params"],
                 on_progress=on_video_progress,
             )
-            if result.metadata.get("fallback_reason"):
-                status_box.write(
-                    "⚠️ Hugging Face was unavailable "
-                    f"({result.metadata['fallback_reason']}), so this video was made with the quota-free "
-                    "renderer: AI key-frames with camera motion. Retry later for full AI motion."
-                )
+            if result.metadata.get("fallback_note"):
+                status_box.write(f"⚠️ {result.metadata['fallback_note']}")
             raw_path = video_utils.save_video_bytes(
                 result.video_bytes, st.session_state[K_SESSION_ID]
             )
@@ -867,6 +863,10 @@ def api_status_badge() -> str:
     connection = st.session_state[K_CONNECTION]
     if config.get_provider() == config.PROVIDER_HUGGINGFACE:
         tone = "warn" if connection is None else ("ok" if connection["ok"] else "bad")
+        if config.get_openrouter_key() and not config.pictures_only():
+            return badge(f"● OpenRouter · {config.get_openrouter_model().split('/')[-1]}", tone)
+        if config.get_bytez_key() and not config.pictures_only():
+            return badge(f"● Bytez · {config.get_bytez_model().split('/')[-1]}", tone)
         return badge("● Free LTX-Video Space", tone)
     if not config.api_key_required():
         host = config.get_api_url().split("//")[-1].split("/")[0]

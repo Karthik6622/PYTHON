@@ -15,6 +15,8 @@ import binascii
 import math
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -276,28 +278,9 @@ def generate_video(
 
     notify(STAGE_PREPARING)
     if config.get_provider() == config.PROVIDER_HUGGINGFACE:
-        import picture_video  # imported here: picture_video itself imports this module
-
-        if config.pictures_only():
-            if not prompt or not prompt.strip():
-                raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
-            notify(STAGE_GENERATING)
-            return picture_video.generate_video(prompt, optional_supported_parameters, on_progress)
-        try:
-            return _generate_video_huggingface(
-                prompt, negative_prompt, optional_supported_parameters, notify, timeout, on_progress
-            )
-        except _FALLBACK_ERRORS as hf_error:
-            if on_progress:
-                on_progress(0.0, "Hugging Face is busy · switching to the quota-free renderer")
-            notify(STAGE_GENERATING)
-            try:
-                result = picture_video.generate_video(prompt, optional_supported_parameters, on_progress)
-            except CineForgeError as fallback_error:
-                hf_error.details = f"{hf_error.details}\nQuota-free renderer also failed: {fallback_error.message} {fallback_error.details}".strip()
-                raise hf_error from None  # the original failure stays the headline
-            result.metadata["fallback_reason"] = hf_error.message
-            return result
+        return _generate_with_fallbacks(
+            prompt, negative_prompt, optional_supported_parameters, notify, timeout, on_progress
+        )
     api_url = config.get_api_url()
     api_key = (api_key or "").strip()
     if not api_key and config.api_key_required(api_url):
@@ -370,6 +353,76 @@ def generate_video(
     return VideoResult(video_bytes=video_bytes, metadata=metadata)
 
 
+def _generate_with_fallbacks(
+    prompt: str,
+    negative_prompt: str,
+    params: Mapping[str, Any] | None,
+    notify: StageCallback,
+    timeout: int,
+    on_progress: ProgressCallback | None,
+) -> VideoResult:
+    """Try OpenRouter (Veo), Bytez, the Hugging Face Space, then the quota-free renderer, in order."""
+    import picture_video  # imported here: picture_video itself imports this module
+
+    if not prompt or not prompt.strip():
+        raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
+    if config.pictures_only():
+        notify(STAGE_GENERATING)
+        return picture_video.generate_video(prompt, params, on_progress)
+
+    # (label, runner, may fall through on any expected error)
+    attempts: list[tuple[str, Callable[[], VideoResult], bool]] = []
+    if config.get_openrouter_key():
+        attempts.append((
+            f"OpenRouter ({config.get_openrouter_model()})",
+            lambda: _generate_video_openrouter(prompt, negative_prompt, params, notify, timeout, on_progress),
+            True,
+        ))
+    if config.get_bytez_key():
+        attempts.append((
+            f"Bytez ({config.get_bytez_model()})",
+            lambda: _generate_video_bytez(prompt, notify, timeout, on_progress),
+            True,
+        ))
+    attempts.append((
+        "Hugging Face Space",
+        lambda: _generate_video_huggingface(prompt, negative_prompt, params, notify, timeout, on_progress),
+        False,
+    ))
+
+    failures: list[str] = []
+    headline: CineForgeError | None = None
+    used = ""
+    result: VideoResult | None = None
+    for position, (label, run, always_fall_through) in enumerate(attempts):
+        try:
+            result = run()
+            used = label
+            break
+        except CineForgeError as error:
+            if not (always_fall_through or isinstance(error, _FALLBACK_ERRORS)):
+                raise
+            failures.append(f"{label}: {error.message} {error.details}".strip())
+            headline = error
+            if on_progress:
+                following = attempts[position + 1][0] if position + 1 < len(attempts) else "the quota-free renderer"
+                on_progress(0.0, f"{label.split(' (')[0]} unavailable · trying {following.split(' (')[0]}")
+    if result is None:
+        notify(STAGE_GENERATING)
+        try:
+            result = picture_video.generate_video(prompt, params, on_progress)
+            used = "the quota-free renderer (AI key-frames with camera motion)"
+        except CineForgeError as fallback_error:
+            assert headline is not None  # the Hugging Face attempt always runs
+            headline.details = "\n".join([*failures, f"Quota-free renderer: {fallback_error.message}"])
+            raise headline from None  # the last real provider failure stays the headline
+    if failures:
+        short = "; ".join(f.split(": ", 1)[0] + ": " + f.split(": ", 1)[1].split(". ")[0] for f in failures)
+        result.metadata["fallback_reason"] = failures[-1]
+        result.metadata["fallback_note"] = f"{short}. This video was made with {used}."
+    return result
+
+
 @dataclass(frozen=True)
 class ConnectionStatus:
     """Result of the lightweight connection test."""
@@ -386,6 +439,10 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
     """
     api_url = config.get_api_url()
     if config.get_provider() == config.PROVIDER_HUGGINGFACE:
+        if config.get_openrouter_key() and not config.pictures_only():
+            return _check_connection_openrouter()
+        if config.get_bytez_key() and not config.pictures_only():
+            return _check_connection_bytez()
         return _check_connection_huggingface()
     if config.api_key_required(api_url):
         if not api_key:
@@ -411,6 +468,335 @@ def check_connection(api_key: str | None) -> ConnectionStatus:
         return ConnectionStatus(False, f"NVIDIA returned a server error ({response.status_code}).")
     return ConnectionStatus(
         True, "Endpoint found. The key itself is verified on the first generation."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# OpenRouter provider: Google Veo 3.1 (asynchronous job API)                  #
+# --------------------------------------------------------------------------- #
+def _openrouter_error(response: requests.Response, key: str, model: str) -> CineForgeError:
+    status = response.status_code
+    details = _safe_details(response.text, key)
+    if status == 400:
+        return BadRequestError(
+            f"OpenRouter rejected the request for {model}.", status_code=status, details=details
+        )
+    if status == 401:
+        return AuthenticationError("OpenRouter could not authenticate OPENROUTER_API_KEY.", status_code=status, details=details)
+    if status == 402:
+        return AccessDeniedError(
+            "The OpenRouter account has no credits left for this video.",
+            hint="Add credits or raise the key limit at openrouter.ai/settings/credits.",
+            status_code=status,
+            details=details,
+        )
+    if status == 404:
+        return EndpointNotFoundError(
+            f"OpenRouter does not offer the model '{model}'.",
+            hint="Set OPENROUTER_VIDEO_MODEL to an id from https://openrouter.ai/api/v1/videos/models.",
+            status_code=status,
+            details=details,
+        )
+    if status == 429:
+        return RateLimitError("OpenRouter rate limit reached.", status_code=status, details=details)
+    if status >= 500:
+        return ServerError(f"OpenRouter returned a server error ({status}).", status_code=status, details=details)
+    return CineForgeError(f"Unexpected OpenRouter response ({status}).", status_code=status, details=details)
+
+
+def openrouter_request_options(params: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Map the app's size/duration plan to values Veo accepts (4/6/8 s, 16:9 or 9:16, 720p/1080p)."""
+    options = dict(params or {})
+    wanted = float(options.get("duration", 6))
+    durations = config.OPENROUTER_DURATIONS
+    duration = next((d for d in durations if d >= wanted - 0.01), durations[-1])
+    width, height = int(options.get("width", 704)), int(options.get("height", 384))
+    return {
+        "duration": duration,
+        "aspect_ratio": "9:16" if height > width else "16:9",
+        "resolution": "720p" if max(width, height) <= 512 else "1080p",
+    }
+
+
+def _generate_video_openrouter(
+    prompt: str,
+    negative_prompt: str,
+    params: Mapping[str, Any] | None,
+    notify: StageCallback,
+    timeout: int,
+    on_progress: ProgressCallback | None = None,
+) -> VideoResult:
+    key = config.get_openrouter_key() or ""
+    model = config.get_openrouter_model()
+    progress = on_progress or (lambda _fraction, _message: None)
+    headers = {"Authorization": f"Bearer {key}", "X-Title": config.APP_NAME}
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt.strip()[: config.OPENROUTER_MAX_PROMPT_CHARS],
+        "generate_audio": True,
+        **openrouter_request_options(params),
+    }
+    if (seed := (params or {}).get("seed")):
+        payload["seed"] = int(seed)
+    if negative_prompt and negative_prompt.strip() and model.startswith("google/veo"):
+        payload["provider"] = {"options": {"google-vertex": {"parameters": {"negativePrompt": negative_prompt.strip()}}}}
+
+    def request(method: str, url: str, **kwargs: Any) -> requests.Response:
+        return _with_system_certificates(
+            lambda: requests.request(
+                method, url, headers=headers, timeout=(config.CONNECT_TIMEOUT_SECONDS, 120), **kwargs
+            )
+        )
+
+    notify(STAGE_CONNECTING)
+    progress(0.0, f"Submitting the job to {model} on OpenRouter")
+    started = time.monotonic()
+    deadline = started + max(timeout, 600)
+    try:
+        submit = request("POST", f"{config.OPENROUTER_API_BASE}/videos", json=payload)
+        if submit.status_code not in (200, 201, 202):
+            raise _openrouter_error(submit, key, model)
+        job = submit.json()
+        job_id, polling_url = job["id"], job.get("polling_url") or f"{config.OPENROUTER_API_BASE}/videos/{job['id']}"
+        notify(STAGE_GENERATING)
+        status: dict[str, Any] = job
+        while status.get("status") != "completed":
+            if status.get("status") == "failed":
+                raise ServerError(
+                    "OpenRouter could not generate the video.",
+                    hint="The prompt may have been refused by the model's safety filters; try rewording it.",
+                    details=_safe_details(str(status.get("error", "")), key),
+                )
+            if time.monotonic() > deadline:
+                raise RequestTimeoutError("OpenRouter did not finish the video in time.", details=f"job {job_id}")
+            time.sleep(config.OPENROUTER_POLL_SECONDS)
+            elapsed = time.monotonic() - started
+            message = "Queued on OpenRouter" if status.get("status") == "pending" else "Veo is rendering your video"
+            progress(min(0.97, 1.0 - math.exp(-elapsed / config.OPENROUTER_EXPECTED_SECONDS)), message)
+            poll = request("GET", polling_url)
+            if poll.status_code != 200:
+                raise _openrouter_error(poll, key, model)
+            status = poll.json()
+        urls = status.get("unsigned_urls") or status.get("urls") or []
+        if not urls:
+            raise ResponseFormatError("OpenRouter finished the job but returned no video link.")
+        progress(0.98, "Downloading the rendered video")
+        download = request("GET", urls[0])
+        if download.status_code != 200:
+            raise _openrouter_error(download, key, model)
+    except requests.Timeout as error:
+        raise RequestTimeoutError("OpenRouter did not respond in time.", details=type(error).__name__) from error
+    except requests.RequestException as error:
+        raise NetworkError(
+            "Could not reach OpenRouter.", details=_safe_details(f"{type(error).__name__}: {error}", key)
+        ) from error
+    except (ValueError, KeyError, TypeError) as error:
+        raise ResponseFormatError("The OpenRouter response had an unexpected structure.", details=type(error).__name__) from error
+    notify(STAGE_DECODING)
+    validate_mp4(download.content)
+    progress(1.0, "Video rendered")
+    usage = status.get("usage") or {}
+    metadata = {
+        "status_code": 200,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
+        "size_bytes": len(download.content),
+        "request_id": str(job_id),
+        "response_fields": ["unsigned_urls"],
+        "provider": "openrouter",
+        "model": model,
+        "native_audio": True,
+        "cost_usd": usage.get("cost"),
+    }
+    return VideoResult(video_bytes=download.content, metadata=metadata)
+
+
+def _check_connection_openrouter() -> ConnectionStatus:
+    """Verify OPENROUTER_API_KEY via the free ``/key`` call and report the remaining budget."""
+    key = config.get_openrouter_key() or ""
+    try:
+        response = _with_system_certificates(
+            lambda: requests.get(
+                f"{config.OPENROUTER_API_BASE}/key",
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=config.CONNECT_TIMEOUT_SECONDS,
+            )
+        )
+    except requests.RequestException:
+        return ConnectionStatus(False, "OpenRouter could not be reached. Check your network.")
+    if response.status_code in (401, 403):
+        return ConnectionStatus(False, "OpenRouter rejected OPENROUTER_API_KEY. Check the value.")
+    if response.status_code != 200:
+        return ConnectionStatus(False, f"OpenRouter returned HTTP {response.status_code}.")
+    remaining = (response.json().get("data") or {}).get("limit_remaining")
+    budget = f" ${remaining:.2f} key limit left." if isinstance(remaining, (int, float)) else ""
+    try:  # the key's limit is only a cap; the account balance decides whether Veo can run
+        credits = _with_system_certificates(
+            lambda: requests.get(
+                f"{config.OPENROUTER_API_BASE}/credits",
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=config.CONNECT_TIMEOUT_SECONDS,
+            )
+        ).json().get("data") or {}
+        balance = float(credits["total_credits"]) - float(credits["total_usage"])
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return ConnectionStatus(True, f"OpenRouter key accepted. Model: {config.get_openrouter_model()}.{budget}")
+    if balance <= 0:
+        return ConnectionStatus(
+            False,
+            "OpenRouter key accepted, but the account has no credits, so Veo cannot run. "
+            "Add credits at openrouter.ai/settings/credits (the app falls back to free providers meanwhile).",
+        )
+    return ConnectionStatus(
+        True, f"OpenRouter key accepted. Model: {config.get_openrouter_model()}. ${balance:.2f} credit left."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Bytez provider: Wan-AI text-to-video                                        #
+# --------------------------------------------------------------------------- #
+def _with_system_certificates(call: Callable[[], requests.Response]) -> requests.Response:
+    """Run ``call``; on a TLS verification failure retry once using the OS certificate store."""
+    try:
+        return call()
+    except requests.exceptions.SSLError:
+        try:  # corporate TLS proxies re-sign traffic with a certificate only the OS trusts
+            import truststore
+        except ImportError:
+            raise
+        truststore.inject_into_ssl()
+        return call()
+
+
+def _bytez_error(response: requests.Response, key: str, model: str) -> CineForgeError:
+    status = response.status_code
+    details = _safe_details(response.text, key)
+    if status == 401:
+        return AuthenticationError("Bytez could not authenticate BYTEZ_KEY.", status_code=status, details=details)
+    if status in (402, 403):
+        return AccessDeniedError(
+            f"Your Bytez plan cannot run {model}.",
+            hint="Bytez's free plan only runs open models up to 7B parameters; larger ones need purchased credits.",
+            status_code=status,
+            details=details,
+        )
+    if status == 404:
+        return EndpointNotFoundError(
+            f"Bytez does not offer the model '{model}'.",
+            hint="Set BYTEZ_MODEL to a text-to-video model id from the Bytez catalog.",
+            status_code=status,
+            details=details,
+        )
+    if status == 429:
+        return RateLimitError("Bytez rate limit reached.", status_code=status, details=details)
+    if status >= 500:
+        return ServerError(f"Bytez returned a server error ({status}).", status_code=status, details=details)
+    return CineForgeError(f"Unexpected Bytez response ({status}).", status_code=status, details=details)
+
+
+def _generate_video_bytez(
+    prompt: str, notify: StageCallback, timeout: int, on_progress: ProgressCallback | None = None
+) -> VideoResult:
+    if not prompt or not prompt.strip():
+        raise BadRequestError("The prompt is empty.", hint="Enter a video description first.")
+    key = config.get_bytez_key() or ""
+    model = config.get_bytez_model()
+    progress = on_progress or (lambda _fraction, _message: None)
+    headers = {"Authorization": key, "Content-Type": "application/json"}
+    body = {"text": prompt.strip()[: config.BYTEZ_MAX_PROMPT_CHARS]}
+
+    def run() -> requests.Response:
+        return _with_system_certificates(
+            lambda: requests.post(
+                f"{config.BYTEZ_API_BASE}/{model}",
+                headers=headers,
+                json=body,
+                timeout=(config.CONNECT_TIMEOUT_SECONDS, timeout),
+            )
+        )
+
+    notify(STAGE_CONNECTING)
+    progress(0.0, f"Sending the prompt to {model.split('/')[-1]} on Bytez")
+    started = time.monotonic()
+    notify(STAGE_GENERATING)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(run)
+            while True:
+                try:
+                    response = future.result(timeout=1.0)
+                    break
+                except FutureTimeout:
+                    elapsed = time.monotonic() - started
+                    progress(
+                        min(0.97, 1.0 - math.exp(-elapsed / config.BYTEZ_EXPECTED_SECONDS)),
+                        "Rendering frames on Bytez GPUs",
+                    )
+    except requests.Timeout as error:
+        raise RequestTimeoutError("Bytez did not return a video in time.", details=type(error).__name__) from error
+    except requests.RequestException as error:
+        raise NetworkError(
+            "Could not reach Bytez.", details=_safe_details(f"{type(error).__name__}: {error}", key)
+        ) from error
+    if response.status_code != 200:
+        raise _bytez_error(response, key, model)
+
+    notify(STAGE_DECODING)
+    try:
+        payload = response.json()
+    except ValueError as error:
+        raise ResponseFormatError("The Bytez response was not valid JSON.", details=_safe_details(response.text, key)) from error
+    if not isinstance(payload, dict):
+        raise ResponseFormatError("The Bytez response had an unexpected structure.")
+    if payload.get("error"):
+        raise ServerError("Bytez could not generate the video.", details=_safe_details(str(payload["error"]), key))
+    output = payload.get("output")
+    video_url = output.get("url") if isinstance(output, Mapping) else output
+    if not isinstance(video_url, str) or not video_url.startswith("http"):
+        raise ResponseFormatError(
+            "The Bytez response did not include a video link.", details=f"Output type: {type(output).__name__}"
+        )
+    progress(0.98, "Downloading the rendered video")
+    try:
+        download = _with_system_certificates(
+            lambda: requests.get(video_url, timeout=(config.CONNECT_TIMEOUT_SECONDS, 180))
+        )
+    except requests.RequestException as error:
+        raise NetworkError("Could not download the Bytez video.", details=type(error).__name__) from error
+    if download.status_code != 200:
+        raise _bytez_error(download, key, model)
+    validate_mp4(download.content)
+    progress(1.0, "Video rendered")
+    metadata = {
+        "status_code": 200,
+        "elapsed_seconds": round(time.monotonic() - started, 1),
+        "size_bytes": len(download.content),
+        "request_id": "",
+        "response_fields": ["output"],
+        "provider": "bytez",
+        "model": model,
+    }
+    return VideoResult(video_bytes=download.content, metadata=metadata)
+
+
+def _check_connection_bytez() -> ConnectionStatus:
+    """Verify BYTEZ_KEY with the free ``list/tasks`` call (no credits used)."""
+    key = config.get_bytez_key() or ""
+    try:
+        response = _with_system_certificates(
+            lambda: requests.get(
+                f"{config.BYTEZ_API_BASE}/list/tasks",
+                headers={"Authorization": key},
+                timeout=config.CONNECT_TIMEOUT_SECONDS,
+            )
+        )
+    except requests.RequestException:
+        return ConnectionStatus(False, "Bytez could not be reached. Check your network.")
+    if response.status_code == 401:
+        return ConnectionStatus(False, "Bytez rejected BYTEZ_KEY. Check the value.")
+    if response.status_code != 200:
+        return ConnectionStatus(False, f"Bytez returned HTTP {response.status_code}.")
+    return ConnectionStatus(
+        True, f"Bytez key accepted. Model: {config.get_bytez_model()} (falls back to free providers if unavailable)."
     )
 
 

@@ -25,6 +25,7 @@ class MediaInfo:
     width: int
     height: int
     duration: float
+    has_audio: bool = False
 
 
 def ffmpeg_executable() -> str | None:
@@ -52,7 +53,9 @@ def probe_media(ffmpeg: str, path: Path) -> MediaInfo:
     seconds = (
         int(duration[1]) * 3600 + int(duration[2]) * 60 + float(duration[3]) if duration else 0.0
     )
-    return MediaInfo(int(size[1]) if size else 0, int(size[2]) if size else 0, seconds)
+    return MediaInfo(
+        int(size[1]) if size else 0, int(size[2]) if size else 0, seconds, bool(re.search(r"Stream.*Audio:", text))
+    )
 
 
 def synthesize_speech(text: str, voice_label: str, output: Path) -> Path:
@@ -130,9 +133,16 @@ def export_for_youtube(video: Path, audio: Path | None, output: Path) -> Path:
         room = max(info.duration - _VOICE_LEAD_IN_SECONDS - 0.3, 1.0)
         tempo = min(_MAX_TEMPO, speech / room) if info.duration and speech > room else 1.0
         delay_ms = int(_VOICE_LEAD_IN_SECONDS * 1000)
-        chain = f"[1:a]atempo={tempo:.3f},adelay={delay_ms}|{delay_ms},loudnorm=I=-16:TP=-1.5:LRA=11,apad[a]"
+        voice = f"[1:a]atempo={tempo:.3f},adelay={delay_ms}|{delay_ms},loudnorm=I=-16:TP=-1.5:LRA=11,apad[v]"
+        if info.has_audio:
+            # Keep the model's own sound (ambience, effects) quietly under the narration.
+            chain = f"[0:a]volume=0.35[bg];{voice};[bg][v]amix=inputs=2:duration=first:normalize=0,apad[a]"
+        else:
+            chain = voice.replace("[v]", "[a]")
         command += ["-filter_complex", chain, "-map", "0:v", "-map", "[a]", "-shortest",
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
+    elif info.has_audio:
+        command += ["-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
     else:
         command += ["-an"]
     command += ["-vf", video_filter, "-c:v", "libx264", "-preset", "slow", "-crf", "17",
