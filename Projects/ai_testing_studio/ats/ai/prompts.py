@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-PROMPT_VERSION = "1.0"
+PROMPT_VERSION = "1.1"
 
 SHARED_RULES = """You are one specialised agent inside the AI Autonomous Testing Studio.
 Rules that always apply:
@@ -30,14 +30,30 @@ TASK: for each element state the user's intent in a short phrase (e.g. "submits 
 selector is fragile (depends on layout, position, generated classes) so it should be reviewed.
 Return JSON: {"elements": [{"element_key": str (unchanged), "intent": str, "fragile": bool, "note": str}]}
 Only describe elements you were given. Do not rename keys.""",
-    "scenario.generate": """ROLE: Scenario Agent.
-TASK: generate test scenarios for the discovered application at the requested coverage level (see coverage_guide).
-Each scenario: {"scenario_id": "SC_<MODULE>_<NNN>", "title": str, "module": str, "page": str (a discovered page URL),
-"description": str, "preconditions": [str], "test_type": one of the allowed test types, "priority": Critical|High|Medium|Low,
-"expected_outcome": str (business outcome that is observable or stated by the user), "automation_suitability": High|Medium|Low|Manual only}.
-Rules: a scenario must be traceable to a discovered page/component or to the user requirements. Do not duplicate.
-Do not test behaviour that cannot be observed (for example server validation rules that were never shown) as if it were known:
-phrase such scenarios as verification of observed behaviour. For CUSTOM coverage only use the selected categories.
+    "scenario.generate": """ROLE: Scenario Agent, acting as a senior QA lead designing an enterprise regression suite.
+INPUT: the discovered views of the application. A view is identified by "page_key"; "reached_by" lists the clicks that open it
+(single-page apps show many views on one URL) and "signed_in" tells whether it needs an authenticated session.
+THINK FIRST (privately): map the modules and the end-to-end business journeys that connect the views (for example sign-up ->
+sign-in -> use the core feature -> change settings -> sign out); identify where the business risk is highest (authentication,
+session handling, access control to signed-in views, data entry and persistence, destructive or irreversible actions, privacy,
+error recovery); then choose the scenarios a release manager would insist on before shipping.
+TASK: generate test scenarios at the requested coverage level (see coverage_guide) for EVERY discovered view and journey.
+Each scenario: {"scenario_id": "SC_<MODULE>_<NNN>", "title": str (business-readable, starts with a verb, e.g. "Verify ..."),
+"module": str, "page": str (the page_key of the main view under test), "description": str (what is verified and the business risk
+it protects against), "preconditions": [str] (account state, data, which view to open and how), "test_type": one of the allowed
+test types, "priority": Critical|High|Medium|Low (risk based: Critical = blocks the core journey, security or data loss),
+"expected_outcome": str (observable business outcome), "automation_suitability": High|Medium|Low|Manual only}.
+Quality bar:
+- Cover end-to-end journeys across views, not only single controls; include positive AND negative paths for every form/flow.
+- Authentication: valid sign-in, invalid credentials, empty/invalid input validation, sign-out ends the session, signed-in views are
+  not reachable without signing in, session behaviour on reload where observable, password reset entry point, sign-up validation.
+- Every signed-in view (profile, settings, dashboards, lists, chats, ...) gets its own functional scenarios, including saving and
+  persisting changes, cancelling, and destructive actions guarded by confirmation (verify the guard, never assume deletion output).
+- Navigation consistency (every navigation entry opens the right view and the active item is indicated), UI state, accessibility
+  (labels, keyboard), responsiveness and error handling where the evidence makes them testable.
+- One scenario = one clear objective. No duplicates, no vague titles, nothing that is not traceable to a view or requirement.
+Do not test behaviour that cannot be observed as if it were known: phrase such scenarios as verification of observed behaviour.
+For CUSTOM coverage only use the selected categories.
 Return JSON: {"scenarios": [ ... ]}""",
     "scenario.modify": """ROLE: Scenario Agent (change mode).
 You receive the existing scenarios, an instruction from a human reviewer, and discovery evidence.
@@ -45,15 +61,23 @@ TASK: apply the instruction with the SMALLEST possible change set. Do not touch 
 Return JSON: {"add": [full scenario objects with new unique ids], "update": [{"scenario_id": str, ...only changed fields}],
 "delete": [scenario ids], "explanation": str}
 When the instruction asks to regenerate specific scenarios, return them under "update" (same ids).""",
-    "testcase.generate": """ROLE: Test Case Agent.
-TASK: write detailed manual-style test cases for the APPROVED scenarios provided. Cover relevant positive, negative,
-functional, regression, boundary, validation, error-handling, UI and navigation checks for each scenario, without duplicates.
-Each test case: {"test_case_id": "TC_<MODULE>_<NNN>", "scenario_id": str (an approved scenario), "module": str, "title": str,
-"description": str, "preconditions": [str], "test_data": {name: value}, "steps": [str] (one user action per step, use the
-visible labels of the elements), "expected_result": str, "test_type": str, "priority": str, "automation_candidate": bool,
-"related_page": str (a discovered page URL), "component": str, "tags": [str]}.
-Rules: test data must be concrete and safe (use {{env:VARIABLE}} for credentials). Expected results must be observable and
-consistent with the evidence. Return JSON: {"test_cases": [ ... ]}""",
+    "testcase.generate": """ROLE: Test Case Agent, acting as a senior QA engineer writing enterprise-grade manual test cases.
+THINK FIRST (privately): for each approved scenario decide the distinct conditions that must be proven: the main positive path,
+each negative/invalid input, boundaries (empty, minimum, maximum, over-length, special characters), state and persistence checks
+(reload, navigate away and back), permission/session checks and error handling. Each condition becomes one test case.
+TASK: write detailed test cases for the APPROVED scenarios provided; every scenario gets at least one positive and, where input
+or state is involved, negative/boundary test cases. No duplicates.
+Each test case: {"test_case_id": "TC_<MODULE>_<NNN>", "scenario_id": str (an approved scenario), "module": str, "title": str
+(specific condition under test), "description": str, "preconditions": [str] (include signing in with the test account when the
+view is signed_in, and the navigation in "reached_by"), "test_data": {name: value}, "steps": [str] (user actions using the exact
+visible labels of the elements; start from opening the application, follow "reached_by" to reach the view, one action per step,
+and add explicit "Verify ..." checkpoint steps after important actions), "expected_result": str (precise, observable final
+result), "test_type": str, "priority": str, "automation_candidate": bool, "related_page": str (the page_key of the view),
+"component": str, "tags": [str] (e.g. smoke, regression, security, negative)}.
+Rules: test data must be concrete and safe: for the signed-in test account use exactly the placeholders in application.test_account,
+other credentials use {{env:VARIABLE}}, everything else realistic but fictitious values.
+Expected results must be observable and consistent with the evidence; never invent exact error texts that were not observed:
+describe them ("an error message is shown and the user stays on the sign-in view"). Return JSON: {"test_cases": [ ... ]}""",
     "testcase.modify": """ROLE: Test Case Agent (change mode).
 Apply the human reviewer's instruction to the existing test cases with the smallest change set.
 Return JSON: {"add": [full test case objects with new unique ids], "update": [{"test_case_id": str, ...only changed fields}],
@@ -72,7 +96,9 @@ Rules:
   expected text. If the expectation cannot be verified with the available elements, assert something true and weaker
   (for example expect_visible) and explain in "notes".
 - Never write real credentials. Use {{env:VARIABLE_NAME}} placeholders from the test data.
-- Start every script with a goto step unless the preconditions say otherwise. Keep scripts short and deterministic.
+- Start every script with a goto step unless the preconditions say otherwise. When the target view lists 'reached_by' steps in
+  the page digest (single-page apps), perform those clicks after the goto (and after signing in when the view is signed_in).
+  Keep scripts short and deterministic.
 Return JSON: {"scripts": [{"test_case_id": str, "title": str, "notes": str, "steps": [ ... ]}]}""",
     "script.fix": """ROLE: Script Generation Agent (fix mode).
 You receive one source file of a generated automation project, a reviewer instruction and optional error text.

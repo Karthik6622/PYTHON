@@ -79,7 +79,8 @@
     return (attr(p, 'role') || p.tagName.toLowerCase()) + (label ? ':' + cut(label, 40) : '');
   };
 
-  const forms = q('form');
+  const FORM_SEL = 'form,[data-testid="stForm"]';  // Streamlit renders st.form as a div
+  const forms = q(FORM_SEL).filter((f) => !f.parentElement || !f.parentElement.closest(FORM_SEL));
   const SELECTOR = [
     'a[href]', 'button', 'input:not([type=hidden])', 'select', 'textarea', 'summary',
     '[role=button]', '[role=link]', '[role=tab]', '[role=menuitem]', '[role=checkbox]', '[role=radio]', '[role=switch]',
@@ -113,7 +114,7 @@
       readonly: !!el.readOnly, checked: !!el.checked, maxlength: attr(el, 'maxlength'), min: attr(el, 'min'), max: attr(el, 'max'),
       pattern: attr(el, 'pattern'), autocomplete: attr(el, 'autocomplete'),
       options: tag === 'select' ? Array.from(el.options).slice(0, 25).map((o) => cut(o.text, 60)) : [],
-      form: forms.indexOf(el.closest('form')), landmark: landmarkOf(el), css: cssPath(el), xpath: xpathOf(el),
+      form: forms.indexOf(el.closest(FORM_SEL)), landmark: landmarkOf(el), css: cssPath(el), xpath: xpathOf(el),
       counts: {
         id: el.id ? q('[id="' + el.id.replace(/"/g, '\\"') + '"]').length : 0,
         testid: testid ? q('[' + testidAttr + '="' + testid.replace(/"/g, '\\"') + '"]').length : 0,
@@ -125,9 +126,9 @@
   elements.forEach((e, i) => { e.index = i; });
 
   const formInfo = forms.slice(0, 20).map((f, i) => ({
-    index: i, id: f.id || '', name: attr(f, 'name'), action: attr(f, 'action'), method: (f.method || 'get').toLowerCase(),
+    index: i, id: f.id || '', name: attr(f, 'name'), action: attr(f, 'action'), method: (typeof f.method === 'string' && f.method ? f.method : 'get').toLowerCase(),
     fields: elements.filter((e) => e.form === i && !['button', 'submit', 'reset'].includes(e.type) && e.tag !== 'button').map((e) => e.index),
-    submit: cut(((f.querySelector('button[type=submit],input[type=submit],button:not([type])') || {}).innerText) || '', 60),
+    submit: cut(((f.querySelector('button[type=submit],input[type=submit],[data-testid*="FormSubmit"] button,button[kind*="FormSubmit"],button:not([type])') || {}).innerText) || '', 60),
   }));
   const tables = q('table').slice(0, 10).map((t) => ({
     headers: q('th', t).slice(0, 15).map((h) => cut(h.innerText, 40)), rows: q('tr', t).length,

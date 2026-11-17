@@ -163,7 +163,8 @@ def build_digest(result: DiscoveryResult, max_items: int = 40) -> list[dict[str,
                 break
         digest.append(
             {
-                "page_key": page.page_key, "url": page.final_url or page.url, "title": page.title, "headings": page.headings[:8],
+                "page_key": page.page_key, "view": page.view_name or page.title, "url": page.final_url or page.url, "title": page.title,
+                "signed_in": page.signed_in, "reached_by": page.reached_by, "headings": page.headings[:8],
                 "elements": items, "forms": [{"fields": len(f.get("fields", [])), "submit": f.get("submit", ""), "method": f.get("method")} for f in page.forms],
                 "tables": page.tables[:3], "components": page.components, "requires_auth": page.requires_auth,
                 "api_calls": sorted({f"{n['method']} {n['url']}" for n in page.network})[:6],
@@ -242,7 +243,7 @@ class DiscoveryService:
             return
         say("Asking the Web Discovery Agent to understand the application")
         try:
-            screenshots = [Path(p.screenshot).read_bytes() for p in result.pages[:2] if p.screenshot and Path(p.screenshot).is_file()]
+            screenshots = [Path(p.screenshot).read_bytes() for p in result.pages[:3] if p.screenshot and Path(p.screenshot).is_file()]
             analysis = self.discovery_agent.analyze(
                 project.url, project.description, build_digest(result), screenshots, project_id=project.id
             )

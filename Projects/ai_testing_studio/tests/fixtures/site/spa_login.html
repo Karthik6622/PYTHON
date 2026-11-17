@@ -18,7 +18,28 @@ function form() {
   };
 }
 function home() {
-  root.innerHTML = '<h1>Dashboard</h1><button>New conversation</button><button>Log out</button><input type="text" placeholder="Search notes">';
+  root.innerHTML = '<aside><button data-view="dash">Dashboard</button><button data-view="profile">Profile</button>' +
+    '<button data-view="settings">Settings</button><button id="out">Log out</button></aside><main id="view"></main>';
+  root.querySelectorAll('[data-view]').forEach((b) => { b.onclick = () => show(b.dataset.view); });
+  document.getElementById('out').onclick = landing;
+  show('dash');
+}
+function show(view) {
+  const main = document.getElementById('view');
+  if (view === 'dash') {
+    main.innerHTML = '<h1>Dashboard</h1><button>New conversation</button><input type="text" placeholder="Search notes">';
+  } else if (view === 'profile') {
+    main.innerHTML = '<h1>Profile</h1><label>Display name <input type="text" value="Tester" disabled></label>';
+  } else {
+    main.innerHTML = '<h1>Settings</h1><div role="tablist"><button role="tab" aria-selected="true">General</button>' +
+      '<button role="tab" aria-selected="false" id="privacy-tab">Privacy</button></div><div id="panel">' +
+      '<form><label>Reply tone <select><option>Warm</option><option>Direct</option></select></label><button type="submit">Save preferences</button></form>' +
+      '<button id="delete">Delete my account</button></div>';
+    document.getElementById('privacy-tab').onclick = () => {
+      document.getElementById('panel').innerHTML = '<h2>Privacy</h2><label>Data retention <select><option>30 days</option></select></label>';
+    };
+    document.getElementById('delete').onclick = () => { main.innerHTML = '<h1>Account deleted</h1>'; };
+  }
 }
 landing();
 </script>

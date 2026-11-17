@@ -41,7 +41,17 @@ flowchart LR
 ```
 
 Every AI output is a draft. Scenarios, test cases and the generated project each need a human approval, and AI changes
-reset the approval of whatever they touch.
+reset the approval of whatever they touch. Once every scenario is approved the studio moves on to the Test cases page.
+
+### How discovery explores an application
+
+Discovery behaves like a tester rather than a link crawler. When credentials are configured it signs in once and, inside
+that live session, clicks through the navigation (sidebar items, menus, navigation radios, tabs, links and view-changing
+buttons); then it explores the signed-out views (welcome, sign-in, sign-up, password reset) in a fresh session. Each
+distinct view is recorded with the clicks that open it ("How to reach"), so single-page apps that keep one URL and hold the
+sign-in in memory (Streamlit, React, ...) are mapped completely. Controls that change data, leave the application or end
+the session (log out, delete, save, send, submit, upload, social sign-in, ...) are never clicked, and form submit buttons
+are skipped. The project's page limit and link depth bound the exploration; `DISCOVERY_TIMEOUT_SECONDS` bounds its time.
 
 ## Architecture
 
@@ -50,7 +60,7 @@ reset the approval of whatever they touch.
 | UI | `app.py`, `ats/ui/` | Pages (Projects, Discovery, Scenarios, Test cases, Automation, GitHub, Execute, Results, Reports, Status and audit), sidebar tracker, live run view |
 | Workflow | `ats/workflow.py` | Computes stage state from stored data (nothing is kept only in the session) |
 | Model layer | `ats/ai/` | OpenAI-SDK client for Nemotron (streaming `reasoning_content`/`content`, thinking mode, retries, JSON repair, schema validation, call log) and the agents |
-| Discovery | `ats/discovery/` | Isolated Playwright worker: crawl, DOM/accessibility extraction, screenshots, forms, auth |
+| Discovery | `ats/discovery/` | Isolated Playwright worker: click-through exploration of signed-in and public views, DOM/accessibility extraction, screenshots, forms, auth |
 | Locators | `ats/locators/` | Locator repository: ranked, deduplicated, uniqueness-checked selectors with alternatives |
 | Generation | `ats/generation/` | Scenario and test-case services, framework adapters (Playwright Python/TypeScript/JavaScript, Selenium Python/Java), Excel exporters |
 | Automation | `ats/automation/` | Script service, bundle store, validation against the locator repository, traceability |

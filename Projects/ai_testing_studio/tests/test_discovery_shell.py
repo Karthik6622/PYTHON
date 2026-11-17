@@ -51,6 +51,22 @@ def test_sign_in_through_landing_button_in_embedded_app(repo, site_url, browser_
     assert not any("sign-in may have failed" in w or "Login workflow failed" in w for w in result.warnings)
 
 
+def test_views_behind_clicks_are_explored_without_unsafe_actions(repo, site_url, browser_ready, no_ai, monkeypatch):
+    """Single-page apps keep one URL and the sign-in in memory: every view must be reached by clicking, not by reloading."""
+    if not browser_ready:
+        pytest.skip("Chromium is not installed")
+    monkeypatch.setenv("ATS_TEST_SPA_USER", SPA_USER)
+    monkeypatch.setenv("ATS_TEST_SPA_PASS", "correct-horse")
+    result = DiscoveryService(repo).run(_spa_project(repo, site_url))
+    views = {" ".join(p.headings): p for p in result.pages}
+    signed = {h for h, p in views.items() if p.signed_in}
+    assert {"h1: Dashboard", "h1: Profile", "h1: Settings", "h1: Settings h2: Privacy"} <= signed
+    assert {"h1: Welcome", "h2: Welcome back"} <= {h for h, p in views.items() if not p.signed_in}  # public views too
+    assert views["h1: Settings h2: Privacy"].reached_by == ["Sign in with the test account", "Click the 'Settings' button", "Open the 'Privacy' tab"]
+    assert not any("Account deleted" in h for h in views)  # destructive controls are never clicked
+    assert len({p.page_key for p in result.pages}) == len(result.pages)
+
+
 def test_wrong_password_is_reported(repo, site_url, browser_ready, no_ai, monkeypatch):
     if not browser_ready:
         pytest.skip("Chromium is not installed")

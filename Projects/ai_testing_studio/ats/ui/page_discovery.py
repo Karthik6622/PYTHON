@@ -88,8 +88,8 @@ def overview_tab(result, locators) -> None:  # noqa: ANN001
 
 def pages_tab(result) -> None:  # noqa: ANN001
     pages = pd.DataFrame(
-        [{"Key": p.page_key, "URL": p.final_url or p.url, "Title": p.title, "Depth": p.depth, "Elements": len(p.elements), "Forms": len(p.forms),
-          "Needs sign-in": p.requires_auth, "Console errors": len(p.console_errors)} for p in result.pages]
+        [{"Key": p.page_key, "View": p.view_name or p.title, "Signed in": p.signed_in, "How to reach": " > ".join(p.reached_by) or "Open the URL",
+          "URL": p.final_url or p.url, "Elements": len(p.elements), "Forms": len(p.forms), "Console errors": len(p.console_errors)} for p in result.pages]
     )  # fmt: skip
     st.dataframe(pages, hide_index=True, width="stretch")
     if result.skipped:
@@ -100,7 +100,9 @@ def pages_tab(result) -> None:  # noqa: ANN001
     left, right = st.columns([2, 3])
     with left:
         if page.screenshot and Path(page.screenshot).is_file():
-            st.image(page.screenshot, caption=page.title or page.url)
+            st.image(page.screenshot, caption=page.view_name or page.title or page.url)
+        if page.reached_by:
+            st.markdown("**How to reach**: " + " → ".join(page.reached_by))
         if page.headings:
             st.markdown("**Headings**: " + " | ".join(page.headings[:6]))
         if page.console_errors:
@@ -129,7 +131,7 @@ def render(svc: Services) -> None:
     project = require_project(svc)
     theme.page_header(
         "Discovery",
-        "A real browser opens the site, follows same-site links within your limits and records elements, forms, navigation and screenshots.",
+        "A real browser signs in, clicks through every menu, tab and view (signed-in and public) and records elements, forms and screenshots.",
         "STEP 01 // DISCOVER",
     )
     show_notices()

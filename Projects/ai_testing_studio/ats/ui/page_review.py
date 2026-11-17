@@ -9,7 +9,7 @@ from ats.generation.excel_export import cases_workbook, combined_workbook, scena
 from ats.models import PRIORITIES, SUITABILITY, TEST_TYPES, Scenario, TestCase
 from ats.services import Services
 from ats.ui import theme
-from ats.ui.session import notify, require_project, safe, show_notices
+from ats.ui.session import go_to, notify, require_project, safe, show_notices
 from ats.ui.widgets import ModelStream, chip, edit_fields, progress_logger, selected_rows
 
 SCENARIO_SPEC = [
@@ -25,6 +25,15 @@ CASE_SPEC = [
 
 def _frame(items: list, columns: dict[str, str]) -> pd.DataFrame:
     return pd.DataFrame([{label: getattr(item, attr) for label, attr in columns.items()} for item in items])
+
+
+def _after_approval(svc: Services, project_id: str) -> None:
+    """Once every scenario is approved the review is finished: continue on the Test cases page."""
+    scenarios = svc.repo.list_scenarios(project_id)
+    if scenarios and all(s.status == "approved" for s in scenarios):
+        notify(f"All {len(scenarios)} scenarios approved. Generate the test cases next.")
+        go_to("test-cases")  # leaves this run; the Test cases page shows the notice
+    st.rerun()
 
 
 def _download(label: str, data: bytes, name: str) -> None:
@@ -80,10 +89,10 @@ def render_scenarios(svc: Services) -> None:
     a, b, c, d = st.columns(4)
     if a.button(f"Approve selected ({len(ids)})", disabled=not ids):
         svc.scenarios.approve(project.id, ids)
-        st.rerun()
+        _after_approval(svc, project.id)
     if b.button("Approve all"):
         svc.scenarios.approve_all(project.id)
-        st.rerun()
+        _after_approval(svc, project.id)
     if c.button("Move selected back to draft", disabled=not ids):
         svc.scenarios.unapprove(project.id, ids)
         st.rerun()

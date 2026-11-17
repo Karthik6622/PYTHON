@@ -11,13 +11,14 @@ from ats.models import AutomationPlan, ChangeSet, Scenario, TestCase, _Model
 
 
 class ScenarioList(_Model):
-    scenarios: list[Scenario] = Field(default_factory=list)
+    # An empty list is never a useful answer here; failing validation makes the agent ask the model again.
+    scenarios: list[Scenario] = Field(min_length=1)
 
 
 class TestCaseList(_Model):
     __test__ = False
 
-    test_cases: list[TestCase] = Field(default_factory=list)
+    test_cases: list[TestCase] = Field(min_length=1)
 
 
 class ScenarioInput(BaseModel):
@@ -40,7 +41,7 @@ class ScenarioChangeInput(BaseModel):
 
 class ScenarioAgent(Agent):
     name = "scenario"
-    thinking = False
+    thinking = True  # test design benefits from reasoning: journeys, risks and coverage are planned before writing
 
     def generate(self, payload: dict[str, Any], project_id: str = "", on_event: EventCallback | None = None) -> list[Scenario]:
         return self.invoke(
@@ -77,7 +78,7 @@ class TestCaseChangeInput(BaseModel):
 class TestCaseAgent(Agent):
     __test__ = False
     name = "test_case"
-    thinking = False
+    thinking = True
 
     def generate(self, payload: dict[str, Any], project_id: str = "", on_event: EventCallback | None = None) -> list[TestCase]:
         return self.invoke(

@@ -194,8 +194,8 @@ class LocatorSpec(_Model):
 # Discovery
 # ----------------------------------------------------------------------------------------
 class DiscoveryLimits(_Model):
-    max_pages: int = Field(default=8, ge=1, le=50)
-    max_depth: int = Field(default=2, ge=0, le=5)
+    max_pages: int = Field(default=20, ge=1, le=50)
+    max_depth: int = Field(default=3, ge=0, le=5)
     allowed_domains: list[str] = Field(default_factory=list)
     excluded_paths: list[str] = Field(default_factory=list)
     include_screenshots: bool = True
@@ -240,6 +240,10 @@ class PageSnapshot(_Model):
     network: list[dict[str, Any]] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
     requires_auth: bool = False
+    # Single-page apps show many views on one URL: each view is named and records the clicks that open it.
+    view_name: str = ""
+    reached_by: list[str] = Field(default_factory=list)
+    signed_in: bool = False
 
 
 class DiscoveryResult(_Model):

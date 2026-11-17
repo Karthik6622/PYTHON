@@ -212,9 +212,9 @@ def load_settings() -> Settings:
         database_url=_str("DATABASE_URL", "sqlite:///data/studio.db"),
         data_dir=data_dir,
         allow_private_network=_bool("ALLOW_PRIVATE_NETWORK", False),
-        discovery_timeout_seconds=_int("DISCOVERY_TIMEOUT_SECONDS", 240),
-        discovery_default_max_pages=_int("DISCOVERY_DEFAULT_MAX_PAGES", 8),
-        discovery_default_depth=_int("DISCOVERY_DEFAULT_DEPTH", 2),
+        discovery_timeout_seconds=_int("DISCOVERY_TIMEOUT_SECONDS", 600),
+        discovery_default_max_pages=_int("DISCOVERY_DEFAULT_MAX_PAGES", 20),
+        discovery_default_depth=_int("DISCOVERY_DEFAULT_DEPTH", 3),
         github_api_url=_str("GITHUB_API_URL", "https://api.github.com").rstrip("/"),
         github_token=_secret("GITHUB_TOKEN") or "",
     )

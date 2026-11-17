@@ -26,7 +26,7 @@ class TestCaseService:
         self.agent = agent or TestCaseAgent(repository=repo)
 
     def _elements_for(self, project_id: str, discovery: Any, scenarios: list[Scenario]) -> list[dict[str, Any]]:
-        page_keys = {p.final_url or p.url: p.page_key for p in discovery.pages}
+        page_keys = {p.final_url or p.url: p.page_key for p in discovery.pages} | {p.page_key: p.page_key for p in discovery.pages}
         wanted = {page_keys.get(s.page) for s in scenarios if s.page in page_keys}
         specs = [s for s in self.repo.list_locators(project_id) if not wanted or s.page_key in wanted]
         return [{"key": s.element_key, "page": s.page_key, "role": s.role or s.tag, "name": s.name, "intent": s.intent} for s in specs][:150]

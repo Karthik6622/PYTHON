@@ -16,10 +16,14 @@ EventCallback = Callable[[str, str], None]
 
 
 def _application(project: Project, discovery: Any) -> dict[str, Any]:
-    return {
+    app = {
         "name": project.name, "url": project.url, "environment": project.environment, "description": project.description,
         "summary": discovery.summary, "modules": discovery.analysis.get("modules", []), "workflows": discovery.analysis.get("workflows", []),
     }  # fmt: skip
+    if project.auth.mode in ("env_credentials", "login_workflow"):
+        # The exact placeholders for the configured test account, so every test case refers to the same variables.
+        app["test_account"] = {"username": f"{{{{env:{project.auth.username_env}}}}}", "password": f"{{{{env:{project.auth.password_env}}}}}"}
+    return app
 
 
 class ScenarioService:
@@ -41,7 +45,8 @@ class ScenarioService:
             "discovery": build_digest(discovery, max_items=30), "allowed_test_types": allowed,
         }  # fmt: skip
         raw = self.agent.generate(payload, project_id=project.id, on_event=on_event)
-        scenarios = self._clean(raw, {p.final_url or p.url for p in discovery.pages}, allowed if project.coverage == "CUSTOM" else None)
+        known = {p.page_key for p in discovery.pages} | {p.final_url or p.url for p in discovery.pages}
+        scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None)
         if not scenarios:
             raise GenerationError("The model did not return usable scenarios. Add requirements or try again.")
         self.repo.save_scenarios(project.id, scenarios, replace=True)
