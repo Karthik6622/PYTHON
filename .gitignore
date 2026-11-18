@@ -1,0 +1,14 @@
+# AI Autonomous Testing Studio
+__pycache__/
+.pytest_cache/
+node_modules/
+target/
+reports/
+test-results/
+playwright-report/
+.env
+.venv/
+*.pyc
+storage_state*
+logs/
+*.log

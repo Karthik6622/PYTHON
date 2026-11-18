@@ -1,0 +1,1709 @@
+{
+  "create_account.confirm_password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Confirm password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Confirm password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Type it once more",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rp\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rp:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.create_account_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primaryFormSubmit",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Create account",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(6) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[6]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.create_account_div": {
+    "page": "create_account",
+    "intent": "",
+    "role": "",
+    "name": "Create account",
+    "preferred": {
+      "kind": "xpath",
+      "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[6]/div[1]/div[1]/button[1]/div[1]/span[1]/span[1]/div[1]",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > button > div > span > span > div",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.display_name_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Display name",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "What should we call you?",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:r5\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.email_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rb\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.i_have_read_the_privacy_notice_and_under_checkbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "checkbox",
+    "name": "I have read the privacy notice and understand this is an AI",
+    "preferred": {
+      "kind": "role",
+      "value": "checkbox",
+      "name": "I have read the privacy notice and understand this is an AI",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "I have read the privacy notice and understand this is an AI assistant.",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.log_in_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Log in",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log in",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(2) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[2]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Create a strong password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rh\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rh:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "create_account.show_password_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(3) > div > div > div > div > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Show password",
+        "exact": true
+      }
+    ]
+  },
+  "create_account.show_password_button_2": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(4) > div > div > div > div > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Show password",
+        "exact": true
+      }
+    ]
+  },
+  "forgot_password.back_to_log_in_button": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "button",
+    "name": "Back to log in",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-tertiary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Back to log in",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "forgot_password.continue_button": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "button",
+    "name": "Continue",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primaryFormSubmit",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Continue",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(2) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[3]/div[1]/div[1]/div[2]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "forgot_password.email_textbox": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "testid",
+      "value": "stTextInputField",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "textbox",
+        "name": "Email",
+        "exact": true
+      },
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rh\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rh:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.back_to_welcome_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Back to welcome",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div:nth-of-type(5) > div > div:nth-of-type(4) > div > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[4]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Back to welcome",
+        "exact": true
+      }
+    ]
+  },
+  "get_started.continue_with_github_link": {
+    "page": "get_started",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseLinkButton-secondary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "link",
+        "name": "Continue with GitHub",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.continue_with_google_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-secondary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Continue with Google",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.create_account_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.email_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:r5\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.forgot_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Forgot password?",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Forgot password?",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(1) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.log_in_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Log in",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primaryFormSubmit",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Log in",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.password_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Your password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rb\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.show_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Show password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.stheader_header": {
+    "page": "get_started",
+    "intent": "",
+    "role": "",
+    "name": "",
+    "preferred": {
+      "kind": "testid",
+      "value": "stHeader",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#root > div > div > div > div > header",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/header[1]",
+        "exact": false
+      }
+    ]
+  },
+  "get_started.stwidgetlabel_label": {
+    "page": "get_started",
+    "intent": "",
+    "role": "",
+    "name": "",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(2) > div > div > div:nth-of-type(1) > div > label",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/label[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.account_radiogroup": {
+    "page": "home",
+    "intent": "account selection radio group",
+    "role": "radiogroup",
+    "name": "Account",
+    "preferred": {
+      "kind": "css",
+      "value": "#react-aria9955480280-\\:rq\\:",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:rq:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "home.chat_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(1) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      }
+    ]
+  },
+  "home.collapse_sidebar_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Collapse sidebar",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-headerNoPadding",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Collapse sidebar",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[1]/div[2]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.conversation_title_div": {
+    "page": "home",
+    "intent": "display conversation title",
+    "role": "",
+    "name": "Conversation title",
+    "preferred": {
+      "kind": "xpath",
+      "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > label > span > div",
+        "exact": false
+      }
+    ]
+  },
+  "home.conversation_title_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Conversation title",
+    "preferred": {
+      "kind": "testid",
+      "value": "stTextInputField",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "textbox",
+        "name": "Conversation title",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "#\\:rj\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rj:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "home.delete_this_chat_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Delete this chat",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Delete this chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "details > div > div > div:nth-of-type(2) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[2]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.hey_kk_i_m_withyou_your_ai_companion_div": {
+    "page": "home",
+    "intent": "AI companion greeting main content",
+    "role": "",
+    "name": "Hey kk! I’m WithYou, your AI companion. Ask me anything, thi",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]",
+        "exact": false
+      }
+    ]
+  },
+  "home.log_out_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Log out",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log out",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(10) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[10]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.manage_current_chat_button": {
+    "page": "home",
+    "intent": "open manage current chat menu",
+    "role": "button",
+    "name": "Manage current chat",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div > div:nth-of-type(7) > div > details > summary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/summary[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Manage current chat",
+        "exact": true
+      }
+    ]
+  },
+  "home.my_profile_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(2) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.new_chat_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New chat",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "New chat",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.new_conversation_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New conversation",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "New conversation",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(1) > span > span > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[1]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.recent_chats_div": {
+    "page": "home",
+    "intent": "recent chats section header in sidebar",
+    "role": "",
+    "name": "RECENT CHATS",
+    "preferred": {
+      "kind": "css",
+      "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(2) > div > div > div:nth-of-type(4)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[4]",
+        "exact": false
+      }
+    ]
+  },
+  "home.save_title_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Save title",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-secondaryFormSubmit",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Save title",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(2) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.send_message_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Send message",
+    "preferred": {
+      "kind": "testid",
+      "value": "stChatInputSubmitButton",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Send message",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(4) > button:nth-of-type(2)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/button[2]",
+        "exact": false
+      }
+    ]
+  },
+  "home.settings_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(3) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.stheader_header": {
+    "page": "home",
+    "intent": "page header element",
+    "role": "",
+    "name": "",
+    "preferred": {
+      "kind": "testid",
+      "value": "stHeader",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#root > div > div > div > div > header",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/header[1]",
+        "exact": false
+      }
+    ]
+  },
+  "home.type_a_message_attach_a_file_or_tap_th_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Type a message, attach a file, or tap the mic…",
+    "preferred": {
+      "kind": "testid",
+      "value": "stChatInputTextArea",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "textbox",
+        "name": "Type a message, attach a file, or tap the mic…",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Type a message, attach a file, or tap the mic…",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(1) > textarea",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/textarea[1]",
+        "exact": false
+      }
+    ]
+  },
+  "landing.continue_with_github_link": {
+    "page": "landing",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseLinkButton-secondary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "link",
+        "name": "Continue with GitHub",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ]
+  },
+  "landing.continue_with_google_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      }
+    ]
+  },
+  "landing.create_account_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "landing.get_started_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Get started",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Get started",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "landing.withyoua_personal_ai_companionpowered_by_div": {
+    "page": "landing",
+    "intent": "",
+    "role": "",
+    "name": "WithYouA personal AI companionPowered by RK",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(4)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[4]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.1_conversation_s_saved_to_this_app_s_lo_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "1 conversation(s) saved to this app’s local data folder.",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(9)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.chat_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(1) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.display_name_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "Display name",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div:nth-of-type(7) > div > label > span > div",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[7]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.email_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "Email",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div:nth-of-type(8) > div > label > span > div",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[8]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.export_selected_conversation_as_markdown_button": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "button",
+    "name": "Export selected conversation as Markdown",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Export selected conversation as Markdown",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(11) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[11]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.my_profile_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "css",
+      "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(2) > label > div > div:nth-of-type(2)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/div[1]/div[2]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.my_profile_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(2) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.recent_chats_div": {
+    "page": "my_profile",
+    "intent": "recent chats section header in sidebar",
+    "role": "",
+    "name": "RECENT CHATS",
+    "preferred": {
+      "kind": "css",
+      "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(2) > div > div > div:nth-of-type(4)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[4]",
+        "exact": false
+      }
+    ]
+  },
+  "my_profile.the_app_stores_account_and_conversation_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "The app stores account and conversation data locally on the",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(10)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[10]",
+        "exact": false
+      }
+    ]
+  },
+  "settings.chat_mode_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Chat mode",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Chat mode",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:r46\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:r46:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ]
+  },
+  "settings.chat_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(1) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      }
+    ]
+  },
+  "settings.delete_my_account_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Delete my account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Delete my account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "settings.reply_length_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply length",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply length",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:r37\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:r37:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ]
+  },
+  "settings.reply_tone_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply tone",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply tone",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:r2o\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:r2o:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ]
+  },
+  "settings.romantic_mode_partner_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Romantic mode partner",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Romantic mode partner",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:r4n\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:r4n:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ]
+  },
+  "settings.save_preferences_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Save preferences",
+    "preferred": {
+      "kind": "testid",
+      "value": "stBaseButton-primaryFormSubmit",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Save preferences",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(7) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[7]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ]
+  },
+  "settings.settings_div": {
+    "page": "settings",
+    "intent": "",
+    "role": "",
+    "name": "Settings",
+    "preferred": {
+      "kind": "css",
+      "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(3) > label > div > div:nth-of-type(2)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/div[1]/div[2]",
+        "exact": false
+      }
+    ]
+  },
+  "settings.settings_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:rq\\: > div:nth-of-type(3) > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      }
+    ]
+  },
+  "settings.topics_you_often_ask_about_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Topics you often ask about",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Topics you often ask about",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Choose options",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#react-aria9955480280-\\:r3l\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria9955480280-:r3l:\"]",
+        "exact": false
+      }
+    ]
+  },
+  "settings.your_city_optional_textbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "textbox",
+    "name": "Your city (optional)",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Your city (optional)",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#\\:r21\\:",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r21:\"]",
+        "exact": false
+      }
+    ]
+  }
+}
