@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
-APP_NAME = "AI Autonomous Testing Studio"
+APP_NAME = "RK Testing Studio"
 APP_ICON = "🧪"
 
 # NVIDIA-hosted models (all use the same NVIDIA key). Chosen by benchmarking structured-JSON test design: Ultra writes

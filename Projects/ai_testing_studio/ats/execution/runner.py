@@ -367,31 +367,46 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
 def _step_label(step: list[str]) -> str:
     if step[:2] == ["npm", "install"]:
         return "Installing Node dependencies"
-    if step[:3] == ["npx", "playwright", "install"]:
+    if step[:3] == ["npx", "playwright", "install"] or step[1:4] == ["-m", "playwright", "install"]:
         return "Downloading the browser (first run only)"
     return "Running tests"
+
+
+def local_plan(framework: str, browser: str, ids: list[str] | None, workdir: Path) -> list[tuple[list[str], bool]]:
+    """Local run as ``(argv, required)`` pairs. Only the test step is required; a failed install is logged and the tests still run.
+
+    Chrome and Edge use the browser already installed on this machine (a Playwright channel), so nothing is installed for them.
+    The bundled engines are installed without ``--with-deps``: that needs root (sudo) and cannot work in an unattended run."""
+    plan: list[tuple[list[str], bool]] = []
+    if framework in {"playwright_typescript", "playwright_javascript"}:
+        if not (workdir / "node_modules").exists():
+            plan.append((["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"], False))
+        if browser not in PLAYWRIGHT_CHANNEL:
+            plan.append((["npx", "playwright", "install", PLAYWRIGHT_ENGINE.get(browser, "chromium")], False))  # skips what is already present
+    elif framework == "playwright_python" and browser not in PLAYWRIGHT_CHANNEL:
+        plan.append(([sys.executable, "-m", "playwright", "install", PLAYWRIGHT_ENGINE.get(browser, "chromium")], False))
+    plan += [(step, True) for step in command_steps(framework, browser, ids, False)]
+    return plan
 
 
 def _run_local(
     request: RunRequest, env: dict[str, str], say: LogCallback, cancel: threading.Event | None, phase: Callable[[str], None] | None = None
 ) -> tuple[int, bool, bool]:
-    steps = command_steps(request.framework, request.browser, request.test_case_ids, False)
-    if request.framework in {"playwright_typescript", "playwright_javascript"}:
-        engine = PLAYWRIGHT_ENGINE.get(request.browser, "chromium")
-        steps.insert(0, ["npx", "playwright", "install", PLAYWRIGHT_CHANNEL.get(request.browser, engine)])  # downloads the browser once; instant afterwards
-        if not (request.workdir / "node_modules").exists():
-            steps.insert(0, ["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"])
     exit_code, timed_out, cancelled = 0, False, False
-    for index, step in enumerate(steps):
+    for step, required in local_plan(request.framework, request.browser, request.test_case_ids, request.workdir):
         label = _step_label(step)
         if phase:
             phase(label)
         say(f"> {label}: {' '.join(step[:4])}")
         resolved = [shutil.which(step[0], path=env.get("PATH")) or step[0], *step[1:]]
         exit_code, timed_out, cancelled = _execute(resolved, env, str(request.workdir), request, say, cancel)
-        if index < len(steps) - 1 and exit_code != 0:
+        if cancelled:
             break
-        if timed_out or cancelled:
+        if not required:  # the test step reports the real problem, so an install failure must not hide it
+            if exit_code != 0:
+                say(f"{label}: install step failed (exit {exit_code}); running the tests anyway")
+            continue
+        if timed_out or exit_code != 0:
             break
     return exit_code, timed_out, cancelled
 

@@ -68,27 +68,33 @@ def _app_section(svc: Services, project, config):  # noqa: ANN001, ANN202
         package = st.text_input("Package name *", value=config.package if config.app_source == "installed" else "", placeholder="com.example.app")
         activity = st.text_input("Launch activity (only if it cannot be found automatically)", value=config.activity if config.app_source == "installed" else "", placeholder=".MainActivity")
     ready = bool(upload) if source == "upload" else bool((path or "").strip()) if source == "path" else bool((package or "").strip())
-    if st.button("Save application", disabled=not ready):
-        def save():  # noqa: ANN202
-            if source == "upload":
-                return svc.mobile.use_upload(project, upload.name, upload.getvalue())
-            if source == "path":
-                return svc.mobile.use_local_path(project, path)
-            return svc.mobile.use_installed(project, package, activity), None
+    if st.button("Save application"):
+        if not ready:
+            st.warning("Choose an APK file, or enter the APK path or the package name first.")
+        else:
+            def save():  # noqa: ANN202
+                if source == "upload":
+                    return svc.mobile.use_upload(project, upload.name, upload.getvalue())
+                if source == "path":
+                    return svc.mobile.use_local_path(project, path)
+                return svc.mobile.use_installed(project, package, activity), None
 
-        outcome = safe(save)
-        if outcome:
-            new_config, info = outcome
-            notify(f"Application saved: {new_config.package or new_config.apk_name}.")
-            if info is not None and info.note:
-                notify(info.note, "warning")
-            st.rerun()
+            outcome = safe(save)
+            if outcome:
+                new_config, info = outcome
+                notify(f"Application saved: {new_config.package or new_config.apk_name}.")
+                if info is not None and info.note:
+                    notify(info.note, "warning")
+                st.rerun()
     if config.uses_apk and config.apk_path and not config.package:
         st.warning("The package name could not be read from the APK automatically. Enter it (and the launch activity if you know it).")
         package = st.text_input("Package name of this APK *", key="mobile_pkg_fix", placeholder="com.example.app")
         activity = st.text_input("Launch activity (optional)", key="mobile_act_fix", placeholder=".MainActivity")
-        if st.button("Save package", disabled=not (package or "").strip()) and safe(lambda: svc.mobile.set_package(project, package, activity)):
-            st.rerun()
+        if st.button("Save package"):
+            if not (package or "").strip():
+                st.warning("Enter the package name first.")
+            elif safe(lambda: svc.mobile.set_package(project, package, activity)):
+                st.rerun()
     if config.has_app and apk_tools.is_valid_package(config.package):
         st.caption(f"Package: {config.package}" + (f" | Launch activity: {config.activity}" if config.activity else " | Launch activity: found automatically when the app starts"))
     return svc.mobile.config(project.id)

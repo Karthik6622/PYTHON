@@ -7,7 +7,7 @@ Settings go in ``.streamlit/secrets.toml`` (or environment variables ``SMTP_HOST
     port = 587
     username = "your-sender-address"
     password = "an-app-password"
-    from_address = "ATS Studio <your-sender-address>"   # optional, defaults to username
+    from_address = "RK Testing Studio <your-sender-address>"   # optional, defaults to username
 """
 
 from __future__ import annotations

@@ -112,7 +112,7 @@ label, [data-testid="stWidgetLabel"] p { font-family: var(--mono) !important; fo
 .ats-step { position: relative; padding: .45rem .55rem .5rem .7rem; background: var(--panel); border: 1px solid var(--line); min-height: 3.1rem;
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 8px 50%); }
 .ats-step .n { font-family: var(--mono); font-size: .62rem; color: var(--dim); letter-spacing: .12em; }
-.ats-step .t { display: block; font-family: var(--display); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ats-step .t { display: block; font-family: var(--display); font-size: .56rem; letter-spacing: .03em; text-transform: uppercase; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ats-step .d { display: block; font-family: var(--mono); font-size: .6rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ats-step.done { background: var(--y); border-color: var(--y); }
 .ats-step.done .n, .ats-step.done .t, .ats-step.done .d { color: #0A0A0A; }
@@ -167,20 +167,55 @@ LIVE_INPUT_JS = """<script>
 </script>"""
 
 
+# Streamlit Community Cloud injects a "Manage app" pill (and a viewer badge) into the page with generated class names, so CSS alone cannot
+# find it. This script hides whatever shows that text, climbing to the fixed-position container that holds it, and watches for it to come back.
+HIDE_HOST_JS = """<script>
+(function () {
+  try {
+    var d = window.parent.document;
+    if (d.__atsHideHost) return;
+    d.__atsHideHost = true;
+    var LABELS = ['manage app', 'hosted with streamlit'];
+    function sweep() {
+      var walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, null);
+      var node;
+      while ((node = walker.nextNode())) {
+        var text = (node.nodeValue || '').trim().toLowerCase();
+        if (!text || LABELS.indexOf(text) < 0) continue;
+        var el = node.parentElement, target = el;
+        while (el && el !== d.body) {
+          if (window.parent.getComputedStyle(el).position === 'fixed') { target = el; break; }
+          el = el.parentElement;
+        }
+        if (target && target !== d.body && !target.closest('[data-testid="stMain"], [data-testid="stSidebar"]')) target.style.setProperty('display', 'none', 'important');
+      }
+    }
+    var pending = null;
+    new MutationObserver(function () {
+      if (pending) return;
+      pending = setTimeout(function () { pending = null; sweep(); }, 300);
+    }).observe(d.body, { childList: true, subtree: true });
+    sweep();
+  } catch (e) {}
+})();
+</script>"""
+
+
 def apply() -> None:
     """Inject the global stylesheet. Call once per run, before any page content."""
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+    scripts = LIVE_INPUT_JS + HIDE_HOST_JS
     try:
-        st.iframe(LIVE_INPUT_JS, height=1)
+        st.iframe(scripts, height=1)
     except Exception:  # noqa: BLE001 - older Streamlit
         import streamlit.components.v1 as components
 
-        components.html(LIVE_INPUT_JS, height=0)
+        components.html(scripts, height=0)
 
 
 def brand() -> str:
     return (
-        '<div class="ats-brand"><div class="mark"></div><div><div class="name">ATS//STUDIO</div>'
+        '<div class="ats-brand"><div class="mark"></div><div><div class="name">RK Testing Studio</div>'
         '<div class="tag">AUTONOMOUS TESTING</div></div></div>'
     )
 

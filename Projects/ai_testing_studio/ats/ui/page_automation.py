@@ -98,8 +98,10 @@ def render(svc: Services) -> None:
         content = safe(lambda: svc.store.read_file(project.id, bundle_id, path), "")
         edited = st.text_area("Content (edit, then save)", value=content, height=420, key=f"editor_{bundle_id}_{path}")
         a, b = st.columns(2)
-        if a.button("Save edits", disabled=edited == content):
-            if safe(lambda: svc.scripts.save_file(project.id, bundle_id, path, edited) or True):
+        if a.button("Save edits"):
+            if edited == content:
+                st.info("No changes to save.")
+            elif safe(lambda: svc.scripts.save_file(project.id, bundle_id, path, edited) or True):
                 notify("File saved. The project needs approval again.")
                 st.rerun()
         with b.popover("Edit with AI"):

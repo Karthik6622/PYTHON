@@ -15,8 +15,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from ats.ai.agents import LocatorIntelligenceAgent, WebDiscoveryAgent
+from ats.ai.agents import AuthRequirementAgent, LocatorIntelligenceAgent, WebDiscoveryAgent
 from ats.config import ROOT_DIR, get_settings
+from ats.discovery.authcheck import auth_signals, build_authentication
 from ats.discovery.diagnostics import explain_launch_failure
 from ats.discovery.preflight import preflight
 from ats.errors import DiscoveryError
@@ -166,7 +167,7 @@ def build_digest(result: DiscoveryResult, max_items: int = 40) -> list[dict[str,
                 {k: v for k, v in {
                     "role": el.get("role") or el.get("tag"), "name": str(label or "")[:60], "type": el.get("type"),
                     "required": el.get("required") or None, "testid": el.get("testid") or None,
-                    "options": el.get("options")[:8] or None,
+                    "options": (el.get("options") or [])[:8] or None,
                     "href": (el.get("href") or "")[:80] or None,
                 }.items() if v}  # fmt: skip
             )
@@ -187,12 +188,18 @@ def build_digest(result: DiscoveryResult, max_items: int = 40) -> list[dict[str,
 
 class DiscoveryService:
     def __init__(
-        self, repo: Repository, discovery_agent: WebDiscoveryAgent | None = None, locator_agent: LocatorIntelligenceAgent | None = None, connections: Any = None
+        self,
+        repo: Repository,
+        discovery_agent: WebDiscoveryAgent | None = None,
+        locator_agent: LocatorIntelligenceAgent | None = None,
+        connections: Any = None,
+        auth_agent: AuthRequirementAgent | None = None,
     ) -> None:
         self.connections = connections  # saved connections: their variables reach the worker's environment (sign-in credentials)
         self.repo = repo
         self.discovery_agent = discovery_agent or WebDiscoveryAgent(repository=repo)
         self.locator_agent = locator_agent or LocatorIntelligenceAgent(repository=repo)
+        self.auth_agent = auth_agent or AuthRequirementAgent(repository=repo)
 
     # ------------------------------------------------------------------ main entry
     def run(self, project: Project, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> DiscoveryResult:
@@ -253,6 +260,7 @@ class DiscoveryService:
             say(f"Building the locator repository from {sum(len(p.elements) for p in result.pages)} elements", 0.82)
             specs = build_locators(result)
             self._ai_understanding(project, result, say)
+            self._auth_check(project, result, say)
             specs = self._enrich(project, specs, say, result)
             self.repo.replace_locators(project.id, specs)
             self.repo.finish_discovery(discovery_id, "completed", result)
@@ -284,6 +292,19 @@ class DiscoveryService:
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Discovery analysis skipped: %s", mask(str(exc)))
             result.warnings.append("The AI application summary could not be produced; discovery data is still complete.")
+
+    def _auth_check(self, project: Project, result: DiscoveryResult, say: Progress) -> None:
+        """Does the application need sign-in details? The page evidence always counts; the model adds to it when configured."""
+        signals = auth_signals(result)
+        check = None
+        if get_settings().model.configured:
+            say("Checking whether the application needs sign-in details", 0.93, 0.94)
+            try:
+                check = self.auth_agent.check(project.url, project.description, build_digest(result), signals, project_id=project.id)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("Sign-in check skipped: %s", mask(str(exc)))
+                result.warnings.append("The AI sign-in check could not be produced; the sign-in evidence from the pages is still shown.")
+        result.analysis = {**result.analysis, "authentication": build_authentication(signals, check)}
 
     def _enrich(self, project: Project, specs: list[LocatorSpec], say: Progress, result: DiscoveryResult) -> list[LocatorSpec]:
         if not specs or not get_settings().model.configured:

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ats.ai.base import Agent, EventCallback
 from ats.models import _Model
@@ -53,6 +53,69 @@ class WebDiscoveryAgent(Agent):
             images=screenshots,
             on_event=on_event,
         )
+
+
+AUTH_KIND_ALIASES = {
+    "password": "ui_account", "username_password": "ui_account", "login": "ui_account", "account": "ui_account", "apikey": "api_key",
+    "key": "api_key", "token": "bearer", "access_token": "bearer", "basic_auth": "basic", "oauth": "oauth2", "client_credentials": "oauth2",
+}  # fmt: skip
+
+
+class AuthRequirement(_Model):
+    kind: Literal["ui_account", "basic", "bearer", "api_key", "oauth2", "custom"]
+    where: str = ""
+    evidence: str = ""
+    confidence: Literal["high", "medium", "low"] = "medium"
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _kind(cls, value: Any) -> str:
+        text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+        known = {"ui_account", "basic", "bearer", "api_key", "oauth2", "custom"}
+        return AUTH_KIND_ALIASES.get(text, text if text in known else "custom")
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _confidence(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        return text if text in {"high", "medium", "low"} else "medium"
+
+
+class AuthRequirementCheck(_Model):
+    requires_authentication: bool = False
+    summary: str = ""
+    requirements: list[AuthRequirement] = Field(default_factory=list)
+
+    @field_validator("requirements", mode="before")
+    @classmethod
+    def _items(cls, value: Any) -> list[Any]:
+        return [item for item in value if isinstance(item, (dict, AuthRequirement))] if isinstance(value, list) else []
+
+
+class AuthCheckInput(BaseModel):
+    start_url: str
+    description: str = ""
+    pages: list[dict[str, Any]] = Field(default_factory=list)
+    signals: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AuthRequirementAgent(Agent):
+    """Decides whether the application needs sign-in details (connections) for its tests, from the discovered pages and signals."""
+
+    name = "auth_requirements"
+    thinking = False
+
+    def check(
+        self,
+        start_url: str,
+        description: str,
+        digest: list[dict[str, Any]],
+        signals: list[dict[str, Any]],
+        project_id: str = "",
+        on_event: EventCallback | None = None,
+    ) -> AuthRequirementCheck:
+        payload = {"start_url": start_url, "description": description, "pages": digest, "signals": signals}
+        return self.invoke("auth.requirements", payload, AuthRequirementCheck, input_model=AuthCheckInput, project_id=project_id, on_event=on_event)
 
 
 class ElementIntent(_Model):

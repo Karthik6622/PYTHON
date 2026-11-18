@@ -74,13 +74,16 @@ def _ai_change(svc: Services, project, kind: str, label: str, ids: list[str], ac
     with st.expander("Tell the AI what to change"):
         st.caption("Only the selected rows are changed when rows are selected; otherwise the whole list may be revised. Changed items need approval again.")
         instruction = st.text_area("Instruction", key=f"{label}_instruction", placeholder="Add negative scenarios for the checkout form and remove duplicates.")
-        if st.button("Apply change", key=f"{label}_apply", disabled=not instruction.strip()):
-            def work(ctx):  # noqa: ANN001, ANN202
-                summary = action(instruction, ids or None, ctx)
-                counts = ", ".join(f"{len(summary[k])} {k}" for k in ("added", "updated", "deleted", "skipped") if summary.get(k))
-                return {"counts": counts or "no differences", "explanation": summary.get("explanation", "")}
+        if st.button("Apply change", key=f"{label}_apply"):
+            if not instruction.strip():
+                st.warning("Describe the change first.")
+            else:
+                def work(ctx):  # noqa: ANN001, ANN202
+                    summary = action(instruction, ids or None, ctx)
+                    counts = ", ".join(f"{len(summary[k])} {k}" for k in ("added", "updated", "deleted", "skipped") if summary.get(k))
+                    return {"counts": counts or "no differences", "explanation": summary.get("explanation", "")}
 
-            jobs_ui.start_job(svc, project, kind, "AI is revising", work, notice="Change applied: {counts}. {explanation}")
+                jobs_ui.start_job(svc, project, kind, "AI is revising", work, notice="Change applied: {counts}. {explanation}")
 
 
 def _generation_blocked(svc: Services, project, layer: str) -> str:  # noqa: ANN001

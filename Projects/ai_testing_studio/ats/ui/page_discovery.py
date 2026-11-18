@@ -22,7 +22,10 @@ def start_discovery(svc: Services, project) -> None:  # noqa: ANN001
         result = svc.discovery.run(project, on_progress=ctx.reporter, cancel=ctx.cancel_event)
         return {"pages": len(result.pages)}
 
-    jobs_ui.start_job(svc, project, "discovery", "Website discovery", work, notice="Discovery finished: {pages} views found. Continue to the scenarios.")
+    jobs_ui.start_job(
+        svc, project, "discovery", "Website discovery", work, next_page="connections",
+        notice="Discovery finished: {pages} views found. Next: check the connections (sign-in details).",
+    )  # fmt: skip
 
 
 def authentication_panel(svc: Services, project) -> None:  # noqa: ANN001
@@ -163,8 +166,8 @@ def render(svc: Services) -> None:
     overview, pages, locator_view = st.tabs(["Overview", "Pages", "Locators"])
     with overview:
         overview_tab(result, locators)
-        if st.button("Continue to scenarios", type="primary", key="to_scenarios"):
-            go_to("scenarios")
+        if st.button("Continue to connections", type="primary", key="to_connections"):
+            go_to("connections")
     with pages:
         pages_tab(result)
     with locator_view:

@@ -37,11 +37,14 @@ def render(svc: Services) -> None:
     with url_tab:
         url = st.text_input("Definition URL", placeholder="https://api.example.com/openapi.json", key="api_url")
         replace = st.checkbox("Replace the endpoints already imported", value=True, key="api_replace_url")
-        if st.button("Import from URL", type="primary", disabled=not url.strip()):
-            jobs_ui.start_job(
-                svc, project, "api_import", "Importing the API definition",
-                lambda ctx: svc.api.import_url(project, url.strip(), replace=replace, progress=ctx.reporter), notice="API definition imported. Generate the scenarios next.",
-            )
+        if st.button("Import from URL", type="primary"):
+            if not url.strip():
+                st.warning("Enter the address of the API definition first.")
+            else:
+                jobs_ui.start_job(
+                    svc, project, "api_import", "Importing the API definition",
+                    lambda ctx: svc.api.import_url(project, url.strip(), replace=replace, progress=ctx.reporter), notice="API definition imported. Generate the scenarios next.",
+                )
     with file_tab:
         upload = st.file_uploader("OpenAPI 3.x / Swagger 2.0 (JSON or YAML)", type=["json", "yaml", "yml"], key="api_file")
         replace_file = st.checkbox("Replace the endpoints already imported", value=True, key="api_replace_file")

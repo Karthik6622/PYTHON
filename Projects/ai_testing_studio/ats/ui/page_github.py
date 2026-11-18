@@ -104,9 +104,11 @@ def render(svc: Services) -> None:
                 st.rerun()
         else:
             entered = st.text_input("Personal access token", type="password", help="Needs repository read and write (contents, pull requests). Kept in memory only.")
-            if st.button("Use this token", disabled=not entered):
-                svc.tokens.set(project.id, entered)
-                st.rerun()
+            if st.button("Use this token"):
+                if entered.strip():
+                    svc.tokens.set(project.id, entered.strip())
+                    st.rerun()
+                st.warning("Paste a personal access token first.")
             if get_settings().github_token:
                 if st.button("Use GITHUB_TOKEN from the server environment"):
                     svc.tokens.set(project.id, get_settings().github_token)
@@ -115,11 +117,14 @@ def render(svc: Services) -> None:
     link = svc.repo.get_github(project.id) or {}
     st.subheader("Repository")
     repo_url = st.text_input("Repository URL", value=link.get("repo_url", ""), placeholder="https://github.com/owner/repo")
-    if st.button("Verify and link", disabled=not (repo_url and token)):
-        info = safe(lambda: svc.github.link(project, repo_url, token))
-        if info:
-            notify(f"Linked {info['full_name']} (default branch {info['default_branch']}). {'You can push.' if info['can_push'] else 'This token is read-only.'}")
-            st.rerun()
+    if st.button("Verify and link"):
+        if not (repo_url.strip() and token):
+            st.warning("Enter the repository URL and a token first.")
+        else:
+            info = safe(lambda: svc.github.link(project, repo_url.strip(), token))
+            if info:
+                notify(f"Linked {info['full_name']} (default branch {info['default_branch']}). {'You can push.' if info['can_push'] else 'This token is read-only.'}")
+                st.rerun()
     if not link.get("repo_url"):
         st.info("Link a repository to continue.")
         return

@@ -1,4 +1,4 @@
-"""AI Autonomous Testing Studio - Streamlit entry point.
+"""RK Testing Studio - Streamlit entry point.
 
 Run:  streamlit run app.py
 """
@@ -28,7 +28,7 @@ from ats.ui.layers import LayerPage, build_pages, open_next_step, page_of
 from ats.ui.session import current_project, flush_cookie, get_services, owner_id, register_pages, resume_pending_navigation, select_project
 from ats.workflow import WorkflowState, compute_workflow, progress_fraction
 
-st.set_page_config(page_title="ATS Studio", page_icon=":material/bolt:", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="RK Testing Studio",page_icon=":material/bolt:", layout="wide", initial_sidebar_state="expanded")
 
 
 def sidebar(svc, project, state: WorkflowState | None) -> None:  # noqa: ANN001

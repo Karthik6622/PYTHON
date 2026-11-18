@@ -221,6 +221,16 @@ class Repository:
             (dumps(result.model_dump(mode="json")), project_id),
         )
 
+    def connections_confirmed(self, project_id: str) -> bool:
+        """True when the Connections step was confirmed for the LATEST discovery (the audit entry names its discovery id)."""
+        latest = self.db.one("SELECT id FROM discoveries WHERE project_id = ? ORDER BY id DESC LIMIT 1", (project_id,))
+        if latest is None:
+            return False
+        confirmed = self.db.one(
+            "SELECT detail FROM audit_log WHERE project_id = ? AND action = 'connections.confirmed' ORDER BY id DESC LIMIT 1", (project_id,)
+        )
+        return confirmed is not None and loads(confirmed["detail"], {}).get("discovery_id") == latest["id"]
+
     # ------------------------------------------------------------------ locators
     def replace_locators(self, project_id: str, specs: list[LocatorSpec]) -> None:
         now = utc_now()

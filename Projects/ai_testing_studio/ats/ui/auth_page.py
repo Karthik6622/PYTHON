@@ -176,7 +176,7 @@ _STAGES = [
 _CHIPS = [("UI+API", "UI + API testing"), ("HEAL", "Self-healing locators"), ("PR", "GitHub branch delivery"), ("BG", "Runs in the background")]
 
 _HERO_HTML = (
-    '<div class="au-hero"><div class="au-kicker"><i></i>ATS//STUDIO &middot; Autonomous testing</div>'
+    '<div class="au-hero"><div class="au-kicker"><i></i>RK Testing Studio &middot; Autonomous testing</div>'
     "<h1>Autonomous QA, from <span>discovery to report</span></h1>"
     '<p class="au-lead">Point the studio at a website. It explores the app, designs the scenarios, writes runnable UI and API tests, '
     "executes them, heals broken locators and hands you the report. Sign in and every project stays in your own workspace.</p>"
@@ -329,7 +329,7 @@ def render_auth_page() -> None:
                 st.markdown(_head("Reset your password", "We'll get you back into your studio."), unsafe_allow_html=True)
                 _reset_view()
                 return
-            st.markdown(_head("Welcome to ATS Studio", "Log in or create an account to open your workspace."), unsafe_allow_html=True)
+            st.markdown(_head("Welcome to RK Testing Studio","Log in or create an account to open your workspace."), unsafe_allow_html=True)
             message = st.session_state.pop(ERROR_KEY, None)
             if message:
                 st.error(message)

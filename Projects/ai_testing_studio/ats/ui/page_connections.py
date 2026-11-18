@@ -7,7 +7,66 @@ import streamlit as st
 from ats.connections.service import KINDS, TEMPLATES
 from ats.services import Services
 from ats.ui import theme
-from ats.ui.session import notify, owner_id, require_project, safe, show_notices
+from ats.ui.session import go_to, notify, owner_id, require_project, safe, show_notices
+
+
+def _preselect(kind: str) -> None:
+    """Button callback: the template selectbox of the form below starts on the template of this kind."""
+    template = next((t for t in TEMPLATES if t["kind"] == kind), None)
+    if template:
+        st.session_state["conn_template"] = template["label"]
+
+
+def _continue_button(svc: Services, project, discovery_id: int, missing: int) -> None:  # noqa: ANN001
+    """Record that the connections were checked for this discovery, then open the scenarios."""
+    if st.button("Continue to scenarios", type="primary", key="conn_continue"):
+        svc.repo.audit(project.id, "user", "connections.confirmed", "connections", {"discovery_id": discovery_id, "missing": missing})
+        if missing:
+            notify(f"{missing} required connection(s) are still missing. Tests that use them will fail until they are saved.", "warning")
+        go_to("scenarios")
+
+
+def _sign_in_panel(svc: Services, project, connections: list) -> None:  # noqa: ANN001
+    """Top of the page for web projects: what discovery found about sign-in, what is saved and what is still missing."""
+    if "web" not in project.channels:
+        return
+    latest = svc.repo.latest_discovery(project.id)
+    if not latest or latest[0]["status"] != "completed":
+        with st.container(border=True):
+            st.info("Run website discovery first. It also checks whether the application needs sign-in details.")
+            if st.button("Go to Discovery", key="conn_to_discovery"):
+                go_to("discovery")
+        return
+    row, result = latest
+    auth = (result.analysis if result else {}).get("authentication")
+    if not isinstance(auth, dict):
+        with st.container(border=True):
+            st.info("Run discovery again to check whether this application needs sign-in details.")
+            if st.button("Run discovery again", key="conn_rerun_discovery"):
+                go_to("discovery")
+        _continue_button(svc, project, row["id"], 0)
+        return
+    saved = {connection.kind for connection in connections if connection.env_names}
+    requirements = [item for item in auth.get("requirements") or [] if isinstance(item, dict)]
+    missing = sum(1 for item in requirements if item.get("kind", "custom") not in saved)
+    with st.container(border=True):
+        if auth.get("requires_authentication"):
+            st.warning(f"**This application needs sign-in details.** {auth.get('summary') or ''}")
+            for index, item in enumerate(requirements):
+                kind = item.get("kind", "custom")
+                spec = KINDS.get(kind, KINDS["custom"])
+                is_saved = kind in saved
+                left, right = st.columns([5, 1])
+                state = ":green[Saved]" if is_saved else ":orange[Missing]"
+                left.markdown(
+                    f"**{spec.label}** for {item.get('where') or 'the application'}: {state}  \n"
+                    f"{item.get('evidence') or ''} (confidence: {item.get('confidence') or 'medium'})"
+                )
+                if not is_saved:
+                    right.button("Set up", key=f"setup_{index}_{kind}", on_click=_preselect, args=(kind,))
+        else:
+            st.success("No sign-in details are needed for this application (based on discovery).")
+    _continue_button(svc, project, row["id"], missing)
 
 
 def _form(svc: Services, project, existing=None) -> None:  # noqa: ANN001
@@ -49,6 +108,7 @@ def render(svc: Services) -> None:
     show_notices()
     owner = owner_id()
     connections = safe(lambda: svc.connections.list_connections(project.id, owner), [])
+    _sign_in_panel(svc, project, connections)
     if connections:
         st.subheader("Saved connections")
     for connection in connections:

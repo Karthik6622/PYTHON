@@ -30,22 +30,25 @@ class WorkflowState:
         return next(s for s in self.stages if s.name == name)
 
 
-def _web_discovery(repo: Repository, project: Project) -> tuple[str, str]:
+def _web_discovery(repo: Repository, project: Project) -> tuple[str, str, str]:
+    """Web discovery is done when it completed AND the Connections step was confirmed for that discovery. Returns (status, detail, page)."""
     discovery = repo.latest_discovery(project.id)
     status = discovery[0]["status"] if discovery else ""
     if status == "completed":
+        if not repo.connections_confirmed(project.id):
+            return "current", "confirm connections", "connections"
         pages = len(discovery[1].pages) if discovery and discovery[1] else 0
-        return "done", f"{pages} pages"
+        return "done", f"{pages} pages", "discovery"
     if status == "running":
-        return "current", "running"
-    return "current", "failed - run again" if status else "not started"
+        return "current", "running", "discovery"
+    return "current", "failed - run again" if status else "not started", "discovery"
 
 
 def _inputs(repo: Repository, project: Project) -> tuple[str, str, str]:
-    """The Discover stage: Web is discovered, API means a definition is imported, Mobile means the app was analysed."""
+    """The Discover stage: Web is discovered and its connections confirmed, API means a definition is imported, Mobile means the app was analysed."""
     parts: list[tuple[str, str, str]] = []  # (status, detail, page)
     if "web" in project.channels:
-        parts.append((*_web_discovery(repo, project), "discovery"))
+        parts.append(_web_discovery(repo, project))
     if "api" in project.channels:
         count = len(repo.list_api_endpoints(project.id))
         parts.append(("done", f"{count} endpoints", "api") if count else ("current", "no API definition", "api"))
@@ -58,7 +61,7 @@ def _inputs(repo: Repository, project: Project) -> tuple[str, str, str]:
     todo = next((p for p in parts if p[0] != "done"), None)
     if todo is None:
         return "done", ", ".join(p[1] for p in parts), parts[0][2]
-    return "current", f"{todo[1]} ({todo[2]})", todo[2]
+    return "current", todo[1] if todo[2] == "connections" else f"{todo[1]} ({todo[2]})", todo[2]
 
 
 def _review_stage(items: list, layers: list[str]) -> tuple[str, str, str]:
@@ -160,6 +163,8 @@ def _next_step(stages: list[Stage], running: bool) -> str:
     }
     for stage in stages:
         if stage.name in hints and stage.status in {"current", "waiting"}:
+            if stage.name == "Discover" and "connections" in stage.detail:
+                return "Confirm the connections and sign-in details."
             return hints[stage.name]
     return "Everything is up to date."
 

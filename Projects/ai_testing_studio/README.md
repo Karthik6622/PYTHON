@@ -1,4 +1,4 @@
-# AI Autonomous Testing Studio
+# RK Testing Studio
 
 A Streamlit application that takes a website URL and produces a reviewed, runnable, self-healing automated test suite:
 website discovery, scenarios, test cases, automation code, GitHub commit/PR, containerised execution, failure analysis,
@@ -40,7 +40,8 @@ own data folder (`DATA_DIR`, default `data/`), nothing is sent anywhere. Optiona
 ```mermaid
 flowchart LR
   A[Project] --> B[Discovery]
-  B --> C[Scenarios]
+  B --> B2[Connections: sign-in details]
+  B2 --> C[Scenarios]
   C --> D[Test cases]
   D --> E[Automation project]
   E --> F[GitHub branch + PR]
@@ -55,6 +56,10 @@ flowchart LR
 
 Every AI output is a draft. Scenarios, test cases and the generated project each need a human approval, and AI changes
 reset the approval of whatever they touch. Once every scenario is approved the studio moves on to the Test cases page.
+
+After discovery the studio checks whether the application needs sign-in details (a UI account, an API key, a bearer token,
+basic auth, OAuth2 client credentials). The result is shown at the top of the Connections page, with the saved or missing
+state of each one. "Continue to scenarios" confirms the connections for the latest discovery and opens the Scenarios page.
 
 ### How discovery explores an application
 
@@ -119,6 +124,10 @@ signed-in account, so one person never lists another person's projects (see "Acc
 separate SQLite file, `users.db` in the data folder (`USERS_DB` overrides the path).
 
 ## Execution
+
+* Local mode (no Docker): the bundled Playwright engines (Chromium, Firefox, WebKit) are installed once without system packages,
+  so nothing needs `sudo`. Chrome and Edge use the browser already installed on the machine. A failed install is logged and the
+  tests still run, so the real error is what you see.
 
 * Docker mode: Playwright projects run in the official Playwright images; Selenium projects in `ats-runner-selenium-python`
   / `ats-runner-selenium-java`, built on first use from `docker/runners/`. Resource limits come from `DOCKER_CPUS`,
