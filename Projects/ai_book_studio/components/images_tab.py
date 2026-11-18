@@ -58,14 +58,16 @@ def render() -> None:
         )
         a, b, c = st.columns(3)
         if a.button("🎨 Generate Cover", width="stretch", key="cover_generate"):
-            _run("Generating the cover", lambda p: p.generate_cover(prompt=prompt.strip() or None), "The cover was created.")
+            _run("Generating the cover", lambda p: p.generate_cover(prompt=prompt.strip() or None, design=True), "The cover was created.")
         if b.button("✨ New Prompt and Cover", width="stretch", key="cover_new"):
-            _run("Generating the cover", lambda p: p.generate_cover(new_prompt=True), "A new cover was created.")
+            _run("Generating the cover", lambda p: p.generate_cover(new_prompt=True, design=True), "A new cover was created.")
         if c.button("🖋️ Update Cover Text", width="stretch", key="cover_text", disabled=not image_if_exists(project, "cover_art")):
             open_cover_text_editor(project)
         render_cover_text_editor(project, version)
         if cover_record and cover_record.warning:
             st.warning(cover_record.warning)
+        if project.cover_layout.get("note"):
+            st.caption(f"Cover layout: {project.cover_layout['note']}")
 
     st.divider()
     st.markdown("##### Chapter illustrations")

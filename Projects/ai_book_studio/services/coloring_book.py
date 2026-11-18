@@ -22,6 +22,7 @@ from PIL import Image
 from config import COMPLEXITY_HARD, LAYOUT_PAGE_WITH_ICON
 from generators.coloring_pdf import build_coloring_docx, build_coloring_pdf, build_pages_zip
 from generators.cover_generator import compose_coloring_cover
+from generators.cover_layout import CoverLayout
 from models.book_models import BookInput, BookPlan, ChapterPlan, GenerationStatus, IllustrationPlan, utc_now
 from prompts.coloring_prompts import COLORING_PLAN_PROMPT, MORE_SCENES_PROMPT, cover_art_prompt, detail_for, page_prompt
 from services.book_pipeline import ExportSummary, GenerationStopped
@@ -370,7 +371,7 @@ class ColoringRunner:
         p._note(number, "done")
 
     # ------------------------------------------------------------------ cover
-    def generate_cover(self, new_prompt: bool = False, prompt: str | None = None) -> IllustrationPlan:
+    def generate_cover(self, new_prompt: bool = False, prompt: str | None = None, design: bool = False) -> IllustrationPlan:
         p = self.p
         plan = p._require_plan()
         record = p.project.images.get("cover")
@@ -390,6 +391,8 @@ class ColoringRunner:
             entry.status = "placeholder" if result.placeholder_used else "generated"
             entry.warning = result.warning
             p.project.images["cover"] = entry
+            if design:
+                p.design_cover_layout(text, "coloring")
             self.recompose_cover()
         except GenerationStopped:
             raise
@@ -427,6 +430,7 @@ class ColoringRunner:
             p.storage.image_path(p.project, "cover_final"),
             badge=f"{len(plan.chapters)} coloring pages",
             language=plan.language or "English",
+            layout=CoverLayout.from_dict(p.project.cover_layout),
         )
 
     # ------------------------------------------------------------------ whole book

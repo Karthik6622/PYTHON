@@ -433,6 +433,7 @@ class BookProject(_Model):
     images: dict[str, IllustrationPlan] = Field(default_factory=dict)
     status: GenerationStatus = Field(default_factory=GenerationStatus)
     cover_text: dict[str, str] = Field(default_factory=dict)  # cover-only overrides for title, subtitle, author
+    cover_layout: dict[str, Any] = Field(default_factory=dict)  # designed from the user's cover prompt; empty = classic layout
 
     @property
     def title(self) -> str:

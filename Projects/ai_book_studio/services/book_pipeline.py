@@ -17,6 +17,7 @@ from pathlib import Path
 from config import MAX_REVISIONS
 from generators import ExportAssets
 from generators.cover_generator import compose_cover
+from generators.cover_layout import CoverLayout, design_layout
 from generators.docx_generator import build_docx
 from generators.pdf_generator import build_pdf
 from models.book_models import BookProject, GenerationStatus, IllustrationPlan, utc_now
@@ -483,10 +484,13 @@ class BookPipeline:
         self._save_status()
         return entry
 
-    def generate_cover(self, new_prompt: bool = False, prompt: str | None = None) -> IllustrationPlan:
-        """Create the cover artwork and compose the final cover with the title and author."""
+    def generate_cover(self, new_prompt: bool = False, prompt: str | None = None, design: bool = False) -> IllustrationPlan:
+        """Create the cover artwork and compose the final cover with the title and author.
+
+        ``design=True`` (the user pressed a cover button) arranges the text from the cover prompt; the automatic first cover keeps the classic layout.
+        """
         if self.is_coloring:
-            return self.coloring.generate_cover(new_prompt, prompt)
+            return self.coloring.generate_cover(new_prompt, prompt, design)
         plan = self._require_plan()
         record = self.project.images.get("cover")
         art_path = self.storage.image_path(self.project, "cover_art")
@@ -510,6 +514,8 @@ class BookPipeline:
                 entry.status = "placeholder" if result.placeholder_used else "generated"
                 entry.warning = result.warning
             self.project.images["cover"] = entry
+            if design:
+                self.design_cover_layout(entry.prompt, "ebook")
             self.recompose_cover()
         except AIBookError as exc:
             entry.warning = exc.user_message
@@ -519,6 +525,19 @@ class BookPipeline:
         self._sync_status()
         self.storage.save_status(self.project)
         return entry
+
+    def design_cover_layout(self, prompt: str, kind: str) -> CoverLayout:
+        """Design the cover arrangement from the user's cover prompt and keep it with the project. Falls back to a rule-based design if the AI is unavailable."""
+        plan = self._require_plan()
+        title, subtitle, author = self.project.cover_words(plan.title, plan.subtitle, plan.author)
+        previous = CoverLayout.from_dict(self.project.cover_layout)
+        try:
+            layout = design_layout(self.llm, prompt, title, subtitle, author, kind, previous)
+        except Exception as exc:  # noqa: BLE001 - a layout problem must never block the cover
+            LOGGER.warning("Cover layout design failed: %s", type(exc).__name__)
+            return previous
+        self.project.cover_layout = layout.to_dict()
+        return layout
 
     def recompose_cover(self) -> Path:
         """Draw the title, subtitle and author onto the cover artwork (typographic cover when no artwork exists)."""
@@ -534,6 +553,7 @@ class BookPipeline:
             author,
             self.storage.image_path(self.project, "cover_final"),
             plan.language,
+            CoverLayout.from_dict(self.project.cover_layout),
         )
 
     # ------------------------------------------------------------------ step 17: export

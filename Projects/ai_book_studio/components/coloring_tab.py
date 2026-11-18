@@ -393,11 +393,20 @@ def render_pages() -> None:
             st.info("No cover yet. It is created when the book is generated, or press the button.")
     with right:
         record = project.images.get("cover")
-        st.caption("The cover is a colored illustration with the title and author added as real text.")
-        a, b = st.columns(2)
-        if a.button("🎨 Draw a New Cover", width="stretch", key="cover_new"):
-            _run("Drawing the cover", lambda p: p.generate_cover(new_prompt=True), "A new cover was created.")
-        if b.button(
+        st.caption("The cover is a colored illustration with the title and author added as real text. The text layout is designed from the cover prompt.")
+        cover_prompt_text = st.text_area(
+            "Cover prompt (optional)",
+            record.prompt if record else "",
+            height=120,
+            key=f"coloring_cover_prompt_{version}",
+            help="Describe the cover. The picture and the arrangement of the title, badge and author follow this prompt. Leave empty for an automatic idea.",
+        )
+        a, b, c = st.columns(3)
+        if a.button("🎨 Generate Cover", width="stretch", key="cover_generate"):
+            _run("Drawing the cover", lambda p: p.generate_cover(prompt=cover_prompt_text.strip() or None, design=True), "The cover was created.")
+        if b.button("✨ New Prompt and Cover", width="stretch", key="cover_new"):
+            _run("Drawing the cover", lambda p: p.generate_cover(new_prompt=True, design=True), "A new cover was created.")
+        if c.button(
             "🖋️ Update Cover Text",
             width="stretch",
             key="cover_text",
@@ -408,6 +417,8 @@ def render_pages() -> None:
         render_cover_text_editor(project, version)
         if record and record.warning:
             st.warning(record.warning)
+        if project.cover_layout.get("note"):
+            st.caption(f"Cover layout: {project.cover_layout['note']}")
 
     st.divider()
     numbers = [c.chapter_number for c in plan.chapters]
