@@ -73,6 +73,29 @@ def test_pages_render_with_a_finished_run(repo, monkeypatch, browser_ready, modu
         assert any(b.label == "Approve and verify" for b in app.button)
 
 
+LIVE_SCRIPT = """
+import streamlit as st
+from ats.ui.session import get_services
+from ats.ui import page_execute
+svc = get_services()
+project = svc.repo.list_projects("{owner}")[0] if svc.repo.list_projects("{owner}") else svc.repo.create_project("{owner}", name="Live", url="http://127.0.0.1:9", environment="QA")
+{prepare}
+page_execute.live_active_run(svc, project.id)
+"""
+
+
+def test_live_view_finds_the_run_once_it_exists() -> None:
+    owner = "c" * 32
+    waiting = AppTest.from_string(LIVE_SCRIPT.format(owner=owner, prepare=""), default_timeout=30).run()
+    assert not waiting.exception, [e.value for e in waiting.exception]
+    assert any("Preparing the run" in c.value for c in waiting.caption)
+
+    prepare = 'if not svc.repo.active_execution(project.id):\n    svc.repo.create_execution(project.id, status="running", phase="Running tests (0/2)", framework="playwright_python", browser="chromium")'
+    live = AppTest.from_string(LIVE_SCRIPT.format(owner=owner, prepare=prepare), default_timeout=30).run()
+    assert not live.exception, [e.value for e in live.exception]
+    assert [m.label for m in live.metric] == ["Tests", "Passed", "Failed", "Fixed automatically"]
+
+
 def test_app_entry_point_loads() -> None:
     app = AppTest.from_file(str(Path(__file__).resolve().parent.parent / "app.py"), default_timeout=30).run()
     assert not app.exception, [e.value for e in app.exception]

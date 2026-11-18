@@ -27,6 +27,7 @@ DOCKERFILES = {"selenium_python": "Dockerfile.selenium-python", "selenium_java":
 PLAYWRIGHT_ENGINE = {"chromium": "chromium", "chrome": "chromium", "edge": "chromium", "firefox": "firefox", "webkit": "webkit"}
 PLAYWRIGHT_CHANNEL = {"chrome": "chrome", "edge": "msedge"}
 LogCallback = Callable[[str], None]
+HEARTBEAT_SECONDS = 15
 MOBILE_DOCKER_MESSAGE = (
     "Mobile tests need the Android emulator or device attached to this machine, so they cannot run in Docker. "
     "Set the execution mode to local (EXECUTION_MODE=local or auto)."
@@ -125,6 +126,7 @@ def run_env(request: RunRequest, base_url: str, api_base_url: str = "") -> dict[
     env = {
         "BASE_URL": base_url, "BROWSER": request.browser, "HEADLESS": "1", "CI": "1", "PYTHONUNBUFFERED": "1",
         "IGNORE_HTTPS_ERRORS": "1" if request.ignore_https_errors else "0",
+        "WORKERS": "1" if (os.cpu_count() or 1) <= 2 else "2",  # small hosts (Streamlit Cloud) run out of memory with parallel browsers
     }  # fmt: skip
     if api_base_url:
         env["API_BASE_URL"] = api_base_url
@@ -352,7 +354,7 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
         if request.mode == "docker":
             outcome.exit_code, outcome.timed_out, outcome.cancelled = _execute(argv, process_env, cwd, request, say, cancel, docker_name=request.name)
         else:
-            outcome.exit_code, outcome.timed_out, outcome.cancelled = _run_local(request, process_env, say, cancel)
+            outcome.exit_code, outcome.timed_out, outcome.cancelled = _run_local(request, process_env, say, cancel, phase)
         say(f"Runner finished with exit code {outcome.exit_code} after {time.time() - started:.0f}s")
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("Runner failed")
@@ -362,7 +364,17 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
     return outcome
 
 
-def _run_local(request: RunRequest, env: dict[str, str], say: LogCallback, cancel: threading.Event | None) -> tuple[int, bool, bool]:
+def _step_label(step: list[str]) -> str:
+    if step[:2] == ["npm", "install"]:
+        return "Installing Node dependencies"
+    if step[:3] == ["npx", "playwright", "install"]:
+        return "Downloading the browser (first run only)"
+    return "Running tests"
+
+
+def _run_local(
+    request: RunRequest, env: dict[str, str], say: LogCallback, cancel: threading.Event | None, phase: Callable[[str], None] | None = None
+) -> tuple[int, bool, bool]:
     steps = command_steps(request.framework, request.browser, request.test_case_ids, False)
     if request.framework in {"playwright_typescript", "playwright_javascript"}:
         engine = PLAYWRIGHT_ENGINE.get(request.browser, "chromium")
@@ -371,6 +383,10 @@ def _run_local(request: RunRequest, env: dict[str, str], say: LogCallback, cance
             steps.insert(0, ["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"])
     exit_code, timed_out, cancelled = 0, False, False
     for index, step in enumerate(steps):
+        label = _step_label(step)
+        if phase:
+            phase(label)
+        say(f"> {label}: {' '.join(step[:4])}")
         resolved = [shutil.which(step[0], path=env.get("PATH")) or step[0], *step[1:]]
         exit_code, timed_out, cancelled = _execute(resolved, env, str(request.workdir), request, say, cancel)
         if index < len(steps) - 1 and exit_code != 0:
@@ -397,17 +413,23 @@ def _execute(
     timer = threading.Timer(request.timeout, stop, args=("timed_out",))
     timer.start()
     watcher_done = threading.Event()
+    last_output = [time.time()]
 
     def watch() -> None:
+        began = time.time()
         while not watcher_done.wait(1.0):
             if cancel is not None and cancel.is_set():
                 stop("cancelled")
                 return
+            if time.time() - last_output[0] >= HEARTBEAT_SECONDS:  # slow installs and browser downloads print nothing: show it is alive
+                last_output[0] = time.time()
+                say(f"... still working ({int(time.time() - began)}s)")
 
     threading.Thread(target=watch, daemon=True).start()
     try:
         assert process.stdout is not None
         for line in process.stdout:
+            last_output[0] = time.time()
             if line.strip():
                 say(line.rstrip())
         code = process.wait()

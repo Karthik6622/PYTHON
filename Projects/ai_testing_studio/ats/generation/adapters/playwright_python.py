@@ -60,7 +60,7 @@ class BasePage:
 
 PYTEST_INI = """[pytest]
 testpaths = tests
-addopts = -p no:cacheprovider --junitxml=reports/junit.xml --screenshot=only-on-failure --tracing=retain-on-failure --video=retain-on-failure --output=reports/artifacts
+addopts = -p no:cacheprovider --junitxml=reports/junit.xml --screenshot=only-on-failure --tracing=retain-on-failure --output=reports/artifacts
 junit_family = xunit2
 markers =
     tc(id): the test case identifier this test implements

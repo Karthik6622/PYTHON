@@ -553,6 +553,18 @@ class Repository:
         items = [self._execution(r) for r in rows]
         return [i for i in items if kinds is None or i["kind"] in kinds]
 
+    def active_execution(self, project_id: str) -> dict[str, Any] | None:
+        """The newest full run of the project that has not finished (one cheap row, for pages that poll)."""
+        row = self.db.one(
+            "SELECT * FROM executions WHERE project_id = ? AND kind = 'full' AND status IN ('queued', 'running', 'analyzing') ORDER BY run_number DESC LIMIT 1",
+            (project_id,),
+        )
+        return self._execution(row) if row else None
+
+    def result_statuses(self, execution_id: str) -> dict[str, str]:
+        """Test case id -> status, without the evidence and analysis payloads."""
+        return {r["test_case_id"]: r["status"] for r in self.db.query("SELECT test_case_id, status FROM results WHERE execution_id = ?", (execution_id,))}
+
     def replace_results(self, execution_id: str, rows: list[dict[str, Any]]) -> None:
         statements: list[tuple[str, Any]] = [("DELETE FROM results WHERE execution_id = ?", (execution_id,))]
         for row in rows:

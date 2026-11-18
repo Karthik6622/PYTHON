@@ -57,9 +57,11 @@ def card(job: dict[str, Any], key: str) -> None:
     st.progress(float(job["progress"]), text=f"{percent}%  |  {job['message'] or 'Working...'}")
 
 
-@st.fragment(run_every="1.5s")
-def watch(svc: Services, job_id: str) -> None:
-    """Live view of one job. Polls the database, so it also works after a reconnect or in a different browser tab."""
+@st.fragment(run_every="2s")
+def watch(svc: Services, job_id: str, extra: Callable[[], None] | None = None) -> None:
+    """Live view of one job. Polls the database, so it also works after a reconnect or in a different browser tab.
+
+    ``extra`` draws more live detail inside this same fragment (one polling loop per page keeps the server and the browser light)."""
     job = svc.repo.get_job(job_id)
     if job is None:
         return
@@ -77,15 +79,17 @@ def watch(svc: Services, job_id: str) -> None:
                 st.code(job["activity"][-900:], language="text")
         if right.button("Cancel", key=f"cancel_{job_id}", width="stretch"):
             svc.jobs.cancel(job_id)
+    if extra is not None:
+        extra()
 
 
-def running_panel(svc: Services, project: Project, kinds: tuple[str, ...], heading: str = "In progress") -> bool:
+def running_panel(svc: Services, project: Project, kinds: tuple[str, ...], heading: str = "In progress", extra: Callable[[], None] | None = None) -> bool:
     """Show the live view when a job of these kinds is running. Returns True so the page can skip its own controls."""
     job = active_job(svc, project.id, kinds)
     if job is None:
         return False
     st.subheader(heading)
-    watch(svc, job["id"])
+    watch(svc, job["id"], extra)
     return True
 
 

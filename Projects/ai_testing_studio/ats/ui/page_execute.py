@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+from functools import partial
 from html import escape
 
 import pandas as pd
@@ -64,7 +65,7 @@ def timeline(current: int) -> str:
 def test_rows(svc: Services, project_id: str, execution: dict, running: bool) -> list[dict[str, str]]:
     totals = execution.get("totals") or {}
     expected = totals.get("expected") or []  # empty until the run has started
-    final = {r["test_case_id"]: r["status"] for r in svc.repo.list_results(execution["id"])}
+    final = svc.repo.result_statuses(execution["id"])
     live = totals.get("live") or {}
     titles = {c.test_case_id: c.title for c in svc.repo.list_test_cases(project_id)}
     rows, marked = [], False
@@ -80,18 +81,9 @@ def test_rows(svc: Services, project_id: str, execution: dict, running: bool) ->
     return rows
 
 
-@st.fragment(run_every="2s")
-def live_tests(svc: Services, project_id: str, execution_id: str) -> None:
-    """Stage timeline, counters and a per-test status table for a run in progress (also reused on the Results page)."""
-    execution = svc.repo.get_execution(execution_id)
-    if execution is None:
-        return
+def live_body(svc: Services, project_id: str, execution: dict) -> None:
+    """Stage timeline, counters and a per-test status table for one run."""
     running = execution["status"] in IN_PROGRESS_STATUSES
-    if not running and st.session_state.get("_live_seen") == execution_id:
-        st.session_state.pop("_live_seen", None)
-        st.rerun()
-    if running:
-        st.session_state["_live_seen"] = execution_id
     st.markdown(timeline(stage_index(execution["phase"], execution["status"])), unsafe_allow_html=True)
     rows = test_rows(svc, project_id, execution, running)
     counts = {label: sum(r["Status"] == label for r in rows) for label in STATUS_LABEL.values()}
@@ -104,10 +96,34 @@ def live_tests(svc: Services, project_id: str, execution_id: str) -> None:
     if rows:
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=min(60 + 36 * len(rows), 420))
     with st.expander("Runner log", expanded=False):
-        st.code(svc.executor.log_tail(project_id, execution_id, 50) or "Waiting for output...", language="text")
+        st.code(svc.executor.log_tail(project_id, execution["id"], 50) or "Waiting for output...", language="text")
+
+
+@st.fragment(run_every="3s")
+def live_tests(svc: Services, project_id: str, execution_id: str) -> None:
+    """Live view of a run on the Results page: refreshes itself and reloads the page once the run has finished."""
+    execution = svc.repo.get_execution(execution_id)
+    if execution is None:
+        return
+    running = execution["status"] in IN_PROGRESS_STATUSES
+    if not running and st.session_state.get("_live_seen") == execution_id:
+        st.session_state.pop("_live_seen", None)
+        st.rerun()
+    if running:
+        st.session_state["_live_seen"] = execution_id
+    live_body(svc, project_id, execution)
 
 
 live_run = live_tests  # kept for pages that embed the live view
+
+
+def live_active_run(svc: Services, project_id: str) -> None:
+    """Drawn inside the job's own polling fragment: finds the run when its record appears, so the view never needs a page reload."""
+    execution = svc.repo.active_execution(project_id)
+    if execution is None:
+        st.caption("Preparing the run...")
+        return
+    live_body(svc, project_id, execution)
 
 
 def summary(svc: Services, execution: dict) -> None:
@@ -174,10 +190,7 @@ def render(svc: Services) -> None:
         st.info("Generate an automation project (or import tests from GitHub) first.")
         return
 
-    if jobs_ui.running_panel(svc, project, ("execution",), "Run in progress"):
-        active = next((e for e in svc.repo.list_executions(project.id, ("full",)) if e["status"] in IN_PROGRESS_STATUSES), None)
-        if active:
-            live_tests(svc, project.id, active["id"])
+    if jobs_ui.running_panel(svc, project, ("execution",), "Run in progress", extra=partial(live_active_run, svc, project.id)):
         return
     jobs_ui.last_problem(svc, project, ("execution",))
 
