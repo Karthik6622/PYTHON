@@ -108,7 +108,15 @@ def compute_workflow(repo: Repository, project: Project) -> WorkflowState:
         states["Automation"] = ("waiting", "")
         open_layer["Automation"] = waiting[0]
 
-    states["GitHub"] = ("done", github.get("branch", "")) if github.get("branch") else ("optional", "linked" if github.get("repo_url") else "optional")
+    # GitHub comes right after Automation and before Execute: publish the tests to a branch, or skip it explicitly.
+    if github.get("branch"):
+        states["GitHub"] = ("done", github["branch"])
+    elif repo.has_audit(project.id, "github.skipped"):
+        states["GitHub"] = ("done", "skipped")
+    elif states["Automation"][0] == "done":
+        states["GitHub"] = ("current", "publish the tests to a branch, or skip")
+    else:
+        states["GitHub"] = ("optional", "linked" if github.get("repo_url") else "optional")
 
     running = bool(latest and latest["status"] in IN_PROGRESS_STATUSES)
     if running:
@@ -145,6 +153,7 @@ def _next_step(stages: list[Stage], running: bool) -> str:
         "Scenarios": "Generate and approve test scenarios.",
         "Test Cases": "Generate and approve test cases.",
         "Automation": "Generate and approve the automation project.",
+        "GitHub": "Publish the tests to a GitHub branch (or skip).",
         "Execute": "Execute the automated tests.",
         "Analyze": "Review failures and proposed locator fixes.",
         "Report": "Open the execution report.",
@@ -157,7 +166,7 @@ def _next_step(stages: list[Stage], running: bool) -> str:
 
 STAGE_PAGE = {
     "Discover": "discovery", "Scenarios": "scenarios", "Test Cases": "test-cases", "Automation": "automation",
-    "Execute": "execute", "Analyze": "results", "Report": "reports",
+    "GitHub": "github", "Execute": "execute", "Analyze": "results", "Report": "reports",
 }  # fmt: skip
 
 

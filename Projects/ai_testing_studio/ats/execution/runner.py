@@ -227,6 +227,44 @@ def docker_command(request: RunRequest, image: str, base_url: str, api_base_url:
 # ----------------------------------------------------------------------------------------
 # local runner
 # ----------------------------------------------------------------------------------------
+NODE_TOOLS = ("node", "npm", "npx")
+
+
+def node_shim_dir() -> Path | None:
+    """Directory that makes node / npm / npx available, or ``None`` when the system already has them (or no Node can be provided).
+
+    Machines without Node.js (a fresh PC, Streamlit Community Cloud) use the private Node of the ``nodejs-wheel-binaries`` pip
+    package: small launcher scripts in the studio's data folder put its ``node``, ``npm`` and ``npx`` on the PATH of test runs."""
+    if all(shutil.which(tool) for tool in NODE_TOOLS):
+        return None
+    try:
+        from nodejs_wheel import executable
+    except ImportError:
+        return None
+    root = Path(executable.ROOT_DIR)
+    node = root / ("node.exe" if os.name == "nt" else "bin/node")
+    cli = root / "lib" / "node_modules" / "npm" / "bin"
+    if not node.is_file() or not (cli / "npm-cli.js").is_file():
+        return None
+    shims = get_settings().data_dir / "node_shims"
+    shims.mkdir(parents=True, exist_ok=True)
+    launchers = {"node": f'"{node}"', "npm": f'"{node}" "{cli / "npm-cli.js"}"', "npx": f'"{node}" "{cli / "npx-cli.js"}"'}
+    for tool, command in launchers.items():
+        path = shims / (f"{tool}.cmd" if os.name == "nt" else tool)
+        text = f"@echo off\r\n{command} %*\r\n" if os.name == "nt" else f'#!/bin/sh\nexec {command} "$@"\n'
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            path.write_text(text, encoding="utf-8", newline="")
+            if os.name != "nt":
+                path.chmod(0o755)
+    return shims
+
+
+def with_node(env: dict[str, str]) -> dict[str, str]:
+    """``env`` with the private Node on the PATH when the system has none."""
+    shims = node_shim_dir()
+    return {**env, "PATH": str(shims) + os.pathsep + env.get("PATH", os.environ.get("PATH", ""))} if shims else env
+
+
 def local_requirements(framework: str) -> str:
     """Explain what is missing for a local run, or return an empty string."""
     if framework == "api_python":
@@ -244,8 +282,8 @@ def local_requirements(framework: str) -> str:
         if probe is None or probe.returncode != 0:
             return f"Mobile tests need pytest and the Appium Python client installed for this Python ({sys.executable}). Run: python -m pip install pytest Appium-Python-Client"
     elif framework in {"playwright_typescript", "playwright_javascript"}:
-        if not shutil.which("npx") or not shutil.which("npm"):
-            return "Local mode needs Node.js (npm and npx) on PATH."
+        if node_shim_dir() is None and not all(shutil.which(tool) for tool in NODE_TOOLS):
+            return "Node.js is not available. Install Node.js 18+ (npm and npx on PATH), or run: python -m pip install nodejs-wheel-binaries (the studio then uses its private Node)."
     elif framework == "selenium_java" and not (shutil.which("mvn") and shutil.which("java")):
         return "Local mode needs Java 17+ and Maven (mvn) on PATH."
     return ""
@@ -305,6 +343,8 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
                 return outcome
             env = run_env(request, request.base_url, request.api_base_url)
             process_env = {**os.environ, **env}
+            if request.framework in {"playwright_typescript", "playwright_javascript"}:
+                process_env = with_node(process_env)
             cwd = str(request.workdir)
             argv = None
         phase("Running tests")
@@ -324,11 +364,14 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
 
 def _run_local(request: RunRequest, env: dict[str, str], say: LogCallback, cancel: threading.Event | None) -> tuple[int, bool, bool]:
     steps = command_steps(request.framework, request.browser, request.test_case_ids, False)
-    if request.framework in {"playwright_typescript", "playwright_javascript"} and not (request.workdir / "node_modules").exists():
-        steps.insert(0, ["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"])
+    if request.framework in {"playwright_typescript", "playwright_javascript"}:
+        engine = PLAYWRIGHT_ENGINE.get(request.browser, "chromium")
+        steps.insert(0, ["npx", "playwright", "install", PLAYWRIGHT_CHANNEL.get(request.browser, engine)])  # downloads the browser once; instant afterwards
+        if not (request.workdir / "node_modules").exists():
+            steps.insert(0, ["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"])
     exit_code, timed_out, cancelled = 0, False, False
     for index, step in enumerate(steps):
-        resolved = [shutil.which(step[0]) or step[0], *step[1:]]
+        resolved = [shutil.which(step[0], path=env.get("PATH")) or step[0], *step[1:]]
         exit_code, timed_out, cancelled = _execute(resolved, env, str(request.workdir), request, say, cancel)
         if index < len(steps) - 1 and exit_code != 0:
             break

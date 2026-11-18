@@ -12,6 +12,7 @@ from ats.ui import jobs_ui, theme
 from ats.ui.layers import guarded, layer_label, layer_switch, stop_if_unsupported
 from ats.ui.session import go_to, notify, require_project, safe, show_notices
 from ats.ui.widgets import chip
+from ats.workflow import compute_workflow
 
 LANGUAGES = {".py": "python", ".ts": "typescript", ".js": "javascript", ".java": "java", ".json": "json", ".xml": "xml", ".md": "markdown", ".ini": "ini", ".txt": "text", ".toml": "toml", ".yml": "yaml", ".yaml": "yaml"}
 
@@ -115,8 +116,15 @@ def render(svc: Services) -> None:
     if a.button("Approve for execution", type="primary", disabled=bundle["status"] in {"approved", "committed"}):
         svc.scripts.approve(project.id, bundle_id)
         what = f"{layer_label(layer)} automation project" if len(project.layers) > 1 else "Automation project"
-        notify(f"{what} approved. Run the tests next.")
-        go_to("execute")  # leaves this run; the Execute page shows the notice
+        state = compute_workflow(svc.repo, project)
+        if state.stage("Automation").status == "done" and state.stage("GitHub").status == "current":
+            notify(f"{what} approved. Publish it to a GitHub branch next (or skip).")
+            go_to("github")  # GitHub comes before Execute
+        elif state.stage("Automation").status == "done":
+            notify(f"{what} approved. Run the tests next.")
+            go_to("execute")
+        else:
+            notify(f"{what} approved. Approve the other channels' automation projects next.")
         st.rerun()
     b.download_button("Download project (ZIP)", svc.store.zip_bytes(project.id, bundle_id), file_name=f"{project.name}_automation_v{bundle_id}.zip", mime="application/zip")
     c.caption("Secrets and saved sessions are never included in the ZIP.")

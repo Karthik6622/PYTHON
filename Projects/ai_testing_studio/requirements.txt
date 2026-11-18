@@ -15,3 +15,4 @@ pytest>=8
 # Mobile testing: app analysis drives the app through Appium; pyaxmlparser reads package and launch activity from an APK (pure Python, no aapt needed).
 Appium-Python-Client>=4.0
 pyaxmlparser>=0.3.28
+nodejs-wheel-binaries>=20.0

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import re
+from datetime import datetime
+
 import streamlit as st
 
 from ats.config import get_settings
 from ats.security import token_hint
 from ats.services import Services
 from ats.ui import theme
-from ats.ui.session import notify, require_project, safe, show_notices
+from ats.ui.session import go_to, notify, require_project, safe, show_notices
 
 
 def imported_files(project_id: str) -> tuple[dict[str, str], str] | None:
@@ -31,13 +34,14 @@ def publish_panel(svc: Services, project, token: str, link: dict) -> None:  # no
         return
     repo_url = link.get("repo_url", "")
     branches = safe(lambda: svc.github.branches(project, token), []) if token else []
-    mode = st.radio("Branch", ["Use an existing branch", "Create a new clean branch"], horizontal=True, key="gh_branch_mode")
+    mode = st.radio("Branch", ["Create a new clean branch", "Use an existing branch"], horizontal=True, key="gh_branch_mode")
     if mode == "Use an existing branch":
         default = branches.index(link["branch"]) if link.get("branch") in branches else 0
         branch = st.selectbox("Existing branch", branches, index=default if branches else None, placeholder="Link the repository and enter a token") if branches else st.text_input("Existing branch", value=link.get("branch", ""))
         create = False
     else:
-        branch = st.text_input("New branch name", placeholder="feature/customer-testing")
+        slug = re.sub(r"[^a-z0-9]+", "-", project.name.lower()).strip("-")[:30] or "project"
+        branch = st.text_input("New branch name", value=f"ai-tests/{slug}-{datetime.now().strftime('%Y%m%d')}", key=f"gh_new_branch_{project.id}", help="Created empty: it holds only your test project, nothing from main.")
         create = True
     chosen = st.multiselect("Channels to publish", list(ready), default=list(ready), format_func=CHANNEL_LABELS.get)
     selected = {c: ready[c] for c in chosen}
@@ -70,18 +74,25 @@ def publish_panel(svc: Services, project, token: str, link: dict) -> None:  # no
         with st.spinner("Publishing to GitHub..."):
             result = safe(lambda: svc.github.publish(project, selected, token, repo_url, branch, create_if_missing=create))
         if result:
-            notify(f"Published {', '.join(CHANNEL_LABELS[c] for c in result['channels'])} to `{result['branch']}`: {len(result['added'])} added, {len(result['updated'])} updated. {result.get('branch_url', '')}")
+            notify(f"Published {', '.join(CHANNEL_LABELS[c] for c in result['channels'])} to `{result['branch']}`: {len(result['added'])} added, {len(result['updated'])} updated. Run the tests next.")
+            go_to("execute")  # GitHub comes right before Execute
             st.rerun()
 
 
 def render(svc: Services) -> None:
     project = require_project(svc)
-    theme.page_header("GitHub", "Optional: publish the generated tests to their own branch. Automatic fixes are pushed to the same branch.", "STEP 05 // GITHUB")
+    theme.page_header("GitHub", "Publish the generated tests to their own branch, then run them. Automatic fixes are pushed to the same branch.", "STEP 05 // GITHUB")
     show_notices()
     st.write(
         "Link a repository to publish the generated tests to a **new, clean branch**: it contains only your test project, none of the files "
         "of `main` or any other branch, and the default branch is never touched. Import existing tests to run them instead."
     )
+
+    if st.button("Skip GitHub and run the tests", key="gh_skip"):
+        svc.repo.audit(project.id, "user", "github.skipped", "github", {})
+        notify("GitHub skipped. Run the tests next.")
+        go_to("execute")
+        st.rerun()
 
     token = svc.tokens.get(project.id)
     with st.container(border=True):
@@ -138,7 +149,8 @@ def render(svc: Services) -> None:
                         )
                     )
                 if result:
-                    notify(f"Published {result['files']} files to branch {result['branch']}. " + (f"Pull request: {result['pr_url']}" if result["pr_url"] else f"Branch: {result.get('branch_url', '')}"))
+                    notify(f"Published {result['files']} files to branch {result['branch']}. Run the tests next.")
+                    go_to("execute")
                     st.rerun()
             if not token:
                 st.caption("Enter a token above to enable committing.")

@@ -674,6 +674,9 @@ class Repository:
             (project_id or "", utc_now(), actor, action, entity, dumps(mask_obj(detail or {}))),
         )
 
+    def has_audit(self, project_id: str, action: str) -> bool:
+        return self.db.one("SELECT 1 AS found FROM audit_log WHERE project_id = ? AND action = ? LIMIT 1", (project_id, action)) is not None
+
     def list_audit(self, project_id: str, limit: int = 300) -> list[dict[str, Any]]:
         rows = self.db.query("SELECT * FROM audit_log WHERE project_id = ? ORDER BY id DESC LIMIT ?", (project_id, limit))
         return [{**r, "detail": loads(r["detail"], {})} for r in rows]

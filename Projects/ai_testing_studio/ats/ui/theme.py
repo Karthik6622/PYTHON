@@ -136,9 +136,46 @@ label, [data-testid="stWidgetLabel"] p { font-family: var(--mono) !important; fo
 KIND_BY_STAGE_STATUS = {"done": "done", "current": "current", "waiting": "", "optional": "optional", "blocked": "blocked"}
 
 
+# Streamlit sends the value of a text box to the server only when the box loses focus (or Enter is pressed), so a button that is
+# `disabled` until something is typed stays disabled until the person clicks elsewhere. This script (injected once per browser page)
+# commits the value ~0.4 s after typing stops by blurring and re-focusing the box with the caret where it was.
+LIVE_INPUT_JS = """<script>
+(function () {
+  try {
+    var d = window.parent.document;
+    if (d.__atsLiveInput) return;
+    d.__atsLiveInput = true;
+    var timer = null;
+    d.addEventListener('input', function (event) {
+      var el = event.target;
+      if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+      if (el.closest('[data-baseweb="select"], [data-testid="stChatInput"], [data-testid="stFileUploader"], [data-testid="stSlider"]')) return;
+      if (el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') return;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        if (d.activeElement !== el) return;
+        var start = el.selectionStart, end = el.selectionEnd;
+        el.blur();
+        setTimeout(function () {
+          el.focus();
+          try { el.setSelectionRange(start, end); } catch (e) {}
+        }, 40);
+      }, 400);
+    }, true);
+  } catch (e) {}
+})();
+</script>"""
+
+
 def apply() -> None:
     """Inject the global stylesheet. Call once per run, before any page content."""
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+    try:
+        st.iframe(LIVE_INPUT_JS, height=1)
+    except Exception:  # noqa: BLE001 - older Streamlit
+        import streamlit.components.v1 as components
+
+        components.html(LIVE_INPUT_JS, height=0)
 
 
 def brand() -> str:
