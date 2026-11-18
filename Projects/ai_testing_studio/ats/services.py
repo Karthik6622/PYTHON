@@ -5,19 +5,24 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 
+from ats.analysis.autofix import AutoFixer
 from ats.analysis.defects import DefectBuilder
 from ats.analysis.healing import HealingEngine
 from ats.analysis.pipeline import FailureAnalyzer
 from ats.analysis.service import AnalysisService
+from ats.api.service import ApiService
 from ats.automation.bundle_store import BundleStore
 from ats.automation.script_service import ScriptService
 from ats.config import get_settings
+from ats.connections.service import ConnectionService
 from ats.db import Database
 from ats.discovery.service import DiscoveryService
 from ats.execution.executor import ExecutionService
 from ats.generation.scenarios import ScenarioService
 from ats.generation.testcases import TestCaseService
 from ats.github.service import GitHubService
+from ats.jobs import JobManager
+from ats.mobile.service import MobileService
 from ats.repository import Repository
 from ats.reporting import ReportService
 from ats.security import register_secret
@@ -59,6 +64,10 @@ class Services:
     analysis: AnalysisService
     github: GitHubService
     reports: ReportService
+    jobs: JobManager
+    connections: ConnectionService
+    api: ApiService
+    mobile: MobileService
     tokens: TokenVault = field(default_factory=TokenVault)
 
     @property
@@ -81,9 +90,16 @@ def build_services(repo: Repository | None = None) -> Services:
     def on_verified(ctx, healing_ids):  # noqa: ANN001 - signature fixed by AnalysisService
         github.pr_callback(lambda: project_token(ctx.project.id))(ctx, healing_ids)
 
-    analysis = AnalysisService(repo, executor, analyzer, healer, DefectBuilder(repo), on_verified=on_verified)
+    def push_fixes(project, files, message):  # noqa: ANN001, ANN202 - signature fixed by AutoFixer
+        token = tokens.get(project.id)
+        return github.push_fixes(project, token, files, message) if token else None
+
+    fixer = AutoFixer(repo, executor, analyzer, healer, store, push=push_fixes)
+    analysis = AnalysisService(repo, executor, analyzer, healer, DefectBuilder(repo), on_verified=on_verified, fixer=fixer)
     executor.post_run = analysis.post_run
+    connections = ConnectionService(repo)
     return Services(
-        repo=repo, store=store, discovery=DiscoveryService(repo), scenarios=ScenarioService(repo), testcases=TestCaseService(repo),
-        scripts=ScriptService(repo, store), executor=executor, analysis=analysis, github=github, reports=ReportService(repo), tokens=tokens,
+        repo=repo, store=store, discovery=DiscoveryService(repo, connections=connections), scenarios=ScenarioService(repo, connections=connections),
+        testcases=TestCaseService(repo, connections=connections), scripts=ScriptService(repo, store, connections=connections), executor=executor, analysis=analysis,
+        github=github, reports=ReportService(repo), jobs=JobManager(repo), connections=connections, api=ApiService(repo), mobile=MobileService(repo), tokens=tokens,
     )  # fmt: skip

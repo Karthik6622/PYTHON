@@ -28,7 +28,7 @@ LOCATORS = {
     KEY: {"page": "login", "intent": "submit the login form", "role": "button", "name": "Sign in", "preferred": {"kind": "role", "value": "button", "name": "Sign in", "exact": True}, "alternatives": []},
     "login.email_textbox": {"page": "login", "intent": "", "role": "textbox", "name": "Email address", "preferred": {"kind": "label", "value": "Email address"}, "alternatives": []},
 }
-TEST_FILE = f"tests/test_login.py\n"
+TEST_FILE = f"tests/web/test_login.py\n"
 
 
 def classification(category: str = "LOCATOR DRIFT", confidence: float = 0.85, fixable: bool = True) -> dict:
@@ -67,7 +67,7 @@ def make_failed_execution(repo, executor, *, error: str, action: str = "click", 
     (evidence_dir / "failure.json").write_text(json.dumps({"test_case_id": TC, "step": "Click Sign in", "action": action, "element": element, "error": error, "url": "http://127.0.0.1:9/login.html", "title": "Acme Shop", "console": console or []}), encoding="utf-8")
     if dom_html:
         (evidence_dir / "dom.html").write_text(dom_html, encoding="utf-8")
-    files = {"config/locators.json": json.dumps(LOCATORS, indent=2), "tests/test_login.py": f"def test_login():\n    # {TC}\n    pass\n"}
+    files = {"config/locators.json": json.dumps(LOCATORS, indent=2), "tests/web/test_login.py": f"def test_login():\n    # {TC}\n    pass\n"}
     for rel, content in files.items():
         (workdir / rel).parent.mkdir(parents=True, exist_ok=True)
         (workdir / rel).write_text(content, encoding="utf-8")

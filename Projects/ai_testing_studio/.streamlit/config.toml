@@ -1,6 +1,6 @@
 [server]
 headless = true
-maxUploadSize = 5
+maxUploadSize = 300  # MB. Mobile testing uploads APKs (MOBILE_MAX_APK_MB, default 300, is checked again by the studio)
 
 [browser]
 gatherUsageStats = false

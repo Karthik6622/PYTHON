@@ -10,6 +10,15 @@
   const q = (sel, root) => { try { return Array.from((root || document).querySelectorAll(sel)); } catch (e) { return []; } };
   const esc = (v) => (window.CSS && CSS.escape) ? CSS.escape(v) : v.replace(/([^\w-])/g, '\\$1');
   const attr = (el, n) => el.getAttribute(n) || '';
+  // Icon fonts render ligature names (e.g. 'add', 'keyboard_double_arrow_left') as text; they are aria-hidden, so they are not part of the accessible name.
+  const ICONS = 'svg,[aria-hidden="true"],[data-testid="stIconMaterial"],[data-testid="stIconEmoji"],.material-icons,.material-symbols-outlined,[class*="material-symbols"]';
+  const textOf = (el) => {
+    if (!el) return '';
+    if (!el.querySelector || !el.querySelector(ICONS)) return el.innerText || el.textContent || '';
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll(ICONS).forEach((n) => n.remove());
+    return clone.textContent || '';
+  };
 
   const IMPLICIT = { a: 'link', button: 'button', select: 'combobox', textarea: 'textbox', summary: 'button', img: 'img', nav: 'navigation', table: 'table', dialog: 'dialog', h1: 'heading', h2: 'heading', h3: 'heading', ul: 'list', ol: 'list' };
   const INPUT_ROLE = { button: 'button', submit: 'button', reset: 'button', image: 'button', checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', search: 'searchbox', email: 'textbox', tel: 'textbox', text: 'textbox', url: 'textbox', password: 'textbox' };
@@ -22,11 +31,11 @@
     return IMPLICIT[tag] || '';
   };
   const labelOf = (el) => {
-    if (el.labels && el.labels.length) return cut(Array.from(el.labels).map((l) => l.innerText || l.textContent).join(' '), 100);
+    if (el.labels && el.labels.length) return cut(Array.from(el.labels).map((l) => textOf(l)).join(' '), 100);
     const id = el.id;
-    if (id) { const l = document.querySelector('label[for="' + id.replace(/"/g, '\\"') + '"]'); if (l) return cut(l.innerText || l.textContent, 100); }
+    if (id) { const l = document.querySelector('label[for="' + id.replace(/"/g, '\\"') + '"]'); if (l) return cut(textOf(l), 100); }
     const wrap = el.closest('label');
-    return wrap ? cut(wrap.innerText || wrap.textContent, 100) : '';
+    return wrap ? cut(textOf(wrap), 100) : '';
   };
   const accName = (el) => {
     const aria = attr(el, 'aria-label');
@@ -41,7 +50,7 @@
     if (tag === 'input' && ['button', 'submit', 'reset'].includes(type)) return cut(el.value || type, 100);
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return labelOf(el) || cut(attr(el, 'placeholder') || attr(el, 'title'), 100);
     if (tag === 'img') return cut(attr(el, 'alt'), 100);
-    return cut(el.innerText || el.textContent, 100) || cut(attr(el, 'title') || attr(el, 'alt'), 100);
+    return cut(textOf(el), 100) || cut(attr(el, 'title') || attr(el, 'alt'), 100);
   };
   const cssPath = (el) => {
     if (el.id && q('#' + esc(el.id)).length === 1) return '#' + esc(el.id);
@@ -106,7 +115,7 @@
     const aria = {};
     for (const a of el.attributes) if (a.name.startsWith('aria-')) aria[a.name] = cut(a.value, 80);
     const item = {
-      tag, type, role: roleOf(el), name: accName(el), text: cut(el.innerText || el.textContent, 120),
+      tag, type, role: roleOf(el), name: accName(el), text: cut(textOf(el), 120),
       id: el.id || '', name_attr: attr(el, 'name'), testid, testid_attr: testidAttr,
       classes: Array.from(el.classList).slice(0, 4), placeholder: attr(el, 'placeholder'),
       href: tag === 'a' ? attr(el, 'href') : '', label: labelOf(el), title: attr(el, 'title'), alt: attr(el, 'alt'), aria,

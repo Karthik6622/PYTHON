@@ -1,4 +1,4 @@
-"""GitHub page: link a repository, import tests, commit the generated project to a new branch and open a pull request."""
+"""GitHub page: link a repository, publish the generated project to its own clean branch, import tests."""
 
 from __future__ import annotations
 
@@ -15,11 +15,73 @@ def imported_files(project_id: str) -> tuple[dict[str, str], str] | None:
     return st.session_state.get("gh_import", {}).get(project_id)
 
 
+def publish_panel(svc: Services, project, token: str, link: dict) -> None:  # noqa: ANN001
+    """Publish every channel of the project (Web / Mobile / API) to ONE repository + branch. An existing branch is inspected first and only
+    the channels that are missing are added: files the studio did not generate are never touched."""
+    from ats.models import CHANNEL_LAYER, CHANNEL_LABELS
+
+    st.subheader("Publish to a repository branch")
+    bundles = {c: svc.repo.latest_bundle(project.id, layer=CHANNEL_LAYER[c]) for c in project.channels}
+    ready = {c: b["id"] for c, b in bundles.items() if b}
+    for channel, bundle in bundles.items():
+        if not bundle:
+            st.caption(f"➕ {CHANNEL_LABELS[channel]}: no automation project generated yet.")
+    if not ready:
+        st.info("Generate the automation project first.")
+        return
+    repo_url = link.get("repo_url", "")
+    branches = safe(lambda: svc.github.branches(project, token), []) if token else []
+    mode = st.radio("Branch", ["Use an existing branch", "Create a new clean branch"], horizontal=True, key="gh_branch_mode")
+    if mode == "Use an existing branch":
+        default = branches.index(link["branch"]) if link.get("branch") in branches else 0
+        branch = st.selectbox("Existing branch", branches, index=default if branches else None, placeholder="Link the repository and enter a token") if branches else st.text_input("Existing branch", value=link.get("branch", ""))
+        create = False
+    else:
+        branch = st.text_input("New branch name", placeholder="feature/customer-testing")
+        create = True
+    chosen = st.multiselect("Channels to publish", list(ready), default=list(ready), format_func=CHANNEL_LABELS.get)
+    selected = {c: ready[c] for c in chosen}
+    st.caption(f"Workspace = repository + branch: `{repo_url}` @ `{branch or '...'}`. Branch names are only unique inside one repository.")
+    if not (token and branch and selected):
+        st.caption("Enter a token, choose a branch and at least one channel to continue.")
+        return
+    preview = safe(lambda: svc.github.preview(project, selected, token, repo_url, branch))
+    if preview is None:
+        return
+    if preview.problem:
+        st.error(preview.problem)
+        return
+    st.markdown("**Existing automation on this branch**")
+    st.markdown("  \n".join(f"{'✅' if preview.info.channels[c].existing else '➕'} {CHANNEL_LABELS[c]} " + ("existing" if preview.info.channels[c].existing else "not configured") for c in CHANNEL_LABELS))
+    if preview.will_create:
+        st.info("The branch does not exist: a new clean branch (only your test project, nothing from main) will be created.")
+    summary = preview.plan.summary()
+    a, b, c, d = st.columns(4)
+    a.metric("Files to add", summary["add"])
+    b.metric("Files to update", summary["update"])
+    c.metric("Existing files kept", summary["keep"])
+    d.metric("Shared files merged", summary["shared"])
+    for conflict in preview.plan.conflicts:
+        st.warning(f"{conflict.path}: {conflict.message}")
+    for item in preview.plan.shared:
+        if item.action != "unchanged":
+            st.caption(f"{item.path}: {item.action} ({item.detail})")
+    if st.button("Publish to this branch", type="primary", key="gh_publish"):
+        with st.spinner("Publishing to GitHub..."):
+            result = safe(lambda: svc.github.publish(project, selected, token, repo_url, branch, create_if_missing=create))
+        if result:
+            notify(f"Published {', '.join(CHANNEL_LABELS[c] for c in result['channels'])} to `{result['branch']}`: {len(result['added'])} added, {len(result['updated'])} updated. {result.get('branch_url', '')}")
+            st.rerun()
+
+
 def render(svc: Services) -> None:
     project = require_project(svc)
-    theme.page_header("GitHub", "Optional: commit the generated tests to a branch and open a pull request.", "STEP 05 // GITHUB")
+    theme.page_header("GitHub", "Optional: publish the generated tests to their own branch. Automatic fixes are pushed to the same branch.", "STEP 05 // GITHUB")
     show_notices()
-    st.write("Link a repository to commit generated tests to a **new branch** (never the default branch) and open a pull request, or import existing tests to run them.")
+    st.write(
+        "Link a repository to publish the generated tests to a **new, clean branch**: it contains only your test project, none of the files "
+        "of `main` or any other branch, and the default branch is never touched. Import existing tests to run them instead."
+    )
 
     token = svc.tokens.get(project.id)
     with st.container(border=True):
@@ -52,25 +114,35 @@ def render(svc: Services) -> None:
         return
     st.caption(f"Linked: {link['repo_url']} | default branch: {link.get('default_branch') or 'unknown'}")
 
-    st.subheader("Commit generated tests")
-    bundle = svc.repo.latest_bundle(project.id)
-    if not bundle:
-        st.info("Generate and approve the automation project first.")
-    else:
-        if bundle["status"] == "draft":
-            st.warning("The latest automation project is not approved yet. Review and approve it first for best results.")
-        a, b = st.columns(2)
-        base = a.text_input("Base branch", value=link.get("default_branch") or "main")
-        branch = b.text_input("New branch name (optional)", placeholder="ai-tests/<generated>")
-        prefix = st.text_input("Folder in the repository (optional)", placeholder="e2e")
-        open_pr = st.checkbox("Open a pull request", value=True)
-        if st.button("Commit to a new branch", type="primary", disabled=not token):
-            result = safe(lambda: svc.github.commit_bundle(project, bundle["id"], token, open_pr=open_pr, branch=branch, base_branch=base, path_prefix=prefix))
-            if result:
-                notify(f"Committed {result['files']} files to {result['branch']}. " + (f"Pull request: {result['pr_url']}" if result["pr_url"] else f"Branch: {result.get('branch_url', '')}"))
-                st.rerun()
-        if not token:
-            st.caption("Enter a token above to enable committing.")
+    publish_panel(svc, project, token, link)
+
+    with st.expander("Advanced: commit from an existing branch and open a pull request"):
+        bundle = svc.repo.latest_bundle(project.id)
+        if not bundle:
+            st.info("Generate and approve the automation project first.")
+        else:
+            if bundle["status"] == "draft":
+                st.warning("The latest automation project is not approved yet. Review and approve it first for best results.")
+            branch = st.text_input("Branch name (optional)", placeholder="ai-tests/<generated>", help="A new branch is created. Publishing again updates the same branch.")
+            prefix = st.text_input("Folder in the repository (optional)", placeholder="e2e")
+            with st.container(border=True):
+                st.caption("Keeps all files of that branch and lets you open a pull request. The default option (clean branch) cannot have a pull request because it shares no history.")
+                keep_base = st.checkbox("Create the branch from an existing branch", value=False)
+                base = st.text_input("Base branch", value=link.get("default_branch") or "main", disabled=not keep_base)
+                open_pr = st.checkbox("Open a pull request", value=True, disabled=not keep_base)
+            if st.button("Publish to a clean branch" if not keep_base else "Commit to a new branch", type="primary", disabled=not token):
+                with st.spinner("Publishing to GitHub..."):
+                    result = safe(
+                        lambda: svc.github.commit_bundle(
+                            project, bundle["id"], token, open_pr=keep_base and open_pr, branch=branch, base_branch=base, path_prefix=prefix, orphan=not keep_base
+                        )
+                    )
+                if result:
+                    notify(f"Published {result['files']} files to branch {result['branch']}. " + (f"Pull request: {result['pr_url']}" if result["pr_url"] else f"Branch: {result.get('branch_url', '')}"))
+                    st.rerun()
+            if not token:
+                st.caption("Enter a token above to enable committing.")
+
     if link.get("branch"):
         st.markdown(f"Last commit: branch `{link['branch']}`" + (f" | [commit]({link['commit_url']})" if link.get("commit_url") else "") + (f" | [pull request]({link['pr_url']})" if link.get("pr_url") else ""))
 

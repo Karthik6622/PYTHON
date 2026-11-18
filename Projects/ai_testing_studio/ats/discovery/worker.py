@@ -26,6 +26,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urldefrag, urljoin, urlparse
 
+from ats.discovery.runtime_nav import (  # noqa: E402 - shared with the generated test projects
+    ACTIONS_JS, LOGIN_OPENER, LOGIN_SUBMIT, PASSWORD_FIELD, host_of as _host, open_page, settle, sign_in,
+)
+
 EXTRACTOR_JS = (Path(__file__).with_name("extractor.js")).read_text(encoding="utf-8")
 SKIP_EXTENSIONS = {
     ".pdf", ".zip", ".gz", ".tar", ".rar", ".7z", ".exe", ".dmg", ".msi", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp",
@@ -37,10 +41,6 @@ LOGIN_HINTS = ("login", "signin", "sign-in", "log-in", "auth", "sso")
 
 def progress(message: str, **extra: Any) -> None:
     print("PROGRESS " + json.dumps({"message": message, **extra}), flush=True)
-
-
-def _host(url: str) -> str:
-    return (urlparse(url).hostname or "").lower().removeprefix("www.")
 
 
 def slug(url: str, used: set[str]) -> str:
@@ -142,24 +142,6 @@ def launch(playwright: Any, browser_name: str = "chromium", headless: bool = Tru
 # ------------------------------------------------------------------------------------------
 # Authentication
 # ------------------------------------------------------------------------------------------
-LOGIN_OPENER = re.compile(r"^(get started|log ?in|sign ?in)\b", re.I)
-LOGIN_SUBMIT = re.compile(r"^(log ?in|sign ?in|submit|continue|enter)$", re.I)
-PASSWORD_FIELD = "input[type=password]:visible"
-
-
-def reveal_login_form(page: Any) -> None:
-    """Single-page apps often show a landing page first; open the sign-in form when no password field is visible yet."""
-    if page.locator(PASSWORD_FIELD).count():
-        return
-    for role in ("button", "link"):
-        opener = page.get_by_role(role, name=LOGIN_OPENER)
-        if opener.count():
-            opener.first.click()
-            settle(page, max_ms=6000, quiet_ms=1000)
-            if page.locator(PASSWORD_FIELD).count():
-                return
-
-
 def perform_login(page: Any, auth: dict[str, Any], start_url: str) -> tuple[str | None, bool]:
     """Sign in using credentials from environment variables.
 
@@ -169,36 +151,8 @@ def perform_login(page: Any, auth: dict[str, Any], start_url: str) -> tuple[str 
     password = os.environ.get(auth.get("password_env") or "", "")
     if not username or not password:
         return "Credential environment variables are not set; discovery continued without signing in.", False
-    try:
-        open_page(page, auth.get("login_url") or start_url, [])
-        if auth.get("username_selector") and auth.get("password_selector"):
-            page.locator(auth["username_selector"]).first.fill(username)
-            page.locator(auth["password_selector"]).first.fill(password)
-            submit = auth.get("submit_selector")
-        else:
-            reveal_login_form(page)
-            password_field = page.locator(PASSWORD_FIELD).first
-            user_field = page.locator(
-                "input[type=email]:visible, input[type=text]:visible, input:not([type]):visible"
-            ).first
-            user_field.fill(username)
-            password_field.fill(password)
-            submit = "button[type=submit], input[type=submit]"
-        if submit and page.locator(submit).count():
-            page.locator(submit).first.click()
-        elif not auth.get("submit_selector") and page.get_by_role("button", name=LOGIN_SUBMIT).count():
-            page.get_by_role("button", name=LOGIN_SUBMIT).first.click()
-        else:
-            page.keyboard.press("Enter")
-        settle(page, max_ms=15000, quiet_ms=1500)
-        needle = auth.get("success_url_contains") or ""
-        if needle and needle not in page.url:
-            return "Login could not be confirmed (success URL fragment not found); results may be limited to public pages.", False
-        if page.locator(PASSWORD_FIELD).count():
-            return "A password field is still visible after login; the sign-in may have failed (check the credentials).", False
-    except Exception as exc:  # noqa: BLE001
-        return f"Login workflow failed: {str(exc).splitlines()[0][:160]}", False
-    return None, True
+    problem = sign_in(page, username, password, auth, start_url)
+    return problem, problem is None
 
 
 # ------------------------------------------------------------------------------------------
@@ -216,99 +170,6 @@ def new_context(browser: Any, job: dict[str, Any]) -> Any:
     return browser.new_context(**options)
 
 
-SIGNATURE_JS = (
-    "() => (document.body ? document.body.innerText.length : 0) + ':' + "
-    "document.querySelectorAll('input,button,a,select,textarea,[role],[data-testid]').length + ':' + "
-    # Streamlit keeps the placeholder title until the script has run; treat that as 'still loading'.
-    "(document.querySelector('[data-testid=stApp]') && document.title === 'Streamlit' ? 'loading' : 'ready')"
-)
-IFRAMES_JS = (
-    "() => Array.from(document.querySelectorAll('iframe')).map((f) => { const r = f.getBoundingClientRect(); "
-    "return { src: f.src || '', area: r.width * r.height }; }).concat([{ src: '', area: -(innerWidth * innerHeight) }])"
-)
-WAKE_BUTTON = re.compile(r"get this app back up", re.I)
-
-
-def settle(page: Any, max_ms: int = 15000, quiet_ms: int = 2000) -> None:
-    """Single-page apps keep rendering after the load event: wait until the page content stops changing."""
-    waited, stable, last = 0, 0, ""
-    while waited < max_ms:
-        page.wait_for_timeout(500)
-        waited += 500
-        try:
-            signature = page.evaluate(SIGNATURE_JS)
-        except Exception:  # noqa: BLE001 - page is navigating
-            stable = 0
-            continue
-        stable = stable + 500 if signature == last else 0
-        last = signature
-        if stable >= quiet_ms and signature.endswith(":ready"):
-            return
-
-
-def wake_sleeping_app(page: Any, warnings: list[str], max_ms: int = 90000) -> None:
-    """Streamlit Community Cloud puts idle apps to sleep behind a button; wake the app and wait for it."""
-    try:
-        button = page.get_by_role("button", name=WAKE_BUTTON)
-        if not button.count():
-            return
-        progress("The app is asleep; waking it up")
-        button.first.click()
-        waited = 0
-        while waited < max_ms and page.get_by_role("button", name=WAKE_BUTTON).count():
-            page.wait_for_timeout(1000)
-            waited += 1000
-        warnings.append("The application was asleep and was woken up for discovery.")
-    except Exception:  # noqa: BLE001
-        return
-
-
-def embedded_app_url(page: Any, wait_s: int = 25) -> str | None:
-    """URL of the real application when the page is only a shell around one full-size same-site iframe (e.g. Streamlit Cloud).
-
-    Such shells keep the frame at zero size while the app boots, so wait for it to become visible.
-    """
-    candidate = None
-    for tick in range(wait_s):
-        try:
-            frames = page.evaluate(IFRAMES_JS)
-            plain_page = page.evaluate("document.querySelectorAll('iframe').length === 0 && document.body && document.body.innerText.length > 200")
-        except Exception:  # noqa: BLE001
-            return candidate
-        if plain_page:
-            return None
-        view = -frames[-1]["area"] or 1
-        for frame in frames[:-1]:
-            src = frame["src"]
-            if not (src.startswith("http") and _host(src) == _host(page.url) and urldefrag(src)[0] != urldefrag(page.url)[0]):
-                continue
-            candidate = src
-            if frame["area"] > 0.5 * view:
-                return src
-        if candidate is None and tick >= 5:
-            return None
-        page.wait_for_timeout(1000)
-    return candidate
-
-
-def open_page(page: Any, url: str, warnings: list[str]) -> Any:
-    """Navigate, wake sleeping apps, step into an embedded app frame and wait for the page to finish rendering."""
-    response = page.goto(url, wait_until="domcontentloaded")
-    try:
-        page.wait_for_load_state("networkidle", timeout=6000)
-    except Exception:  # noqa: BLE001
-        pass
-    wake_sleeping_app(page, warnings)
-    inner = embedded_app_url(page)
-    if inner:
-        note = f"The site embeds its application in a frame; the application URL ({inner}) was analysed directly."
-        if note not in warnings:
-            warnings.append(note)
-        response = page.goto(inner, wait_until="domcontentloaded")
-    settle(page)
-    return response
-
-
 def extract_page(page: Any) -> dict[str, Any]:
     data = page.evaluate(EXTRACTOR_JS)
     try:
@@ -318,80 +179,42 @@ def extract_page(page: Any) -> dict[str, Any]:
     return data
 
 
-ACTIONS_JS = r"""(arg) => {
-  const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-  const visible = (el) => {
-    const r = el.getBoundingClientRect();
-    const st = getComputedStyle(el);
-    return r.width > 1 && r.height > 1 && st.visibility !== 'hidden' && st.display !== 'none' && parseFloat(st.opacity || '1') > 0.05;
-  };
-  const ICONS = 'svg,[aria-hidden="true"],[data-testid*="Icon"],[data-testid*="icon"],.material-icons,[class*="material-symbols"]';
-  const textOf = (el) => { const c = el.cloneNode(true); c.querySelectorAll(ICONS).forEach((n) => n.remove()); return norm(c.textContent); };
-  const roleOf = (el) => {
-    const r = (el.getAttribute('role') || '').split(' ')[0];
-    if (r) return r;
-    const t = el.tagName.toLowerCase();
-    if (t === 'a') return el.hasAttribute('href') ? 'link' : '';
-    if (t === 'button') return 'button';
-    if (t === 'input') {
-      const ty = (el.type || '').toLowerCase();
-      if (['button', 'submit', 'reset', 'image'].includes(ty)) return 'button';
-      if (ty === 'radio') return 'radio';
-    }
-    return '';
-  };
-  const ROLES = new Set(['link', 'button', 'tab', 'radio', 'menuitem', 'menuitemradio', 'treeitem']);
-  // Framework chrome (Streamlit toolbar, chat input, uploaders, ...) never leads to another application view.
-  const CHROME = '[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],' +
-    '[data-testid="stChatInput"],[data-testid="stFileUploader"],[data-testid="stDownloadButton"],[data-testid="stSidebarCollapseButton"],' +
-    '[data-testid="stSidebarCollapsedControl"],[data-testid="stTooltipIcon"],[data-testid="stCodeCopyButton"]';
-  const FORM = 'form,[data-testid="stForm"]';
-  const NAV = 'nav,[role=navigation],[role=tablist],[role=menu],[role=menubar],[role=tree],[data-testid="stSidebarNav"]';
-  const SIDE = '[data-testid="stSidebar"],aside,header,[role=banner],[role=complementary]';
-  const labelOf = (el, role) => {
-    const aria = norm(el.getAttribute('aria-label'));
-    if (role === 'radio' && el.tagName === 'INPUT') {
-      const l = el.closest('label') || (el.id ? document.querySelector('label[for="' + el.id.replace(/"/g, '\\"') + '"]') : null);
-      return l ? textOf(l) : aria;
-    }
-    if (el.tagName === 'INPUT') return norm(el.value) || aria;
-    return textOf(el) || aria || norm(el.getAttribute('title'));
-  };
-  const find = arg && arg.find;
-  const out = [];
-  const counts = {};
-  const nodes = document.querySelectorAll('a[href],button,input[type=button],input[type=submit],input[type=radio],' +
-    '[role=button],[role=link],[role=tab],[role=radio],[role=menuitem],[role=menuitemradio],[role=treeitem]');
-  for (const el of nodes) {
-    const role = roleOf(el);
-    if (!ROLES.has(role)) continue;
-    const target = role === 'radio' && el.tagName === 'INPUT' ? (el.closest('label') || el) : el;
-    const label = labelOf(el, role).slice(0, 80);
-    const key = role + '|' + label.toLowerCase();
-    const nth = counts[key] = counts[key] === undefined ? 0 : counts[key] + 1;
-    if (find) {
-      if (role === find.role && label === find.label && nth === find.nth) return target;
-      continue;
-    }
-    const item = { role, label, nth, href: '', region: el.closest(NAV) ? 'nav' : (el.closest(SIDE) ? 'side' : 'main') };
-    let skip = !label || label.length > 60 || !!el.closest(CHROME) || el.disabled || el.getAttribute('aria-disabled') === 'true' || !visible(target);
-    if (role === 'tab' && el.getAttribute('aria-selected') === 'true') skip = true;
-    if (role === 'radio' && (el.checked || el.getAttribute('aria-checked') === 'true')) skip = true;
-    // A radio group in the page body is a setting (changing it may be saved); only navigation radios are explored.
-    if (role === 'radio' && item.region === 'main') skip = true;
-    if (role === 'button' && (el.closest(FORM) || (el.getAttribute('type') || '').toLowerCase() === 'submit')) skip = true;
-    if (role === 'link') {
-      const href = el.getAttribute('href') || '';
-      if (href.startsWith('#') && !/^#[!/]/.test(href)) skip = true;
-      else {
-        try { const u = new URL(el.href, location.href); if (!/^https?:$/.test(u.protocol)) skip = true; item.href = u.href; } catch (e) { skip = true; }
-        if (el.target === '_blank' || el.hasAttribute('download')) skip = true;
-      }
-    }
-    if (!skip) out.push(item);
-  }
-  return find ? null : out;
-}"""
+VERIFY_LIMIT = 260
+
+
+def verify_elements(page: Any, elements: list[dict[str, Any]]) -> None:
+    """Count, on the live page, how many elements each candidate selector matches (stored in ``element["checks"]``).
+
+    A selector that matches exactly one element is safe to use in generated tests; the locator builder ranks by this.
+    """
+    from ats.locators.builder import build_selectors
+
+    done = 0
+    for element in elements:
+        if done >= VERIFY_LIMIT:
+            break
+        if not element.get("visible"):
+            continue
+        try:
+            selectors, _ = build_selectors(element)
+        except Exception:  # noqa: BLE001
+            continue
+        done += 1
+        checks: list[dict[str, Any]] = []
+        unique = 0
+        for selector in selectors[:6]:
+            spec = selector.model_dump(exclude_none=True)
+            try:
+                count = resolve(page, spec).count()
+            except Exception:  # noqa: BLE001
+                count = -1
+            checks.append({**spec, "count": count})
+            unique += count == 1
+            if unique >= 2:  # the preferred selector and one verified alternative are enough
+                break
+        element["checks"] = checks
+
+
 VIEW_SIGNATURE_JS = r"""() => {
   document.querySelectorAll('details:not([open])').forEach((d) => { d.open = true; });
   const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
@@ -577,6 +400,10 @@ class Crawl:
 
     def capture(self, page: Any, path: list[dict[str, Any]], signed_in: bool, status: int | None = None) -> dict[str, Any] | None:
         data = extract_page(page)
+        try:
+            verify_elements(page, data["elements"])
+        except Exception:  # noqa: BLE001 - verification only improves the ranking; discovery must not fail because of it
+            pass
         final_url = page.url
         base = urldefrag(final_url)[0]
         headings = [h.split(": ", 1)[-1] for h in data["headings"] if h.split(": ", 1)[-1]]
@@ -597,6 +424,7 @@ class Crawl:
             "title": data["title"], "status": status, "depth": len(path), "view_name": view_name[:80], "signed_in": signed_in,
             "reached_by": (["Sign in with the test account"] if signed_in and self.job.get("auth", {}).get("mode") in ("env_credentials", "login_workflow") else [])
             + [describe(a) for a in path],
+            "nav_steps": [{"role": a["role"], "label": a["label"], "nth": a["nth"], "href": a["href"]} for a in path],
             "headings": data["headings"], "elements": data["elements"], "forms": data["forms"], "tables": data["tables"],
             "navigation": data["navigation"], "components": data["components"], "aria_snapshot": data["aria_snapshot"],
             "console_errors": self.console[:10], "network": self.network[:25], "links": [], "screenshot": "",

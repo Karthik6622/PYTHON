@@ -121,6 +121,7 @@ class HealingSettings:
     min_confidence: float
     approval_policy: str
     recheck_flaky: bool
+    autofix_rounds: int = 3
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,15 @@ class Settings:
     discovery_default_depth: int
     github_api_url: str
     github_token: str = field(default="", repr=False)
+    users_db: str = ""
+
+    @property
+    def users_db_path(self) -> Path:
+        """Accounts database: ``USERS_DB`` when set, otherwise ``users.db`` inside the data folder."""
+        if not self.users_db:
+            return self.data_dir / "users.db"
+        path = Path(self.users_db)
+        return path if path.is_absolute() else ROOT_DIR / path
 
     @property
     def db_path(self) -> Path:
@@ -196,6 +206,7 @@ def load_settings() -> Settings:
             "playwright_node": _str("RUNNER_IMAGE_PLAYWRIGHT_NODE", f"mcr.microsoft.com/playwright:v{pw}-jammy"),
             "selenium_python": _str("RUNNER_IMAGE_SELENIUM_PYTHON", "ats-runner-selenium-python"),
             "selenium_java": _str("RUNNER_IMAGE_SELENIUM_JAVA", "ats-runner-selenium-java"),
+            "api_python": _str("RUNNER_IMAGE_API_PYTHON", "python:3.12-slim"),
         },
     )
     healing = HealingSettings(
@@ -204,6 +215,7 @@ def load_settings() -> Settings:
         min_confidence=_float("HEALING_MIN_CONFIDENCE", 0.6),
         approval_policy=_str("HEALING_APPROVAL_POLICY", "manual").lower(),
         recheck_flaky=_bool("RECHECK_FLAKY", True),
+        autofix_rounds=max(_int("AUTOFIX_MAX_ROUNDS", 3), 0),
     )
     return Settings(
         model=model,
@@ -217,6 +229,7 @@ def load_settings() -> Settings:
         discovery_default_depth=_int("DISCOVERY_DEFAULT_DEPTH", 3),
         github_api_url=_str("GITHUB_API_URL", "https://api.github.com").rstrip("/"),
         github_token=_secret("GITHUB_TOKEN") or "",
+        users_db=_secret("USERS_DB") or "",
     )
 
 

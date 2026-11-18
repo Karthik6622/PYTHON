@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -14,8 +16,10 @@ from ats.automation.bundle_store import BundleStore, import_files, is_secret
 from ats.errors import GitHubError, NotFoundError, StudioError
 from ats.execution.executor import ExecutionContext
 from ats.github.client import GitHubClient, parse_repo, valid_branch
+from ats.github.merge import MANIFEST_PATH, SHARED_FILES, ChannelFiles, Manifest, Plan, blob_sha, is_blocked, plan_publish
+from ats.github.workspace import WorkspaceInfo, check_compatible, inspect_workspace
 from ats.logging_setup import get_logger
-from ats.models import Selector, utc_now
+from ats.models import CHANNEL_LABELS, CHANNEL_LAYER, CHANNELS, Selector, utc_now
 from ats.repository import Project, Repository
 
 LOGGER = get_logger("github.service")
@@ -23,6 +27,19 @@ LOGGER = get_logger("github.service")
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:30] or "project"
+
+
+@dataclass
+class PublishPreview:
+    """What publishing would do, shown to the user before anything is written."""
+
+    info: WorkspaceInfo
+    plan: Plan
+    channels: list[str]
+    problem: str = ""  # why publishing is not possible (empty: it is)
+    default_branch: str = ""
+    will_create: bool = False  # the branch does not exist yet: a clean branch is created
+    bundles: dict[str, int] = field(default_factory=dict)
 
 
 class GitHubService:
@@ -92,7 +109,11 @@ class GitHubService:
         }  # fmt: skip
 
     # ------------------------------------------------------------------ commit generated tests
-    def commit_bundle(self, project: Project, bundle_id: int, token: str, *, open_pr: bool = True, branch: str = "", base_branch: str = "", path_prefix: str = "") -> dict[str, Any]:
+    def commit_bundle(
+        self, project: Project, bundle_id: int, token: str, *, open_pr: bool = False, branch: str = "", base_branch: str = "", path_prefix: str = "", orphan: bool = True,
+    ) -> dict[str, Any]:
+        """Commit the generated project to its own branch. By default (``orphan``) the branch contains only the project files:
+        nothing of the repository's main branch, and no shared history (so no pull request can be opened from it)."""
         link = self.repo.get_github(project.id)
         if not link or not link.get("repo_url"):
             raise GitHubError("Link a GitHub repository first.")
@@ -115,9 +136,11 @@ class GitHubService:
                 raise GitHubError("The token cannot push to this repository.")
             if branch == base or branch == info["default_branch"]:
                 raise GitHubError("Tests are committed to a new branch, never directly to the default branch.")
-            result = client.commit_files(owner, name, branch=branch, base_branch=base, files=files, message=f"{text['commit_title']}\n\n{text['commit_body']}".strip())
+            result = client.commit_files(
+                owner, name, branch=branch, base_branch=base, files=files, message=f"{text['commit_title']}\n\n{text['commit_body']}".strip(), orphan=orphan
+            )
             pr: dict[str, Any] = {}
-            if open_pr:
+            if open_pr and not orphan:
                 body = text["pr_body"] or self._tests_pr_body(project, bundle, cases)
                 pr = client.open_pull_request(owner, name, head=branch, base=base, title=text["pr_title"], body=body)
         finally:
@@ -135,6 +158,175 @@ class GitHubService:
             f"* Framework: `{bundle['framework']}`\n* Browser: `{bundle['browser']}`\n* Test cases: {len(cases)}\n\n"
             f"| Test case | Title |\n| --- | --- |\n{rows}\n\nPlease review the generated code and locators before merging."
         )
+
+    # ------------------------------------------------------------------ publish channels to a (repository, branch) workspace
+    def branches(self, project: Project, token: str) -> list[str]:
+        link = self.repo.get_github(project.id)
+        if not link or not link.get("repo_url"):
+            raise GitHubError("Link a GitHub repository first.")
+        owner, name = parse_repo(link["repo_url"])
+        client = self.client(token)
+        try:
+            return client.list_branches(owner, name)
+        finally:
+            client.close()
+
+    def _channel_files(self, project: Project, bundles_by_channel: dict[str, int]) -> tuple[list[ChannelFiles], dict[str, dict[str, Any]]]:
+        files: list[ChannelFiles] = []
+        bundles: dict[str, dict[str, Any]] = {}
+        for channel in CHANNELS:  # canonical order, whatever order the caller used
+            if channel not in bundles_by_channel:
+                continue
+            bundle = self.repo.get_bundle(bundles_by_channel[channel])
+            if not bundle or bundle["project_id"] != project.id or bundle.get("layer", "ui") != CHANNEL_LAYER[channel]:
+                raise NotFoundError()
+            bundles[channel] = bundle
+            files.append(ChannelFiles(channel, bundle["framework"], self.store.read_all(project.id, bundle["id"])))
+        return files, bundles
+
+    def _target(self, project: Project, repo: str, branch: str) -> tuple[str, str, str, str]:
+        link = self.repo.get_github(project.id) or {}
+        url = (repo or "").strip() or link.get("repo_url", "")
+        if not url:
+            raise GitHubError("Link a GitHub repository first.")
+        owner, name = parse_repo(url)
+        return f"https://github.com/{owner}/{name}", owner, name, (branch or "").strip() or link.get("branch", "")
+
+    def _preview(
+        self, client: GitHubClient, project: Project, channel_files: list[ChannelFiles], bundles: dict[str, int], owner: str, name: str, branch: str
+    ) -> PublishPreview:
+        info = inspect_workspace(client, owner, name, branch)
+        gh = client.get_repo(owner, name)
+        problem = ""
+        if not gh["can_push"]:
+            problem = "The token cannot push to this repository."
+        elif branch == gh["default_branch"]:
+            problem = "Tests are published to a branch of their own, never directly to the default branch."
+        else:
+            problem = check_compatible(info, {c.channel: c.framework for c in channel_files})
+        shared: dict[str, str] = {}
+        for path in SHARED_FILES:
+            if problem or path not in info.tree or not (path == ".gitignore" or any(path in c.files for c in channel_files)):
+                continue
+            text = client.get_blob_text(owner, name, info.tree[path])
+            if text is None:
+                problem = f"{path} on the branch is not a text file the studio can merge."
+            else:
+                shared[path] = text
+        plan = Plan() if problem else plan_publish(info.tree, channel_files, info.manifest, shared, title=f"{project.name} - automated tests")
+        return PublishPreview(info, plan, [c.channel for c in channel_files], problem, gh["default_branch"], not info.exists, dict(bundles))
+
+    def preview(self, project: Project, bundles_by_channel: dict[str, int], token: str, repo: str = "", branch: str = "") -> PublishPreview:
+        """Dry run: inspect the branch and plan the publish. Nothing is written."""
+        if not bundles_by_channel:
+            raise GitHubError("Select at least one channel that has an automation project.")
+        channel_files, _ = self._channel_files(project, bundles_by_channel)
+        _, owner, name, branch = self._target(project, repo, branch)
+        if not branch or not valid_branch(branch):
+            raise GitHubError("Choose a branch (letters, digits and - _ . / only).")
+        client = self.client(token)
+        try:
+            return self._preview(client, project, channel_files, bundles_by_channel, owner, name, branch)
+        finally:
+            client.close()
+
+    def publish(
+        self, project: Project, bundles_by_channel: dict[str, int], token: str, repo: str = "", branch: str = "", create_if_missing: bool = False
+    ) -> dict[str, Any]:
+        """Publish the selected channels to the workspace (repository, branch).
+
+        A missing branch is created clean (a root commit holding only the project, if the user chose so). On an existing branch the
+        studio inspects it, plans a safe merge and commits ONLY the changed files on top of the branch head: files it did not generate
+        stay untouched, other channels stay in place, and the branch is only ever fast-forwarded."""
+        if not bundles_by_channel:
+            raise GitHubError("Select at least one channel that has an automation project.")
+        channel_files, bundles = self._channel_files(project, bundles_by_channel)
+        repo_url, owner, name, branch = self._target(project, repo, branch)
+        cases = [{"id": t["test_case_id"], "title": t.get("title", "")} for b in bundles.values() for t in b["traceability"] if t.get("test_case_id")]
+        text = self._text(project, "tests", " + ".join(c.framework for c in channel_files), cases)
+        if not branch:
+            if not create_if_missing:
+                raise GitHubError("Choose a branch to publish to.")
+            branch = text["branch_name"]
+        if not valid_branch(branch):
+            raise GitHubError("The branch name contains characters GitHub does not accept.")
+        client = self.client(token)
+        try:
+            preview = self._preview(client, project, channel_files, bundles_by_channel, owner, name, branch)
+            if preview.problem:
+                raise GitHubError(preview.problem)
+            if preview.will_create and not create_if_missing:
+                raise GitHubError(f"The branch '{branch}' does not exist. Choose to create a new branch, or pick an existing one.")
+            plan, info = preview.plan, preview.info
+            files, base = plan.commit_files(), f"https://github.com/{owner}/{name}"
+            counts = plan.summary()
+            body = f"{text['commit_body']}\n\nChannels: {', '.join(CHANNEL_LABELS[c] for c in preview.channels)}. Added {counts['add']}, updated {counts['update']}, kept {counts['keep']} file(s)."
+            if files:
+                result = client.commit_files(
+                    owner, name, branch=branch, base_branch=branch, files=files, message=f"{text['commit_title']}\n\n{body}".strip(), orphan=preview.will_create,
+                    expected_head=info.head_sha,
+                )
+            else:
+                result = {"commit_sha": info.head_sha, "commit_url": f"{base}/commit/{info.head_sha}", "branch_url": f"{base}/tree/{branch}"}
+        finally:
+            client.close()
+        link = self.repo.get_github(project.id) or {}
+        self.repo.save_github(
+            project.id, repo_url=repo_url, default_branch=preview.default_branch, branch=branch, commit_sha=result["commit_sha"], branch_url=result["branch_url"],
+            commit_url=result["commit_url"], pr_url="" if link.get("branch") != branch else None, bundle_id=next(iter(bundles.values()))["id"],
+        )  # fmt: skip
+        self.repo.record_workspace(project.id, repo_url, branch, preview.channels, result["commit_sha"])
+        for bundle in bundles.values():
+            self.repo.update_bundle(bundle["id"], status="committed")
+        self.repo.audit(
+            project.id, "user", "github.published", "github",
+            {"repo": info.repo, "branch": branch, "channels": preview.channels, "commit": result["commit_sha"][:10], **counts, "created": preview.will_create},
+        )  # fmt: skip
+        return {
+            **result, "repo": info.repo, "branch": branch, "created_branch": preview.will_create, "channels": preview.channels, "unchanged": not files,
+            "added": sorted(plan.add), "updated": sorted(plan.update), "skipped": sorted(plan.skip), "stale": sorted(plan.stale), "blocked": sorted(plan.blocked),
+            "conflicts": [{"path": c.path, "channel": c.channel, "reason": c.reason, "message": c.message} for c in plan.conflicts],
+            "shared": [{"path": s.path, "action": s.action, "detail": s.detail} for s in plan.shared], "files": len(files),
+        }  # fmt: skip
+
+    # ------------------------------------------------------------------ fixes pushed to the project's own branch
+    def push_fixes(self, project: Project, token: str, files: dict[str, str], message: str) -> dict[str, Any] | None:
+        """Commit the changed files to the branch the project was published on, on top of its current head.
+
+        Only ``files`` are written (``base_tree``): other channels' files are never dropped. A generated file that was edited on the
+        branch since it was published is left alone. Returns ``None`` when nothing was published or there is nothing to push."""
+        link = self.repo.get_github(project.id)
+        branch = (link or {}).get("branch") or ""
+        if not link or not link.get("repo_url") or not branch or not token:
+            return None
+        owner, name = parse_repo(link["repo_url"])
+        changed = {rel: text for rel, text in files.items() if not is_secret(rel) and not is_blocked(rel, text)}
+        client = self.client(token)
+        try:
+            manifest_file = client.get_file(owner, name, MANIFEST_PATH, branch)
+            manifest = Manifest.parse(manifest_file[0] if manifest_file else None)
+            updated, left_alone = Manifest(json.loads(json.dumps(manifest.channels))), []
+            for rel in sorted(changed):
+                channel = manifest.owner_of(rel)
+                if channel is None:
+                    continue
+                current = client.get_file(owner, name, rel, branch)
+                if current is not None and current[1] != manifest.files_of(channel)[rel]:
+                    left_alone.append(rel)
+                    del changed[rel]
+                    continue
+                updated.channels[channel]["files"][rel] = blob_sha(changed[rel])
+            commit = dict(changed)
+            if manifest_file and updated.dumps() != manifest.dumps():
+                commit[MANIFEST_PATH] = updated.dumps()
+            if not changed:
+                return None
+            result = client.commit_files(owner, name, branch=branch, base_branch=branch, files=commit, message=message, orphan=False)
+        finally:
+            client.close()
+        self.repo.save_github(project.id, commit_sha=result["commit_sha"], commit_url=result["commit_url"], branch_url=result["branch_url"])
+        self.repo.audit(project.id, "system", "github.fix_pushed", "github", {"branch": branch, "commit": result["commit_sha"][:10], "files": sorted(changed), "edited_on_branch": left_alone})
+        return {**result, "branch": branch, "files": sorted(changed), "left_alone": left_alone}
 
     # ------------------------------------------------------------------ verified locator fixes
     def open_healing_pr(self, ctx: ExecutionContext, healing_ids: list[int], token: str) -> str:

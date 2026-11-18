@@ -27,6 +27,10 @@ DOCKERFILES = {"selenium_python": "Dockerfile.selenium-python", "selenium_java":
 PLAYWRIGHT_ENGINE = {"chromium": "chromium", "chrome": "chromium", "edge": "chromium", "firefox": "firefox", "webkit": "webkit"}
 PLAYWRIGHT_CHANNEL = {"chrome": "chrome", "edge": "msedge"}
 LogCallback = Callable[[str], None]
+MOBILE_DOCKER_MESSAGE = (
+    "Mobile tests need the Android emulator or device attached to this machine, so they cannot run in Docker. "
+    "Set the execution mode to local (EXECUTION_MODE=local or auto)."
+)
 
 
 @dataclass
@@ -41,6 +45,7 @@ class RunRequest:
     timeout: int = 1800
     mode: str = "docker"
     name: str = "ats-run"
+    api_base_url: str = ""  # API projects: where the tests send requests (the application URL is used when empty)
 
 
 @dataclass
@@ -79,7 +84,7 @@ def command_steps(framework: str, browser: str, ids: list[str] | None, in_contai
             steps.append(["python", "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", "requirements.txt"])
             if browser in PLAYWRIGHT_CHANNEL:
                 steps.append(["python", "-m", "playwright", "install", PLAYWRIGHT_CHANNEL[browser]])
-        test = [sys.executable if not in_container else "python", "-m", "pytest", "--browser", PLAYWRIGHT_ENGINE.get(browser, "chromium")]
+        test = [sys.executable if not in_container else "python", "-m", "pytest", "-v", "--browser", PLAYWRIGHT_ENGINE.get(browser, "chromium")]
         if browser in PLAYWRIGHT_CHANNEL:
             test += ["--browser-channel", PLAYWRIGHT_CHANNEL[browser]]
         if ids:
@@ -94,10 +99,10 @@ def command_steps(framework: str, browser: str, ids: list[str] | None, in_contai
         if ids:
             test += ["--grep", "|".join(ids)]
         steps.append(test)
-    elif framework == "selenium_python":
+    elif framework in {"selenium_python", "api_python", "appium_python"}:
         if in_container:
             steps.append(["python", "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", "requirements.txt"])
-        test = [sys.executable if not in_container else "python", "-m", "pytest"]
+        test = [sys.executable if not in_container else "python", "-m", "pytest", "-v"]
         if ids:
             test += ["-k", " or ".join(i.lower() for i in ids)]
         steps.append(test)
@@ -116,11 +121,13 @@ def image_for(framework: str) -> str:
     return images["playwright_node" if framework in {"playwright_typescript", "playwright_javascript"} else framework]
 
 
-def run_env(request: RunRequest, base_url: str) -> dict[str, str]:
+def run_env(request: RunRequest, base_url: str, api_base_url: str = "") -> dict[str, str]:
     env = {
         "BASE_URL": base_url, "BROWSER": request.browser, "HEADLESS": "1", "CI": "1", "PYTHONUNBUFFERED": "1",
         "IGNORE_HTTPS_ERRORS": "1" if request.ignore_https_errors else "0",
     }  # fmt: skip
+    if api_base_url:
+        env["API_BASE_URL"] = api_base_url
     env.update(request.env)
     return env
 
@@ -147,10 +154,14 @@ def docker_status() -> tuple[bool, str]:
 _MODE_CACHE: dict[str, tuple[float, str]] = {}
 
 
-def resolve_mode(mode: str) -> str:
-    """``auto`` means Docker when its daemon answers, otherwise a local process (e.g. Streamlit Community Cloud)."""
+def resolve_mode(mode: str, framework: str = "") -> str:
+    """``auto`` means Docker when its daemon answers, otherwise a local process (e.g. Streamlit Community Cloud).
+
+    Mobile tests need the emulator/device attached to this machine, so for them ``auto`` always means local."""
     if mode != "auto":
         return mode
+    if framework == "appium_python":
+        return "local"
     cached = _MODE_CACHE.get("auto")
     if cached and time.time() - cached[0] < 60:
         return cached[1]
@@ -197,9 +208,9 @@ def _stream_to(argv: list[str], say: LogCallback, timeout: int) -> int:
         timer.cancel()
 
 
-def docker_command(request: RunRequest, image: str, base_url: str) -> tuple[list[str], dict[str, str]]:
+def docker_command(request: RunRequest, image: str, base_url: str, api_base_url: str = "") -> tuple[list[str], dict[str, str]]:
     settings = get_settings().execution
-    env = run_env(request, base_url)
+    env = run_env(request, base_url, api_base_url)
     script = " && ".join(shlex.join(step) for step in command_steps(request.framework, request.browser, request.test_case_ids, True))
     argv = [
         "docker", "run", "--rm", "--init", "--name", request.name, "--cpus", settings.docker_cpus, "--memory", settings.docker_memory,
@@ -218,12 +229,20 @@ def docker_command(request: RunRequest, image: str, base_url: str) -> tuple[list
 # ----------------------------------------------------------------------------------------
 def local_requirements(framework: str) -> str:
     """Explain what is missing for a local run, or return an empty string."""
-    if framework in {"playwright_python", "selenium_python"}:
+    if framework == "api_python":
+        probe = _run_quiet([sys.executable, "-c", "import pytest, httpx, jsonschema"], 30)
+        if probe is None or probe.returncode != 0:
+            return f"Local mode needs pytest, httpx and jsonschema installed for this Python ({sys.executable}). Run: python -m pip install pytest httpx jsonschema"
+    elif framework in {"playwright_python", "selenium_python"}:
         module = "playwright" if framework == "playwright_python" else "selenium"
         probe = _run_quiet([sys.executable, "-c", f"import pytest, {module}" + (", pytest_playwright" if module == "playwright" else "")], 30)
         if probe is None or probe.returncode != 0:
             extra = "pytest-playwright" if module == "playwright" else "selenium"
             return f"Local mode needs pytest and {extra} installed for this Python ({sys.executable}). Run: python -m pip install pytest {extra}"
+    elif framework == "appium_python":
+        probe = _run_quiet([sys.executable, "-c", "import pytest, appium, selenium"], 30)
+        if probe is None or probe.returncode != 0:
+            return f"Mobile tests need pytest and the Appium Python client installed for this Python ({sys.executable}). Run: python -m pip install pytest Appium-Python-Client"
     elif framework in {"playwright_typescript", "playwright_javascript"}:
         if not shutil.which("npx") or not shutil.which("npm"):
             return "Local mode needs Node.js (npm and npx) on PATH."
@@ -261,6 +280,9 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
 
     outcome = RunOutcome(runner=request.mode)
     try:
+        if request.mode == "docker" and request.framework == "appium_python":
+            outcome.error = MOBILE_DOCKER_MESSAGE
+            return outcome
         if request.mode == "docker":
             phase("Checking Docker")
             ok, message = docker_status()
@@ -272,7 +294,8 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
             base_url, rewritten = docker_base_url(request.base_url)
             if rewritten:
                 say(f"BASE_URL points at this machine; the container will use {base_url}")
-            argv, env = docker_command(request, outcome.image, base_url)
+            api_url = docker_base_url(request.api_base_url)[0] if request.api_base_url else ""
+            argv, env = docker_command(request, outcome.image, base_url, api_url)
             process_env = {**os.environ, **env}
             cwd = None
         else:
@@ -280,7 +303,7 @@ def run_project(request: RunRequest, on_log: LogCallback | None = None, on_phase
             if problem:
                 outcome.error = problem
                 return outcome
-            env = run_env(request, request.base_url)
+            env = run_env(request, request.base_url, request.api_base_url)
             process_env = {**os.environ, **env}
             cwd = str(request.workdir)
             argv = None

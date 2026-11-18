@@ -99,3 +99,19 @@ def test_missing_browser_after_install_gives_clear_message(monkeypatch):
     monkeypatch.setattr(discovery_service, "install_browser", lambda *_a, **_k: None)
     with pytest.raises(DiscoveryError, match="not installed"):
         discovery_service.run_worker({}, 5)
+
+
+def test_icon_font_text_is_not_part_of_the_accessible_name(tmp_path, browser_ready):
+    """Streamlit renders icon names ('add', 'keyboard_double_arrow_left') as text inside aria-hidden spans; Playwright ignores them,
+    so a locator recorded as role=button name='add New chat' could never match at run time."""
+    if not browser_ready:
+        pytest.skip("Chromium is not installed")
+    page = tmp_path / "icons.html"
+    page.write_text(
+        '<main><button><span data-testid="stIconMaterial" aria-hidden="true">add</span><p>New chat</p></button>'
+        '<button><span class="material-icons">delete</span> Remove</button></main>',
+        encoding="utf-8",
+    )
+    data = discovery_service.run_worker({"mode": "extract_html", "html_file": str(page)}, 60)
+    names = [e["name"] for e in data["elements"] if e["tag"] == "button"]
+    assert names == ["New chat", "Remove"]

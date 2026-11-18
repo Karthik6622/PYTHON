@@ -5,11 +5,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ats.ai.agents import ScenarioAgent
+from ats.ai.agents import ApiScenarioAgent, MobileScenarioAgent, ScenarioAgent
+from ats.api import design as api_design
+from ats.api.models import endpoint_digest as api_endpoint_digest
 from ats.discovery.service import build_digest
 from ats.errors import GenerationError
 from ats.generation.common import apply_changeset, next_id, norm_title, valid_id
+from ats.mobile import design as mobile_design
 from ats.models import COVERAGE_GUIDE, TEST_TYPES, Scenario
+from ats.progress import report
 from ats.repository import Project, Repository
 
 EventCallback = Callable[[str, str], None]
@@ -27,13 +31,36 @@ def _application(project: Project, discovery: Any) -> dict[str, Any]:
 
 
 class ScenarioService:
-    def __init__(self, repo: Repository, agent: ScenarioAgent | None = None) -> None:
+    def __init__(self, repo: Repository, agent: ScenarioAgent | None = None, api_agent: ApiScenarioAgent | None = None, connections: Any = None, mobile_agent: MobileScenarioAgent | None = None) -> None:
         self.repo = repo
         self.agent = agent or ScenarioAgent(repository=repo)
+        self._api_agent = api_agent
+        self._mobile_agent = mobile_agent
+        self.connections = connections  # supplies the saved connection NAMES for API scenario design
+
+    @property
+    def api_agent(self) -> ApiScenarioAgent:
+        if self._api_agent is None:
+            self._api_agent = ApiScenarioAgent(repository=self.repo)
+        return self._api_agent
+
+    @property
+    def mobile_agent(self) -> MobileScenarioAgent:
+        if self._mobile_agent is None:
+            self._mobile_agent = MobileScenarioAgent(repository=self.repo)
+        return self._mobile_agent
+
+    def _other_ids(self, project_id: str, layer: str) -> set[str]:
+        """Ids used by the other layer of the project: new ids must not collide with them (one id space per project)."""
+        return {s.scenario_id for s in self.repo.list_scenarios(project_id) if s.layer != layer}
 
     # ------------------------------------------------------------------ generation
-    def generate(self, project: Project, requirements: str = "", on_event: EventCallback | None = None) -> list[Scenario]:
-        """Generate scenarios for the latest discovery. Replaces existing scenarios (they must be reviewed again)."""
+    def generate(self, project: Project, requirements: str = "", on_event: EventCallback | None = None, progress: Any = None, layer: str = "ui") -> list[Scenario]:
+        """Generate scenarios for the latest discovery (UI) or the imported endpoints (API). Replaces that layer's scenarios (they must be reviewed again)."""
+        if layer == "api":
+            return self._generate_api(project, requirements, on_event, progress)
+        if layer == "mobile":
+            return self._generate_mobile(project, requirements, on_event, progress)
         discovery = self.repo.latest_successful_discovery(project.id)
         if discovery is None:
             raise GenerationError("Run website discovery before generating scenarios.")
@@ -44,18 +71,60 @@ class ScenarioService:
             "application": _application(project, discovery), "user_requirements": requirements or project.test_data_notes,
             "discovery": build_digest(discovery, max_items=30), "allowed_test_types": allowed,
         }  # fmt: skip
+        report(progress, "Designing enterprise-level scenarios for every discovered view", 0.05, 0.9)
         raw = self.agent.generate(payload, project_id=project.id, on_event=on_event)
+        report(progress, "Checking and saving the scenarios", 0.95)
         known = {p.page_key for p in discovery.pages} | {p.final_url or p.url for p in discovery.pages}
-        scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None)
+        scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None, self._other_ids(project.id, "ui"))
         if not scenarios:
             raise GenerationError("The model did not return usable scenarios. Add requirements or try again.")
-        self.repo.save_scenarios(project.id, scenarios, replace=True)
+        self.repo.save_scenarios(project.id, scenarios, replace=True, layer="ui")
         self.repo.audit(project.id, "agent:scenario", "scenarios.generated", "scenario", {"count": len(scenarios), "coverage": project.coverage})
         return scenarios
 
+    def _generate_api(self, project: Project, requirements: str, on_event: EventCallback | None, progress: Any) -> list[Scenario]:
+        endpoints = self.repo.list_api_endpoints(project.id)
+        if not endpoints:
+            raise GenerationError("Import an API definition (or add endpoints) on the API page before generating API scenarios.")
+        names = self.connections.names(project.id) if self.connections is not None else []
+        allowed = api_design.allowed_types(project)
+        chunks = api_design.endpoint_chunks(endpoints)
+        taken = self._other_ids(project.id, "api")
+        collected: list[Scenario] = []
+        for number, chunk in enumerate(chunks):
+            report(
+                progress, f"Designing API scenarios for {len(chunk)} endpoint(s) ({number + 1} of {len(chunks)})",
+                0.03 + 0.9 * number / len(chunks), 0.03 + 0.9 * (number + 1) / len(chunks),
+            )
+            payload = api_design.scenario_payload(project, chunk, names, requirements, allowed)
+            raw = self.api_agent.generate(payload, project_id=project.id, on_event=on_event)
+            collected += api_design.clean_scenarios(raw, endpoints, taken, allowed if project.coverage == "CUSTOM" else None, collected)
+        report(progress, "Saving the API scenarios", 0.96)
+        if not collected:
+            raise GenerationError("The model did not return usable API scenarios. Add requirements or try again.")
+        self.repo.save_scenarios(project.id, collected, replace=True, layer="api")
+        self.repo.audit(project.id, "agent:api_scenario", "scenarios.generated", "scenario", {"count": len(collected), "layer": "api", "endpoints": len(endpoints)})
+        return collected
+
+    def _generate_mobile(self, project: Project, requirements: str, on_event: EventCallback | None, progress: Any) -> list[Scenario]:
+        analysis = self.repo.get_mobile_analysis(project.id)
+        if analysis is None:
+            raise GenerationError("Analyze the app on the Mobile page before generating mobile scenarios.")
+        allowed = mobile_design.allowed_types(project)
+        payload = mobile_design.scenario_payload(project, self.repo.get_mobile_config(project.id), analysis, requirements, allowed)
+        report(progress, "Designing enterprise-level mobile scenarios for every analysed screen", 0.05, 0.9)
+        raw = self.mobile_agent.generate(payload, project_id=project.id, on_event=on_event)
+        report(progress, "Checking and saving the mobile scenarios", 0.95)
+        scenarios = mobile_design.clean_scenarios(raw, {s.screen_key for s in analysis.screens}, self._other_ids(project.id, "mobile"), allowed if project.coverage == "CUSTOM" else None, [])
+        if not scenarios:
+            raise GenerationError("The model did not return usable mobile scenarios. Add requirements or try again.")
+        self.repo.save_scenarios(project.id, scenarios, replace=True, layer="mobile")
+        self.repo.audit(project.id, "agent:mobile_scenario", "scenarios.generated", "scenario", {"count": len(scenarios), "layer": "mobile", "screens": len(analysis.screens)})
+        return scenarios
+
     @staticmethod
-    def _clean(items: list[Scenario], known_pages: set[str], allowed_types: list[str] | None) -> list[Scenario]:
-        taken: set[str] = set()
+    def _clean(items: list[Scenario], known_pages: set[str], allowed_types: list[str] | None, reserved: set[str] | None = None) -> list[Scenario]:
+        taken: set[str] = set(reserved or ())
         seen: set[tuple[str, str]] = set()
         cleaned: list[Scenario] = []
         for item in items:
@@ -71,15 +140,19 @@ class ScenarioService:
             if page and page not in known_pages:
                 matches = [p for p in known_pages if page.rstrip("/") and (p.rstrip("/").endswith(page.rstrip("/")) or page.rstrip("/").endswith(p.rstrip("/")))]
                 page = matches[0] if matches else page
-            cleaned.append(item.model_copy(update={"scenario_id": sid, "status": "draft", "source": "ai", "page": page}))
+            cleaned.append(item.model_copy(update={"scenario_id": sid, "status": "draft", "source": "ai", "page": page, "layer": "ui"}))
         return cleaned
 
     # ------------------------------------------------------------------ AI change requests
-    def modify(self, project: Project, instruction: str, scope: list[str] | None = None, on_event: EventCallback | None = None) -> dict[str, Any]:
+    def modify(self, project: Project, instruction: str, scope: list[str] | None = None, on_event: EventCallback | None = None, progress: Any = None, layer: str = "ui") -> dict[str, Any]:
         """'Tell AI what you want to change': only the affected scenarios are touched."""
         if not instruction.strip():
             raise GenerationError("Describe the change you want.")
-        current = self.repo.list_scenarios(project.id)
+        current = self.repo.list_scenarios(project.id, layer=layer)
+        if layer == "api":
+            return self._modify_api(project, instruction, current, scope, on_event, progress)
+        if layer == "mobile":
+            return self._modify_mobile(project, instruction, current, scope, on_event, progress)
         discovery = self.repo.latest_successful_discovery(project.id)
         scoped = [s for s in current if not scope or s.scenario_id in scope]
         payload = {
@@ -87,10 +160,42 @@ class ScenarioService:
             "application": _application(project, discovery) if discovery else {},
             "discovery": build_digest(discovery, max_items=20) if discovery else [],
         }  # fmt: skip
+        report(progress, "Applying your change request", 0.05, 0.9)
         change = self.agent.modify(payload, project_id=project.id, on_event=on_event)
-        updated, summary = apply_changeset(current, change, Scenario, "scenario_id", "SC", scope)
-        self.repo.save_scenarios(project.id, updated, replace=True)
+        updated, summary = apply_changeset(current, change, Scenario, "scenario_id", "SC", scope, reserved=self._other_ids(project.id, "ui"))
+        self.repo.save_scenarios(project.id, updated, replace=True, layer="ui")
         self.repo.audit(project.id, "agent:scenario", "scenarios.modified", "scenario", {k: v for k, v in summary.items() if k != "explanation"} | {"instruction": instruction[:200]})
+        return summary
+
+    def _modify_api(self, project: Project, instruction: str, current: list[Scenario], scope: list[str] | None, on_event: EventCallback | None, progress: Any) -> dict[str, Any]:
+        endpoints = self.repo.list_api_endpoints(project.id)
+        names = self.connections.names(project.id) if self.connections is not None else []
+        scoped = [s for s in current if not scope or s.scenario_id in scope]
+        payload = {
+            "instruction": instruction, "scenarios": [s.model_dump() for s in scoped], "scope": scope or [],
+            "endpoints": api_endpoint_digest(endpoints, 30), "connections": names,
+        }  # fmt: skip
+        report(progress, "Applying your change request", 0.05, 0.9)
+        change = self.api_agent.modify(payload, project_id=project.id, on_event=on_event)
+        updated, summary = apply_changeset(current, change, Scenario, "scenario_id", "SC", scope, reserved=self._other_ids(project.id, "api"), new_id=api_design.next_api_id)
+        updated = [s.model_copy(update={"layer": "api"}) for s in updated]
+        self.repo.save_scenarios(project.id, updated, replace=True, layer="api")
+        self.repo.audit(project.id, "agent:api_scenario", "scenarios.modified", "scenario", {k: v for k, v in summary.items() if k != "explanation"} | {"instruction": instruction[:200], "layer": "api"})
+        return summary
+
+    def _modify_mobile(self, project: Project, instruction: str, current: list[Scenario], scope: list[str] | None, on_event: EventCallback | None, progress: Any) -> dict[str, Any]:
+        analysis = self.repo.get_mobile_analysis(project.id)
+        scoped = [s for s in current if not scope or s.scenario_id in scope]
+        payload = {
+            "instruction": instruction, "scenarios": [s.model_dump() for s in scoped], "scope": scope or [],
+            "screens": mobile_design.screens_digest(analysis, {s.page for s in scoped}) if analysis else [],
+        }  # fmt: skip
+        report(progress, "Applying your change request", 0.05, 0.9)
+        change = self.mobile_agent.modify(payload, project_id=project.id, on_event=on_event)
+        updated, summary = apply_changeset(current, change, Scenario, "scenario_id", "SC", scope, reserved=self._other_ids(project.id, "mobile"), new_id=mobile_design.next_mobile_id)
+        updated = [s.model_copy(update={"layer": "mobile"}) for s in updated]
+        self.repo.save_scenarios(project.id, updated, replace=True, layer="mobile")
+        self.repo.audit(project.id, "agent:mobile_scenario", "scenarios.modified", "scenario", {k: v for k, v in summary.items() if k != "explanation"} | {"instruction": instruction[:200], "layer": "mobile"})
         return summary
 
     # ------------------------------------------------------------------ manual review operations
@@ -98,8 +203,8 @@ class ScenarioService:
         self.repo.set_scenario_status(project_id, ids, "approved")
         self.repo.audit(project_id, "user", "scenarios.approved", "scenario", {"ids": ids})
 
-    def approve_all(self, project_id: str) -> int:
-        ids = [s.scenario_id for s in self.repo.list_scenarios(project_id)]
+    def approve_all(self, project_id: str, layer: str | None = None) -> int:
+        ids = [s.scenario_id for s in self.repo.list_scenarios(project_id, layer=layer)]
         self.approve(project_id, ids)
         return len(ids)
 
@@ -119,10 +224,11 @@ class ScenarioService:
         self.repo.save_scenarios(project_id, [scenario.model_copy(update={"status": "draft", "source": "manual"})])
         self.repo.audit(project_id, "user", "scenario.edited", "scenario", {"id": scenario.scenario_id})
 
-    def add_manual(self, project: Project, **fields: Any) -> Scenario:
+    def add_manual(self, project: Project, layer: str = "ui", **fields: Any) -> Scenario:
         existing = {s.scenario_id for s in self.repo.list_scenarios(project.id)}
         module = fields.get("module") or "General"
-        scenario = Scenario.model_validate({**fields, "module": module, "scenario_id": next_id("SC", module, existing), "source": "manual", "status": "draft"})
+        new_id = {"api": api_design.next_api_id, "mobile": mobile_design.next_mobile_id}.get(layer, next_id)("SC", module, existing)
+        scenario = Scenario.model_validate({**fields, "module": module, "scenario_id": new_id, "source": "manual", "status": "draft", "layer": layer})
         self.repo.save_scenarios(project.id, [scenario])
         self.repo.audit(project.id, "user", "scenario.added", "scenario", {"id": scenario.scenario_id})
         return scenario

@@ -9,13 +9,19 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlparse
 
-from ats.ai.agents import ScriptGenerationAgent
+from ats.ai.agents import MobileScriptAgent, ScriptGenerationAgent
+from ats.api import design as api_design
 from ats.automation.bundle_store import BundleStore
 from ats.automation.traceability import build_traceability
 from ats.config import get_settings
 from ats.discovery.service import build_digest
 from ats.errors import GenerationError, NotFoundError
-from ats.generation.adapters import FRAMEWORKS, RenderContext, ScriptCase, browsers_for, get_adapter
+from ats.generation.adapters import FRAMEWORKS, RenderContext, ScriptCase, browsers_for, get_adapter, is_api_framework, layer_of
+from ats.generation.adapters.common import NO_BROWSER, build_auth, build_views
+from ats.mobile import design as mobile_design
+from ats.mobile.models import MOBILE_ACTIONS
+from ats.mobile.platforms import platform_for
+from ats.progress import report
 from ats.models import ELEMENT_ACTIONS, STEP_ACTIONS, VALUE_ACTIONS, AutomationStep, DiscoveryResult, LocatorSpec, TestCase, TestScript
 from ats.repository import Project, Repository
 
@@ -133,7 +139,7 @@ def check_syntax(files: dict[str, str]) -> list[str]:
                 ast.parse(content)
             except SyntaxError as exc:
                 problems.append(f"{rel}: line {exc.lineno}: {exc.msg}")
-        elif rel.endswith((".ts", ".js", ".java")) and not bracket_balanced(content):
+        elif rel.endswith((".ts", ".js", ".java")) and rel != "utils/actions.js" and not bracket_balanced(content):  # actions.js uses regex literals
             problems.append(f"{rel}: unbalanced brackets or quotes")
         elif rel.endswith(".json"):
             try:
@@ -147,10 +153,20 @@ def check_syntax(files: dict[str, str]) -> list[str]:
 # service
 # ----------------------------------------------------------------------------------------
 class ScriptService:
-    def __init__(self, repo: Repository, store: BundleStore | None = None, agent: ScriptGenerationAgent | None = None) -> None:
+    def __init__(
+        self, repo: Repository, store: BundleStore | None = None, agent: ScriptGenerationAgent | None = None, connections: Any = None, mobile_agent: MobileScriptAgent | None = None
+    ) -> None:
         self.repo = repo
         self.store = store or BundleStore()
         self.agent = agent or ScriptGenerationAgent(repository=repo)
+        self._mobile_agent = mobile_agent
+        self.connections = connections  # saved connections: their descriptors (variable NAMES) go into generated API projects
+
+    @property
+    def mobile_agent(self) -> MobileScriptAgent:
+        if self._mobile_agent is None:
+            self._mobile_agent = MobileScriptAgent(repository=self.repo)
+        return self._mobile_agent
 
     # ------------------------------------------------------------------ helpers
     @staticmethod
@@ -175,15 +191,20 @@ class ScriptService:
         browser: str | None = None,
         on_event: EventCallback | None = None,
         progress: Callable[[str], None] | None = None,
+        layer: str | None = None,
     ) -> int:
+        layer = layer or (layer_of(framework) if framework else "ui")
+        if layer == "api":
+            return self._generate_api(project, progress)
+        if layer == "mobile":
+            return self._generate_mobile(project, on_event, progress)
         framework = framework or project.framework
         browser = browser or project.browser
-        if framework not in FRAMEWORKS:
+        if framework not in FRAMEWORKS or is_api_framework(framework) or layer_of(framework) == "mobile":
             raise GenerationError("Choose a supported automation framework.")
         if browser not in browsers_for(framework):
             raise GenerationError(f"{browser} is not supported with {FRAMEWORKS[framework]['label']}.")
-        say = progress or (lambda _m: None)
-        cases = [t for t in self.repo.list_test_cases(project.id, status="approved") if t.automation_candidate]
+        cases = [t for t in self.repo.list_test_cases(project.id, status="approved", layer="ui") if t.automation_candidate]
         if not cases:
             raise GenerationError("Approve at least one automatable test case before generating automation.")
         discovery = self.repo.latest_successful_discovery(project.id)
@@ -198,9 +219,13 @@ class ScriptService:
 
         scripts: dict[str, TestScript] = {}
         skipped: list[dict[str, str]] = []
-        for start in range(0, len(cases), BATCH_SIZE):
+        batches = -(-len(cases) // BATCH_SIZE)
+        for number, start in enumerate(range(0, len(cases), BATCH_SIZE)):
             batch = cases[start : start + BATCH_SIZE]
-            say(f"Planning automation for test cases {start + 1}-{start + len(batch)} of {len(cases)}")
+            report(
+                progress, f"Planning automation for test cases {start + 1}-{start + len(batch)} of {len(cases)}",
+                0.02 + 0.85 * number / batches, 0.02 + 0.85 * (number + 1) / batches,
+            )
             payload = {
                 "base_url": base_url, "test_cases": [t.model_dump() for t in batch], "elements": self._elements_payload(specs, batch, discovery),
                 "page_digest": build_digest(discovery, max_items=20), "allowed_actions": STEP_ACTIONS,
@@ -224,8 +249,9 @@ class ScriptService:
         ctx = RenderContext(
             project=project, base_url=base_url, browser=browser, scenarios=scenarios, cases=script_cases, locators=locators,
             playwright_version=settings.execution.playwright_version, pages=[p.page_key for p in discovery.pages],
+            views=build_views(discovery), auth=build_auth(project),
         )  # fmt: skip
-        say("Rendering the automation project")
+        report(progress, "Rendering the automation project", 0.9)
         files = get_adapter(framework).render(ctx)
         problems = check_syntax(files)
         if problems:
@@ -239,6 +265,112 @@ class ScriptService:
         self.store.write(project.id, bundle_id, files)
         self.repo.update_project(project.id, framework=framework, browser=browser)
         self.repo.audit(project.id, "agent:script", "automation.generated", "bundle", {"bundle": bundle_id, "framework": framework, "scripts": len(scripts), "skipped": len(skipped)})
+        return bundle_id
+
+    def _generate_api(self, project: Project, progress: Callable[[str], None] | None = None) -> int:
+        """API tests need no model planning: the approved test cases already hold the structured requests."""
+        cases = [t for t in self.repo.list_test_cases(project.id, status="approved", layer="api") if t.automation_candidate]
+        if not cases:
+            raise GenerationError("Approve at least one automatable API test case before generating the API automation project.")
+        endpoints = self.repo.list_api_endpoints(project.id)
+        if not endpoints:
+            raise GenerationError("There are no API endpoints. Import a definition on the API page first.")
+        descriptors = self.connections.descriptors(project.id) if self.connections is not None else {}
+        report(progress, "Checking the API test cases against the definition", 0.1)
+        usable: list[TestCase] = []
+        skipped: list[dict[str, str]] = []
+        for case in cases:
+            checked, reason = api_design.validate_requests(case, endpoints, sorted(descriptors))
+            if checked is None:
+                skipped.append({"test_case_id": case.test_case_id, "reason": reason})
+            else:
+                usable.append(checked)
+        if not usable:
+            raise GenerationError("No API test case could be automated: " + (skipped[0]["reason"] if skipped else "no requests") + ".")
+        scenarios = {s.scenario_id: s for s in self.repo.list_scenarios(project.id)}
+        script_cases = [
+            ScriptCase(test_case=c, script=TestScript(test_case_id=c.test_case_id, title=c.title, steps=[]), module_key=c.module or "General") for c in usable
+        ]
+        summary = [
+            {"key": e.key, "summary": e.summary, "tags": e.tags, "statuses": [r.status for r in e.responses], "security": [s.scheme for s in e.security]} for e in endpoints
+        ]
+        ctx = RenderContext(
+            project=project, base_url=project.api_url, browser=NO_BROWSER, scenarios=scenarios, cases=script_cases, locators={},
+            api_config={"connections": descriptors, "endpoints": summary},
+        )  # fmt: skip
+        report(progress, "Rendering the API test project", 0.6)
+        files = get_adapter("api_python").render(ctx)
+        problems = check_syntax(files)
+        if problems:
+            raise GenerationError("The generated project failed the syntax check: " + "; ".join(problems[:3]))
+        trace = build_traceability(script_cases, files, skipped, cases)
+        requests = {c.test_case_id: len(c.api.requests) for c in usable if c.api}
+        for row in trace:
+            row["steps"] = requests.get(row["test_case_id"], 0)
+        plan_doc = {
+            "scripts": [], "skipped": skipped, "framework": "api_python", "browser": NO_BROWSER, "base_url": project.api_url, "files": sorted(files), "layer": "api",
+            "endpoints": len(endpoints), "connections": sorted(descriptors),
+        }  # fmt: skip
+        bundle_id = self.repo.create_bundle(project.id, "api_python", NO_BROWSER, plan_doc, trace, layer="api")
+        self.store.write(project.id, bundle_id, files)
+        self.repo.audit(project.id, "system", "automation.generated", "bundle", {"bundle": bundle_id, "framework": "api_python", "layer": "api", "tests": len(usable), "skipped": len(skipped)})
+        return bundle_id
+
+    def _generate_mobile(self, project: Project, on_event: EventCallback | None = None, progress: Callable[[str], None] | None = None) -> int:
+        """Mobile tests: the model plans steps on the analysed elements, validation drops everything it cannot ground, the adapter renders Appium code."""
+        cases = [t for t in self.repo.list_test_cases(project.id, status="approved", layer="mobile") if t.automation_candidate]
+        if not cases:
+            raise GenerationError("Approve at least one automatable mobile test case before generating the mobile automation project.")
+        analysis = self.repo.get_mobile_analysis(project.id)
+        if analysis is None:
+            raise GenerationError("Analyze the app on the Mobile page first so that real elements exist.")
+        config = self.repo.get_mobile_config(project.id)
+        platform = platform_for(config.platform)
+        elements = analysis.elements()
+        scripts: dict[str, Any] = {}
+        skipped: list[dict[str, str]] = []
+        batches = -(-len(cases) // BATCH_SIZE)
+        for number, start in enumerate(range(0, len(cases), BATCH_SIZE)):
+            batch = cases[start : start + BATCH_SIZE]
+            report(
+                progress, f"Planning automation for mobile test cases {start + 1}-{start + len(batch)} of {len(cases)}",
+                0.02 + 0.85 * number / batches, 0.02 + 0.85 * (number + 1) / batches,
+            )
+            plan = self.mobile_agent.plan(mobile_design.script_payload(project, config, analysis, batch, MOBILE_ACTIONS), project_id=project.id, on_event=on_event)
+            planned = {s.test_case_id: s for s in plan.scripts}
+            for case in batch:
+                raw = planned.get(case.test_case_id)
+                if raw is None:
+                    skipped.append({"test_case_id": case.test_case_id, "reason": "The model returned no script for this test case."})
+                    continue
+                checked = mobile_design.validate_script(raw, case, elements, mobile_design.build_corpus(case, analysis))
+                if checked is None:
+                    skipped.append({"test_case_id": case.test_case_id, "reason": raw.notes or "No step could be mapped to an analysed element."})
+                else:
+                    scripts[case.test_case_id] = checked
+        if not scripts:
+            raise GenerationError("No mobile test case could be converted into a validated automation script. See the skipped list for the reasons.")
+        scenarios = {s.scenario_id: s for s in self.repo.list_scenarios(project.id)}
+        script_cases = [ScriptCase(test_case=c, script=scripts[c.test_case_id], module_key=c.module or "General") for c in cases if c.test_case_id in scripts]
+        mobile = {
+            "platform": config.platform, "package": analysis.package or config.package, "activity": analysis.activity or config.activity,
+            "capabilities": platform.bundle_capabilities(config.model_copy(update={"package": analysis.package or config.package, "activity": analysis.activity or config.activity})),
+            "screens": [s.model_dump(exclude={"fingerprint"}) for s in analysis.screens],
+        }  # fmt: skip
+        ctx = RenderContext(project=project, base_url="", browser=NO_BROWSER, scenarios=scenarios, cases=script_cases, locators={}, mobile=mobile)
+        report(progress, "Rendering the mobile test project", 0.9)
+        files = get_adapter("appium_python").render(ctx)
+        problems = check_syntax(files)
+        if problems:
+            raise GenerationError("The generated project failed the syntax check: " + "; ".join(problems[:3]))
+        trace = build_traceability(script_cases, files, skipped, cases)
+        plan_doc = {
+            "scripts": [s.model_dump() for s in scripts.values()], "skipped": skipped, "framework": "appium_python", "browser": NO_BROWSER, "base_url": "", "files": sorted(files),
+            "layer": "mobile", "package": mobile["package"], "screens": len(analysis.screens),
+        }  # fmt: skip
+        bundle_id = self.repo.create_bundle(project.id, "appium_python", NO_BROWSER, plan_doc, trace, layer="mobile")
+        self.store.write(project.id, bundle_id, files)
+        self.repo.audit(project.id, "agent:mobile_script", "automation.generated", "bundle", {"bundle": bundle_id, "framework": "appium_python", "layer": "mobile", "tests": len(scripts), "skipped": len(skipped)})
         return bundle_id
 
     # ------------------------------------------------------------------ bundle operations

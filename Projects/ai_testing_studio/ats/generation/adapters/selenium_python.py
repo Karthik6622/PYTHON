@@ -5,7 +5,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 from ats.generation.adapters.common import RenderContext, attr_of, comment_safe, pascal, py_str, readme
-from ats.generation.adapters.playwright_python import PlaywrightPythonAdapter, _val
+from ats.generation.adapters.playwright_python import TESTS_DIR, PlaywrightPythonAdapter, _val
 from ats.models import AutomationStep
 
 LOCATORS_PY = '''"""Resolve element keys from config/locators.json into Selenium (By, value) pairs.
@@ -305,13 +305,14 @@ class SeleniumPythonAdapter(PlaywrightPythonAdapter):
     key = "selenium_python"
     test_imports = ("import pytest",)
     selenium = True
+    views = False  # the Selenium runtime keeps the simple "goto then act" flow
 
     def runtime_files(self, ctx: RenderContext) -> dict[str, str]:
         return {
             "utils/locators.py": LOCATORS_PY,
             "utils/element.py": ELEMENT_PY,
             "utils/app.py": APP_PY,
-            "conftest.py": CONFTEST_PY.replace("{base_url}", py_str(ctx.base_url)).replace("{browser}", py_str(ctx.browser)),
+            f"{TESTS_DIR}/conftest.py": CONFTEST_PY.replace("{base_url}", py_str(ctx.base_url)).replace("{browser}", py_str(ctx.browser)),
             "pytest.ini": PYTEST_INI,
             "pages/base_page.py": BASE_PAGE_PY,
             "requirements.txt": "pytest>=8.0\nselenium>=4.20\n",

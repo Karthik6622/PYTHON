@@ -8,6 +8,7 @@ from ats.ai.agents import ReportAgent
 from ats.analysis.findings import Finding
 from ats.errors import StudioError
 from ats.execution.executor import ExecutionContext
+from ats.generation.adapters.common import is_mobile_framework
 from ats.logging_setup import get_logger
 from ats.models import DefectNarrative, FailureCategory, TestCase
 from ats.repository import Project, Repository
@@ -45,7 +46,19 @@ class DefectBuilder:
             "branch": (execution or {}).get("branch", ""), "commit": (execution or {}).get("commit_sha", ""), "execution_id": ctx.execution_id,
             "page_url": finding.url,
         }  # fmt: skip
+        failure = finding.failure
+        if is_mobile_framework(ctx.framework):  # a mobile failure report names the device and the app, not a browser
+            device = failure.get("device") or {}
+            environment.pop("browser", None)
+            environment.update(
+                {"device": " ".join(str(v) for v in (device.get("manufacturer"), device.get("model") or device.get("name")) if v) or device.get("serial", ""),
+                 "android_version": device.get("platform_version", ""), "package": failure.get("package", "")}
+            )  # fmt: skip
+            payload_extra = {"mobile": {"device": device, "appium_error": failure.get("appium_error", {}), "logcat": console}}
+        else:
+            payload_extra = {}
         payload = {
+            **payload_extra,
             "test_case": case.model_dump(include={"test_case_id", "title", "expected_result", "priority", "test_type", "description"}) if case else {"test_case_id": finding.test_case_id},
             "environment": environment, "reproduction_steps": steps, "error_message": finding.error,
             "analysis": {"category": finding.category, "summary": finding.analysis.summary, "reasoning": finding.analysis.reasoning, "confidence": finding.analysis.confidence},
@@ -66,7 +79,10 @@ class DefectBuilder:
             "steps_to_reproduce": steps, "expected_result": case.expected_result if case else "", "actual_result": narrative.actual_result or finding.error[:400],
             "severity": narrative.severity, "priority": narrative.priority, "environment": environment, "category": finding.category,
             "confidence": finding.analysis.confidence, "analysis_summary": finding.analysis.summary,
-            "evidence": {"screenshot": evidence.get("screenshot", ""), "dom": evidence.get("dom", ""), "console": console, "error": finding.error[:600]},
+            "evidence": {
+                "screenshot": evidence.get("screenshot", ""), "dom": evidence.get("dom", ""), "page_source": evidence.get("page_source", ""), "console": console,
+                "error": finding.error[:600], **({"device": failure.get("device", {}), "appium_error": failure.get("appium_error", {})} if is_mobile_framework(ctx.framework) else {}),
+            },
             "status": "Draft",
         }  # fmt: skip
         return data

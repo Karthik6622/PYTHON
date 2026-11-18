@@ -31,6 +31,7 @@ class DefectInput(BaseModel):
     error_message: str
     analysis: dict[str, Any] = Field(default_factory=dict)
     console_evidence: list[str] = Field(default_factory=list)
+    api: dict[str, Any] = Field(default_factory=dict)  # failing request / response of an API test (already masked)
 
 
 class ReportAgent(Agent):

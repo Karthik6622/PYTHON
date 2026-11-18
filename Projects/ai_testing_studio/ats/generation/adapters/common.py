@@ -19,17 +19,40 @@ FRAMEWORKS: dict[str, dict[str, str]] = {
     "playwright_javascript": {"label": "Playwright + JavaScript", "language": "javascript", "engine": "playwright"},
     "selenium_python": {"label": "Selenium + Python (pytest)", "language": "python", "engine": "selenium"},
     "selenium_java": {"label": "Selenium + Java (JUnit 5, Maven)", "language": "java", "engine": "selenium"},
+    "api_python": {"label": "API tests: Python + pytest + httpx", "language": "python", "engine": "api", "layer": "api"},
+    "appium_python": {"label": "Mobile tests: Appium + Python + pytest (Android)", "language": "python", "engine": "appium", "layer": "mobile"},
 }
 BROWSERS: dict[str, str] = {"chromium": "Chromium", "chrome": "Google Chrome", "firefox": "Firefox", "edge": "Microsoft Edge", "webkit": "WebKit"}
+NO_BROWSER = "none"  # API projects do not use a browser; the value is only stored with the bundle
 BROWSER_SUPPORT: dict[str, set[str]] = {
     "playwright": {"chromium", "chrome", "firefox", "edge", "webkit"},
     "selenium": {"chromium", "chrome", "firefox", "edge"},
+    "api": set(),
+    "appium": set(),
 }
 
 
 def browsers_for(framework: str) -> list[str]:
+    """Browsers a framework can drive; API and mobile frameworks have none (``[NO_BROWSER]``)."""
     engine = FRAMEWORKS[framework]["engine"]
-    return [b for b in BROWSERS if b in BROWSER_SUPPORT[engine]]
+    return [NO_BROWSER] if engine in {"api", "appium"} else [b for b in BROWSERS if b in BROWSER_SUPPORT[engine]]
+
+
+def layer_of(framework: str) -> str:
+    return FRAMEWORKS.get(framework, {}).get("layer", "ui")
+
+
+def frameworks_for(layer: str) -> list[str]:
+    """Frameworks offered for a layer: UI frameworks for "ui", the API framework for "api"."""
+    return [key for key in FRAMEWORKS if layer_of(key) == layer]
+
+
+def is_api_framework(framework: str) -> bool:
+    return layer_of(framework) == "api"
+
+
+def is_mobile_framework(framework: str) -> bool:
+    return layer_of(framework) == "mobile"
 
 
 @dataclass
@@ -51,6 +74,10 @@ class RenderContext:
     locators: dict[str, LocatorSpec]
     playwright_version: str = "1.49.0"
     pages: list[str] = field(default_factory=list)
+    views: dict[str, Any] = field(default_factory=dict)  # discovered views: how each one is reached (see views_json)
+    auth: dict[str, Any] = field(default_factory=dict)  # sign-in configuration (variable NAMES only, never values)
+    api_config: dict[str, Any] = field(default_factory=dict)  # API projects: endpoints and connection descriptors (variable NAMES only)
+    mobile: dict[str, Any] = field(default_factory=dict)  # mobile projects: app identity, capabilities and the analysed screens/elements
 
     def modules(self) -> dict[str, list[ScriptCase]]:
         grouped: dict[str, list[ScriptCase]] = {}
@@ -175,6 +202,26 @@ def locators_json(ctx: RenderContext, selenium: bool = False) -> str:
     used = {e for item in ctx.cases for step in item.script.steps if (e := step.element)}
     data = {key: locator_entry(spec, selenium) for key, spec in sorted(ctx.locators.items()) if key in used or not used}
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def build_views(discovery: Any) -> dict[str, Any]:
+    """What a test needs to put the browser on a discovered view: start address, sign-in requirement and the recorded clicks."""
+    views = {
+        page.page_key: {
+            "name": page.view_name or page.title or page.page_key, "signed_in": page.signed_in, "steps": page.nav_steps, "url": page.final_url or page.url,
+        }
+        for page in discovery.pages
+    }
+    return {"start_url": discovery.start_url, "views": views}
+
+
+def build_auth(project: Project) -> dict[str, Any]:
+    auth = project.auth
+    return {
+        "mode": auth.mode, "username_env": auth.username_env, "password_env": auth.password_env, "login_url": auth.login_url,
+        "username_selector": auth.username_selector, "password_selector": auth.password_selector, "submit_selector": auth.submit_selector,
+        "success_url_contains": auth.success_url_contains,
+    }  # fmt: skip
 
 
 def readme(ctx: RenderContext, title: str, install: str, run: str) -> str:

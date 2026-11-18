@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from ats.generation.adapters.common import (
     ENV_EXAMPLE,
     ENV_PLACEHOLDER,
@@ -21,163 +24,21 @@ from ats.generation.adapters.common import (
 )
 from ats.models import AutomationStep
 
-LOCATORS_PY = '''"""Resolve element keys from config/locators.json into Playwright locators.
-
-There is deliberately no silent fallback: a stale locator must fail loudly so it can be analysed (and healed with approval).
-"""
-
-from __future__ import annotations
-
-import json
-from pathlib import Path
-
-from playwright.sync_api import Locator, Page
-
-LOCATORS_FILE = Path(__file__).resolve().parent.parent / "config" / "locators.json"
+TESTS_DIR = "tests/web"  # every channel keeps its tests (and conftest.py) in its own folder: tests/web, tests/api, tests/mobile
+RUNTIME_DIR = Path(__file__).with_name("runtime_py")
+DISCOVERY_DIR = Path(__file__).resolve().parents[2] / "discovery"
 
 
-def load_locators() -> dict:
-    return json.loads(LOCATORS_FILE.read_text(encoding="utf-8"))
+def _runtime(name: str) -> str:
+    return (RUNTIME_DIR / name).read_text(encoding="utf-8")
 
 
-def resolve(page: Page, selector: dict) -> Locator:
-    kind, value = selector["kind"], selector["value"]
-    name, exact = selector.get("name"), bool(selector.get("exact", False))
-    if kind == "testid":
-        return page.get_by_test_id(value)
-    if kind == "role":
-        return page.get_by_role(value, name=name, exact=exact) if name else page.get_by_role(value)
-    if kind == "label":
-        return page.get_by_label(value, exact=exact)
-    if kind == "placeholder":
-        return page.get_by_placeholder(value, exact=exact)
-    if kind == "text":
-        return page.get_by_text(value, exact=exact)
-    if kind == "id":
-        return page.locator('[id="' + value.replace('"', '\\\\"') + '"]')
-    if kind == "name":
-        return page.locator('[name="' + value.replace('"', '\\\\"') + '"]')
-    if kind == "xpath":
-        return page.locator("xpath=" + value)
-    return page.locator(value)
-'''
-
-APP_PY = '''"""Test session helper: element lookup, step recording and failure evidence."""
-
-from __future__ import annotations
-
-import json
-import os
-import re
-from contextlib import contextmanager
-from pathlib import Path
-from urllib.parse import urljoin
-
-from playwright.sync_api import Page
-
-from pages import Pages
-from utils.locators import load_locators, resolve
-
-ROOT = Path(__file__).resolve().parent.parent
-ENV_PATTERN = re.compile(r"\\{\\{env:([A-Za-z_][A-Za-z0-9_]*)\\}\\}")
-
-
-class App:
-    def __init__(self, page: Page, base_url: str, test_case_id: str) -> None:
-        self.page = page
-        self.base_url = base_url.rstrip("/") + "/"
-        self.test_case_id = test_case_id
-        self.locators = load_locators()
-        self.steps: list[dict] = []
-        self.console: list[str] = []
-        self.failure: dict = {}
-        self.pages = Pages(self)
-        page.on("console", lambda m: self.console.append(f"{m.type}: {m.text[:300]}") if m.type in ("error", "warning") else None)
-        page.on("pageerror", lambda e: self.console.append(f"pageerror: {str(e)[:300]}"))
-
-    def val(self, text: str) -> str:
-        """Substitute {{env:NAME}} placeholders from the environment (values never appear in code or reports)."""
-
-        def lookup(match: re.Match) -> str:
-            name = match.group(1)
-            if name not in os.environ:
-                raise AssertionError(f"Environment variable {name} is not set")
-            return os.environ[name]
-
-        return ENV_PATTERN.sub(lookup, text)
-
-    def locator(self, key: str):
-        spec = self.locators.get(key)
-        if spec is None:
-            raise AssertionError(f"Unknown element key: {key}")
-        return resolve(self.page, spec["preferred"])
-
-    def goto(self, target: str) -> None:
-        url = target if re.match(r"^https?://", target) else urljoin(self.base_url, target.lstrip("/"))
-        self.page.goto(url, wait_until="domcontentloaded")
-
-    @contextmanager
-    def step(self, description: str, action: str = "", element: str = ""):
-        record = {"index": len(self.steps) + 1, "description": description, "action": action, "element": element, "status": "running"}
-        self.steps.append(record)
-        try:
-            yield
-        except Exception as exc:
-            record["status"] = "failed"
-            record["error"] = str(exc)[:1500]
-            self.failure = {"step": record["index"], "action": action, "element": element, "error": record["error"]}
-            raise
-        else:
-            record["status"] = "passed"
-
-    def finish(self, failed: bool) -> None:
-        folder = ROOT / "reports" / "evidence" / self.test_case_id
-        folder.mkdir(parents=True, exist_ok=True)
-        (folder / "steps.json").write_text(json.dumps(self.steps, indent=2), encoding="utf-8")
-        if not failed:
-            return
-        info = {"test_case_id": self.test_case_id, "console": self.console[-20:], **self.failure}
-        try:
-            info["url"] = self.page.url
-            info["title"] = self.page.title()
-            (folder / "dom.html").write_text(self.page.content()[:500_000], encoding="utf-8")
-            self.page.screenshot(path=str(folder / "screenshot.png"))
-        except Exception as exc:  # the page may already be closed; evidence is best effort
-            info["evidence_error"] = str(exc)[:200]
-        (folder / "failure.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
-'''
-
-CONFTEST_PY = '''import os
-import re
-from pathlib import Path
-
-import pytest
-
-from utils.app import App
-
-DEFAULT_BASE_URL = {base_url}
-
-
-@pytest.fixture(scope="session")
-def browser_context_args(browser_context_args):
-    return {**browser_context_args, "ignore_https_errors": os.environ.get("IGNORE_HTTPS_ERRORS") == "1"}
-
-
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    setattr(item, "rep_" + call.when, outcome.get_result())
-
-
-@pytest.fixture
-def app(page, request):
-    marker = request.node.get_closest_marker("tc")
-    test_case_id = marker.args[0] if marker else re.sub(r"\\W+", "_", request.node.name)
-    session = App(page, os.environ.get("BASE_URL") or DEFAULT_BASE_URL, test_case_id)
-    yield session
-    report = getattr(request.node, "rep_call", None)
-    session.finish(failed=bool(report and report.failed))
-'''
+LOCATORS_PY = _runtime("locators.py")
+APP_PY = _runtime("app.py")
+CONFTEST_PY = _runtime("conftest.py")
+# Shared with discovery: the generated tests open, sign in and navigate with exactly the code that explored the application.
+NAV_PY = (DISCOVERY_DIR / "runtime_nav.py").read_text(encoding="utf-8")
+ACTIONS_JS = (DISCOVERY_DIR / "actions.js").read_text(encoding="utf-8")
 
 BASE_PAGE_PY = '''from __future__ import annotations
 
@@ -212,6 +73,7 @@ def _val(text: str) -> str:
 
 class PlaywrightPythonAdapter(FrameworkAdapter):
     key = "playwright_python"
+    views = True  # tests start on a discovered view (sign-in and recorded clicks are replayed by the runtime)
     test_imports = ("import re", "", "import pytest", "from playwright.sync_api import expect")
     selenium = False
 
@@ -219,7 +81,11 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
         return {
             "utils/locators.py": LOCATORS_PY,
             "utils/app.py": APP_PY,
-            "conftest.py": CONFTEST_PY.replace("{base_url}", py_str(ctx.base_url)),
+            f"{TESTS_DIR}/conftest.py": CONFTEST_PY.replace('"__BASE_URL__"', py_str(ctx.base_url)),
+            "utils/nav.py": NAV_PY,
+            "utils/actions.js": ACTIONS_JS,
+            "config/views.json": json.dumps(ctx.views or {"views": {}}, indent=2, ensure_ascii=False) + "\n",
+            "config/auth.json": json.dumps(ctx.auth or {}, indent=2) + "\n",
             "pytest.ini": PYTEST_INI,
             "pages/base_page.py": BASE_PAGE_PY,
             "requirements.txt": f"pytest>=8.0\npytest-playwright>=0.5\nplaywright=={ctx.playwright_version}\n",
@@ -247,12 +113,13 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
             return f"app.pages.{py_ident(ctx.locators[key].page_key, 'page')}.{attr_of(key)}"
 
         for module_key, items in ctx.modules().items():
-            files[f"tests/test_{module_slug(module_key)}.py"] = self._tests(module_key, items, ref)
+            files[f"{TESTS_DIR}/test_{module_slug(module_key)}.py"] = self._tests(module_key, items, ref, ctx.locators)
         for page_key, keys in used.items():
             files[f"pages/{py_ident(page_key, 'page')}_page.py"] = self._page(ctx, page_key, keys)
         files["pages/__init__.py"] = self._pages_init(used)
         files["utils/__init__.py"] = ""
         files["tests/__init__.py"] = ""
+        files[f"{TESTS_DIR}/__init__.py"] = ""
         files.update(self.runtime_files(ctx))
         files["config/locators.json"] = locators_json(ctx, selenium=self.selenium)
         files["README.md"] = self.readme_text(ctx)
@@ -261,7 +128,7 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
         return files
 
     # ------------------------------------------------------------------
-    def _tests(self, module: str, items: list, ref) -> str:  # type: ignore[no-untyped-def]
+    def _tests(self, module: str, items: list, ref, ctx_locators: dict) -> str:  # type: ignore[no-untyped-def]
         lines = [f'"""Automated tests for module: {comment_safe(module)} (generated by AI Autonomous Testing Studio)."""', "", *self.test_imports, ""]
         for item in items:
             tc, script = item.test_case, item.script
@@ -277,7 +144,14 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
             if script.notes:
                 lines.append(f"    Note: {comment_safe(script.notes, 240)}")
             lines.append('    """')
-            for step in script.steps:
+            steps = list(script.steps)
+            start = self._start_view(steps, ctx_locators) if self.views else None
+            if start:
+                while steps and steps[0].action == "goto":  # the runtime opens the start view itself
+                    steps.pop(0)
+                lines.append(f"    with app.step({py_str('Open the application on the ' + start + ' view')}, action='open_view', element=''):")
+                lines.append(f"        app.open_view({py_str(start)})")
+            for step in steps:
                 lines.append(f"    with app.step({py_str(step_text(step, tc))}, action={py_str(step.action)}, element={py_str(step.element or '')}):")
                 lines.append(f"        {self._statement(step, ref)}")
             if not script.steps:
@@ -285,22 +159,31 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
         return "\n".join(lines) + "\n"
 
     @staticmethod
+    def _start_view(steps: list[AutomationStep], locators: dict) -> str | None:
+        """The discovered view the first element of the script lives on."""
+        for step in steps:
+            if step.element and step.element in locators:
+                return locators[step.element].page_key or None
+        return None
+
+    @staticmethod
     def _statement(step: AutomationStep, ref) -> str:  # type: ignore[no-untyped-def]
         loc = ref(step.element) if step.element else ""
         v = _val(step.value or "")
+        settle = "; app.settle()"
         mapping = {
             "goto": f"app.goto({v})",
-            "click": f"{loc}.click()",
-            "dblclick": f"{loc}.dblclick()",
+            "click": f"app.click({loc})",
+            "dblclick": f"app.click({loc}, double=True)",
             "fill": f"{loc}.fill({v})",
             "clear": f"{loc}.clear()",
-            "select": f"{loc}.select_option(label={v})",
-            "check": f"{loc}.check()",
-            "uncheck": f"{loc}.uncheck()",
-            "press": f"{loc}.press({v})",
+            "select": f"{loc}.select_option(label={v}){settle}",
+            "check": f"app.check({loc})",
+            "uncheck": f"app.check({loc}, checked=False)",
+            "press": f"{loc}.press({v}){settle}",
             "hover": f"{loc}.hover()",
             "expect_visible": f"expect({loc}).to_be_visible()",
-            "expect_hidden": f"expect({loc}).to_be_hidden()",
+            "expect_hidden": f"expect(app.locator({py_str(step.element or '')}, wait=False)).to_be_hidden()",
             "expect_text": f"expect({loc}).to_contain_text({v})",
             "expect_value": f"expect({loc}).to_have_value({v})",
             "expect_enabled": f"expect({loc}).to_be_enabled()",

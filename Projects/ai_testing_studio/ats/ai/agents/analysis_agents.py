@@ -20,6 +20,7 @@ class FailureInput(BaseModel):
     previous_locator: dict[str, Any] = Field(default_factory=dict)
     locator_candidates: list[dict[str, Any]] = Field(default_factory=list)
     rule_based_hint: dict[str, Any] = Field(default_factory=dict)
+    api: dict[str, Any] = Field(default_factory=dict)  # failing request / response of an API test (already masked)
 
 
 class FailureAnalysisAgent(Agent):

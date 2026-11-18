@@ -29,6 +29,11 @@ html, body, .stApp, [data-testid="stAppViewContainer"] { font-family: var(--body
     var(--bg);
 }
 [data-testid="stHeader"] { background: transparent; }
+/* The hosting toolbar (Share, star, edit, GitHub, deploy, menu), the footer and the viewer badge are not part of the product. */
+[data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"], [data-testid="stDecoration"],
+[data-testid="stToolbar"] > div:not([data-testid="stStatusWidget"]), .stAppDeployButton, .stDeployButton, #MainMenu, footer,
+[class*="viewerBadge"], [class*="_terminalButton"], [class*="_profileContainer"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
+[data-testid="stStatusWidget"] { font-family: var(--mono); }
 .block-container { padding-top: 2.2rem; max-width: 1280px; }
 
 /* ---------- typography ---------- */

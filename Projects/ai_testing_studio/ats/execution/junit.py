@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ats.models import Status
-from ats.security import mask
+from ats.security import mask, mask_obj
 
 TC_ID = re.compile(r"(?i)tc_[a-z0-9]{2,6}_\d{3}")
 REPORT_GLOBS = ("reports/junit.xml", "reports/junit/*.xml", "reports/junit/**/*.xml", "target/surefire-reports/*.xml", "reports/results.xml")
@@ -111,15 +111,18 @@ def read_evidence(workdir: Path, test_case_id: str) -> dict[str, Any]:
         evidence["steps"] = steps
     failure = _json(folder / "failure.json")
     if isinstance(failure, dict):
-        evidence["failure"] = {k: (mask(v) if isinstance(v, str) else v) for k, v in failure.items()}
-    for key, name in (("screenshot", "screenshot.png"), ("dom", "dom.html")):
+        evidence["failure"] = mask_obj(failure)  # nested values (device info, log lines of mobile runs) are masked too
+    fallbacks = _json(folder / "fallbacks.json")
+    if isinstance(fallbacks, dict):
+        evidence["fallbacks"] = fallbacks  # elements the run could only find through an alternative selector
+    for key, name in (("screenshot", "screenshot.png"), ("dom", "dom.html"), ("page_source", "page_source.xml")):  # page_source: Android UI hierarchy of a mobile run
         if (folder / name).is_file():
             evidence[key] = (folder / name).relative_to(workdir).as_posix()
     return evidence
 
 
 def read_dom(workdir: Path, evidence: dict[str, Any], limit: int = 500_000) -> str:
-    rel = evidence.get("dom")
+    rel = evidence.get("dom") or evidence.get("page_source")
     if not rel:
         return ""
     path = (workdir / rel).resolve()

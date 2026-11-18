@@ -5,11 +5,13 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from ats.generation.adapters.common import BROWSERS, FRAMEWORKS, browsers_for
+from ats.generation.adapters.api_python import api_requirements
+from ats.generation.adapters.common import BROWSERS, FRAMEWORKS, NO_BROWSER, browsers_for, frameworks_for
 from ats.services import Services
-from ats.ui import theme
-from ats.ui.session import notify, require_project, safe, show_notices
-from ats.ui.widgets import ModelStream, chip, progress_logger
+from ats.ui import jobs_ui, theme
+from ats.ui.layers import guarded, layer_label, layer_switch, stop_if_unsupported
+from ats.ui.session import go_to, notify, require_project, safe, show_notices
+from ats.ui.widgets import chip
 
 LANGUAGES = {".py": "python", ".ts": "typescript", ".js": "javascript", ".java": "java", ".json": "json", ".xml": "xml", ".md": "markdown", ".ini": "ini", ".txt": "text", ".toml": "toml", ".yml": "yaml", ".yaml": "yaml"}
 
@@ -21,36 +23,55 @@ def language_for(path: str) -> str:
     return "text"
 
 
+def api_notes(svc: Services, project, files: dict[str, str]) -> None:  # noqa: ANN001
+    """Which saved connections the API tests use and whether they exist (names only)."""
+    needed, missing = api_requirements(files, svc.connections.descriptors(project.id))
+    if missing:
+        st.warning("These tests use connections that are not saved yet: " + ", ".join(f"`{m}`" for m in missing) + ". Create them on the Connections page before running.")
+    if needed:
+        st.caption("Variables read at run time from the saved connections: " + ", ".join(f"`{n}`" for n in needed))
+
+
 def render(svc: Services) -> None:
     project = require_project(svc)
     theme.page_header("Automation", "Turn approved test cases into a runnable project. Every element comes from the discovered locator repository.", "STEP 04 // AUTOMATE")
     show_notices()
-    approved = [t for t in svc.repo.list_test_cases(project.id, status="approved") if t.automation_candidate]
+    layer = layer_switch(project, "automation")
+    if jobs_ui.running_panel(svc, project, ("automation",), "Building the automation project"):
+        return
+    jobs_ui.last_problem(svc, project, ("automation",))
+    if stop_if_unsupported(layer):
+        return
+    approved = [t for t in svc.repo.list_test_cases(project.id, status="approved", layer=layer) if t.automation_candidate]
     if not approved:
         st.info("Approve at least one automatable test case first.")
         return
-    if not svc.repo.list_locators(project.id):
+    if layer == "ui" and not svc.repo.list_locators(project.id):
         st.info("Run website discovery first so that real locators exist.")
         return
 
-    st.write(f"{len(approved)} approved test case(s) will be converted into runnable tests. Every element comes from the discovered locator repository, so nothing is guessed.")
-    frameworks = list(FRAMEWORKS)
+    if layer == "ui":
+        st.write(f"{len(approved)} approved test case(s) will be converted into runnable tests. Every element comes from the discovered locator repository, so nothing is guessed.")
+    else:
+        st.write(f"{len(approved)} approved {layer_label(layer)} test case(s) will be converted into a runnable project.")
+    frameworks = frameworks_for(layer)
     a, b = st.columns(2)
     framework = a.selectbox("Framework", frameworks, index=frameworks.index(project.framework) if project.framework in frameworks else 0, format_func=lambda f: FRAMEWORKS[f]["label"])
-    browsers = browsers_for(framework)
-    browser = b.selectbox("Browser", browsers, index=browsers.index(project.browser) if project.browser in browsers else 0, format_func=BROWSERS.get)
+    if layer == "ui":
+        browsers = browsers_for(framework)
+        browser = b.selectbox("Browser", browsers, index=browsers.index(project.browser) if project.browser in browsers else 0, format_func=BROWSERS.get)
+    else:
+        browser = NO_BROWSER
     if framework == "selenium_java":
         st.caption("Java projects are built and run with Maven inside the runner image (Docker execution mode).")
 
-    bundle = svc.repo.latest_bundle(project.id)
+    bundle = svc.repo.latest_bundle(project.id, layer=layer)
     if st.button("Generate automation project" if not bundle else "Regenerate (creates a new version)", type="primary"):
-        with st.status("Generating the automation project...", expanded=True) as status:
-            stream = ModelStream()
-            bundle_id = safe(lambda: svc.scripts.generate(project, framework, browser, on_event=stream.callback, progress=progress_logger(status)))
-            status.update(label="Generated" if bundle_id else "Generation failed", state="complete" if bundle_id else "error")
-        if bundle_id:
-            notify("Automation project generated. Review it, then approve it.")
-            st.rerun()
+        def work(ctx):  # noqa: ANN001, ANN202
+            return {"bundle": svc.scripts.generate(project, framework, browser, on_event=ctx.on_event, progress=ctx.reporter, layer=layer)}
+
+        title = f"Building the {layer_label(layer)} automation project" if len(project.layers) > 1 else "Building the automation project"
+        jobs_ui.start_job(svc, project, "automation", title, guarded(layer, work), notice="Automation project generated. Review it, then approve it.")
     if not bundle:
         return
 
@@ -68,6 +89,8 @@ def render(svc: Services) -> None:
         st.warning(f"{item['test_case_id']} was not automated: {item['reason']}")
 
     files = svc.store.list_files(project.id, bundle_id)
+    if layer == "api":
+        api_notes(svc, project, svc.store.read_all(project.id, bundle_id))
     left, right = st.columns([1, 3])
     path = left.radio("Files", files, key=f"file_{bundle_id}", label_visibility="visible")
     with right:
@@ -81,7 +104,8 @@ def render(svc: Services) -> None:
         with b.popover("Edit with AI"):
             instruction = st.text_area("What should change in this file?", key=f"ai_edit_{bundle_id}")
             if st.button("Apply AI edit"):
-                explanation = safe(lambda: svc.scripts.ai_edit_file(project.id, bundle_id, path, instruction))
+                with st.spinner("The AI is editing the file..."):
+                    explanation = safe(lambda: svc.scripts.ai_edit_file(project.id, bundle_id, path, instruction))
                 if explanation is not None:
                     notify(f"AI edit applied: {explanation}")
                     st.rerun()
@@ -90,6 +114,9 @@ def render(svc: Services) -> None:
     a, b, c = st.columns(3)
     if a.button("Approve for execution", type="primary", disabled=bundle["status"] in {"approved", "committed"}):
         svc.scripts.approve(project.id, bundle_id)
+        what = f"{layer_label(layer)} automation project" if len(project.layers) > 1 else "Automation project"
+        notify(f"{what} approved. Run the tests next.")
+        go_to("execute")  # leaves this run; the Execute page shows the notice
         st.rerun()
     b.download_button("Download project (ZIP)", svc.store.zip_bytes(project.id, bundle_id), file_name=f"{project.name}_automation_v{bundle_id}.zip", mime="application/zip")
     c.caption("Secrets and saved sessions are never included in the ZIP.")

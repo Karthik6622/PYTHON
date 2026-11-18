@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,6 +23,7 @@ from ats.errors import DiscoveryError
 from ats.locators.builder import build_locators
 from ats.logging_setup import get_logger
 from ats.models import DiscoveryResult, LocatorSpec, PageSnapshot
+from ats.progress import report
 from ats.repository import Project, Repository
 from ats.security import mask
 
@@ -46,16 +49,21 @@ def storage_state_path(file_name: str) -> Path | None:
     return path if path.is_file() else None
 
 
-def run_worker(job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> dict[str, Any]:
-    """Run the worker; if the browser binary is missing, install Chromium once and retry. Raises ``DiscoveryError`` on failure."""
+def run_worker(
+    job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None, extra_env: dict[str, str] | None = None
+) -> dict[str, Any]:
+    """Run the worker; if the browser binary is missing, install Chromium once and retry. Raises ``DiscoveryError`` on failure.
+
+    ``extra_env`` (for example the sign-in variables of saved connections) is added to the worker's environment only.
+    """
     try:
-        return _run_worker_once(job, timeout, on_progress, cancel)
+        return _run_worker_once(job, timeout, on_progress, cancel, extra_env)
     except BrowserMissingError:
         if on_progress:
             on_progress("Chromium is not installed yet; installing it now (one-time download)")
         install_browser()
         try:
-            return _run_worker_once(job, timeout, on_progress, cancel)
+            return _run_worker_once(job, timeout, on_progress, cancel, extra_env)
         except BrowserMissingError as exc:
             raise DiscoveryError("The browser is not installed. " + INSTALL_HINT) from exc
 
@@ -78,7 +86,9 @@ def install_browser(timeout: int = 900) -> None:
         raise DiscoveryError("The browser could not be installed automatically. " + INSTALL_HINT)
 
 
-def _run_worker_once(job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> dict[str, Any]:
+def _run_worker_once(
+    job: dict[str, Any], timeout: int, on_progress: Progress | None = None, cancel: threading.Event | None = None, extra_env: dict[str, str] | None = None
+) -> dict[str, Any]:
     """Run ``ats.discovery.worker`` as a subprocess and return its JSON result."""
     if not playwright_available():
         raise DiscoveryError(f"Playwright is not installed. {INSTALL_HINT}")
@@ -89,6 +99,7 @@ def _run_worker_once(job: dict[str, Any], timeout: int, on_progress: Progress | 
         process = subprocess.Popen(  # noqa: S603 - fixed argv, no shell
             [sys.executable, "-m", "ats.discovery.worker", str(job_file)],
             cwd=str(ROOT_DIR),
+            env={**os.environ, **(extra_env or {})},
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -175,14 +186,19 @@ def build_digest(result: DiscoveryResult, max_items: int = 40) -> list[dict[str,
 
 
 class DiscoveryService:
-    def __init__(self, repo: Repository, discovery_agent: WebDiscoveryAgent | None = None, locator_agent: LocatorIntelligenceAgent | None = None) -> None:
+    def __init__(
+        self, repo: Repository, discovery_agent: WebDiscoveryAgent | None = None, locator_agent: LocatorIntelligenceAgent | None = None, connections: Any = None
+    ) -> None:
+        self.connections = connections  # saved connections: their variables reach the worker's environment (sign-in credentials)
         self.repo = repo
         self.discovery_agent = discovery_agent or WebDiscoveryAgent(repository=repo)
         self.locator_agent = locator_agent or LocatorIntelligenceAgent(repository=repo)
 
     # ------------------------------------------------------------------ main entry
     def run(self, project: Project, on_progress: Progress | None = None, cancel: threading.Event | None = None) -> DiscoveryResult:
-        say = on_progress or (lambda _m: None)
+        def say(message: str, fraction: float | None = None, ceiling: float | None = None) -> None:
+            report(on_progress, message, fraction, ceiling)
+
         settings = get_settings()
         
         # Check if Playwright is available
@@ -193,7 +209,7 @@ class DiscoveryService:
         
         discovery_id = self.repo.start_discovery(project.id)
         try:
-            say("Checking that the website is reachable")
+            say("Checking that the website is reachable", 0.02)
             check = preflight(project.url, project.limits.ignore_https_errors)
             if not check.ok:
                 raise DiscoveryError(check.message)
@@ -209,7 +225,23 @@ class DiscoveryService:
             }
             if project.url != job["start_url"]:
                 job["limits"]["allowed_domains"] = [*job["limits"]["allowed_domains"], project.url]
-            raw = run_worker(job, settings.discovery_timeout_seconds, say, cancel)
+            explored = 0
+            expected_views = max(project.limits.max_pages, 1)
+
+            def worker_progress(message: str) -> None:
+                nonlocal explored
+                if message.startswith("Exploring the public"):
+                    say(message, 0.6, 0.78)
+                elif message.startswith("Exploring:"):
+                    explored += 1
+                    say(message, 0.10 + 0.5 * (1 - math.exp(-explored / max(expected_views * 0.5, 1))), 0.78)
+                elif message.startswith("Signing in"):
+                    say(message, 0.07, 0.1)
+                else:
+                    say(message, None, 0.78)
+
+            extra_env = self.connections.environment(project.id) if self.connections is not None else {}
+            raw = run_worker(job, settings.discovery_timeout_seconds, worker_progress, cancel, extra_env)
             result = DiscoveryResult(
                 start_url=project.url,
                 pages=[PageSnapshot.model_validate(p) for p in raw["pages"]],
@@ -218,14 +250,14 @@ class DiscoveryService:
             )
             if not result.pages:
                 raise DiscoveryError("; ".join(result.warnings) or "No pages could be analysed.")
-            say(f"Building the locator repository from {sum(len(p.elements) for p in result.pages)} elements")
+            say(f"Building the locator repository from {sum(len(p.elements) for p in result.pages)} elements", 0.82)
             specs = build_locators(result)
             self._ai_understanding(project, result, say)
             specs = self._enrich(project, specs, say, result)
             self.repo.replace_locators(project.id, specs)
             self.repo.finish_discovery(discovery_id, "completed", result)
             self.repo.audit(project.id, "agent:web_discovery", "discovery.completed", "discovery", {"pages": len(result.pages), "locators": len(specs)})
-            say("Discovery complete")
+            say("Discovery complete", 1.0)
             return result
         except DiscoveryError as exc:
             self.repo.finish_discovery(discovery_id, "failed", None, exc.user_message)
@@ -241,7 +273,7 @@ class DiscoveryService:
         if not get_settings().model.configured:
             result.warnings.append("The AI model is not configured, so the application summary was skipped.")
             return
-        say("Asking the Web Discovery Agent to understand the application")
+        say("Asking the Web Discovery Agent to understand the application", 0.85, 0.93)
         try:
             screenshots = [Path(p.screenshot).read_bytes() for p in result.pages[:3] if p.screenshot and Path(p.screenshot).is_file()]
             analysis = self.discovery_agent.analyze(
@@ -256,7 +288,7 @@ class DiscoveryService:
     def _enrich(self, project: Project, specs: list[LocatorSpec], say: Progress, result: DiscoveryResult) -> list[LocatorSpec]:
         if not specs or not get_settings().model.configured:
             return specs
-        say("Locator Intelligence Agent is annotating elements")
+        say("Locator Intelligence Agent is annotating elements", 0.94, 0.99)
         try:
             candidates = [
                 {"element_key": s.element_key, "role": s.role, "name": s.name, "tag": s.tag, "page": s.page_key,

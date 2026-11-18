@@ -5,8 +5,13 @@ httpx>=0.27
 requests>=2.31
 openpyxl>=3.1
 python-dotenv>=1.0
+bcrypt>=4.1
+Authlib>=1.3.2
 truststore>=0.9
 # Used by the isolated discovery worker (run `python -m playwright install chromium` once).
 playwright>=1.49
 pytest-playwright>=0.5
 pytest>=8
+# Mobile testing: app analysis drives the app through Appium; pyaxmlparser reads package and launch activity from an APK (pure Python, no aapt needed).
+Appium-Python-Client>=4.0
+pyaxmlparser>=0.3.28

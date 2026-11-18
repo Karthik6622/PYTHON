@@ -1,4 +1,4 @@
-"""Streamlit session helpers: browser-scoped owner id, shared services, selected project, safe calls."""
+"""Streamlit session helpers: account-scoped owner id, shared services, selected project, safe calls."""
 
 from __future__ import annotations
 
@@ -41,8 +41,26 @@ def _set_cookie(value: str) -> None:
         components.html(html, height=0)
 
 
+def browser_owner_ids() -> list[str]:
+    """Anonymous ids this browser used before accounts existed (cookie and current session). Their projects move to the account."""
+    found: list[str] = []
+    try:
+        found.append(st.context.cookies.get(COOKIE_NAME))
+    except Exception:  # noqa: BLE001 - cookies are unavailable outside a real browser session
+        pass
+    found.append(st.session_state.get("owner_id"))
+    return [v for i, v in enumerate(found) if isinstance(v, str) and OWNER_PATTERN.match(v) and v not in found[:i]]
+
+
 def owner_id() -> str:
-    """Identify this browser. Projects are visible only to the browser that created them."""
+    """The id that owns the visitor's projects: the signed-in account's id.
+
+    Without a signed-in account (isolated tests, ``AppTest`` pages) it falls back to a random per-browser id, so pages
+    stay usable; the app shell never reaches the pages in that state because ``require_login`` stops first.
+    """
+    user = st.session_state.get("auth_user")
+    if isinstance(user, dict) and user.get("id"):
+        return str(user["id"])
     existing = st.session_state.get("owner_id")
     if isinstance(existing, str) and OWNER_PATTERN.match(existing):
         return existing
@@ -93,8 +111,24 @@ def register_pages(pages: list[Any]) -> None:
 
 
 def go_to(url_path: str) -> None:
-    """Jump to another page of the app. Does nothing outside a multipage run (e.g. in isolated tests)."""
-    page = st.session_state.get("_pages", {}).get(url_path)
+    """Jump to another page of the app. Does nothing outside a multipage run (e.g. in isolated tests).
+
+    A page that is not in this run's navigation (hidden for the open project, or only visible once the project's settings
+    change) is remembered and opened on the next run if it exists by then; otherwise it is dropped."""
+    pages = st.session_state.get("_pages")
+    if pages is None:
+        return
+    page = pages.get(url_path)
+    if page is not None:
+        st.switch_page(page)
+    else:
+        st.session_state["_pending_goto"] = url_path
+
+
+def resume_pending_navigation() -> None:
+    """Call right after ``st.navigation``: open the page ``go_to`` could not reach in the previous run."""
+    pending = st.session_state.pop("_pending_goto", None)
+    page = st.session_state.get("_pages", {}).get(pending) if pending else None
     if page is not None:
         st.switch_page(page)
 

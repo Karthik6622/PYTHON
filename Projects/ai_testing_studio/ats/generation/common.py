@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -42,15 +43,19 @@ def apply_changeset(
     id_field: str,
     prefix: str,
     scope: list[str] | None = None,
+    reserved: set[str] | None = None,
+    new_id: Callable[[str, str, set[str]], str] | None = None,
 ) -> tuple[list[M], dict[str, Any]]:
     """Apply an AI change set. Only items inside ``scope`` (when given) may be updated or deleted.
 
-    Updated items go back to ``draft`` so a human re-approves them. Returns the new list and a summary.
+    Updated items go back to ``draft`` so a human re-approves them. ``reserved`` are ids used elsewhere (the other layer) that new items
+    must not take; ``new_id`` builds ids for added items (default ``next_id``). Returns the new list and a summary.
     """
     scope_set = set(scope or [])
     items = {getattr(i, id_field): i for i in existing}
     order = [getattr(i, id_field) for i in existing]
-    taken = set(items)
+    taken = set(items) | set(reserved or ())
+    make_id = new_id or next_id
     summary: dict[str, Any] = {"added": [], "updated": [], "deleted": [], "skipped": [], "explanation": change.explanation}
 
     def allowed(item_id: str) -> bool:
@@ -86,7 +91,7 @@ def apply_changeset(
             continue
         current = getattr(candidate, id_field)
         if not valid_id(current, prefix, taken):
-            current = next_id(prefix, getattr(candidate, "module", "GEN"), taken)
+            current = make_id(prefix, getattr(candidate, "module", "GEN"), taken)
         else:
             taken.add(current)
         candidate = candidate.model_copy(update={id_field: current})

@@ -13,16 +13,22 @@ from typing import Any
 
 from ats.config import get_settings
 from ats.errors import ExecutionError
+from ats.execution.junit import TC_ID as NODE_TC_ID
 from ats.execution.junit import collect
 from ats.execution.runner import RunOutcome, RunRequest, resolve_mode, run_project
+from ats.generation.adapters.common import is_api_framework, is_mobile_framework
 from ats.logging_setup import get_logger
+from ats.mobile.run import prepare_run
 from ats.models import Status, utc_now
+from ats.progress import ProgressFn, report
 from ats.repository import Project, Repository
 from ats.security import mask, register_secret
 
 LOGGER = get_logger("executor")
 TC_ID = re.compile(r"(?i)\btc_[a-z0-9]{2,6}_\d{3}\b")
 TEST_PATH_MARKERS = ("tests/", "src/test/java/", "test/")
+LIVE_LINE = re.compile(r"^(?P<node>\S+::\S+)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b")
+LIVE_STATUS = {"PASSED": "PASS", "XPASS": "PASS", "FAILED": "FAIL", "ERROR": "FAIL", "SKIPPED": "SKIPPED", "XFAIL": "SKIPPED"}
 _CANCEL: dict[str, threading.Event] = {}
 _LOCK = threading.Lock()
 
@@ -80,6 +86,43 @@ class ExecutionService:
         self.post_run = post_run
 
     # ------------------------------------------------------------------ public API
+    def run(
+        self,
+        project: Project,
+        files: dict[str, str],
+        *,
+        secrets: dict[str, str],
+        framework: str,
+        browser: str,
+        bundle_id: int | None = None,
+        source: str = "bundle",
+        branch: str = "",
+        commit_sha: str = "",
+        test_case_ids: list[str] | None = None,
+        mode: str | None = None,
+        analyze: bool = True,
+        progress: ProgressFn | None = None,
+        cancel: threading.Event | None = None,
+        group: str = "",
+    ) -> str:
+        """Run synchronously (a background job calls this): execute, then analyse and fix failures. Returns the execution id.
+
+        ``group`` ties the runs of several channels started together (stored as the parent id of these full runs) so a report can total them."""
+        if not files:
+            raise ExecutionError("There are no files to execute.")
+        cancel = cancel or threading.Event()
+        execution_id = self.create(project, framework, browser, bundle_id=bundle_id, source=source, branch=branch, commit_sha=commit_sha, mode=mode, parent_id=group)
+        with _LOCK:
+            _CANCEL[execution_id] = cancel
+        try:
+            context = self.execute(execution_id, project, files, secrets, framework, browser, bundle_id, test_case_ids, mode, cancel, progress=progress)
+            if context is not None and analyze and self.post_run is not None and not cancel.is_set():
+                self.post_run(context, progress)
+        finally:
+            with _LOCK:
+                _CANCEL.pop(execution_id, None)
+        return execution_id
+
     def start(
         self,
         project: Project,
@@ -126,7 +169,7 @@ class ExecutionService:
         settings = get_settings().execution
         execution_id = self.repo.create_execution(
             project.id, bundle_id=bundle_id, parent_id=parent_id, kind=kind, status="queued", phase="Queued", branch=branch, commit_sha=commit_sha,
-            source=source, framework=framework, browser=browser, environment=project.environment, mode=resolve_mode(mode or settings.mode),
+            source=source, framework=framework, browser=browser, environment=project.environment, mode=resolve_mode(mode or settings.mode, framework),
         )  # fmt: skip
         self.repo.audit(project.id, "user" if kind == "full" else "system", f"execution.{kind}.queued", "execution", {"id": execution_id, "framework": framework, "browser": browser, "source": source})
         return execution_id
@@ -166,9 +209,10 @@ class ExecutionService:
         test_case_ids: list[str] | None = None,
         mode: str | None = None,
         cancel: threading.Event | None = None,
+        progress: ProgressFn | None = None,
     ) -> ExecutionContext | None:
         settings = get_settings()
-        mode = resolve_mode(mode or settings.execution.mode)
+        mode = resolve_mode(mode or settings.execution.mode, framework)
         started = time.time()
         base = run_dir(project.id, execution_id)
         workdir = base / "workspace"
@@ -187,23 +231,51 @@ class ExecutionService:
             register_secret(value)
         expected = [i for i in (test_case_ids or discover_ids(files))]
         update = self.repo.update_execution
-        update(execution_id, status="running", phase="Preparing workspace", mode=mode)
+        update(execution_id, status="running", phase="Preparing workspace", mode=mode, progress=0.02)
+        report(progress, "Preparing the test workspace", 0.02)
 
         log_file = log_path.open("a", encoding="utf-8")
+        live: dict[str, str] = {}
+        total = max(len(expected), 1)
+        update(execution_id, totals={"total": len(expected), "expected": expected, "passed": 0, "failed": 0, "live": {}})
 
         def on_log(line: str) -> None:
             log_file.write(line + "\n")
             log_file.flush()
+            match = LIVE_LINE.match(line)
+            if not match:
+                return
+            tc = NODE_TC_ID.search(match.group("node"))
+            if not tc:
+                return
+            live[tc.group(0).upper()] = LIVE_STATUS[match.group("status")]
+            done = len(live)
+            fraction = min(done / total, 1.0)
+            counts = {
+                "total": total, "expected": expected, "passed": sum(v == "PASS" for v in live.values()),
+                "failed": sum(v == "FAIL" for v in live.values()), "live": dict(live),
+            }  # fmt: skip
+            update(execution_id, progress=fraction, totals=counts, phase=f"Running tests ({done}/{total})")
+            report(progress, f"Running tests ({done}/{total}): {counts['passed']} passed, {counts['failed']} failed", 0.06 + 0.64 * fraction)
 
         def on_phase(text: str) -> None:
             update(execution_id, phase=text)
+            report(progress, text, None, 0.7 if text.startswith("Running") else None)
 
+        mobile_env: dict[str, str] = {}
+        mobile_problem = ""
+        if is_mobile_framework(framework) and mode != "docker":  # Docker cannot reach the device: run_project explains that
+            update(execution_id, phase="Checking the Android environment")
+            report(progress, "Checking adb, Appium and the device", 0.04)
+            prepared = prepare_run(self.repo, project.id)
+            mobile_env, mobile_problem = prepared.env, prepared.problem
         request = RunRequest(
-            framework=framework, browser=browser, workdir=workdir, base_url=project.app_base_url, env=dict(secrets), test_case_ids=test_case_ids,
+            framework=framework, browser=browser, workdir=workdir, base_url=project.app_base_url, env={**mobile_env, **secrets}, test_case_ids=test_case_ids,
             ignore_https_errors=project.limits.ignore_https_errors, timeout=settings.execution.timeout_seconds, mode=mode, name=f"ats-{execution_id.lower()}",
+            api_base_url=project.api_url if is_api_framework(framework) else "",
         )  # fmt: skip
         try:
-            outcome = run_project(request, on_log=on_log, on_phase=on_phase, cancel=cancel)
+            outcome = RunOutcome(runner=mode, error=mobile_problem) if mobile_problem else run_project(request, on_log=on_log, on_phase=on_phase, cancel=cancel)
         finally:
             log_file.close()
         duration = time.time() - started
@@ -217,7 +289,8 @@ class ExecutionService:
             self.repo.audit(project.id, "system", "execution.error", "execution", {"id": execution_id, "error": outcome.error})
             return None
 
-        update(execution_id, phase="Collecting results")
+        update(execution_id, phase="Collecting results", progress=1.0)
+        report(progress, "Collecting results", 0.72)
         rows = collect(workdir, expected)
         no_results = rows and all(r["status"] == Status.SKIPPED.value and not r["test_name"] for r in rows)
         if no_results and (outcome.exit_code != 0 or outcome.timed_out):

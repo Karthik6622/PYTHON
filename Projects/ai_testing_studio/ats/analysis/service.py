@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
+from ats.analysis.autofix import AutoFixer
 from ats.analysis.defects import DEFECT_CATEGORIES, DefectBuilder
 from ats.analysis.findings import Finding
 from ats.analysis.healing import HealingEngine
@@ -11,8 +13,10 @@ from ats.analysis.pipeline import FailureAnalyzer, locator_index
 from ats.config import get_settings
 from ats.errors import NotFoundError
 from ats.execution.executor import ExecutionContext, ExecutionService, compute_totals, run_dir
+from ats.generation.adapters.common import is_mobile_framework
 from ats.logging_setup import get_logger
 from ats.models import HEALABLE_CATEGORIES, FailureAnalysis, FailureCategory, Status, utc_now
+from ats.progress import ProgressFn, report
 from ats.repository import Project, Repository
 
 LOGGER = get_logger("analysis.service")
@@ -29,6 +33,7 @@ class AnalysisService:
         healer: HealingEngine | None = None,
         defects: DefectBuilder | None = None,
         on_verified: Callable[[ExecutionContext, list[int]], None] | None = None,
+        fixer: AutoFixer | None = None,
     ) -> None:
         self.repo = repo
         self.executor = executor
@@ -36,63 +41,96 @@ class AnalysisService:
         self.healer = healer or HealingEngine(repo, executor, self.analyzer)
         self.defects = defects or DefectBuilder(repo)
         self.on_verified = on_verified
+        self.fixer = fixer
         self.policies: dict[str, str] = {}  # project id -> policy chosen in the UI (default comes from settings)
+        self.autofix: dict[str, bool] = {}  # project id -> automatic repair chosen in the UI (default: on when a fixer is wired)
 
     def policy_for(self, project_id: str) -> str:
         value = self.policies.get(project_id) or get_settings().healing.approval_policy
         return value if value in POLICIES else "manual"
 
+    def autofix_enabled(self, project_id: str) -> bool:
+        return self.fixer is not None and self.autofix.get(project_id, True) and get_settings().healing.autofix_rounds > 0
+
     # ------------------------------------------------------------------ main entry point (ExecutionService.post_run)
-    def post_run(self, ctx: ExecutionContext) -> None:
+    def post_run(self, ctx: ExecutionContext, progress: ProgressFn | None = None) -> None:
         update = self.repo.update_execution
         try:
             update(ctx.execution_id, status="analyzing", phase="Analyzing failures")
-            self._run(ctx)
+            self._run(ctx, progress)
         except Exception:  # noqa: BLE001
             LOGGER.exception("Post-run analysis failed for %s", ctx.execution_id)
             update(ctx.execution_id, phase="Analysis incomplete", error="Failure analysis did not finish. The test results themselves are valid.")
         finally:
             update(ctx.execution_id, status="completed", finished_at=utc_now())
 
-    def _run(self, ctx: ExecutionContext) -> None:
+    def _run(self, ctx: ExecutionContext, progress: ProgressFn | None = None) -> None:
         settings = get_settings().healing
         rows = [r for r in self.repo.list_results(ctx.execution_id) if r["status"] == Status.FAIL.value]
+        mobile = is_mobile_framework(ctx.framework)  # automatic repair and healing know web locators and Playwright/Selenium code only
+        autofix = self.autofix_enabled(ctx.project.id) and not mobile
         if not rows:
+            if autofix and self.fixer is not None and any((r.get("evidence") or {}).get("fallbacks") for r in self.repo.list_results(ctx.execution_id)):
+                self.repo.update_execution(ctx.execution_id, phase="Saving improved locators")
+                self._autofix(ctx, [], progress)
             self.repo.update_execution(ctx.execution_id, phase="Complete")
             return
         index = locator_index(ctx, self.repo)
         findings: list[Finding] = []
-        for number, row in enumerate(rows, 1):
-            self.repo.update_execution(ctx.execution_id, phase=f"Analyzing failures ({number}/{len(rows)})")
+        done = 0
+
+        def analyse(row: dict) -> Finding:
+            nonlocal done
             finding = self.analyzer.build(ctx, row, index)
             self.analyzer.analyze(ctx, finding)
             self.repo.update_result(ctx.execution_id, finding.test_case_id, analysis=finding.to_dict())
-            findings.append(finding)
+            done += 1
+            self.repo.update_execution(ctx.execution_id, phase=f"Analyzing failures ({done}/{len(rows)})")
+            report(progress, f"Analyzed {done}/{len(rows)} failures", 0.72 + 0.06 * done / len(rows))
+            return finding
+
+        with ThreadPoolExecutor(max_workers=3) as pool:  # independent model calls: analyse all failures at once
+            findings = list(pool.map(analyse, rows))
 
         if settings.recheck_flaky:
             self.repo.update_execution(ctx.execution_id, phase="Re-checking possible flaky failures")
             self._recheck(ctx, [f for f in findings if f.category in RECHECK_CATEGORIES])
 
         pending = [f for f in findings if self._status(ctx, f) == Status.FAIL.value]
-        healable = [f for f in pending if f.analysis.category in HEALABLE_CATEGORIES]
-        if settings.enabled and healable:
+        healable = [f for f in pending if f.analysis.category in HEALABLE_CATEGORIES and not mobile]
+        if autofix and pending:
+            self.repo.update_execution(ctx.execution_id, phase="Auto-fixing the automation")
+            self._autofix(ctx, pending, progress)
+        elif settings.enabled and healable:
             self.repo.update_execution(ctx.execution_id, phase="Self-healing locators")
             self.healer.heal(ctx, healable, self.policy_for(ctx.project.id), self.on_verified)
 
-        self.repo.update_execution(ctx.execution_id, phase="Drafting defect reports")
+        self.repo.update_execution(ctx.execution_id, phase="Drafting failure reports")
+        report(progress, "Writing failure reports", 0.97)
         execution = self.repo.get_execution(ctx.execution_id)
         for finding in findings:
             if self._status(ctx, finding) != Status.FAIL.value:
                 continue
             self.repo.update_result(ctx.execution_id, finding.test_case_id, analysis=finding.to_dict())
-            if finding.category in DEFECT_CATEGORIES:
+            # With auto-fix on, every failure that survived the repair attempts is reported to the customer (application defect or not fixable).
+            if finding.category in DEFECT_CATEGORIES or autofix:
                 self.defects.save(ctx.project, ctx, finding, execution)
         totals = compute_totals(self.repo.list_results(ctx.execution_id), float((execution or {}).get("duration") or 0.0))
-        note = ((execution or {}).get("totals") or {}).get("note")
-        if note:
-            totals["note"] = note
+        previous = (execution or {}).get("totals") or {}
+        for key in ("note", "autofix"):
+            if previous.get(key):
+                totals[key] = previous[key]
         self.repo.update_execution(ctx.execution_id, totals=totals, phase="Complete")
         self.repo.audit(ctx.project.id, "system", "analysis.completed", "execution", {"id": ctx.execution_id, "failures": len(findings)})
+
+    def _autofix(self, ctx: ExecutionContext, findings: list[Finding], progress: ProgressFn | None) -> None:
+        assert self.fixer is not None
+        summary = self.fixer.run(ctx, findings, get_settings().healing.autofix_rounds, progress)
+        execution = self.repo.get_execution(ctx.execution_id) or {}
+        totals = dict(execution.get("totals") or {})
+        totals["autofix"] = {k: v for k, v in summary.items() if k != "pushed"} | {"pushed": bool(summary.get("pushed")), "branch": (summary.get("pushed") or {}).get("branch", "")}
+        self.repo.update_execution(ctx.execution_id, totals=totals)
+        self.repo.audit(ctx.project.id, "system", "autofix.completed", "execution", {k: (v if not isinstance(v, (dict, list)) else len(v)) for k, v in summary.items()})
 
     def _status(self, ctx: ExecutionContext, finding: Finding) -> str:
         for row in self.repo.list_results(ctx.execution_id):

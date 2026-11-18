@@ -7,12 +7,15 @@ from typing import Any
 
 from ats.ai.agents import FailureAnalysisAgent
 from ats.analysis import dom
-from ats.analysis.classifier import classify
+from ats.analysis.classifier import classify, classify_mobile
 from ats.analysis.findings import Finding
 from ats.errors import StudioError
 from ats.execution.executor import ExecutionContext
 from ats.execution.junit import read_dom
+from ats.generation.adapters.common import is_mobile_framework
 from ats.logging_setup import get_logger
+from ats.mobile import hierarchy as mobile_hierarchy
+from ats.mobile.models import MobileError
 from ats.models import FailureAnalysis, FailureCategory, LocatorSpec, Selector
 from ats.repository import Repository
 from ats.security import mask, mask_obj
@@ -78,6 +81,8 @@ class FailureAnalyzer:
 
     # ------------------------------------------------------------------ evidence
     def build(self, ctx: ExecutionContext, row: dict[str, Any], index: dict[str, LocatorSpec]) -> Finding:
+        if is_mobile_framework(ctx.framework):
+            return self._build_mobile(ctx, row)
         evidence = row.get("evidence") or {}
         failure = evidence.get("failure") or {}
         key = str(failure.get("element") or "")
@@ -111,6 +116,33 @@ class FailureAnalyzer:
             old_spec=old, check=check, candidates=candidates, hint=hint, notes=notes,
         )  # fmt: skip
 
+    # ------------------------------------------------------------------ mobile evidence
+    def _build_mobile(self, ctx: ExecutionContext, row: dict[str, Any]) -> Finding:
+        """A failed Appium test: the page source (Android UI hierarchy) replaces the DOM; the recorded element is looked up on that screen."""
+        evidence = row.get("evidence") or {}
+        failure = evidence.get("failure") or {}
+        key = str(failure.get("element") or "")
+        action = str(failure.get("action") or "")
+        error = mask(failure.get("error") or (failure.get("appium_error") or {}).get("message") or row.get("message") or "")
+        source = read_dom(ctx.workdir, evidence)
+        analysis = self.repo.get_mobile_analysis(ctx.project.id)
+        element = analysis.elements().get(key) if analysis and key else None
+        present: bool | None = None
+        notes: list[str] = []
+        if element is not None and source:
+            try:
+                present = mobile_hierarchy.element_present(mobile_hierarchy.parse_page_source(source), element)
+            except MobileError:
+                notes.append("The page source of the failing screen could not be read.")
+        elif not source:
+            notes.append("No page source was captured for this failure (the session may have ended).")
+        check = {"checked": present is not None, "present_in_page_source": present, "preferred": element.preferred.display() if element and element.preferred else ""}
+        hint = classify_mobile(error, action, key, present, [str(c) for c in failure.get("console", [])])
+        return Finding(
+            test_case_id=row["test_case_id"], result=row, failure=failure, element_key=key, action=action, error=error, html=source, old_spec=None, check=check,
+            candidates=[], hint=hint, notes=notes,
+        )  # fmt: skip
+
     # ------------------------------------------------------------------ classification
     def analyze(self, ctx: ExecutionContext, finding: Finding, evidence: dict[str, Any] | None = None) -> Finding:
         evidence = evidence or finding.result.get("evidence") or {}
@@ -139,6 +171,11 @@ class FailureAnalyzer:
             "locator_candidates": finding.candidates,
             "rule_based_hint": finding.hint.as_dict(),
         }  # fmt: skip
+        if is_mobile_framework(ctx.framework):
+            payload["mobile"] = {
+                "device": finding.failure.get("device", {}), "appium_error": finding.failure.get("appium_error", {}), "package": finding.failure.get("package", ""),
+                "logcat": [mask(str(c))[:300] for c in finding.failure.get("console", [])][-15:], "locator_check": finding.check,
+            }  # fmt: skip
         try:
             analysis = self.agent.analyze(mask_obj(payload), ctx.project.id, screenshot)
             finding.ai_used = True
@@ -164,6 +201,10 @@ class FailureAnalyzer:
             analysis.confidence = max(analysis.confidence, hint.confidence)
         if analysis.category == FailureCategory.LOCATOR_DRIFT and finding.check.get("checked") and finding.check.get("preferred_count", 0) > 0:
             finding.notes.append("The locator still matches the failing page, so this is not locator drift.")
+            analysis.category = FailureCategory(hint.category) if hint.category != FailureCategory.LOCATOR_DRIFT.value else FailureCategory.TIMEOUT
+            analysis.automation_fixable = False
+        if analysis.category == FailureCategory.LOCATOR_DRIFT and finding.check.get("present_in_page_source") is True:  # mobile: the element is on the failing screen
+            finding.notes.append("The element is present in the page source of the failing screen, so this is not locator drift.")
             analysis.category = FailureCategory(hint.category) if hint.category != FailureCategory.LOCATOR_DRIFT.value else FailureCategory.TIMEOUT
             analysis.automation_fixable = False
         if analysis.category == FailureCategory.LOCATOR_DRIFT and not finding.element_key:

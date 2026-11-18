@@ -209,6 +209,103 @@ CREATE TABLE ai_calls (
 );
 """,
     ),
+    (
+        2,
+        """
+CREATE TABLE jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL DEFAULT '',
+    owner_id TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    progress REAL NOT NULL DEFAULT 0,
+    message TEXT NOT NULL DEFAULT '',
+    log TEXT NOT NULL DEFAULT '[]',
+    activity TEXT NOT NULL DEFAULT '',
+    result TEXT NOT NULL DEFAULT '{}',
+    error TEXT NOT NULL DEFAULT '',
+    next_page TEXT NOT NULL DEFAULT '',
+    notice TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    started_at TEXT NOT NULL DEFAULT '',
+    finished_at TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_jobs_project ON jobs(project_id);
+ALTER TABLE executions ADD COLUMN progress REAL NOT NULL DEFAULT 0;
+""",
+    ),
+    (
+        3,
+        """
+ALTER TABLE projects ADD COLUMN test_scope TEXT NOT NULL DEFAULT 'ui';
+ALTER TABLE projects ADD COLUMN api_base_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE scenarios ADD COLUMN layer TEXT NOT NULL DEFAULT 'ui';
+ALTER TABLE test_cases ADD COLUMN layer TEXT NOT NULL DEFAULT 'ui';
+ALTER TABLE bundles ADD COLUMN layer TEXT NOT NULL DEFAULT 'ui';
+CREATE TABLE api_endpoints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(project_id, key)
+);
+CREATE TABLE connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    owner_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    part TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    env_name TEXT NOT NULL,
+    secret INTEGER NOT NULL DEFAULT 1,
+    value_enc TEXT NOT NULL DEFAULT '',
+    meta TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(project_id, name, part)
+);
+CREATE INDEX idx_connections_project ON connections(project_id);
+""",
+    ),
+    (
+        4,
+        """
+CREATE TABLE mobile_config (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL DEFAULT 'android',
+    app_source TEXT NOT NULL DEFAULT 'upload',
+    apk_path TEXT NOT NULL DEFAULT '',
+    apk_name TEXT NOT NULL DEFAULT '',
+    package TEXT NOT NULL DEFAULT '',
+    activity TEXT NOT NULL DEFAULT '',
+    run_on TEXT NOT NULL DEFAULT 'emulator',
+    device_serial TEXT NOT NULL DEFAULT '',
+    device_label TEXT NOT NULL DEFAULT '',
+    analysis TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL
+);
+""",
+    ),
+    (
+        5,
+        """
+CREATE TABLE github_workspaces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    channels TEXT NOT NULL DEFAULT '[]',
+    commit_sha TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    UNIQUE(repo, branch, project_id)
+);
+CREATE INDEX idx_workspaces_repo_branch ON github_workspaces(repo, branch);
+""",
+    ),
 ]
 
 

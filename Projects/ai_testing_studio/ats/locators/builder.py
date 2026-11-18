@@ -71,11 +71,24 @@ def build_selectors(el: dict[str, Any]) -> tuple[list[Selector], float]:
     # drop duplicates, keep order
     seen: set[tuple[str, str, str]] = set()
     unique = [s for s in out if not (s.identity() in seen or seen.add(s.identity()))]
+    checks = {(c.get("kind"), c.get("value"), c.get("name") or ""): c.get("count") for c in el.get("checks", [])}
+    ambiguous = False
+    if checks:
+        # The discovery worker counted how many elements each selector matches on the live page. Unique selectors win,
+        # untested ones come next, selectors that match nothing or several elements go last (stable within each group).
+        def rank(selector: Selector) -> int:
+            count = checks.get(selector.identity())
+            return 0 if count == 1 else 1 if count is None else 2
+
+        unique.sort(key=rank)
+        ambiguous = bool(unique) and checks.get(unique[0].identity()) != 1 and unique[0].identity() in checks
     first = unique[0].kind if unique else "xpath"
     score = {"testid": 0.97, "role": 0.9, "label": 0.85, "placeholder": 0.7, "id": 0.8, "name": 0.72, "text": 0.6, "css": 0.45, "xpath": 0.3}[first]
     if first == "role" and not el.get("visible", True):
         score -= 0.1
-    return unique, score
+    if ambiguous:
+        score -= 0.25  # nothing on the page identifies this element uniquely: flagged for review
+    return unique, max(score, 0.05)
 
 
 def _interesting(el: dict[str, Any]) -> bool:

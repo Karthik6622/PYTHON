@@ -80,11 +80,12 @@ def test_generated_project_runs_and_passes(prepared, repo, framework):
     bundle = repo.get_bundle(bundle_id)
     assert bundle["status"] == "draft"
     trace = {row["test_case_id"]: row for row in bundle["traceability"]}
-    assert trace[TC]["automated"] is True and trace[TC]["file"].startswith("tests/")
+    assert trace[TC]["automated"] is True and trace[TC]["file"] == "tests/web/test_login.py"
     assert trace["TC_LOG_999"]["automated"] is False  # invented element keys are rejected, not guessed
     assert bundle["plan"]["skipped"][0]["test_case_id"] == "TC_LOG_999"
 
     files = service.store.read_all(project.id, bundle_id)
+    assert {"tests/__init__.py", "tests/web/__init__.py", "tests/web/conftest.py"} <= set(files) and "conftest.py" not in files  # one conftest, inside the channel folder
     assert "TEST_APP_PASSWORD" in "".join(files.values()) and "hunter2" not in "".join(files.values())
     assert not any(name.endswith(".env") for name in files)
 

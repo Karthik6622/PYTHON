@@ -69,7 +69,7 @@ def test_pages_render_with_a_finished_run(repo, monkeypatch, browser_ready, modu
     app = AppTest.from_string(SEEDED.format(owner=OWNER, project_id=project.id, module=module, call="render"), default_timeout=60).run()
     assert not app.exception, [e.value for e in app.exception]
     if module == "page_results":
-        assert any("Self-healing" in s.value for s in app.subheader), "healing panel missing"
+        assert any("Fixes made to the automation" in s.value for s in app.subheader), "healing panel missing"
         assert any(b.label == "Approve and verify" for b in app.button)
 
 

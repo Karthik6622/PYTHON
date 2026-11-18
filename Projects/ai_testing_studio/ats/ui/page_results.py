@@ -7,10 +7,11 @@ import json
 import pandas as pd
 import streamlit as st
 
+from ats.config import lookup_secret
 from ats.execution.executor import run_dir
 from ats.services import Services
-from ats.ui.page_execute import live_run
 from ats.ui import theme
+from ats.ui.page_execute import live_tests, required_variables, summary
 from ats.ui.session import notify, require_project, safe, show_notices
 from ats.ui.widgets import chip, selected_rows
 from ats.workflow import IN_PROGRESS_STATUSES
@@ -88,17 +89,18 @@ def healing_panel(svc: Services, project, execution_id: str) -> None:
     records = svc.repo.list_healings(project.id, execution_id)
     if not records:
         return
-    st.subheader("Self-healing")
-    st.caption("A fix is only a proposal until the affected tests pass again with it. Healed tests are counted separately from passed tests.")
+    st.subheader("Fixes made to the automation")
+    st.caption("Every fix was verified by re-running the affected test. Fixed tests are counted separately from passed tests, so nothing is hidden.")
     token = svc.tokens.get(project.id)
     for record in records:
         title = f"{record['element_key']} {chip(record['status'])} confidence {record['confidence']:.2f} | tests: {', '.join(record['test_case_ids'])}"
         with st.expander(title, expanded=record["status"] in {"proposed", "verified"}):
-            a, b = st.columns(2)
-            a.markdown("**Current locator**")
-            a.code(locator_text(record["old_locator"]), language="text")
-            b.markdown("**Proposed locator**")
-            b.code(locator_text(record["new_locator"]), language="text")
+            if record["old_locator"] or record["new_locator"]:
+                a, b = st.columns(2)
+                a.markdown("**Previous locator**")
+                a.code(locator_text(record["old_locator"]), language="text")
+                b.markdown("**Locator now used**")
+                b.code(locator_text(record["new_locator"]), language="text")
             st.write(record["reason"])
             if record["outcome"]:
                 st.caption(f"Outcome: {record['outcome']}")
@@ -137,8 +139,8 @@ def defects_panel(svc: Services, project, execution_id: str) -> None:
     defects = svc.repo.list_defects(project.id, execution_id)
     if not defects:
         return
-    st.subheader("Draft defects")
-    st.caption("Drafts are advice for a person to review; nothing is filed automatically.")
+    st.subheader("Failure reports")
+    st.caption("Failures that survived the automatic repair attempts, with steps to reproduce, expected vs actual result and evidence. Review before sharing with your customer; nothing is filed automatically.")
     for item in defects:
         d = item["data"]
         with st.expander(f"{d.get('defect_id')} - {d.get('title')} ({d.get('severity')})"):
@@ -166,11 +168,12 @@ def render(svc: Services) -> None:
     execution_id = st.selectbox("Execution", list(labels), format_func=labels.get)
     execution = svc.repo.get_execution(execution_id)
     if execution["status"] in IN_PROGRESS_STATUSES:
-        live_run(svc, project.id, execution_id)
+        live_tests(svc, project.id, execution_id)
         return
     if execution["status"] in {"error", "cancelled"} or execution.get("error"):
         st.error(execution.get("error") or "The run did not finish.")
 
+    summary(svc, execution)
     totals = execution["totals"] or {}
     cols = st.columns(7)
     for col, (label, key) in zip(cols, [("Total", "total"), ("Passed", "passed"), ("Failed", "failed"), ("Healed", "healed"), ("Inconclusive", "inconclusive"), ("Skipped", "skipped"), ("Pass rate %", "pass_rate")], strict=True):

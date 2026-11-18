@@ -10,19 +10,19 @@ import streamlit as st
 
 from ats.config import get_settings
 from ats.services import Services
-from ats.ui import theme
-from ats.ui.session import go_to, notify, require_project, safe, show_notices
-from ats.ui.widgets import chip, progress_logger
+from ats.ui import jobs_ui, theme
+from ats.ui.session import go_to, require_project, show_notices
+from ats.ui.widgets import chip
 
 
-def run_discovery(svc: Services, project) -> bool:  # noqa: ANN001
-    with st.status("Discovering the website...", expanded=True) as status:
-        result = safe(lambda: svc.discovery.run(project, on_progress=progress_logger(status)))
-        if result:
-            status.update(label=f"Discovery complete: {len(result.pages)} pages", state="complete")
-            return True
-        status.update(label="Discovery failed", state="error")
-        return False
+def start_discovery(svc: Services, project) -> None:  # noqa: ANN001
+    """Discovery runs in the background: it keeps going when the browser tab closes or the screen locks."""
+
+    def work(ctx):  # noqa: ANN001, ANN202
+        result = svc.discovery.run(project, on_progress=ctx.reporter, cancel=ctx.cancel_event)
+        return {"pages": len(result.pages)}
+
+    jobs_ui.start_job(svc, project, "discovery", "Website discovery", work, notice="Discovery finished: {pages} views found. Continue to the scenarios.")
 
 
 def authentication_panel(svc: Services, project) -> None:  # noqa: ANN001
@@ -140,14 +140,14 @@ def render(svc: Services) -> None:
     st.markdown(f'{theme.tag(project.url, "dim")}{auth_note}{ai_note}', unsafe_allow_html=True)
     if not get_settings().model.configured:
         st.caption("Discovery works without the AI model; only the application summary and locator notes are skipped.")
+    if jobs_ui.running_panel(svc, project, ("discovery",), "Discovery in progress"):
+        return
+    jobs_ui.last_problem(svc, project, ("discovery",))
     authentication_panel(svc, project)
 
     latest = svc.repo.latest_discovery(project.id)
     if st.button("Run discovery again" if latest else "Run discovery", type="primary"):
-        if run_discovery(svc, project):
-            notify("Discovery finished. Generate the test scenarios next.")
-            st.rerun()
-        latest = svc.repo.latest_discovery(project.id)  # shows the recorded failure below the error
+        start_discovery(svc, project)
 
     if not latest:
         st.info("No discovery has been run yet.")

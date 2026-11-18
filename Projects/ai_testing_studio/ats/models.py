@@ -98,6 +98,35 @@ TEST_TYPES = [
     "Error Handling",
     "Authentication",
 ]
+API_TEST_TYPES = [*TEST_TYPES, "Security", "Contract", "Performance"]
+ALL_TEST_TYPES = API_TEST_TYPES  # what a stored scenario / test case may carry, whichever layer it belongs to
+# A project's "testing type" is a set of channels. Internally every stored scenario / test case / bundle carries a layer id
+# ("ui" is the Web channel). The seven choices in the UI are just selections of these three channels, not seven frameworks.
+CHANNELS = ["web", "mobile", "api"]  # canonical order = the order of the labels "Web + Mobile + API"
+CHANNEL_LAYER = {"web": "ui", "api": "api", "mobile": "mobile"}
+LAYERS = [CHANNEL_LAYER[c] for c in CHANNELS]
+LAYER_LABELS = {"ui": "Web", "api": "API", "mobile": "Mobile"}
+CHANNEL_LABELS = {"web": "Web", "api": "API", "mobile": "Mobile"}
+SCOPE_CHOICES = ["Web", "API", "Mobile", "Web + API", "Mobile + API", "Web + Mobile", "Web + Mobile + API"]  # order shown in the UI
+
+
+def parse_scope(value: Any) -> list[str]:
+    """Channels of a testing type. Accepts the stored form ("web,api"), UI labels ("Web + API") and the legacy values ui / api / both."""
+    text = str(value or "").lower()
+    found = {c for c in CHANNELS if c in text.replace("ui", "web")} | ({"web", "api"} if "both" in text else set())
+    return [c for c in CHANNELS if c in found] or ["web"]
+
+
+def scope_text(channels: Any) -> str:
+    """Canonical stored form of a testing type, e.g. ``web,api``."""
+    return ",".join(parse_scope(channels if isinstance(channels, str) else ",".join(channels)))
+
+
+def scope_label(value: Any) -> str:
+    return " + ".join(CHANNEL_LABELS[c] for c in parse_scope(value))
+
+
+TEST_SCOPES = [scope_text(label) for label in SCOPE_CHOICES]
 PRIORITIES = ["Critical", "High", "Medium", "Low"]
 SUITABILITY = ["High", "Medium", "Low", "Manual only"]
 
@@ -243,6 +272,7 @@ class PageSnapshot(_Model):
     # Single-page apps show many views on one URL: each view is named and records the clicks that open it.
     view_name: str = ""
     reached_by: list[str] = Field(default_factory=list)
+    nav_steps: list[dict[str, Any]] = Field(default_factory=list)  # machine-readable clicks that open this view (see discovery/actions.js)
     signed_in: bool = False
 
 
@@ -253,6 +283,143 @@ class DiscoveryResult(_Model):
     warnings: list[str] = Field(default_factory=list)
     summary: str = ""  # AI generated understanding of the application
     analysis: dict[str, Any] = Field(default_factory=dict)  # modules / workflows from the Web Discovery Agent
+
+
+# ----------------------------------------------------------------------------------------
+# API test design (structured requests that the API renderer turns into pytest + httpx tests)
+# ----------------------------------------------------------------------------------------
+API_OPS = ["equals", "exists", "type", "matches", "contains", "gt", "lt"]
+HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+
+
+def _layer(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in {"api", "mobile"} else "ui"
+
+
+class ApiCheck(_Model):
+    """One assertion on the JSON response body. ``path`` is a JSON path such as ``$.data[0].id`` or ``items.0.name``."""
+
+    path: str = "$"
+    op: str = "equals"
+    value: Any = None
+
+    @field_validator("op", mode="before")
+    @classmethod
+    def _op(cls, value: Any) -> str:
+        text = str(value or "equals").strip().lower().replace("-", "_").replace(" ", "_")
+        aliases = {"eq": "equals", "equal": "equals", "==": "equals", "exist": "exists", "is_type": "type", "regex": "matches", "match": "matches",
+                   "contain": "contains", "includes": "contains", "greater_than": "gt", ">": "gt", "less_than": "lt", "<": "lt"}  # fmt: skip
+        text = aliases.get(text, text)
+        return text if text in API_OPS else "equals"
+
+
+class ApiExpect(_Model):
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True, populate_by_name=True)
+
+    status: int | list[int] | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+    json_checks: list[ApiCheck] = Field(default_factory=list, alias="json")
+    schema_: dict[str, Any] | None = Field(default=None, alias="schema")
+    max_ms: int | None = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _status(cls, value: Any) -> Any:
+        def one(item: Any) -> int | None:
+            try:
+                return int(str(item).strip()[:3])
+            except ValueError:
+                return None
+
+        if isinstance(value, (list, tuple)):
+            numbers = [n for n in (one(v) for v in value) if n]
+            return numbers or None
+        return one(value) if value not in (None, "") else None
+
+    @field_validator("headers", mode="before")
+    @classmethod
+    def _headers(cls, value: Any) -> dict[str, str]:
+        return {str(k): str(v) for k, v in value.items()} if isinstance(value, dict) else {}
+
+    @field_validator("json_checks", mode="before")
+    @classmethod
+    def _checks(cls, value: Any) -> Any:
+        if isinstance(value, dict):  # {"$.id": 5} shorthand
+            return [{"path": k, "op": "equals", "value": v} for k, v in value.items()]
+        return [v for v in value if isinstance(v, (dict, ApiCheck))] if isinstance(value, list) else []
+
+    @field_validator("schema_", mode="before")
+    @classmethod
+    def _schema(cls, value: Any) -> Any:
+        return value if isinstance(value, dict) and value else None
+
+    @field_validator("max_ms", mode="before")
+    @classmethod
+    def _max(cls, value: Any) -> int | None:
+        try:
+            number = int(float(value))
+        except (TypeError, ValueError):
+            return None
+        return number if number > 0 else None
+
+
+class ApiRequest(_Model):
+    """One HTTP call of an API test. ``{{var.name}}`` inserts a value saved by an earlier request, ``{{env:NAME}}`` a secret."""
+
+    name: str = ""
+    method: str = "GET"
+    path: str = "/"
+    path_params: dict[str, Any] = Field(default_factory=dict)
+    query: dict[str, Any] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
+    body: Any = None
+    auth: str = ""  # name of a saved connection ("" or "none" = send no credentials)
+    save: dict[str, str] = Field(default_factory=dict)  # variable name -> JSON path in the response
+    expect: ApiExpect = Field(default_factory=ApiExpect)
+
+    @field_validator("method", mode="before")
+    @classmethod
+    def _method(cls, value: Any) -> str:
+        text = str(value or "GET").strip().upper()
+        return text if text in HTTP_METHODS else "GET"
+
+    @field_validator("auth", mode="before")
+    @classmethod
+    def _auth(cls, value: Any) -> str:
+        text = str(value or "").strip()
+        return "" if text.lower() in {"none", "null", "no", "false"} else text
+
+    @field_validator("path_params", "query", mode="before")
+    @classmethod
+    def _maps(cls, value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {}
+
+    @field_validator("headers", mode="before")
+    @classmethod
+    def _hdrs(cls, value: Any) -> dict[str, str]:
+        return {str(k): str(v) for k, v in value.items()} if isinstance(value, dict) else {}
+
+    @field_validator("save", mode="before")
+    @classmethod
+    def _save(cls, value: Any) -> dict[str, str]:
+        if isinstance(value, list):  # [{"var": "id", "path": "$.id"}]
+            return {str(i.get("var") or i.get("name")): str(i.get("path")) for i in value if isinstance(i, dict) and (i.get("var") or i.get("name")) and i.get("path")}
+        return {str(k): str(v) for k, v in value.items()} if isinstance(value, dict) else {}
+
+    @field_validator("expect", mode="before")
+    @classmethod
+    def _expect(cls, value: Any) -> Any:
+        return value if isinstance(value, (dict, ApiExpect)) else {}
+
+
+class ApiTestSpec(_Model):
+    requests: list[ApiRequest] = Field(default_factory=list)
+
+    @field_validator("requests", mode="before")
+    @classmethod
+    def _requests(cls, value: Any) -> Any:
+        return [v for v in value if isinstance(v, (dict, ApiRequest))] if isinstance(value, list) else []
 
 
 # ----------------------------------------------------------------------------------------
@@ -271,6 +438,12 @@ class Scenario(_Model):
     automation_suitability: str = "High"
     status: str = "draft"
     source: str = "ai"
+    layer: str = "ui"
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def _layer_value(cls, value: Any) -> str:
+        return _layer(value)
 
     @field_validator("preconditions", mode="before")
     @classmethod
@@ -280,7 +453,7 @@ class Scenario(_Model):
     @field_validator("test_type", mode="before")
     @classmethod
     def _type(cls, value: Any) -> str:
-        return _title_match(value, TEST_TYPES, "Functional")
+        return _title_match(value, ALL_TEST_TYPES, "Functional")
 
     @field_validator("priority", mode="before")
     @classmethod
@@ -313,6 +486,8 @@ class TestCase(_Model):
     tags: list[str] = Field(default_factory=list)
     status: str = "draft"
     source: str = "ai"
+    layer: str = "ui"
+    api: ApiTestSpec | None = None  # structured requests of an API test case (layer "api")
 
     @field_validator("preconditions", "steps", "tags", mode="before")
     @classmethod
@@ -343,7 +518,19 @@ class TestCase(_Model):
     @field_validator("test_type", mode="before")
     @classmethod
     def _type(cls, value: Any) -> str:
-        return _title_match(value, TEST_TYPES, "Functional")
+        return _title_match(value, ALL_TEST_TYPES, "Functional")
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def _layer_value(cls, value: Any) -> str:
+        return _layer(value)
+
+    @field_validator("api", mode="before")
+    @classmethod
+    def _api(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return {"requests": value}
+        return value if isinstance(value, (dict, ApiTestSpec)) and value else None
 
     @field_validator("priority", mode="before")
     @classmethod
@@ -479,6 +666,29 @@ class HealingProposal(_Model):
     behavior_changed: bool = False
     explanation: str = ""
     proposals: list[ProposedSelector] = Field(default_factory=list)
+
+
+class RepairEdit(_Model):
+    """One exact text replacement in a generated file."""
+
+    path: str
+    find: str
+    replace: str = ""
+
+
+class LocatorUpdate(_Model):
+    element_key: str
+    preferred: Selector
+    alternatives: list[Selector] = Field(default_factory=list)
+
+
+class RepairResult(_Model):
+    """The repair agent's decision for one failed test: fix the automation, or report an application defect."""
+
+    verdict: str = "cannot_determine"  # fixed | application_defect | cannot_determine
+    explanation: str = ""
+    edits: list[RepairEdit] = Field(default_factory=list)
+    locator_updates: list[LocatorUpdate] = Field(default_factory=list)
 
 
 class DefectNarrative(_Model):

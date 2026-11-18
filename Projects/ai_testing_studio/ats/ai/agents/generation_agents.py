@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ats.ai.base import Agent, EventCallback
-from ats.models import AutomationPlan, ChangeSet, Scenario, TestCase, _Model
+from ats.models import AutomationPlan, ChangeSet, RepairResult, Scenario, TestCase, _Model
 
 
 class ScenarioList(_Model):
@@ -113,6 +113,20 @@ class ScriptFixInput(BaseModel):
     element_keys: list[str] = Field(default_factory=list)
 
 
+class ScriptRepairInput(BaseModel):
+    test_case: dict[str, Any]
+    failing_step: dict[str, Any] = Field(default_factory=dict)
+    error: str = ""
+    executed_steps: list[dict[str, Any]] = Field(default_factory=list)
+    test_file: dict[str, str] = Field(default_factory=dict)
+    locators: dict[str, Any] = Field(default_factory=dict)
+    view: dict[str, Any] = Field(default_factory=dict)
+    dom_excerpt: str = ""
+    page_url: str = ""
+    rule_hint: dict[str, Any] = Field(default_factory=dict)
+    previous_attempts: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class ScriptGenerationAgent(Agent):
     name = "script_generation"
     thinking = False
@@ -122,6 +136,9 @@ class ScriptGenerationAgent(Agent):
         return self.invoke(
             "script.plan", payload, AutomationPlan, input_model=ScriptPlanInput, project_id=project_id, on_event=on_event
         )
+
+    def repair(self, payload: dict[str, Any], project_id: str = "") -> RepairResult:
+        return self.invoke("script.repair", payload, RepairResult, input_model=ScriptRepairInput, project_id=project_id, thinking=True)
 
     def fix(self, payload: dict[str, Any], project_id: str = "") -> FixedFile:
         return self.invoke("script.fix", payload, FixedFile, input_model=ScriptFixInput, project_id=project_id)

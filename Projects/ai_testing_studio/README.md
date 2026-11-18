@@ -22,6 +22,19 @@ streamlit run app.py
 * Docker (recommended for execution): `docker compose up --build` (see "Docker").
 * Keys can also live in `.streamlit/secrets.toml`; nothing is hard-coded.
 
+## Accounts and sign-in
+
+Everyone signs up (email and password, or Google / GitHub when configured) and gets a private workspace: projects, runs and
+reports belong to the account and are never listed to anyone else. Sessions last 30 days ("Keep me signed in"); passwords are
+bcrypt-hashed, accounts lock for 10 minutes after 5 wrong passwords, and "Forgot password?" emails a 6-digit code when `[smtp]`
+is configured (without it, anyone who knows an email can reset that account, so set it before exposing the app).
+Projects created in a browser before accounts existed move to the account the first time you sign in from that browser.
+
+To run the studio on your own machine, run `streamlit run app.py` locally: your accounts (`users.db`) and projects stay in your
+own data folder (`DATA_DIR`, default `data/`), nothing is sent anywhere. Optional sign-in providers are configured in
+`.streamlit/secrets.toml`; copy the `[auth]`, `[auth.google]`, `[github]` and `[smtp]` examples from
+`.streamlit/secrets.toml.example`.
+
 ## Workflow
 
 ```mermaid
@@ -101,9 +114,9 @@ agent output (schema, grounding in discovered elements, allowed actions).
 ## Data model (SQLite)
 
 `projects`, `discoveries`, `locators`, `scenarios`, `test_cases`, `bundles` (generated files live on disk), `github_links`,
-`executions`, `results`, `healings`, `defects`, `audit_log`, `ai_calls`, `schema_version`. Rows are owner-scoped by a random
-id kept in a browser cookie, so one browser never lists another browser's projects. This is separation, not authentication:
-put the app behind your own login when exposing it to untrusted users.
+`executions`, `results`, `healings`, `defects`, `jobs`, `audit_log`, `ai_calls`, `schema_version`. Rows are owner-scoped by the id of the
+signed-in account, so one person never lists another person's projects (see "Accounts and sign-in"). Accounts are kept in a
+separate SQLite file, `users.db` in the data folder (`USERS_DB` overrides the path).
 
 ## Execution
 
@@ -113,21 +126,48 @@ put the app behind your own login when exposing it to untrusted users.
   command line.
 * `localhost` base URLs are rewritten to `host.docker.internal` inside containers.
 * Generated tests write evidence per test case (`steps.json`, `failure.json`, `dom.html`, `screenshot.png`) next to JUnit XML.
-* Statuses: PASS, FAIL, HEALED (passed only after a verified locator fix), INCONCLUSIVE (flaky or unexplained), SKIPPED.
+* Statuses: PASS, FAIL, HEALED (passed only after a verified fix by auto-fix), INCONCLUSIVE (flaky or unexplained), SKIPPED.
 
-## Failure analysis and self-healing
+## Background jobs (nothing stops when you lock the laptop)
 
-1. Rule classifier and DOM check (is the locator still present? are alternatives matching?).
-2. AI classification: LOCATOR DRIFT, TIMING, DATA, ENVIRONMENT, APPLICATION DEFECT, SCRIPT ERROR, and others.
-3. Only fixable locator failures get proposals. A proposal must be grounded in the failing DOM and above a confidence threshold.
-4. The affected tests are re-run with the patch. Only a passing rerun marks the fix `verified` and the test `HEALED`.
-5. Policy `manual`: a person applies or rejects. Policy `auto_pr`: a pull request with the verified locator change is opened
-   (never merged, never to the default branch). Behavior changes are reported as defect drafts, not healed.
+Discovery, scenario / test-case / automation generation, AI change requests and test runs are **jobs**. A job runs in a thread of the
+server process and writes its progress (percentage, status line, log, model activity) to the `jobs` table, so it keeps going when the
+browser tab is closed, the screen locks or the connection drops. Any page, in this or a new session, shows the live progress bar of the
+running job (also as small bars in the sidebar); when you come back the result is simply there. If the server itself restarts, jobs that
+were running are marked *Interrupted* and can be started again. Jobs started from the UI can be cancelled.
+
+## How generated tests find and reach elements
+
+* Discovery records, for every view, the clicks that open it (`config/views.json`) and verifies on the live page how many elements each
+  candidate selector matches; unique selectors are ranked first, ambiguous ones last. Icon-font text (`add`, `keyboard_arrow_left`) is not
+  part of an element's name, exactly like in Playwright's accessibility tree.
+* The generated runtime (`utils/app.py`, `utils/nav.py`, shared with discovery) opens the application (waking a sleeping Streamlit Cloud app
+  and stepping into its embedded frame), signs in with the credentials of the environment variables named in `config/auth.json`, replays the
+  recorded clicks to reach the view a test starts on, waits for single-page apps to settle, and clicks like a person (forced / DOM click when a
+  styled radio or checkbox hides the real input).
+* Elements are resolved with the preferred selector first and the recorded alternatives next; a selector that only worked as a fallback is
+  written to `reports/evidence/<id>/fallbacks.json` and promoted to the preferred selector by auto-fix.
+
+## Execution results, auto-fix and failure reports
+
+1. Execute shows the stage timeline (prepare, run, analyze, auto-fix, report), a per-test live table and the runner log.
+2. Every failure is classified from its evidence (error, DOM at the failure, screenshot, executed steps).
+3. With **Auto-fix** on (default) the studio repairs what is the automation's fault: fallback selectors are promoted, stale locators are healed
+   against the failing DOM, and the Test Repair agent fixes scripts (wrong start view, missing click or wait, wrong sequence) with exact,
+   validated text replacements. It never deletes or weakens an assertion and never hardcodes credentials. Repaired tests are re-run
+   (up to `AUTOFIX_MAX_ROUNDS`, default 3); a pass is reported as **HEALED**, not PASS.
+4. The fixed project is saved to the bundle and pushed to the project's GitHub branch (needs the project's token from the GitHub page).
+5. What is left is either a proven application defect (the repair agent verified the automation is right) or something that could not be fixed
+   automatically. Both become a **failure report** with steps to reproduce, expected vs actual result and evidence, ready to share with the customer.
+6. With Auto-fix off, the previous policies apply: `manual` (a person approves each locator fix) or `auto_pr` (a pull request with verified fixes).
 
 ## GitHub
 
-The token is held in memory per project (never stored). Tests go to a new `ai-tests/...` branch; healed locators go to
-`ai-heal/...`; both through pull requests. Committing to the default branch is refused.
+The token is held in memory per project (never stored). **Publish** creates a *clean* branch: a root commit that contains only the generated
+test project, none of the files of `main` or any other branch. Publishing again (and auto-fix pushes) add commits to that same branch, and each
+commit replaces the whole tree, so removed files disappear. The default branch is never touched. Because a clean branch shares no history with
+`main`, no pull request can be opened from it; the advanced option "create the branch from an existing branch" keeps that branch's files and
+can open a pull request.
 
 ## Docker
 

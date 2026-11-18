@@ -67,6 +67,11 @@ class FakeGitHub:
             body = json.loads(request.content)
             self.branches[body["ref"].removeprefix("refs/heads/")] = body["sha"]
             return httpx.Response(201, json={})
+        if (m := re.fullmatch(r"/repos/owner/repo/git/refs/heads/(.+)", path)) and method == "PATCH":
+            body = json.loads(request.content)
+            assert body["force"] is False  # fast-forward only
+            self.branches[m.group(1)] = body["sha"]
+            return httpx.Response(200, json={})
         if path == "/repos/owner/repo/pulls" and method == "POST":
             self.pulls.append(json.loads(request.content))
             return httpx.Response(201, json={"html_url": "https://github.com/owner/repo/pull/7", "number": 7})
@@ -125,7 +130,7 @@ def test_link_saves_repo_and_default_branch(repo, gh):
 
 def test_commit_bundle_creates_branch_commit_and_pr_without_secrets(repo, gh):
     project, bundle_id = make_project_with_bundle(repo)
-    result = make_service(repo, gh).commit_bundle(project, bundle_id, TOKEN)
+    result = make_service(repo, gh).commit_bundle(project, bundle_id, TOKEN, open_pr=True, orphan=False)
     assert result["branch"].startswith("ai-tests/") and result["pr_url"].endswith("/pull/7") and result["commit_sha"] == "commit222"
     committed = {item["path"] for item in gh.trees[0]["tree"]}
     assert committed == {"tests/test_login.py", "config/locators.json"}  # no .env, no storage state
@@ -133,6 +138,29 @@ def test_commit_bundle_creates_branch_commit_and_pr_without_secrets(repo, gh):
     assert ("PATCH", f"/repos/owner/repo/git/refs/heads/{result['branch']}") not in gh.requests  # new branch, never a force update
     link = repo.get_github(project.id)
     assert link["pr_url"].endswith("/pull/7") and link["branch"] == result["branch"] and repo.get_bundle(bundle_id)["status"] == "committed"
+
+
+def test_default_commit_is_an_orphan_branch_holding_only_the_project(repo, gh):
+    project, bundle_id = make_project_with_bundle(repo)
+    result = make_service(repo, gh).commit_bundle(project, bundle_id, TOKEN)
+    assert gh.commits[0]["parents"] == []  # a root commit: no history and none of main's files
+    assert "base_tree" not in gh.trees[0]
+    assert {item["path"] for item in gh.trees[0]["tree"]} == {"tests/test_login.py", "config/locators.json"}
+    assert gh.pulls == [] and result["pr_url"] == ""  # an unrelated history cannot be opened as a pull request
+    assert gh.branches[result["branch"]] == "commit222" and gh.branches["main"] == "base111"
+
+
+def test_fixes_are_pushed_incrementally_to_the_same_branch(repo, gh):
+    project, bundle_id = make_project_with_bundle(repo)
+    service = make_service(repo, gh)
+    first = service.commit_bundle(project, bundle_id, TOKEN)
+    fixed = {"tests/test_login.py": "# TC_LOG_001 fixed\n", ".env": "SECRET=1"}
+    pushed = service.push_fixes(project, TOKEN, fixed, "Fix locators")
+    assert pushed and pushed["branch"] == first["branch"]
+    assert gh.commits[-1]["parents"] == ["commit222"]  # continues the branch history, no force push
+    assert gh.trees[-1]["base_tree"] == "tree000"  # on top of the head: every file that is not listed stays as it is
+    assert [i["path"] for i in gh.trees[-1]["tree"]] == ["tests/test_login.py"]  # only the changed file, never the secret
+    assert service.push_fixes(project, "", fixed, "x") is None
 
 
 def test_commit_refuses_default_branch_and_read_only_tokens(repo, gh):
@@ -154,7 +182,7 @@ def test_model_outage_uses_fallback_text(repo, gh):
 
     project, bundle_id = make_project_with_bundle(repo)
     service = GitHubService(repo, BundleStore(), GitHubAgent(Down(), repo), httpx.MockTransport(gh))
-    result = service.commit_bundle(project, bundle_id, TOKEN)
+    result = service.commit_bundle(project, bundle_id, TOKEN, open_pr=True, orphan=False)
     assert result["branch"].startswith("ai-tests/shop-") and gh.pulls[0]["title"]
 
 
