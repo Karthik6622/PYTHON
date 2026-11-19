@@ -185,11 +185,17 @@ def render_test_cases(svc: Services) -> None:
         st.caption(f"{len(approved_scenarios)} approved scenario(s) will be expanded into detailed test cases.")
         if st.button("Generate test cases", type="primary"):
             def work(ctx):  # noqa: ANN001, ANN202
-                return {"count": len(svc.testcases.generate(project, requirements, on_event=ctx.on_event, progress=ctx.reporter, layer=layer))}
+                cases = svc.testcases.generate(project, requirements, on_event=ctx.on_event, progress=ctx.reporter, layer=layer)
+                skipped = svc.testcases.last_skipped.get(project.id, []) if layer == "ui" else []
+                note = (
+                    f" {len(skipped)} scenario(s) could not be designed ({', '.join(skipped[:6])}{'...' if len(skipped) > 6 else ''}): generate again, or add those test cases manually."
+                    if skipped else ""
+                )  # fmt: skip
+                return {"count": len(cases), "note": note}
 
             jobs_ui.start_job(
                 svc, project, "testcases", f"Designing {layer_label(layer)} test cases" if len(project.layers) > 1 else "Designing test cases", guarded(layer, work),
-                notice="{count} test cases generated. Review and approve them.",
+                notice="{count} test cases generated.{note} Review and approve them.",
             )
     if not cases:
         return

@@ -81,9 +81,12 @@ class TestCaseAgent(Agent):
     thinking = True
 
     def generate(self, payload: dict[str, Any], project_id: str = "", on_event: EventCallback | None = None) -> list[TestCase]:
-        return self.invoke(
-            "testcase.generate", payload, TestCaseList, input_model=TestCaseInput, project_id=project_id, on_event=on_event
-        ).test_cases
+        return self.design(payload, project_id, on_event)[0]
+
+    def design(self, payload: dict[str, Any], project_id: str = "", on_event: EventCallback | None = None) -> tuple[list[TestCase], bool]:
+        """The test cases and whether the answer was only partly usable (cut off or with broken items)."""
+        result = self.invoke("testcase.generate", payload, TestCaseList, input_model=TestCaseInput, project_id=project_id, on_event=on_event)
+        return result.test_cases, bool(getattr(result, "_partial", False))
 
     def modify(self, payload: dict[str, Any], project_id: str = "", on_event: EventCallback | None = None) -> ChangeSet:
         return self.invoke(

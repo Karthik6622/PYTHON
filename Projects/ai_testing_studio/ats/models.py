@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 
 def utc_now() -> str:
@@ -163,6 +163,7 @@ class _Model(BaseModel):
     """Tolerant base: unknown keys are ignored and whitespace is trimmed (model output is rarely perfect)."""
 
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+    _partial: bool = PrivateAttr(default=False)  # set on an AI answer of which only the valid part was kept
 
 
 # ----------------------------------------------------------------------------------------

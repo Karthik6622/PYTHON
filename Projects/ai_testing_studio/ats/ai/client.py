@@ -140,10 +140,13 @@ class ModelClient:
             kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": bool(enable)}}
         stream = self._sdk().chat.completions.create(**kwargs)
         parts: list[str] = []
+        finish = ""
         for chunk in stream:
             if not getattr(chunk, "choices", None):
                 continue
-            delta = chunk.choices[0].delta
+            choice = chunk.choices[0]
+            finish = getattr(choice, "finish_reason", None) or finish
+            delta = choice.delta
             reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
             if reasoning and on_event:
                 on_event("reasoning", reasoning)
@@ -153,7 +156,7 @@ class ModelClient:
                     on_event("content", delta.content)
         content = "".join(parts)
         prompt_text = json.dumps([m.get("content") if isinstance(m.get("content"), str) else "[multimodal]" for m in messages])
-        usage = {"prompt_tokens": estimate_tokens(prompt_text), "completion_tokens": estimate_tokens(content)}
+        usage = {"prompt_tokens": estimate_tokens(prompt_text), "completion_tokens": estimate_tokens(content), "truncated": int(finish == "length")}
         if not content.strip():
             raise ModelError("The model returned an empty response.")
         return content, usage

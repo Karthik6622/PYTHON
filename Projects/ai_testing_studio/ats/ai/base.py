@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+import typing
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -12,7 +14,7 @@ from pydantic import BaseModel, ValidationError
 from ats.ai.client import ModelClient, estimate_tokens, extract_json, image_part
 from ats.ai.prompts import get_prompt
 from ats.config import get_settings
-from ats.errors import ModelError, ModelResponseError
+from ats.errors import ModelError, ModelResponseError, ModelTruncatedError
 from ats.logging_setup import get_logger
 from ats.security import mask
 
@@ -41,6 +43,78 @@ def _shrink(value: Any, ratio: float) -> Any:
     if isinstance(value, dict):
         return {key: _shrink(item, ratio ** 0.5) for key, item in value.items()}
     return value
+
+
+def _list_field(model: type[BaseModel]) -> str | None:
+    """The one list-of-items field of an output model such as ``TestCaseList.test_cases`` (None for any other shape)."""
+    lists = [name for name, f in model.model_fields.items() if typing.get_origin(f.annotation) is list]
+    others = [name for name, f in model.model_fields.items() if f.is_required() and name not in lists]
+    return lists[0] if len(lists) == 1 and not others else None
+
+
+def _key(text: str) -> str:
+    return re.sub(r"[^a-z]", "", text.lower())
+
+
+def reshape(value: Any, model: type[BaseModel]) -> Any:
+    """Bring common shape mistakes into the expected form: a bare list, or the list under a differently named key
+    (``testCases``, ``cases``, ``items``...)."""
+    field = _list_field(model)
+    if field is None:
+        return value
+    if isinstance(value, list):
+        return {field: value}
+    if isinstance(value, dict) and field not in value:
+        wanted = _key(field)
+        for key, item in value.items():
+            if isinstance(item, list) and (_key(key) == wanted or _key(key).rstrip("s") == wanted.rstrip("s")):
+                return {**value, field: item}
+        lists = [item for item in value.values() if isinstance(item, list) and item and isinstance(item[0], dict)]
+        if len(lists) == 1:
+            return {**value, field: lists[0]}
+    return value
+
+
+def validate_items(value: Any, model: type[T]) -> tuple[T | None, int]:
+    """For list outputs: keep every item that is valid and drop the broken ones. Returns (result or None, dropped count)."""
+    field = _list_field(model)
+    if field is None or not isinstance(value, dict) or not isinstance(value.get(field), list):
+        return None, 0
+    item_model = typing.get_args(model.model_fields[field].annotation)[0]
+    good, dropped = [], 0
+    for item in value[field]:
+        try:
+            good.append(item_model.model_validate(item) if isinstance(item_model, type) and issubclass(item_model, BaseModel) else item)
+        except ValidationError:
+            dropped += 1
+    if not good:
+        return None, dropped
+    try:
+        return model.model_validate({**value, field: good}), dropped
+    except ValidationError:
+        return None, dropped
+
+
+def salvage_items(text: str) -> list[dict[str, Any]]:
+    """The complete objects at the start of a JSON list that was cut off (an answer that hit the output limit)."""
+    start = text.find("[")
+    if start < 0:
+        return []
+    decoder = json.JSONDecoder()
+    items: list[dict[str, Any]] = []
+    index = start + 1
+    while index < len(text):
+        while index < len(text) and text[index] in " \t\r\n,":
+            index += 1
+        if index >= len(text) or text[index] != "{":
+            break
+        try:
+            item, index = decoder.raw_decode(text, index)
+        except ValueError:
+            break  # the last object was cut off
+        if isinstance(item, dict):
+            items.append(item)
+    return items
 
 
 class Agent:
@@ -97,23 +171,38 @@ class Agent:
                 )
                 prompt_tokens += usage.get("prompt_tokens", 0)
                 completion_tokens += usage.get("completion_tokens", 0)
+                truncated = bool(usage.get("truncated"))
+                parsed: Any = None
                 try:
-                    result = output_model.model_validate(extract_json(raw))
+                    parsed = reshape(extract_json(raw), output_model)
+                    result = output_model.model_validate(parsed)
                     self._record(project_id, attempts, prompt_tokens, completion_tokens, started, True, "")
                     return result
                 except (ValueError, ValidationError) as exc:
                     error = mask(str(exc))[:600]
-                    LOGGER.warning("%s: invalid model output (attempt %s): %s", self.name, attempts, error[:200])
-                    messages.extend(
-                        [
-                            {"role": "assistant", "content": raw[:6000]},
-                            {
-                                "role": "user",
-                                "content": "Your reply was not valid for the required schema: "
-                                f"{error}\nReturn ONLY the corrected JSON object.",
-                            },
-                        ]
-                    )
+                # a list answer with a few broken items, or one that was cut off: keep every complete, valid item
+                partial, dropped = validate_items(parsed, output_model) if parsed is not None else (None, 0)
+                if partial is None and _list_field(output_model):
+                    partial, dropped = validate_items({_list_field(output_model): salvage_items(raw)}, output_model)
+                if partial is not None:
+                    LOGGER.warning("%s: kept the valid part of the answer (dropped %s item(s), cut off: %s)", self.name, dropped, truncated)
+                    self._record(project_id, attempts, prompt_tokens, completion_tokens, started, True, f"partial answer, {dropped} item(s) dropped")
+                    if hasattr(partial, "_partial"):
+                        partial._partial = True
+                    return partial
+                if truncated:
+                    raise ModelTruncatedError("The AI model's answer was too long and was cut off. Ask for less at a time.")
+                LOGGER.warning("%s: invalid model output (attempt %s): %s", self.name, attempts, error[:200])
+                messages.extend(
+                    [
+                        {"role": "assistant", "content": raw[:6000]},
+                        {
+                            "role": "user",
+                            "content": "Your reply was not valid for the required schema: "
+                            f"{error}\nReturn ONLY the corrected JSON object.",
+                        },
+                    ]
+                )
             raise ModelResponseError("The AI model kept returning malformed output. Try again or simplify the request.")
         except ModelError as exc:
             self._record(project_id, max(attempts, 1), prompt_tokens, completion_tokens, started, False, str(exc))

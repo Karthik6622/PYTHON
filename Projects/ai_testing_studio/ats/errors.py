@@ -25,6 +25,12 @@ class ModelResponseError(ModelError):
     default_message = "The AI model returned a response that could not be used."
 
 
+class ModelTruncatedError(ModelResponseError):
+    """The reply hit the output limit and was cut off: asking again for the same amount cannot work, ask for less."""
+
+    default_message = "The AI model's answer was too long and was cut off."
+
+
 class DiscoveryError(StudioError):
     default_message = "The website could not be analysed."
 

@@ -3,23 +3,27 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from ats.ai.agents import ApiTestCaseAgent, MobileTestCaseAgent, TestCaseAgent
 from ats.api import design as api_design
 from ats.api.models import endpoint_digest as api_endpoint_digest
 from ats.discovery.service import build_digest
-from ats.errors import GenerationError
+from ats.errors import GenerationError, ModelResponseError
 from ats.generation.common import apply_changeset, next_id, norm_title, valid_id
 from ats.generation.scenarios import _application
+from ats.logging_setup import get_logger
 from ats.mobile import design as mobile_design
 from ats.models import Scenario, TestCase
 from ats.progress import report
 from ats.repository import Project, Repository
 from ats.security import mask
 
+LOGGER = get_logger("generation.testcases")
 EventCallback = Callable[[str, str], None]
-BATCH_SIZE = 5
+BATCH_SIZE = 3  # scenarios per model request: small enough that the answer (several detailed test cases each) is never cut off
+PARALLEL_REQUESTS = 3
 API_BATCH_SIZE = 4
 MOBILE_BATCH_SIZE = 4
 
@@ -33,6 +37,7 @@ class TestCaseService:
         self._api_agent = api_agent
         self._mobile_agent = mobile_agent
         self.connections = connections  # supplies the saved connection NAMES for API test design
+        self.last_skipped: dict[str, list[str]] = {}  # project id -> scenarios the last generation could not design
 
     @property
     def api_agent(self) -> ApiTestCaseAgent:
@@ -70,28 +75,61 @@ class TestCaseService:
         discovery = self.repo.latest_successful_discovery(project.id)
         if discovery is None:
             raise GenerationError("Run website discovery first.")
-        collected: list[TestCase] = []
         taken: set[str] = self._other_ids(project.id, "ui")
         known_scenarios = {s.scenario_id for s in approved}
-        batches = -(-len(approved) // BATCH_SIZE)
-        for number, start in enumerate(range(0, len(approved), BATCH_SIZE)):
-            batch = approved[start : start + BATCH_SIZE]
-            report(
-                progress, f"Designing test cases for scenarios {start + 1}-{start + len(batch)} of {len(approved)}",
-                0.02 + 0.93 * number / batches, 0.02 + 0.93 * (number + 1) / batches,
-            )
+        batches = [approved[i : i + BATCH_SIZE] for i in range(0, len(approved), BATCH_SIZE)]
+        designed: dict[int, list[TestCase]] = {}
+        skipped: list[str] = []
+        done = 0
+
+        def design(batch: list[Scenario]) -> list[TestCase]:
+            """Ask for a batch; an answer that is cut off or unusable is asked for again in halves, down to one scenario."""
             payload = {
                 "scenarios": [s.model_dump() for s in batch], "application": _application(project, discovery),
                 "discovery": build_digest(discovery, max_items=25), "elements": self._elements_for(project.id, discovery, batch),
                 "user_requirements": requirements or project.test_data_notes, "existing_test_case_ids": sorted(taken),
             }  # fmt: skip
-            raw = self.agent.generate(payload, project_id=project.id, on_event=on_event)
-            collected.extend(self._clean(raw, known_scenarios, taken, collected))
+            try:
+                cases, partial = self.agent.design(payload, project_id=project.id, on_event=on_event)
+            except ModelResponseError as exc:
+                if len(batch) == 1:
+                    LOGGER.warning("No test cases for %s: %s", batch[0].scenario_id, exc.user_message)
+                    skipped.append(batch[0].scenario_id)
+                    return []
+                half = len(batch) // 2
+                return design(batch[:half]) + design(batch[half:])
+            if partial and cases and len(batch) > 1:  # the answer stopped inside its last scenario: that one is asked for again
+                last = cases[-1].scenario_id
+                cases = [c for c in cases if c.scenario_id != last]
+            covered = {c.scenario_id for c in cases}
+            missing = [s for s in batch if s.scenario_id not in covered]
+            if not missing:
+                return cases
+            if len(batch) == 1:
+                skipped.append(batch[0].scenario_id)
+                return cases
+            for scenario in missing:  # what the answer left out (or lost when it was cut off) is asked for on its own
+                cases += design([scenario])
+            return cases
+
+        def run(index: int) -> None:
+            nonlocal done
+            designed[index] = design(batches[index])
+            done += 1
+            report(progress, f"Designed test cases for {min(done * BATCH_SIZE, len(approved))} of {len(approved)} scenarios", 0.02 + 0.93 * done / len(batches))
+
+        report(progress, f"Designing test cases for {len(approved)} scenarios ({len(batches)} request(s), {PARALLEL_REQUESTS} at a time)", 0.02)
+        with ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS) as pool:  # independent model calls
+            list(pool.map(run, range(len(batches))))
+        collected: list[TestCase] = []
+        for index in range(len(batches)):  # ids are assigned in scenario order, whatever order the answers came back in
+            collected.extend(self._clean(designed.get(index, []), known_scenarios, taken, collected))
+        self.last_skipped[project.id] = sorted(set(skipped))
         report(progress, "Saving the test cases", 0.97)
         if not collected:
             raise GenerationError("The model did not return usable test cases. Try again.")
         self.repo.save_test_cases(project.id, collected, replace=True, layer="ui")
-        self.repo.audit(project.id, "agent:test_case", "testcases.generated", "test_case", {"count": len(collected), "scenarios": len(approved)})
+        self.repo.audit(project.id, "agent:test_case", "testcases.generated", "test_case", {"count": len(collected), "scenarios": len(approved), "skipped": sorted(set(skipped))})
         return collected
 
     def _generate_api(self, project: Project, requirements: str, on_event: EventCallback | None, progress: Any) -> list[TestCase]:
