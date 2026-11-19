@@ -13,7 +13,7 @@
         "pages/my_profile_page.py": "d33467a7a0c057a747dce53a66a0310a066ac723",
         "pages/settings_page.py": "9468a7d9c3e9b705cf60406273bf1339a8076454",
         "tests/web/conftest.py": "e8f5015a91f9e1a034fbf0efad002ab68b1720b5",
-        "tests/web/test_authentication.py": "ec252d1e0d69bd488ea583f9a21f13edf5b0ceab",
+        "tests/web/test_authentication.py": "0c2dd6af4630ddaac42d36782daf5557ae7bb68c",
         "tests/web/test_chat.py": "2907d5c5067a94ad544b0c6881d9cc9f9dd5f4f5",
         "tests/web/test_profile.py": "a31032816ac351218b60103a296a421b1e21e693",
         "tests/web/test_settings.py": "7031da5511affb79caec70627d974f69ef68fbeb",

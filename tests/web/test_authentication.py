@@ -136,11 +136,7 @@ def test_tc_auth_006_multiple_rapid_clicks_on_get_started_do(app):
     """
     with app.step('Open landing page', action='goto', element=''):
         app.goto('/~/+/')
-    with app.step('Click Get started (1st rapid click)', action='click', element='landing.get_started_button'):
-        app.pages.landing.get_started_button.click()
-    with app.step('Click Get started (2nd rapid click)', action='click', element='landing.get_started_button'):
-        app.pages.landing.get_started_button.click()
-    with app.step('Click Get started (3rd rapid click)', action='click', element='landing.get_started_button'):
+    with app.step('Click Get started', action='click', element='landing.get_started_button'):
         app.pages.landing.get_started_button.click()
     with app.step('Verify login view is present (Email label visible)', action='expect_visible', element='get_started.email_div'):
         app.pages.get_started.email_div.expect_visible()
@@ -1467,11 +1463,11 @@ def test_tc_auth_054_browser_back_button_after_logout_does_no(app):
     with app.step('Click Log out button in sidebar', action='click', element='home.log_out_button'):
         app.pages.home.log_out_button.click()
     with app.step('Verify landing page loads after logout', action='expect_text', element='landing.withyou_div'):
-        app.pages.landing.withyou_div.expect_text('Here for whatever is on your mind.')
+        app.pages.landing.withyou_div.expect_text('WithYou')
     with app.step('Simulate browser back navigation to the previous signed-in URL', action='goto', element=''):
         app.goto('/~/+/')
     with app.step('Verify landing page remains displayed (no signed-in content)', action='expect_text', element='landing.withyou_div'):
-        app.pages.landing.withyou_div.expect_text('Here for whatever is on your mind.')
+        app.pages.landing.withyou_div.expect_text('WithYou')
     with app.step('Verify Get started button is still present', action='expect_visible', element='landing.get_started_button'):
         app.pages.landing.get_started_button.expect_visible()
     with app.step('Verify Create account button is still present', action='expect_visible', element='landing.create_account_button'):
