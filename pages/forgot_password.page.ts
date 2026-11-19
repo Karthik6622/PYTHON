@@ -1,0 +1,26 @@
+import type { Locator } from '@playwright/test';
+import { BasePage } from './base.page';
+
+export class ForgotPasswordPage extends BasePage {
+  readonly path = "/~/+/";
+
+  /** Email */
+  get email_textbox(): Locator {
+    return this.locator("forgot_password.email_textbox");
+  }
+
+  /** Continue */
+  get continue_button(): Locator {
+    return this.locator("forgot_password.continue_button");
+  }
+
+  /** Back to log in */
+  get back_to_log_in_button(): Locator {
+    return this.locator("forgot_password.back_to_log_in_button");
+  }
+
+  /** Enter the email address on your account. */
+  get enter_the_email_address_on_your_account_div(): Locator {
+    return this.locator("forgot_password.enter_the_email_address_on_your_account_div");
+  }
+}

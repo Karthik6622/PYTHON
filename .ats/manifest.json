@@ -1,0 +1,33 @@
+{
+  "channels": {
+    "web": {
+      "files": {
+        "config/locators.json": "bf5599d4ab85e992abc04e45a4475467cf02e128",
+        "package.json": "c640e6d3d9eb1cef87f6a0785b11c71917fee7ef",
+        "pages/base.page.ts": "cdee1ef8fe506ddac32dee6690f7969fdba6a973",
+        "pages/create_account.page.ts": "4f359714783f0037750d84ba90f535adf897b84d",
+        "pages/forgot_password.page.ts": "46ddb022397e41230223a98ef57ba4e179c66feb",
+        "pages/get_started.page.ts": "21adabcc6abe95a3d20a731ba1891331e29e2340",
+        "pages/home.page.ts": "1e3aca4159edda2a2e64a71d4301c08269e13935",
+        "pages/index.ts": "a42858da53da5dad571be1c21986bcf202640d6d",
+        "pages/landing.page.ts": "d88f0f7d7898666a90b0e63661370566429eb10f",
+        "pages/my_profile.page.ts": "9fe375a9def7738524a96765592b60a211ab3a4b",
+        "pages/settings.page.ts": "f2801ca84f89162d196410f4db500f43999c177f",
+        "playwright.config.ts": "83f105dae15e3cc90ac36bfa3c985cea4eb1ff24",
+        "tests/authentication.spec.ts": "6612d62e13df9128a866906070440d2c1ef38669",
+        "tests/chat.spec.ts": "c218c283777e923a0ae4f3d89a61092edf2ce3fb",
+        "tests/navigation.spec.ts": "429c4cebe667510da5333210d1ba4d10e5fc3a2e",
+        "tests/profile.spec.ts": "24b51f2d3532c1bcfc01f6831dedde15d36ea2b5",
+        "tests/settings.spec.ts": "85a98485c2c90ddaf7afd7eeca673d84be79a132",
+        "tests/ui.spec.ts": "b106bed3fa49b013bb1c8ebdcdfac617c2969443",
+        "tsconfig.json": "c912a302172a26c5e347f787e81a1223e80773fe",
+        "utils/app.ts": "328f3618a88fb091e6d0988922e86dbc448e4f97",
+        "utils/fixtures.ts": "34c7feaa6581f92b8036f06b39432705822dc2c8",
+        "utils/locators.ts": "3f097ab33a385aca4507ad99b972cb5907ead715"
+      },
+      "framework": "playwright_typescript"
+    }
+  },
+  "generator": "ai-testing-studio",
+  "version": 1
+}
