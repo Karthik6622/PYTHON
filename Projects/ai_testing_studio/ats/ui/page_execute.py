@@ -136,12 +136,19 @@ def summary(svc: Services, execution: dict) -> None:
     fix = totals.get("autofix") or {}
     if fix:
         parts = []
-        if fix.get("repaired") or fix.get("healed_locators") or fix.get("promoted"):
-            parts.append(f"{len(fix.get('repaired', []))} script repair(s), {len(fix.get('healed_locators', [])) + len(fix.get('promoted', []))} locator fix(es)")
+        relocated, repaired = len(fix.get("relocated", [])), len(fix.get("repaired", []))
+        if relocated or repaired:
+            parts.append(f"{relocated + repaired} test(s) fixed and verified by a re-run ({relocated} by finding the element again on the live page, {repaired} by a script repair)")
+        if fix.get("healed_locators") or fix.get("promoted"):
+            parts.append(f"{len(set(fix.get('healed_locators', [])) | set(fix.get('promoted', [])))} locator(s) updated")
+        if fix.get("intermittent"):
+            parts.append(f"{len(fix['intermittent'])} passed on a re-run without changes (intermittent)")
+        if fix.get("rounds"):
+            parts.append(f"{fix['rounds']} attempt(s)")
         if fix.get("pushed"):
             parts.append(f"pushed to branch `{fix.get('branch')}`")
         if fix.get("defects") or fix.get("unresolved"):
-            parts.append(f"{len(fix.get('defects', [])) + len(fix.get('unresolved', []))} failure(s) reported for review")
+            parts.append(f"{len(fix.get('defects', [])) + len(fix.get('unresolved', []))} failure(s) still failing after 3 attempts, reported for review")
         if parts:
             st.info("Auto-fix: " + "; ".join(parts) + ".")
         if fix.get("push_error"):

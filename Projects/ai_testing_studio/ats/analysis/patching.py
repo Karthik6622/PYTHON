@@ -17,8 +17,11 @@ class PatchError(ValueError):
     pass
 
 
-def patch_locators(files: dict[str, str], element_key: str, new: Selector, selenium: bool) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
-    """Return (new files, old entry, new entry). The previous preferred selector is kept as an alternative; nothing else changes."""
+def patch_locators(
+    files: dict[str, str], element_key: str, new: Selector, selenium: bool, extra: list[Selector] | None = None
+) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
+    """Return (new files, old entry, new entry). ``extra`` (selectors verified next to ``new``) come first among the alternatives, then
+    the previous preferred selector and the old alternatives; nothing else changes."""
     try:
         data = json.loads(files[LOCATOR_FILE])
     except (KeyError, ValueError) as exc:
@@ -30,7 +33,7 @@ def patch_locators(files: dict[str, str], element_key: str, new: Selector, selen
     previous = Selector.model_validate(entry["preferred"])
     if previous.identity() == new.identity():
         raise PatchError("The proposed selector is the same as the current one.")
-    alternatives = [previous] + [Selector.model_validate(a) for a in entry.get("alternatives", [])]
+    alternatives = [*(extra or []), previous] + [Selector.model_validate(a) for a in entry.get("alternatives", [])]
     seen = {new.identity()}
     kept = [s for s in alternatives if not (s.identity() in seen or seen.add(s.identity()))]
     entry["preferred"] = new.model_dump(exclude_none=True)

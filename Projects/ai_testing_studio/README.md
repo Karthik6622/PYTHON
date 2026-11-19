@@ -159,25 +159,42 @@ were running are marked *Interrupted* and can be started again. Jobs started fro
 * Discovery records, for every view, the clicks that open it (`config/views.json`) and verifies on the live page how many elements each
   candidate selector matches; unique selectors are ranked first, ambiguous ones last. Icon-font text (`add`, `keyboard_arrow_left`) is not
   part of an element's name, exactly like in Playwright's accessibility tree.
+* Locator order: an application's own test id, then what a person sees (role + accessible name, label, placeholder), then id / name, then
+  visible text, and positional CSS / XPath last. Framework widget markers (Streamlit's `stBaseButton-primary`, `stTextInput`..., MUI,
+  Chakra, Ant) and test ids shared by several elements of the app are never the preferred selector: they say *what kind* of widget it is,
+  not *which* one. CSS paths through ids generated at run time (React Aria, Radix) are dropped, and layout wrappers and the label text
+  inside buttons are not recorded as separate elements.
 * The generated runtime (`utils/app.py`, `utils/nav.py`, shared with discovery) opens the application (waking a sleeping Streamlit Cloud app
-  and stepping into its embedded frame), signs in with the credentials of the environment variables named in `config/auth.json`, replays the
-  recorded clicks to reach the view a test starts on, waits for single-page apps to settle, and clicks like a person (forced / DOM click when a
-  styled radio or checkbox hides the real input).
-* Elements are resolved with the preferred selector first and the recorded alternatives next; a selector that only worked as a fallback is
-  written to `reports/evidence/<id>/fallbacks.json` and promoted to the preferred selector by auto-fix.
+  and stepping into its embedded frame - remembered for the rest of the run), signs in with the credentials of the environment variables named
+  in `config/auth.json`, replays the recorded clicks to reach the view a test starts on, waits for single-page apps to settle (Streamlit's
+  running indicator, skeletons and stale elements count as "still loading"), and clicks like a person (forced / DOM click when a styled radio
+  or checkbox hides the real input).
+* Elements are resolved with the preferred selector first, the recorded alternatives next, then the element's fingerprint (role and name,
+  label, placeholder, text). Whatever worked instead of the preferred selector is written to `reports/evidence/<id>/fallbacks.json` and
+  promoted by auto-fix. When the page has finished rendering and the element is still not there, the step fails after `IDLE_GIVE_UP`
+  seconds (default 5) with "Element not found" instead of waiting for the full timeout.
+* Python projects run in parallel browsers (pytest-xdist): one per ~0.6 GB of free memory, 1 to 4, or `EXECUTION_WORKERS`.
 
 ## Execution results, auto-fix and failure reports
 
 1. Execute shows the stage timeline (prepare, run, analyze, auto-fix, report), a per-test live table and the runner log.
-2. Every failure is classified from its evidence (error, DOM at the failure, screenshot, executed steps).
-3. With **Auto-fix** on (default) the studio repairs what is the automation's fault: fallback selectors are promoted, stale locators are healed
-   against the failing DOM, and the Test Repair agent fixes scripts (wrong start view, missing click or wait, wrong sequence) with exact,
-   validated text replacements. It never deletes or weakens an assertion and never hardcodes credentials. Repaired tests are re-run
-   (up to `AUTOFIX_MAX_ROUNDS`, default 3); a pass is reported as **HEALED**, not PASS.
-4. The fixed project is saved to the bundle and pushed to the project's GitHub branch (needs the project's token from the GitHub page).
-5. What is left is either a proven application defect (the repair agent verified the automation is right) or something that could not be fixed
-   automatically. Both become a **failure report** with steps to reproduce, expected vs actual result and evidence, ready to share with the customer.
+2. Every failure is classified at once from its evidence (error, DOM at the failure, executed steps) by deterministic rules.
+3. With **Auto-fix** on (default) the studio works on **every** failing test, in up to `AUTOFIX_MAX_ROUNDS` attempts (default 3):
+   * every failing element is looked for again **on the live application**: each needed view is opened exactly like the tests open it
+     (sign-in, recorded clicks), in parallel browsers, and the element is matched by what a person sees; a replacement is used only when one
+     element clearly matches and its new selector matches exactly one element on the live page;
+   * every failing test a locator change does not cover gets an AI script repair (wrong start view, missing click or wait, wrong sequence),
+     applied as exact, validated text replacements one after another, so several repairs in one file never overwrite each other. It never
+     deletes or weakens an assertion and never hardcodes credentials;
+   * all affected tests are re-run together; a pass after a change is **HEALED** (never PASS), a pass without any change is reported as
+     intermittent (INCONCLUSIVE), and what still fails goes into the next attempt with what was learned.
+4. All verified fixes are saved to the bundle and pushed to the project's GitHub branch in one commit (needs the project's token from the GitHub page).
+5. What still fails after the last attempt gets the AI failure analysis and becomes a **failure report** with steps to reproduce, expected vs
+   actual result and evidence, ready to share with the customer.
 6. With Auto-fix off, the previous policies apply: `manual` (a person approves each locator fix) or `auto_pr` (a pull request with verified fixes).
+
+`bench/run_bench.py` measures all of this on a local Streamlit app shaped like a real one (`--hard` changes the app after discovery,
+`--autofix` runs the repair loop); it needs no AI model.
 
 ## GitHub
 

@@ -22,6 +22,7 @@ from ats.analysis.findings import Finding
 from ats.analysis.healing import HealingEngine
 from ats.analysis.patching import LOCATOR_FILE, PatchError, entry_diff, patch_locators
 from ats.analysis.pipeline import FailureAnalyzer, locator_index
+from ats.analysis.relocate import Relocation, Relocator
 from ats.automation.bundle_store import BundleStore
 from ats.automation.script_service import check_syntax
 from ats.errors import StudioError
@@ -34,14 +35,9 @@ from ats.security import mask, mask_obj
 
 LOGGER = get_logger("analysis.autofix")
 VIEWS_FILE = "config/views.json"
-REPAIRABLE = {
-    FailureCategory.AUTOMATION_ISSUE.value, FailureCategory.LOCATOR_DRIFT.value, FailureCategory.TIMEOUT.value,
-    FailureCategory.UNKNOWN.value, FailureCategory.ASSERTION.value,
-}  # fmt: skip
 PushFn = Callable[[Any, dict[str, str], str], "dict[str, Any] | None"]
 MAX_FUNCTION_CHARS = 7000
-MAX_ATTEMPTS_PER_TEST = 2
-PARALLEL_CALLS = 3
+PARALLEL_CALLS = 5
 
 
 class RepairRejected(ValueError):
@@ -115,11 +111,12 @@ def test_function(files: dict[str, str], test_case_id: str) -> tuple[str, str]:
 class AutoFixer:
     def __init__(
         self, repo: Repository, executor: ExecutionService, analyzer: FailureAnalyzer, healer: HealingEngine, store: BundleStore,
-        agent: ScriptGenerationAgent | None = None, push: PushFn | None = None,
+        agent: ScriptGenerationAgent | None = None, push: PushFn | None = None, relocator: Relocator | None = None,
     ) -> None:  # fmt: skip
         self.repo, self.executor, self.analyzer, self.healer, self.store = repo, executor, analyzer, healer, store
         self.agent = agent or ScriptGenerationAgent(repository=repo)
         self.push = push
+        self.relocator = relocator or Relocator()
 
     # ------------------------------------------------------------------ 1. selectors that only worked through a fallback
     def promotions(self, ctx: ExecutionContext) -> dict[str, tuple[Selector, list[str]]]:
@@ -156,7 +153,7 @@ class AutoFixer:
         return files
 
     # ------------------------------------------------------------------ 2. AI repair of the script
-    def _payload(self, ctx: ExecutionContext, finding: Finding, files: dict[str, str], previous: list[dict[str, Any]]) -> dict[str, Any]:
+    def _payload(self, ctx: ExecutionContext, finding: Finding, files: dict[str, str], previous: list[dict[str, Any]], live: Relocation | None = None) -> dict[str, Any]:
         rel, source = test_function(files, finding.test_case_id)
         evidence = finding.result.get("evidence") or {}
         steps = evidence.get("steps") or []
@@ -179,12 +176,15 @@ class AutoFixer:
                 "locators": {k: v for k, v in locators.items() if k in used}, "view": {view_key: views.get(view_key)} if view_key in views else {},
                 "dom_excerpt": dom.excerpt(finding.html) if finding.html else "", "page_url": finding.url, "rule_hint": finding.hint.as_dict(),
                 "previous_attempts": previous,
+                "live_check": (
+                    {"element": live.key, "result": live.status, "detail": live.detail, "found_on_view": live.found_on_view} if live is not None else {}
+                ),
             }
         )  # fmt: skip
 
-    def repair(self, ctx: ExecutionContext, finding: Finding, files: dict[str, str], previous: list[dict[str, Any]]) -> RepairResult:
+    def repair(self, ctx: ExecutionContext, finding: Finding, files: dict[str, str], previous: list[dict[str, Any]], live: Relocation | None = None) -> RepairResult:
         try:
-            return self.agent.repair(self._payload(ctx, finding, files, previous), ctx.project.id)
+            return self.agent.repair(self._payload(ctx, finding, files, previous, live), ctx.project.id)
         except StudioError as exc:
             LOGGER.warning("Repair agent unavailable for %s: %s", finding.test_case_id, exc.user_message)
             return RepairResult(verdict="cannot_determine", explanation=f"The AI repair agent was not available: {exc.user_message}")
@@ -207,79 +207,153 @@ class AutoFixer:
 
     # ------------------------------------------------------------------ orchestration
     def run(self, ctx: ExecutionContext, findings: list[Finding], max_rounds: int, progress: ProgressFn | None = None) -> dict[str, Any]:
-        """Repair what can be repaired. Returns a summary and leaves still-failing findings categorised for the defect report."""
-        summary: dict[str, Any] = {"promoted": [], "healed_locators": [], "repaired": [], "defects": [], "unresolved": [], "pushed": None, "rounds": 0}
+        """Repair every failing test, verify each repair by re-running it, keep what passes and push it once at the end.
+
+        Each attempt (up to ``max_rounds``, default 3) works on ALL tests that still fail:
+          1. every failing element is looked for again on the live application (views opened like the tests open them) and the
+             verified selector is patched into the locator file;
+          2. every failing test that a locator change does not cover gets an AI repair of its script (applied one after another,
+             so several repairs in one file never overwrite each other);
+          3. all still-failing tests are re-run together, in parallel browsers;
+          4. a test that passes after a change is HEALED and its change is kept; a test that passes without any change was
+             intermittent; the rest go into the next attempt with what was learned.
+        What still fails after the last attempt is left for the failure report."""
+        summary: dict[str, Any] = {
+            "promoted": [], "relocated": [], "healed_locators": [], "repaired": [], "intermittent": [], "defects": [], "unresolved": [],
+            "pushed": None, "rounds": 0,
+        }  # fmt: skip
         files = dict(ctx.files)
         original = dict(files)
+        selenium = ctx.framework.startswith("selenium")
 
         report(progress, "Promoting selectors that only worked through a fallback", 0.8)
         files = self._promote(ctx, files, summary)
 
         pending = [f for f in findings if self._failing(ctx, f)]
-        drift = [f for f in pending if f.analysis.category == FailureCategory.LOCATOR_DRIFT and HealingEngine.eligible(f)[0]]
-        if drift:
-            report(progress, f"Healing {len(drift)} locator(s) and re-running the affected tests", 0.82)
-            files = self._heal_locators(ctx, drift, files, summary)
-            pending = [f for f in findings if self._failing(ctx, f)]
+        history: dict[str, list[dict[str, Any]]] = {}
+        rounds = max(max_rounds, 0)
+        for attempt in range(1, rounds + 1):
+            if not pending:
+                break
+            summary["rounds"] = attempt
+            base = 0.8 + 0.16 * (attempt - 1) / max(rounds, 1)
+            step = 0.16 / max(rounds, 1)
+            candidate = dict(files)
+            changed_for: dict[str, list[str]] = {}  # test id -> what was changed for it in this attempt
+            patched_keys: dict[str, tuple[dict[str, Any], dict[str, Any], str]] = {}
 
-        previous: dict[str, list[dict[str, Any]]] = {}
-        for round_no in range(1, max(max_rounds, 0) + 1):
-            candidates = [f for f in pending if f.analysis.category.value in REPAIRABLE and len(previous.get(f.test_case_id, [])) < MAX_ATTEMPTS_PER_TEST]
-            if not candidates:
-                break
-            summary["rounds"] = round_no
-            span = 0.12 / max(max_rounds, 1)
-            report(progress, f"Auto-fix round {round_no}/{max_rounds}: repairing {len(candidates)} test(s)", 0.84 + span * (round_no - 1))
-            plans: dict[str, tuple[dict[str, str], RepairResult]] = {}
-            with ThreadPoolExecutor(max_workers=PARALLEL_CALLS) as pool:  # the model calls are independent: ask for all repairs at once
-                results = list(pool.map(lambda f: self.repair(ctx, f, files, previous.get(f.test_case_id, [])), candidates))
-            for finding, result in zip(candidates, results, strict=True):
-                if result.verdict == "application_defect":
-                    finding.analysis.category = FailureCategory.APPLICATION_DEFECT
-                    finding.analysis.automation_fixable = False
-                    finding.analysis.summary = result.explanation or finding.analysis.summary
-                    finding.notes.append("The repair agent verified that the automation is correct: the application does not behave as expected.")
-                    summary["defects"].append(finding.test_case_id)
-                    continue
-                if result.verdict != "fixed":
-                    previous.setdefault(finding.test_case_id, []).append({"verdict": result.verdict, "why": result.explanation})
-                    continue
-                try:
-                    plans[finding.test_case_id] = (apply_repair(files, result), result)
-                except RepairRejected as exc:
-                    previous.setdefault(finding.test_case_id, []).append({"rejected": str(exc), "why": result.explanation})
-                    finding.notes.append(f"A proposed repair was refused: {exc}")
-            if not plans:
-                break
-            candidate_files = dict(files)
-            for new_files, _ in plans.values():
-                candidate_files.update({rel: text for rel, text in new_files.items() if text != files.get(rel)})
-            report(progress, f"Auto-fix round {round_no}/{max_rounds}: re-running {len(plans)} repaired test(s)", 0.84 + span * (round_no - 0.5))
-            rerun_ctx, run_id = self._rerun(ctx, candidate_files, sorted(plans))
+            # 1. live locator search for every failing element
+            keys = sorted({f.element_key for f in pending if f.element_key})
+            live = {}
+            if keys:
+                report(progress, f"Attempt {attempt}/{rounds}: looking for {len(keys)} failing element(s) on the live application", base)
+                live = self.relocator.run(candidate, ctx.project.app_base_url, keys, ctx.secrets, ctx.project.limits.ignore_https_errors)
+                for key, found in live.items():
+                    if found.status != "relocated" or found.selector is None:
+                        continue
+                    try:
+                        candidate, old_entry, new_entry = patch_locators(candidate, key, found.selector, selenium, found.alternatives)
+                    except PatchError:
+                        continue
+                    patched_keys[key] = (old_entry, new_entry, found.detail)
+                for finding in pending:
+                    if finding.element_key in patched_keys:
+                        changed_for.setdefault(finding.test_case_id, []).append(f"locator {finding.element_key}: {patched_keys[finding.element_key][2]}")
+
+            # 2. AI repair of the scripts the locator search does not cover
+            needs_ai = [f for f in pending if f.test_case_id not in changed_for]
+            edits: dict[str, RepairResult] = {}
+            if needs_ai:
+                report(progress, f"Attempt {attempt}/{rounds}: repairing {len(needs_ai)} test script(s)", base + step * 0.25)
+                with ThreadPoolExecutor(max_workers=PARALLEL_CALLS) as pool:  # independent model calls: ask for all repairs at once
+                    results = list(pool.map(lambda f: self.repair(ctx, f, candidate, history.get(f.test_case_id, []), live.get(f.element_key)), needs_ai))
+                for finding, result in zip(needs_ai, results, strict=True):
+                    if result.verdict == "application_defect":
+                        finding.analysis.category = FailureCategory.APPLICATION_DEFECT
+                        finding.analysis.automation_fixable = False
+                        finding.analysis.summary = result.explanation or finding.analysis.summary
+                        finding.notes.append("The repair agent verified that the automation is correct: the application does not behave as expected.")
+                        summary["defects"].append(finding.test_case_id)
+                        continue
+                    if result.verdict != "fixed":
+                        history.setdefault(finding.test_case_id, []).append({"attempt": attempt, "verdict": result.verdict, "why": result.explanation})
+                        continue
+                    try:
+                        candidate = apply_repair(candidate, result)  # on top of the earlier repairs of this attempt
+                    except RepairRejected as exc:
+                        history.setdefault(finding.test_case_id, []).append({"attempt": attempt, "rejected": str(exc), "why": result.explanation})
+                        finding.notes.append(f"A proposed repair was refused: {exc}")
+                        continue
+                    edits[finding.test_case_id] = result
+                    changed_for.setdefault(finding.test_case_id, []).append(f"script: {result.explanation or 'repaired'}")
+            pending = [f for f in pending if f.test_case_id not in summary["defects"]]
+            # the first re-run covers every failing test (it also tells intermittent failures apart); later ones only what changed
+            to_run = pending if attempt == 1 else [f for f in pending if f.test_case_id in changed_for]
+            if not to_run:
+                continue
+
+            # 3. one re-run of the tests to verify
+            report(progress, f"Attempt {attempt}/{rounds}: re-running {len(to_run)} test(s)", base + step * 0.6)
+            rerun_ctx, run_id = self._rerun(ctx, candidate, sorted(f.test_case_id for f in to_run))
             if rerun_ctx is None:
                 break
             rows = {r["test_case_id"]: r for r in self.repo.list_results(run_id)}
+            files = self._promote(rerun_ctx, files, summary)  # elements the re-run only found by fingerprint: that selector worked live
             index = locator_index(rerun_ctx, self.repo)
-            keep: dict[str, str] = {}
-            for finding in candidates:
-                plan = plans.get(finding.test_case_id)
-                if plan is None:
-                    continue
-                new_files, result = plan
-                row = rows.get(finding.test_case_id) or {"status": Status.SKIPPED.value}
+
+            # 4. keep what was verified
+            keep_keys: set[str] = set()
+            run_ids = {f.test_case_id for f in to_run}
+            still: list[Finding] = [f for f in pending if f.test_case_id not in run_ids]
+            for finding in to_run:
+                row = rows.get(finding.test_case_id) or {"status": Status.SKIPPED.value, "message": "The test did not run in the re-run."}
+                what = changed_for.get(finding.test_case_id, [])
                 if row["status"] == Status.PASS.value:
-                    self._mark_fixed(ctx, finding, result.explanation or "The automation was repaired and the test now passes.", diff_text(files, new_files), run_id)
-                    keep.update({rel: text for rel, text in new_files.items() if text != files.get(rel)})
-                    summary["repaired"].append(finding.test_case_id)
-                elif row["status"] == Status.FAIL.value:
-                    previous.setdefault(finding.test_case_id, []).append({"repair": result.explanation, "still_failing": mask(str(row.get("message", "")))[:300]})
-                    follow = self.analyzer.build(rerun_ctx, row, index)
-                    self.analyzer.analyze(rerun_ctx, follow)
-                    finding.failure, finding.html, finding.error, finding.element_key = follow.failure, follow.html, follow.error, follow.element_key
-                    finding.hint, finding.result = follow.hint, {**finding.result, "evidence": row.get("evidence") or {}}
-                    finding.analysis = follow.analysis
-            files = {**files, **keep}
-            pending = [f for f in findings if self._failing(ctx, f)]
+                    if finding.element_key in patched_keys:
+                        keep_keys.add(finding.element_key)
+                    if not what:
+                        self._mark_intermittent(ctx, finding, run_id)
+                        summary["intermittent"].append(finding.test_case_id)
+                        continue
+                    result = edits.get(finding.test_case_id)
+                    before = dict(files)
+                    if result is not None:
+                        try:
+                            files = apply_repair(files, result)  # only this test's own script change is kept
+                        except RepairRejected:
+                            LOGGER.warning("Verified repair of %s could not be re-applied on its own", finding.test_case_id)
+                    diff = diff_text(before, files) if result is not None else entry_diff(finding.element_key, *patched_keys[finding.element_key][:2])
+                    self._mark_fixed(ctx, finding, "; ".join(what), diff, run_id)
+                    (summary["repaired"] if result is not None else summary["relocated"]).append(finding.test_case_id)
+                    continue
+                failing_key = str(((row.get("evidence") or {}).get("failure") or {}).get("element") or "")
+                if finding.element_key in patched_keys and failing_key != finding.element_key:
+                    keep_keys.add(finding.element_key)  # the element is found now; the test fails further on
+                history.setdefault(finding.test_case_id, []).append(
+                    {"attempt": attempt, "changed": what, "still_failing": mask(str(row.get("message", "")))[:300], "failing_element": failing_key}
+                )  # fmt: skip
+                follow = self.analyzer.build(rerun_ctx, row, index)
+                finding.failure, finding.html, finding.error, finding.element_key = follow.failure, follow.html, follow.error, follow.element_key
+                finding.hint, finding.result, finding.check, finding.candidates = follow.hint, {**finding.result, "evidence": row.get("evidence") or {}}, follow.check, follow.candidates
+                finding.old_spec = follow.old_spec
+                still.append(finding)
+            for key in sorted(keep_keys):
+                old_entry, new_entry, detail = patched_keys[key]
+                if self._locator_differs(files, key, new_entry):
+                    try:
+                        alternatives = [Selector.model_validate(a) for a in new_entry.get("alternatives", [])[:3]]
+                        files, _, _ = patch_locators(files, key, Selector.model_validate(new_entry["preferred"]), selenium, alternatives)
+                    except PatchError:
+                        continue
+                users = sorted({f.test_case_id for f in pending if any(f"locator {key}:" in w for w in changed_for.get(f.test_case_id, []))})
+                self.repo.create_healing(
+                    ctx.project.id, ctx.execution_id, test_case_ids=users, element_key=key, old_locator=old_entry.get("preferred", {}),
+                    new_locator=new_entry.get("preferred", {}), reason=detail, confidence=0.9, validation={"found_on_live_page": True, "rerun_execution_id": run_id},
+                    original_code=json.dumps(old_entry, indent=2), proposed_code=entry_diff(key, old_entry, new_entry), rerun_execution_id=run_id,
+                    status="applied", outcome="relocated_live",
+                )  # fmt: skip
+                summary["healed_locators"].append(key)
+            pending = still
 
         summary["unresolved"] = [f.test_case_id for f in pending if f.test_case_id not in summary["defects"]]
         changed = {rel for rel in files if files[rel] != original.get(rel)}
@@ -287,29 +361,27 @@ class AutoFixer:
             self._save(ctx, files, changed, summary, progress)
         return summary
 
+    @staticmethod
+    def _locator_differs(files: dict[str, str], key: str, new_entry: dict[str, Any]) -> bool:
+        try:
+            return json.loads(files[LOCATOR_FILE])[key]["preferred"] != new_entry["preferred"]
+        except (KeyError, ValueError):
+            return False
+
+    def _mark_intermittent(self, ctx: ExecutionContext, finding: Finding, run_id: str) -> None:
+        finding.notes.append("Passed on a re-run without any change, so the first failure was intermittent.")
+        finding.analysis.summary = f"Intermittent: failed once, passed on a re-run without changes. {finding.analysis.summary}".strip()
+        self.repo.update_result(
+            ctx.execution_id, finding.test_case_id, status=Status.INCONCLUSIVE.value, analysis=finding.to_dict(),
+            message=f"Failed on the first run and passed on an unchanged re-run ({run_id}). Treat as intermittent until it is investigated.",
+        )  # fmt: skip
+
     # ------------------------------------------------------------------ pieces
     def _failing(self, ctx: ExecutionContext, finding: Finding) -> bool:
         for row in self.repo.list_results(ctx.execution_id):
             if row["test_case_id"] == finding.test_case_id:
                 return row["status"] == Status.FAIL.value
         return True
-
-    def _heal_locators(self, ctx: ExecutionContext, drift: list[Finding], files: dict[str, str], summary: dict[str, Any]) -> dict[str, str]:
-        """DOM-grounded locator healing with verification by re-run (existing engine); verified fixes are applied straight away."""
-        base = ExecutionContext(ctx.execution_id, ctx.project, ctx.workdir, files, ctx.framework, ctx.browser, ctx.secrets, ctx.bundle_id, ctx.mode, ctx.expected_ids)
-        created = self.healer.heal(base, drift, "auto_apply", None)
-        selenium = ctx.framework.startswith("selenium")
-        for record_id in created:
-            record = self.repo.get_healing(record_id)
-            if not record or record["status"] != "verified":
-                continue
-            try:
-                files, _, _ = patch_locators(files, record["element_key"], Selector.model_validate(record["new_locator"]), selenium)
-            except PatchError:
-                continue
-            self.repo.update_healing(record_id, status="applied")
-            summary["healed_locators"].append(record["element_key"])
-        return files
 
     def _save(self, ctx: ExecutionContext, files: dict[str, str], changed: set[str], summary: dict[str, Any], progress: ProgressFn | None) -> None:
         """Keep the fixed project: stored bundle first, then the project's GitHub branch."""

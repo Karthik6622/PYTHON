@@ -122,12 +122,79 @@ def image_for(framework: str) -> str:
     return images["playwright_node" if framework in {"playwright_typescript", "playwright_javascript"} else framework]
 
 
+def _available_memory_gb() -> float | None:
+    """Memory this process may still use: the container limit when there is one (Streamlit Cloud, Docker), else the machine's free memory."""
+    try:
+        limit = Path("/sys/fs/cgroup/memory.max").read_text().strip()
+        if limit.isdigit():
+            used = int(Path("/sys/fs/cgroup/memory.current").read_text().strip())
+            return max(int(limit) - used, 0) / 1024**3
+    except OSError:
+        pass
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) / 1024**2
+    except OSError:
+        pass
+    if os.name == "nt":
+        import ctypes
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), *[(n, ctypes.c_ulonglong) for n in ("total", "avail", "page_total", "page_avail", "virtual_total", "virtual_avail", "extended")]]
+
+        status = MemoryStatus()
+        status.length = ctypes.sizeof(MemoryStatus)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return status.avail / 1024**3
+    return None
+
+
+def default_workers() -> int:
+    """How many browsers run tests side by side. ``EXECUTION_WORKERS`` wins; otherwise about one per 0.6 GB of free memory, 1..4.
+
+    Tests mostly wait for the application, so a few parallel browsers cut the run time several-fold even on a 2-CPU host."""
+    configured = os.environ.get("EXECUTION_WORKERS", "").strip()
+    if configured.isdigit() and int(configured) > 0:
+        return min(int(configured), 8)
+    free = _available_memory_gb()
+    by_memory = int(free / 0.6) if free is not None else 3
+    return max(1, min(4, by_memory, (os.cpu_count() or 2) * 2))
+
+
+XDIST_FRAMEWORKS = {"playwright_python", "selenium_python"}  # their generated requirements include pytest-xdist
+_XDIST_LOCAL: list[bool] = []
+
+
+def xdist_available_locally() -> bool:
+    if not _XDIST_LOCAL:
+        probe = _run_quiet([sys.executable, "-c", "import xdist"], 30)
+        _XDIST_LOCAL.append(bool(probe and probe.returncode == 0))
+    return _XDIST_LOCAL[0]
+
+
+def can_run_parallel(request: RunRequest) -> bool:
+    """Local runs use this Python (pytest-xdist must be importable); containers install the project's own requirements, so a project
+    generated before parallel runs existed (no pytest-xdist in requirements.txt) keeps running one test at a time."""
+    if request.framework not in XDIST_FRAMEWORKS:
+        return False
+    if request.mode == "docker":
+        try:
+            return "pytest-xdist" in (request.workdir / "requirements.txt").read_text(encoding="utf-8")
+        except OSError:
+            return False
+    return xdist_available_locally()
+
+
 def run_env(request: RunRequest, base_url: str, api_base_url: str = "") -> dict[str, str]:
+    workers = default_workers()
     env = {
         "BASE_URL": base_url, "BROWSER": request.browser, "HEADLESS": "1", "CI": "1", "PYTHONUNBUFFERED": "1",
         "IGNORE_HTTPS_ERRORS": "1" if request.ignore_https_errors else "0",
-        "WORKERS": "1" if (os.cpu_count() or 1) <= 2 else "2",  # small hosts (Streamlit Cloud) run out of memory with parallel browsers
+        "WORKERS": str(workers),
     }  # fmt: skip
+    if workers > 1 and can_run_parallel(request):
+        env["PYTEST_ADDOPTS"] = f"-n {workers}"  # pytest-xdist: one browser per worker process
     if api_base_url:
         env["API_BASE_URL"] = api_base_url
     env.update(request.env)

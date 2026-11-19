@@ -1,0 +1,17 @@
+﻿[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+
+[V4+ Styles]
+Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
+Style: Default,Arial Black,68,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,7,2,2,90,90,330,1
+
+[Events]
+Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+Dialogue: 0,0:00:00.70,0:00:06.75,Default,,0,0,0,,{\c&HFFFFFF&}Midnight. Metro Nagar. A bus is racing through the rain... with no driver.
+Dialogue: 0,0:00:07.50,0:00:12.95,Default,,0,0,0,,{\c&H0AD6FF&}That bus is heading for the crowded junction. Not tonight.
+Dialogue: 0,0:00:14.00,0:00:19.15,Default,,0,0,0,,{\c&H0AD6FF&}Hold on, Metro Nagar. Raju Bhai is coming.
+Dialogue: 0,0:00:23.20,0:00:29.75,Default,,0,0,0,,{\c&HFFFFFF&}Inside the empty bus... a small child. Holding a strange metal box.
+Dialogue: 0,0:00:30.60,0:00:33.63,Default,,0,0,0,,{\c&HFFFFFF&}And then... the box opened.
+Dialogue: 0,0:00:39.40,0:00:44.75,Default,,0,0,0,,{\c&HFFFFFF&}Something is waking up in Metro Nagar. Part two. Don't miss it.

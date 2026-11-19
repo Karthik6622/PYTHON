@@ -9,6 +9,7 @@ The job file selects a ``mode``:
   analyze_html     extract elements from an HTML file and check selectors against it in one browser session
   validate_url     check selectors against a live URL
   capture_session  open a visible browser so a person can sign in, then save the Playwright storage state
+  relocate         open given views like the generated tests do and record their live elements (locator repair after a run)
 
 Progress lines are printed as ``PROGRESS {json}``; the final result is written to ``job["output"]``.
 Only light-weight modules are imported here (no Streamlit).
@@ -27,7 +28,7 @@ from typing import Any
 from urllib.parse import urldefrag, urljoin, urlparse
 
 from ats.discovery.runtime_nav import (  # noqa: E402 - shared with the generated test projects
-    ACTIONS_JS, LOGIN_OPENER, LOGIN_SUBMIT, PASSWORD_FIELD, host_of as _host, open_page, settle, sign_in,
+    ACTIONS_JS, LOGIN_OPENER, LOGIN_SUBMIT, PASSWORD_FIELD, click_control, host_of as _host, open_page, settle, sign_in,
 )
 
 EXTRACTOR_JS = (Path(__file__).with_name("extractor.js")).read_text(encoding="utf-8")
@@ -635,6 +636,56 @@ def validate_url(job: dict[str, Any]) -> dict[str, Any]:
     return {"results": results}
 
 
+def relocate(job: dict[str, Any]) -> dict[str, Any]:
+    """Open every requested view the way the generated tests do (sign in, replay the recorded clicks) and record its live elements,
+    with how many elements each candidate selector matches, plus the match counts of the selectors the tests currently use.
+
+    Used to repair locators after a run: the element is looked for on the real page, not in a snapshot taken at the moment of failure."""
+    from playwright.sync_api import sync_playwright
+
+    start_url, auth = job["start_url"], job.get("auth") or {}
+    out: dict[str, Any] = {"views": {}}
+    with sync_playwright() as pw:
+        browser = launch(pw, job.get("browser", "chromium"), headless=job.get("headless", True))
+        for view_key, view in job["views"].items():
+            progress(f"Opening the '{view.get('name') or view_key}' view")
+            entry: dict[str, Any] = {"reached": False, "error": "", "elements": [], "selector_counts": {}}
+            context = new_context(browser, job)
+            context.set_default_timeout(15000)
+            page = context.new_page()
+            try:
+                if view.get("signed_in"):
+                    warning, signed_in = perform_login(page, auth, start_url)
+                    if not signed_in:
+                        raise RuntimeError(warning or "the sign-in did not succeed")
+                else:
+                    open_page(page, start_url)
+                for step in view.get("steps", []):
+                    if not click_control(page, step):
+                        raise RuntimeError(f"the control '{step.get('label')}' that opens this view was not found")
+                settle(page, max_ms=8000, quiet_ms=1000)
+                data = extract_page(page)
+                elements = [e for e in data.get("elements", []) if e.get("visible")]
+                verify_elements(page, elements)
+                entry["elements"] = elements
+                for key, selectors in (view.get("targets") or {}).items():
+                    counts = []
+                    for selector in selectors:
+                        try:
+                            counts.append(resolve(page, selector).count())
+                        except Exception:  # noqa: BLE001
+                            counts.append(-1)
+                    entry["selector_counts"][key] = counts
+                entry["reached"] = True
+            except Exception as exc:  # noqa: BLE001 - reported per view; the other views are still checked
+                entry["error"] = str(exc).splitlines()[0][:300] if str(exc) else type(exc).__name__
+            finally:
+                context.close()
+            out["views"][view_key] = entry
+        browser.close()
+    return out
+
+
 def capture_session(job: dict[str, Any]) -> dict[str, Any]:
     """Visible browser: the person signs in manually, then closes the window. Passwords never reach this application."""
     from playwright.sync_api import sync_playwright
@@ -680,6 +731,8 @@ def main(argv: list[str]) -> int:
             payload = validate_url(job)
         elif mode == "capture_session":
             payload = capture_session(job)
+        elif mode == "relocate":
+            payload = relocate(job)
         else:
             raise ValueError(f"Unknown mode {mode!r}")
         Path(job["output"]).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")

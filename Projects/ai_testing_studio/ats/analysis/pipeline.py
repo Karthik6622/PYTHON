@@ -182,14 +182,19 @@ class FailureAnalyzer:
         except StudioError as exc:
             LOGGER.warning("AI failure analysis unavailable for %s: %s", finding.test_case_id, exc.user_message)
             finding.notes.append("AI analysis was unavailable; the classification comes from deterministic rules only.")
-            analysis = FailureAnalysis(
-                category=FailureCategory(finding.hint.category), confidence=min(finding.hint.confidence, 0.6), summary=finding.hint.reason,
-                reasoning=finding.hint.reason, evidence_used=["error message", "DOM check"] if finding.check.get("checked") else ["error message"],
-                insufficient_evidence=finding.hint.category == FailureCategory.UNKNOWN.value, automation_fixable=finding.hint.locator_suspect,
-                recommended_action="Review the failure evidence manually.",
-            )  # fmt: skip
+            analysis = self.from_rules(finding)
         finding.analysis = self.reconcile(finding, analysis, screenshot is not None)
         return finding
+
+    @staticmethod
+    def from_rules(finding: Finding) -> FailureAnalysis:
+        """Classification from the deterministic rules alone (instant; used to start repairs before any model call)."""
+        return FailureAnalysis(
+            category=FailureCategory(finding.hint.category), confidence=min(finding.hint.confidence, 0.6), summary=finding.hint.reason,
+            reasoning=finding.hint.reason, evidence_used=["error message", "DOM check"] if finding.check.get("checked") else ["error message"],
+            insufficient_evidence=finding.hint.category == FailureCategory.UNKNOWN.value, automation_fixable=finding.hint.locator_suspect,
+            recommended_action="Review the failure evidence manually.",
+        )  # fmt: skip
 
     @staticmethod
     def reconcile(finding: Finding, analysis: FailureAnalysis, has_screenshot: bool) -> FailureAnalysis:

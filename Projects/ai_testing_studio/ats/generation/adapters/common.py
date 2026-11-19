@@ -186,10 +186,13 @@ def step_text(step: AutomationStep, tc: TestCase) -> str:
 # locators.json (single source of truth for element lookups; patched by the healing engine)
 # ----------------------------------------------------------------------------------------
 def locator_entry(spec: LocatorSpec, selenium: bool = False) -> dict[str, Any]:
+    from ats.locators.builder import spec_fingerprint
+
     entry: dict[str, Any] = {
         "page": spec.page_key, "intent": spec.intent, "role": spec.role, "name": spec.name,
         "preferred": spec.preferred.model_dump(exclude_none=True),
         "alternatives": [s.model_dump(exclude_none=True) for s in spec.alternatives],
+        "fingerprint": spec_fingerprint(spec),  # lets the runtime find the element by what it is when every selector fails
     }  # fmt: skip
     if selenium:
         from ats.locators.selenium_map import to_selenium

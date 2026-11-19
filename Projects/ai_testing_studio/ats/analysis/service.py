@@ -89,21 +89,36 @@ class AnalysisService:
             report(progress, f"Analyzed {done}/{len(rows)} failures", 0.72 + 0.06 * done / len(rows))
             return finding
 
-        with ThreadPoolExecutor(max_workers=3) as pool:  # independent model calls: analyse all failures at once
-            findings = list(pool.map(analyse, rows))
+        if autofix:
+            # Repair first, explain later: rules classify every failure instantly, the fix loop's first re-run also separates
+            # intermittent failures, and the (slow) AI analysis is only spent on what is still failing at the end.
+            findings = [self.analyzer.build(ctx, row, index) for row in rows]
+            for finding in findings:
+                finding.analysis = FailureAnalyzer.reconcile(finding, FailureAnalyzer.from_rules(finding), True)
+            self.repo.update_execution(ctx.execution_id, phase=f"Auto-fixing {len(findings)} failing test(s)")
+            self._autofix(ctx, findings, progress)
+            remaining = [f for f in findings if self._status(ctx, f) == Status.FAIL.value and not f.ai_used]
+            done = 0
 
-        if settings.recheck_flaky:
-            self.repo.update_execution(ctx.execution_id, phase="Re-checking possible flaky failures")
-            self._recheck(ctx, [f for f in findings if f.category in RECHECK_CATEGORIES])
+            def explain(finding: Finding) -> None:
+                nonlocal done
+                self.analyzer.analyze(ctx, finding)
+                done += 1
+                self.repo.update_execution(ctx.execution_id, phase=f"Explaining remaining failures ({done}/{len(remaining)})")
 
-        pending = [f for f in findings if self._status(ctx, f) == Status.FAIL.value]
-        healable = [f for f in pending if f.analysis.category in HEALABLE_CATEGORIES and not mobile]
-        if autofix and pending:
-            self.repo.update_execution(ctx.execution_id, phase="Auto-fixing the automation")
-            self._autofix(ctx, pending, progress)
-        elif settings.enabled and healable:
-            self.repo.update_execution(ctx.execution_id, phase="Self-healing locators")
-            self.healer.heal(ctx, healable, self.policy_for(ctx.project.id), self.on_verified)
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                list(pool.map(explain, remaining))
+        else:
+            with ThreadPoolExecutor(max_workers=3) as pool:  # independent model calls: analyse all failures at once
+                findings = list(pool.map(analyse, rows))
+            if settings.recheck_flaky:
+                self.repo.update_execution(ctx.execution_id, phase="Re-checking possible flaky failures")
+                self._recheck(ctx, [f for f in findings if f.category in RECHECK_CATEGORIES])
+            pending = [f for f in findings if self._status(ctx, f) == Status.FAIL.value]
+            healable = [f for f in pending if f.analysis.category in HEALABLE_CATEGORIES and not mobile]
+            if settings.enabled and healable:
+                self.repo.update_execution(ctx.execution_id, phase="Self-healing locators")
+                self.healer.heal(ctx, healable, self.policy_for(ctx.project.id), self.on_verified)
 
         self.repo.update_execution(ctx.execution_id, phase="Drafting failure reports")
         report(progress, "Writing failure reports", 0.97)

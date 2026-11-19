@@ -18,7 +18,12 @@ from utils.locators import load_locators, resolve
 
 ROOT = Path(__file__).resolve().parent.parent
 ENV_PATTERN = re.compile(r"\{\{env:([A-Za-z_][A-Za-z0-9_]*)\}\}")
-FIND_TIMEOUT = float(os.environ.get("FIND_TIMEOUT", "20"))  # seconds an element may take to appear
+FIND_TIMEOUT = float(os.environ.get("FIND_TIMEOUT", "20"))  # seconds an element may take to appear on a page that is still rendering
+IDLE_GIVE_UP = float(os.environ.get("IDLE_GIVE_UP", "5"))  # seconds after which a missing element on an idle page counts as not found
+
+
+def _describe(selector: dict) -> str:
+    return f"{selector.get('kind')}={selector.get('value')!r}" + (f" name={selector['name']!r}" if selector.get("name") else "")
 
 
 def _load(name: str) -> dict:
@@ -126,9 +131,34 @@ class App:
         self.settle()
 
     # ------------------------------------------------------------------ elements
+    def _by_fingerprint(self, spec: dict) -> tuple[dict, object] | None:
+        """Find the element by what a person sees (role and name, label, placeholder, text) when no recorded selector matches.
+        Only a candidate that matches exactly one element is used."""
+        fp = spec.get("fingerprint") or {}
+        role, name = fp.get("role") or spec.get("role"), fp.get("name") or spec.get("name")
+        candidates = []
+        if role and name:
+            candidates += [{"kind": "role", "value": role, "name": name, "exact": True}, {"kind": "role", "value": role, "name": name}]
+        if fp.get("label"):
+            candidates.append({"kind": "label", "value": fp["label"]})
+        if fp.get("placeholder"):
+            candidates.append({"kind": "placeholder", "value": fp["placeholder"]})
+        for text in (fp.get("text"), name):
+            if text:
+                candidates += [{"kind": "text", "value": text, "exact": True}, {"kind": "text", "value": text}]
+        for selector in candidates:
+            try:
+                found = resolve(self.page, selector)
+                if found.count() == 1:
+                    return selector, found
+            except Exception:  # noqa: BLE001
+                continue
+        return None
+
     def locator(self, key: str, wait: bool = True):
-        """Resolve an element key. The preferred selector is used first; if it matches nothing, the recorded alternatives are
-        tried and the one that works is remembered (reports/evidence/<id>/fallbacks.json) so the locator file can be updated."""
+        """Resolve an element key. The preferred selector is used first; if it matches nothing, the recorded alternatives are tried,
+        then the element's fingerprint (role and name, label, text). Whatever worked instead of the preferred selector is remembered
+        (reports/evidence/<id>/fallbacks.json) so auto-fix can update the locator file. Waiting stops early once the page is idle."""
         spec = self.locators.get(key)
         if spec is None:
             raise AssertionError(f"Unknown element key: {key}")
@@ -149,15 +179,26 @@ class App:
                 if count > 1 and ambiguous is None:
                     ambiguous = (index, selector, found)
             elapsed = time.monotonic() - started
+            if elapsed > 1.5 or not wait:
+                by_fingerprint = self._by_fingerprint(spec)
+                if by_fingerprint is not None:
+                    selector, found = by_fingerprint
+                    self.fallbacks[key] = {"selector": selector, "preferred": candidates[0], "index": len(candidates), "fingerprint": True}
+                    return found
             if not wait or (ambiguous is not None and elapsed > 2) or elapsed > FIND_TIMEOUT:
                 break
+            if elapsed > IDLE_GIVE_UP and nav.is_idle(self.page):
+                break  # the page has finished rendering and the element is not on it: waiting longer only wastes time
             self.page.wait_for_timeout(300)
         if ambiguous is not None:
             index, selector, found = ambiguous
             if index:
                 self.fallbacks[key] = {"selector": selector, "preferred": candidates[0], "index": index, "ambiguous": True}
             return found.first
-        return resolve(self.page, spec["preferred"])
+        if not wait:
+            return resolve(self.page, spec["preferred"])
+        tried = ", ".join(_describe(s) for s in candidates[:4])
+        raise AssertionError(f"Element not found: '{key}' is not on the {self.view or 'current'} view after {time.monotonic() - started:.0f}s. Tried: {tried}")
 
     # ------------------------------------------------------------------ steps and evidence
     @contextmanager

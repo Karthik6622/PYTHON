@@ -21,9 +21,13 @@ USER_FIELD = "input[type=email]:visible, input[type=text]:visible, input:not([ty
 SIGNATURE_JS = (
     "() => (document.body ? document.body.innerText.length : 0) + ':' + "
     "document.querySelectorAll('input,button,a,select,textarea,[role],[data-testid]').length + ':' + "
-    # Streamlit keeps the placeholder title until the script has run; treat that as 'still loading'.
-    "(document.querySelector('[data-testid=stApp]') && document.title === 'Streamlit' ? 'loading' : 'ready')"
+    # Streamlit keeps the placeholder title until the script has run, shows skeletons while loading and marks elements
+    # stale (or shows 'Running...') while a rerun is in progress: all of that means 'still loading'.
+    "((document.querySelector('[data-testid=stApp]') && document.title === 'Streamlit') || document.querySelector('[data-testid=stSkeleton]') || "
+    "document.querySelector('[data-stale=true]') || /running/i.test((document.querySelector('[data-testid=stStatusWidget]') || {}).innerText || '') "
+    "|| document.readyState === 'loading' ? 'loading' : 'ready')"
 )
+_EMBEDDED: dict[str, str] = {}  # shell URL -> URL of the application frame inside it (found once per test process)
 IFRAMES_JS = (
     "() => Array.from(document.querySelectorAll('iframe')).map((f) => { const r = f.getBoundingClientRect(); "
     "return { src: f.src || '', area: r.width * r.height }; }).concat([{ src: '', area: -(innerWidth * innerHeight) }])"
@@ -35,21 +39,31 @@ def host_of(url: str) -> str:
     return (urlparse(url).hostname or "").lower().removeprefix("www.")
 
 
-def settle(page: Any, max_ms: int = 15000, quiet_ms: int = 2000) -> None:
+def settle(page: Any, max_ms: int = 15000, quiet_ms: int = 1200) -> None:
     """Single-page apps keep rendering after the load event: wait until the page content stops changing."""
     waited, stable, last = 0, 0, ""
     while waited < max_ms:
-        page.wait_for_timeout(500)
-        waited += 500
+        page.wait_for_timeout(300)
+        waited += 300
         try:
             signature = page.evaluate(SIGNATURE_JS)
         except Exception:  # noqa: BLE001 - page is navigating
             stable = 0
             continue
-        stable = stable + 500 if signature == last else 0
+        stable = stable + 300 if signature == last else 0
         last = signature
         if stable >= quiet_ms and signature.endswith(":ready"):
             return
+
+
+def is_idle(page: Any) -> bool:
+    """True when the page has finished rendering (no navigation, no Streamlit rerun, no skeletons) and is unchanged for 0.6 s."""
+    try:
+        first = page.evaluate(SIGNATURE_JS)
+        page.wait_for_timeout(600)
+        return first.endswith(":ready") and page.evaluate(SIGNATURE_JS) == first
+    except Exception:  # noqa: BLE001 - navigating
+        return False
 
 
 def wake_sleeping_app(page: Any, warnings: list[str], max_ms: int = 90000) -> None:
@@ -94,16 +108,24 @@ def embedded_app_url(page: Any, wait_s: int = 25) -> str | None:
 
 
 def open_page(page: Any, url: str, warnings: list[str] | None = None) -> Any:
-    """Navigate, wake sleeping apps, step into an embedded app frame and wait for the page to finish rendering."""
+    """Navigate, wake sleeping apps, step into an embedded app frame and wait for the page to finish rendering.
+
+    The frame address is remembered for the rest of the process, so later tests go straight to the application."""
     warnings = warnings if warnings is not None else []
+    known = _EMBEDDED.get(urldefrag(url)[0])
+    if known:
+        response = page.goto(known, wait_until="domcontentloaded")
+        settle(page)
+        return response
     response = page.goto(url, wait_until="domcontentloaded")
     try:
-        page.wait_for_load_state("networkidle", timeout=6000)
+        page.wait_for_load_state("networkidle", timeout=3000)
     except Exception:  # noqa: BLE001
         pass
     wake_sleeping_app(page, warnings)
     inner = embedded_app_url(page)
     if inner:
+        _EMBEDDED[urldefrag(url)[0]] = inner
         note = f"The site embeds its application in a frame; the application URL ({inner}) was used directly."
         if note not in warnings:
             warnings.append(note)

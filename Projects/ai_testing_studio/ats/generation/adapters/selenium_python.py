@@ -315,7 +315,7 @@ class SeleniumPythonAdapter(PlaywrightPythonAdapter):
             f"{TESTS_DIR}/conftest.py": CONFTEST_PY.replace("{base_url}", py_str(ctx.base_url)).replace("{browser}", py_str(ctx.browser)),
             "pytest.ini": PYTEST_INI,
             "pages/base_page.py": BASE_PAGE_PY,
-            "requirements.txt": "pytest>=8.0\nselenium>=4.20\n",
+            "requirements.txt": "pytest>=8.0\npytest-xdist>=3.5\nselenium>=4.20\n",
         }
 
     def readme_text(self, ctx: RenderContext) -> str:

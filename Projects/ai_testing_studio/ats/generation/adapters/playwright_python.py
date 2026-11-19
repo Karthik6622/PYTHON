@@ -88,7 +88,7 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
             "config/auth.json": json.dumps(ctx.auth or {}, indent=2) + "\n",
             "pytest.ini": PYTEST_INI,
             "pages/base_page.py": BASE_PAGE_PY,
-            "requirements.txt": f"pytest>=8.0\npytest-playwright>=0.5\nplaywright=={ctx.playwright_version}\n",
+            "requirements.txt": f"pytest>=8.0\npytest-playwright>=0.5\npytest-xdist>=3.5\nplaywright=={ctx.playwright_version}\n",
         }
 
     def readme_text(self, ctx: RenderContext) -> str:
