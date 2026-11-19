@@ -75,10 +75,14 @@ class Services:
         return self.analysis.healer
 
 
-def build_services(repo: Repository | None = None) -> Services:
+def build_services(repo: Repository | None = None, keep: Services | None = None) -> Services:
+    """Wire every component. ``keep`` (the services of the previous code version) hands over what lives only in memory:
+    the job manager with its running jobs, and the GitHub tokens."""
     repo = repo or Repository(Database(get_settings().db_path))
     store = BundleStore()
     tokens = TokenVault()
+    if keep is not None:
+        tokens._tokens = dict(getattr(keep.tokens, "_tokens", {}))
     executor = ExecutionService(repo)
     analyzer = FailureAnalyzer(repo)
     healer = HealingEngine(repo, executor, analyzer, store=store)
@@ -98,8 +102,9 @@ def build_services(repo: Repository | None = None) -> Services:
     analysis = AnalysisService(repo, executor, analyzer, healer, DefectBuilder(repo), on_verified=on_verified, fixer=fixer)
     executor.post_run = analysis.post_run
     connections = ConnectionService(repo)
+    jobs = keep.jobs if keep is not None else JobManager(repo)  # a new manager would mark the running jobs as interrupted
     return Services(
         repo=repo, store=store, discovery=DiscoveryService(repo, connections=connections), scenarios=ScenarioService(repo, connections=connections),
         testcases=TestCaseService(repo, connections=connections), scripts=ScriptService(repo, store, connections=connections), executor=executor, analysis=analysis,
-        github=github, reports=ReportService(repo), jobs=JobManager(repo), connections=connections, api=ApiService(repo), mobile=MobileService(repo), tokens=tokens,
+        github=github, reports=ReportService(repo), jobs=jobs, connections=connections, api=ApiService(repo), mobile=MobileService(repo), tokens=tokens,
     )  # fmt: skip

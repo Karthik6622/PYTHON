@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import sys
+import threading
 import uuid
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -22,8 +24,32 @@ T = TypeVar("T")
 
 
 @st.cache_resource(show_spinner=False)
+def _holder() -> dict[str, Any]:
+    """Process-wide slot for the services. Kept apart from ``get_services`` so it outlives code reloads (keep this function unchanged)."""
+    return {"lock": threading.Lock()}
+
+
+def _code_snapshot() -> dict[str, int]:
+    return {name: id(module) for name, module in list(sys.modules.items()) if name == "ats" or name.startswith("ats.")}
+
+
 def get_services() -> Services:
-    return build_services()
+    """The shared services, rebuilt when the studio's code was reloaded.
+
+    Streamlit (and Streamlit Cloud after a git push) reloads changed modules inside the running server. Services built from the
+    old modules would then hand old-class objects to new code ("Input should be a valid dictionary or instance of Selector",
+    "object has no attribute ..."). So the services are rebuilt as soon as any module they were built from is no longer the
+    loaded one; running jobs and in-memory tokens are carried over."""
+    holder = _holder()
+    with holder["lock"]:
+        services, snapshot = holder.get("services"), holder.get("snapshot") or {}
+        stale = services is None or any(sys.modules.get(name) is None or id(sys.modules[name]) != ident for name, ident in snapshot.items())
+        if stale:
+            if services is not None:
+                LOGGER.info("The studio's code changed: rebuilding the services")
+            services = build_services(keep=services)
+            holder["services"], holder["snapshot"] = services, _code_snapshot()
+        return services
 
 
 def _set_cookie(value: str) -> None:
