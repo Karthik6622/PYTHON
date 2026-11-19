@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from html import escape
 
 import streamlit as st
@@ -23,12 +24,29 @@ FIRST_STEP = {
 
 ENVIRONMENTS = ["Dev", "QA", "Staging", "UAT", "Production-like"]
 AUTH_MODES = {
-    "none": "No authentication", "storage_state": "Saved browser session (storage state)", "env_credentials": "Username / password from environment variables",
+    "none": "No authentication", "storage_state": "Saved browser session (storage state)", "env_credentials": "Username / password",
     "login_workflow": "Scripted login form", "manual_capture": "Sign in manually in a browser window",
 }  # fmt: skip
+ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,79}$")
+CREDENTIALS_NAME = "ui-account"  # the saved connection that holds the typed username and password
 
 
-def project_form(existing: Project | None, key: str) -> dict | None:
+def save_credentials(svc: Services, project: Project, owner: str, credentials: tuple[str, str] | None) -> None:
+    """Store the typed sign-in details as an encrypted UI-account connection (a blank password keeps the saved one) and switch the mode on."""
+    if not credentials:
+        return
+    user, password = credentials
+    auth = project.auth
+    saved = safe(lambda: svc.connections.save(
+        project.id, owner, CREDENTIALS_NAME, "ui_account", values={"username": user, "password": password},
+        envs={"username": auth.username_env or "TEST_APP_USERNAME", "password": auth.password_env or "TEST_APP_PASSWORD"},
+    ))  # fmt: skip
+    if saved and auth.mode == "none":
+        auth.mode = "env_credentials"
+        svc.repo.update_project(project.id, auth=auth)
+
+
+def project_form(existing: Project | None, key: str, saved_username: str = "", saved_password: bool = False) -> dict | None:
     """Render the project form. Returns validated field values when submitted, else None."""
     settings = get_settings()
     p = existing
@@ -60,6 +78,7 @@ def project_form(existing: Project | None, key: str) -> dict | None:
         max_pages, max_depth, domains, excluded = limits.max_pages, limits.max_depth, "\n".join(limits.allowed_domains), "\n".join(limits.excluded_paths)
         shots, insecure = limits.include_screenshots, limits.ignore_https_errors
         mode, user_env, pass_env, login_url = auth.mode, auth.username_env, auth.password_env, auth.login_url
+        typed_user, typed_pass = "", ""
         user_sel, pass_sel, submit_sel, success, state_file = auth.username_selector, auth.password_selector, auth.submit_selector, auth.success_url_contains, auth.storage_state_file
         if has_web:
             with tabs[1]:
@@ -74,17 +93,22 @@ def project_form(existing: Project | None, key: str) -> dict | None:
             with tabs[2]:
                 modes = list(AUTH_MODES)
                 mode = st.selectbox("Mode", modes, index=modes.index(auth.mode), format_func=AUTH_MODES.get)
-                st.caption("Credentials are never stored here. Enter the NAMES of environment variables (or secrets); their values are read when discovery and tests run.")
+                st.caption("For *Username / password*: type them here once. They are stored encrypted and used by discovery and the tests, so nothing has to be set on the server.")
                 a, b = st.columns(2)
-                user_env = a.text_input("Username variable", value=auth.username_env)
-                pass_env = b.text_input("Password variable", value=auth.password_env)
+                typed_user = a.text_input("Username or email", value=saved_username, autocomplete="off")
+                typed_pass = b.text_input("Password", type="password", autocomplete="new-password", placeholder="Saved. Leave blank to keep it." if saved_password else "")
                 login_url = st.text_input("Login page URL (optional)", value=auth.login_url)
-                a, b, c = st.columns(3)
-                user_sel = a.text_input("Username field selector", value=auth.username_selector, help="Leave empty to detect the sign-in form automatically.")
-                pass_sel = b.text_input("Password field selector", value=auth.password_selector)
-                submit_sel = c.text_input("Submit button selector", value=auth.submit_selector)
-                success = st.text_input("URL contains after login (optional)", value=auth.success_url_contains)
-                state_file = st.text_input("Storage-state file name (in the secure folder)", value=auth.storage_state_file)
+                with st.expander("Advanced: environment variable names and sign-in form selectors"):
+                    st.caption("Only the NAMES of the variables that hold the values (letters, digits and underscores), not the credentials themselves.")
+                    a, b = st.columns(2)
+                    user_env = a.text_input("Username variable", value=auth.username_env)
+                    pass_env = b.text_input("Password variable", value=auth.password_env)
+                    a, b, c = st.columns(3)
+                    user_sel = a.text_input("Username field selector", value=auth.username_selector, help="Leave empty to detect the sign-in form automatically.")
+                    pass_sel = b.text_input("Password field selector", value=auth.password_selector)
+                    submit_sel = c.text_input("Submit button selector", value=auth.submit_selector)
+                    success = st.text_input("URL contains after login (optional)", value=auth.success_url_contains)
+                    state_file = st.text_input("Storage-state file name (in the secure folder)", value=auth.storage_state_file)
         with extras:
             if "api" in channels:
                 st.info("API inputs (the OpenAPI / Postman definition, the API base URL and saved credentials) are set on the **API** and **Connections** pages.")
@@ -104,7 +128,14 @@ def project_form(existing: Project | None, key: str) -> dict | None:
         st.error(str(exc))
         return None
     lines = lambda text: [x.strip() for x in text.splitlines() if x.strip()]  # noqa: E731
+    credentials = None
+    if has_web and (typed_user.strip() or typed_pass):
+        if not ENV_NAME.match(user_env.strip()) or not ENV_NAME.match(pass_env.strip()):
+            st.error("The variable names under Advanced may only hold letters, digits and underscores (for example TEST_APP_USERNAME). Put the username and password in the fields above.")
+            return None
+        credentials = (typed_user.strip(), typed_pass)
     return {
+        "credentials": credentials,
         "name": name.strip(), "url": clean_url, "base_url": clean_base, "environment": environment, "description": description.strip(),
         "coverage": coverage, "custom_categories": custom, "test_data_notes": notes.strip(), "test_scope": scope_text(channels),
         "limits": DiscoveryLimits(max_pages=int(max_pages), max_depth=int(max_depth), allowed_domains=lines(domains), excluded_paths=lines(excluded), include_screenshots=shots, ignore_https_errors=insecure),
@@ -148,8 +179,10 @@ def create_project_panel(svc: Services, owner: str) -> None:
     values = project_form(None, "new_project")
     if not values:
         return
+    credentials = values.pop("credentials")
     project = safe(lambda: svc.repo.create_project(owner, **values))
     if project:
+        save_credentials(svc, project, owner, credentials)
         select_project(project.id)
         target = next_page(compute_workflow(svc.repo, project))
         notify(f"Project '{project.name}' created. {FIRST_STEP.get(target, 'Continue with the next step.')}")
@@ -158,9 +191,13 @@ def create_project_panel(svc: Services, owner: str) -> None:
 
 
 def settings_panel(svc: Services, active: Project) -> None:
-    values = project_form(active, "edit_project")
+    saved = svc.connections.get(active.id, owner_id(), CREDENTIALS_NAME)
+    parts = {p.part: p for p in saved.parts} if saved else {}
+    values = project_form(active, "edit_project", parts["username"].value if "username" in parts else "", bool("password" in parts and parts["password"].configured))
     if values:
+        credentials = values.pop("credentials")
         svc.repo.update_project(active.id, **values)
+        save_credentials(svc, svc.repo.get_project(active.id, owner_id()), owner_id(), credentials)
         svc.repo.audit(active.id, "user", "project.updated", "project", {"name": values["name"]})
         notify("Project settings saved.")
         st.rerun()
