@@ -21,19 +21,23 @@ from ats.ui import (
     page_results,
     page_review,
     jobs_ui,
+    storage_status,
     theme,
 )
+from ats.persistence import get_durable
 from ats.ui.auth_session import require_login, user_chip
 from ats.ui.layers import LayerPage, build_pages, open_next_step, page_of
 from ats.ui.session import current_project, flush_cookie, get_services, owner_id, register_pages, resume_pending_navigation, select_project
 from ats.workflow import WorkflowState, compute_workflow, progress_fraction
 
-st.set_page_config(page_title="RK Testing Studio",page_icon=":material/bolt:", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="RK Testing Studio", page_icon=":material/bolt:", layout="wide", initial_sidebar_state="expanded")
 
 
-def sidebar(svc, project, state: WorkflowState | None) -> None:  # noqa: ANN001
+def sidebar(svc, project, state: WorkflowState | None, pages) -> None:  # noqa: ANN001
     with st.sidebar:
-        st.markdown(theme.brand(), unsafe_allow_html=True)
+        st.markdown(theme.brand(), unsafe_allow_html=True)  # the logo comes first; Streamlit's own page list would be drawn above it, so it is hidden
+        for page in pages:
+            st.page_link(page)
         projects = svc.repo.list_projects(owner_id())
         if projects:
             names = {p.id: p.name for p in projects}
@@ -73,12 +77,14 @@ PAGE_TABLE = [
 
 
 def main() -> None:
+    get_durable().start()  # brings the data back on a host that lost its disk; must run before any database is opened
     svc = get_services()
     owner_id()
     flush_cookie()
     theme.apply()
     if not require_login():
         return
+    storage_status.alert()
 
     if not st.session_state.get("project_id"):  # a new session (reconnect, new tab) continues with the project used last
         recent = svc.repo.list_projects(owner_id())
@@ -87,11 +93,11 @@ def main() -> None:
     project = current_project(svc)  # the navigation depends on the channels of the open project
     pages = build_pages(svc, project, PAGE_TABLE)
     register_pages(pages)
-    page = st.navigation(pages)
+    page = st.navigation(pages, position="hidden")
     resume_pending_navigation()
     jobs_ui.follow_finished(svc)  # a job this session was watching has finished: report it and move to the next step
     state = compute_workflow(svc.repo, project) if project else None
-    sidebar(svc, project, state)
+    sidebar(svc, project, state, pages)
     if state:
         theme.pipeline(state)
     page.run()

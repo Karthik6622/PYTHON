@@ -93,7 +93,12 @@ label, [data-testid="stWidgetLabel"] p { font-family: var(--mono) !important; fo
 /* ---------- sidebar ---------- */
 [data-testid="stSidebar"] { background: #060608; border-right: 1px solid var(--line); }
 [data-testid="stSidebar"] .block-container { padding-top: 1rem; }
-.ats-brand { display: flex; align-items: center; gap: .65rem; padding: .2rem 0 .9rem 0; border-bottom: 1px solid var(--line); margin-bottom: .9rem; }
+[data-testid="stSidebarHeader"] { height: 2.2rem; min-height: 0; padding-bottom: 0; }  /* the logo block starts right under the collapse arrow */
+[data-testid="stSidebarUserContent"] { padding-top: .2rem; }
+[data-testid="stPageLink-NavLink"] { padding: .42rem .6rem; border-radius: 0; text-decoration: none; }
+[data-testid="stPageLink-NavLink"]:hover { background: var(--y-soft); }
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has(> [data-testid="stPageLink"]) { margin-bottom: -.35rem; }
+.ats-brand { display: flex; align-items: center; gap: .65rem; padding: .2rem 0 .9rem 0; border-bottom: 1px solid var(--line); margin-bottom: .6rem; }
 .ats-brand .mark { width: 34px; height: 34px; background: var(--y); clip-path: polygon(0 0, 100% 0, 100% 62%, 62% 100%, 0 100%); box-shadow: 0 0 18px rgba(255, 230, 0, .55); }
 .ats-brand .name { font-family: var(--display); font-weight: 900; font-size: 1rem; letter-spacing: .14em; color: var(--y); line-height: 1.05; }
 .ats-brand .tag { font-family: var(--mono); font-size: .66rem; color: var(--dim); letter-spacing: .12em; }
@@ -167,44 +172,96 @@ LIVE_INPUT_JS = """<script>
 </script>"""
 
 
-# Streamlit Community Cloud injects a "Manage app" pill (and a viewer badge) into the page with generated class names, so CSS alone cannot
-# find it. This script hides whatever shows that text, climbing to the fixed-position container that holds it, and watches for it to come back.
+# Streamlit Community Cloud adds a "Manage app" pill (and a viewer badge) with generated class names, and in a page that WRAPS the app, so
+# this script looks at the app's document and at every ancestor document it is allowed to read. It hides whatever carries those labels and
+# watches for the pill to come back. Timers and observers belong to the window they watch, so they survive the small script frame being replaced.
 HIDE_HOST_JS = """<script>
 (function () {
   try {
-    var d = window.parent.document;
-    if (d.__atsHideHost) return;
-    d.__atsHideHost = true;
     var LABELS = ['manage app', 'hosted with streamlit'];
-    function sweep() {
-      var walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, null);
-      var node;
-      while ((node = walker.nextNode())) {
-        var text = (node.nodeValue || '').trim().toLowerCase();
-        if (!text || LABELS.indexOf(text) < 0) continue;
-        var el = node.parentElement, target = el;
-        while (el && el !== d.body) {
-          if (window.parent.getComputedStyle(el).position === 'fixed') { target = el; break; }
-          el = el.parentElement;
-        }
-        if (target && target !== d.body && !target.closest('[data-testid="stMain"], [data-testid="stSidebar"]')) target.style.setProperty('display', 'none', 'important');
+    var HIDE_CSS = '[data-testid="manage-app-button"], [data-testid="stAppViewerBadge"], [class*="viewerBadge"], [class*="_terminalButton"], '
+      + '[class*="_profileContainer"], [class*="manage-app" i], button[aria-label*="manage app" i], a[aria-label*="manage app" i] '
+      + '{ display: none !important; visibility: hidden !important; }';
+    function windows() {
+      var found = [], w = window.parent, guard = 0;
+      while (w && guard++ < 5) {
+        try { if (w.document) found.push(w); } catch (e) { break; }  // a cross-origin ancestor cannot be read: stop there
+        if (w === w.parent) break;
+        w = w.parent;
       }
+      return found;
     }
-    var pending = null;
-    new MutationObserver(function () {
-      if (pending) return;
-      pending = setTimeout(function () { pending = null; sweep(); }, 300);
-    }).observe(d.body, { childList: true, subtree: true });
-    sweep();
+    function hide(w) {
+      var d = w.document;
+      if (d.__atsHideHost) return;
+      d.__atsHideHost = true;
+      var style = d.createElement('style');
+      style.textContent = HIDE_CSS;
+      (d.head || d.documentElement).appendChild(style);
+      function sweep() {
+        var walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, null), node;
+        while ((node = walker.nextNode())) {
+          var text = (node.nodeValue || '').trim().toLowerCase();
+          if (!text || LABELS.indexOf(text) < 0) continue;
+          var el = node.parentElement, target = el;
+          while (el && el !== d.body) {
+            if (w.getComputedStyle(el).position === 'fixed') { target = el; break; }
+            el = el.parentElement;
+          }
+          if (target && target !== d.body && !target.closest('[data-testid="stMain"], [data-testid="stSidebar"]')) target.style.setProperty('display', 'none', 'important');
+        }
+      }
+      var pending = null;
+      new w.MutationObserver(function () {
+        if (pending) return;
+        pending = w.setTimeout(function () { pending = null; sweep(); }, 300);
+      }).observe(d.body, { childList: true, subtree: true });
+      sweep();
+      w.setInterval(sweep, 4000);  // late, throttled or re-created pills
+    }
+    windows().forEach(hide);
   } catch (e) {}
 })();
 </script>"""
 
 
+# After the studio jumps to another page by itself (approve all -> next step) the new page can come up with nothing in it until the page is
+# opened once more from the menu. This guard notices a page with no header, no message and no running script for 5 s and opens the current
+# page from the menu for the person, at most twice per page.
+NAV_GUARD_JS = """<script>
+(function () {
+  try {
+    var P = window.parent, D = P.document;
+    if (D.__atsNavGuard) return;
+    D.__atsNavGuard = true;
+    var emptySince = 0, lastPath = '', tries = {};
+    P.setInterval(function () {
+      try {
+        var main = D.querySelector('[data-testid="stMain"]'), side = D.querySelector('[data-testid="stSidebar"]');
+        if (!main || !side) { emptySince = 0; return; }
+        var path = P.location.pathname;
+        if (path !== lastPath) { lastPath = path; emptySince = 0; }
+        var shown = main.querySelector('.ats-ph, [data-testid="stAlert"], [data-testid="stException"]');
+        var running = D.querySelector('[data-testid="stStatusWidget"]');
+        if (shown) { tries[path] = 0; emptySince = 0; return; }
+        if (running) { emptySince = 0; return; }
+        if (!emptySince) { emptySince = Date.now(); return; }
+        if (Date.now() - emptySince < 5000 || (tries[path] || 0) >= 2) return;
+        tries[path] = (tries[path] || 0) + 1;
+        emptySince = 0;
+        var link = null, last = path.replace(/\/+$/, '').split('/').pop();
+        D.querySelectorAll('[data-testid="stPageLink-NavLink"]').forEach(function (a) { if (a.getAttribute('href') === last) link = a; });
+        if (link) link.click();
+      } catch (e) {}
+    }, 1000);
+  } catch (e) {}
+})();
+</script>"""
+
 def apply() -> None:
     """Inject the global stylesheet. Call once per run, before any page content."""
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
-    scripts = LIVE_INPUT_JS + HIDE_HOST_JS
+    scripts = LIVE_INPUT_JS + HIDE_HOST_JS + NAV_GUARD_JS
     try:
         st.iframe(scripts, height=1)
     except Exception:  # noqa: BLE001 - older Streamlit

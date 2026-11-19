@@ -16,3 +16,5 @@ pytest>=8
 Appium-Python-Client>=4.0
 pyaxmlparser>=0.3.28
 nodejs-wheel-binaries>=20.0
+# Durable storage (optional): snapshots of the data folder go to an S3-compatible bucket when BACKUP_S3_BUCKET is set; imported only then.
+boto3>=1.34

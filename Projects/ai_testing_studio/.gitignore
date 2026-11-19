@@ -7,3 +7,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 node_modules/
+
+# a Python interpreter that the Windows 'py' launcher unpacked next to the project; never part of the repository
+Python/

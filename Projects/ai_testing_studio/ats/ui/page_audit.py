@@ -13,7 +13,7 @@ from ats.discovery.diagnostics import browser_binaries, explain_launch_failure, 
 from ats.discovery.service import playwright_available
 from ats.execution.runner import docker_status, resolve_mode
 from ats.services import Services
-from ats.ui import theme
+from ats.ui import storage_status, theme
 from ats.ui.session import current_project, safe
 
 
@@ -71,6 +71,7 @@ def system_panel() -> None:
 def render(svc: Services) -> None:
     theme.page_header("Status", "Model routing, system health, AI call timings and the audit trail.", "SYSTEM")
     model_panel()
+    storage_status.panel()
     system_panel()
 
     project = current_project(svc)

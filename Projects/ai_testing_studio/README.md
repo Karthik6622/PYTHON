@@ -123,6 +123,15 @@ agent output (schema, grounding in discovered elements, allowed actions).
 signed-in account, so one person never lists another person's projects (see "Accounts and sign-in"). Accounts are kept in a
 separate SQLite file, `users.db` in the data folder (`USERS_DB` overrides the path).
 
+## Keeping the data when the host restarts
+
+Accounts, projects and generated files live in `DATA_DIR`. Hosts such as Streamlit Community Cloud start every restart and every
+redeploy (including each `git push`) with an empty disk, which wipes them. Turn on durable storage with `BACKUP_S3_BUCKET` (plus its
+keys, see `.env.example`) or `BACKUP_DIR`. A snapshot of both databases, `projects/` and `secure/` is written about a minute after
+something changes (the newest 10 are kept), and the newest one is restored when the app starts with an empty disk. If a restore
+fails, uploads are paused so an empty start cannot overwrite a good backup. The Status page shows the backup state; the Projects page
+warns when the host loses its disk and no backup is configured. Set `ATS_SECRET_KEY` too, so saved connection secrets stay readable.
+
 ## Execution
 
 * Local mode (no Docker): the bundled Playwright engines (Chromium, Firefox, WebKit) are installed once without system packages,

@@ -11,7 +11,7 @@ from ats.models import COVERAGE_GUIDE, CUSTOM_CATEGORIES, SCOPE_CHOICES, AuthCon
 from ats.repository import Project
 from ats.security import UnsafeURLError, validate_target_url
 from ats.services import Services
-from ats.ui import theme
+from ats.ui import storage_status, theme
 from ats.ui.layers import open_next_step
 from ats.ui.session import current_project, go_to, notify, owner_id, safe, select_project, show_notices
 from ats.workflow import compute_workflow, next_page
@@ -169,6 +169,7 @@ def settings_panel(svc: Services, active: Project) -> None:
 def render(svc: Services) -> None:
     theme.page_header("Projects", "Create a project and the studio carries it from discovery to a finished test report.", "STEP 00 // SETUP")
     show_notices()
+    storage_status.panel(compact=True)
     owner = owner_id()
     projects = svc.repo.list_projects(owner)
     active = current_project(svc)

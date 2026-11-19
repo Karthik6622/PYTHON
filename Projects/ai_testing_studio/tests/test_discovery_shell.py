@@ -12,6 +12,7 @@ from ats.errors import DiscoveryError
 @pytest.fixture()
 def no_ai(monkeypatch):
     monkeypatch.setattr(DiscoveryService, "_ai_understanding", lambda *_a, **_k: None)
+    monkeypatch.setattr(DiscoveryService, "_auth_check", lambda *_a, **_k: None)
     monkeypatch.setattr(DiscoveryService, "_enrich", lambda _self, _project, specs, _say, _result: specs)
 
 
