@@ -1,0 +1,29 @@
+{
+  "channels": {
+    "web": {
+      "files": {
+        "config/locators.json": "753b2e4eea75319783c5ac1210de94eb95468a0e",
+        "pages/__init__.py": "e175e2c443312676e5bb94f6bdb94ac58141e822",
+        "pages/base_page.py": "f3278c20da2a0f5ceb23d341928d4d3d3651f829",
+        "pages/create_account_page.py": "f480c9ec511819dc36505a47d144e9bd45f9e824",
+        "pages/forgot_password_page.py": "59fa7eead40dc750d010986fe8d7eefd60e9ba2c",
+        "pages/get_started_page.py": "3cd5aa52806f8ccc9a138e90219ac5f8ce057381",
+        "pages/home_page.py": "658a2c033a55a0740881677784251db383bc7b72",
+        "pages/landing_page.py": "760a66e7eaf03c44ac466c001cf382435fc64a7f",
+        "pages/my_profile_page.py": "d33467a7a0c057a747dce53a66a0310a066ac723",
+        "pages/settings_page.py": "9468a7d9c3e9b705cf60406273bf1339a8076454",
+        "tests/web/conftest.py": "e8f5015a91f9e1a034fbf0efad002ab68b1720b5",
+        "tests/web/test_authentication.py": "ec252d1e0d69bd488ea583f9a21f13edf5b0ceab",
+        "tests/web/test_chat.py": "2907d5c5067a94ad544b0c6881d9cc9f9dd5f4f5",
+        "tests/web/test_profile.py": "a31032816ac351218b60103a296a421b1e21e693",
+        "tests/web/test_settings.py": "7031da5511affb79caec70627d974f69ef68fbeb",
+        "utils/app.py": "e54755c37d160d18852258cb13747ed16c363f11",
+        "utils/element.py": "0acd830c01c5178ba687d2fda61b45a508c870f5",
+        "utils/locators.py": "0c66229738025c66ea23ae8823c80e50c23300d5"
+      },
+      "framework": "selenium_python"
+    }
+  },
+  "generator": "ai-testing-studio",
+  "version": 1
+}

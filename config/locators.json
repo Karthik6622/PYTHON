@@ -1,0 +1,3447 @@
+{
+  "create_account.back_to_welcome_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Back to welcome",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to welcome\")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Back to welcome",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Back to welcome",
+      "tag": "button",
+      "type": "submit",
+      "text": "Back to welcome"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to welcome\")"
+    }
+  },
+  "create_account.confirm_password_div": {
+    "page": "create_account",
+    "intent": "",
+    "role": "",
+    "name": "Confirm password",
+    "preferred": {
+      "kind": "text",
+      "value": "Confirm password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Confirm password\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(4) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[4]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Confirm password",
+      "tag": "div",
+      "text": "Confirm password"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Confirm password'][not(*[normalize-space(.)='Confirm password'])]"
+    }
+  },
+  "create_account.confirm_password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Confirm password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Confirm password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Type it once more",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Confirm password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rp:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Confirm password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Type it once more"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Confirm password' or @value='Confirm password' or @title='Confirm password' or @alt='Confirm password' or @placeholder='Confirm password' or normalize-space(.)='Confirm password' or @id=//label[normalize-space(.)='Confirm password']/@for or ancestor::label[normalize-space(.)='Confirm password']]"
+    }
+  },
+  "create_account.continue_with_github_link": {
+    "page": "create_account",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "role",
+      "value": "link",
+      "name": "Continue with GitHub",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseLinkButton-secondary\"]:has-text(\"Continue with GitHub\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "link",
+      "name": "Continue with GitHub",
+      "tag": "a",
+      "text": "Continue with GitHub"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//a[@href] | //*[@role='link'])[@aria-label='Continue with GitHub' or @value='Continue with GitHub' or @title='Continue with GitHub' or @alt='Continue with GitHub' or @placeholder='Continue with GitHub' or normalize-space(.)='Continue with GitHub' or @id=//label[normalize-space(.)='Continue with GitHub']/@for or ancestor::label[normalize-space(.)='Continue with GitHub']]"
+    }
+  },
+  "create_account.continue_with_google_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Continue with Google\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue with Google",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue with Google"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Continue with Google' or @value='Continue with Google' or @title='Continue with Google' or @alt='Continue with Google' or @placeholder='Continue with Google' or normalize-space(.)='Continue with Google' or @id=//label[normalize-space(.)='Continue with Google']/@for or ancestor::label[normalize-space(.)='Continue with Google']]"
+    }
+  },
+  "create_account.create_account_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(6) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[6]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Create account' or @value='Create account' or @title='Create account' or @alt='Create account' or @placeholder='Create account' or normalize-space(.)='Create account' or @id=//label[normalize-space(.)='Create account']/@for or ancestor::label[normalize-space(.)='Create account']]"
+    }
+  },
+  "create_account.display_name_div": {
+    "page": "create_account",
+    "intent": "",
+    "role": "",
+    "name": "Display name",
+    "preferred": {
+      "kind": "text",
+      "value": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Display name\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Display name",
+      "tag": "div",
+      "text": "Display name"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Display name'][not(*[normalize-space(.)='Display name'])]"
+    }
+  },
+  "create_account.display_name_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Display name",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "What should we call you?",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Display name\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Display name",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "What should we call you?"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Display name' or @value='Display name' or @title='Display name' or @alt='Display name' or @placeholder='Display name' or normalize-space(.)='Display name' or @id=//label[normalize-space(.)='Display name']/@for or ancestor::label[normalize-space(.)='Display name']]"
+    }
+  },
+  "create_account.email_div": {
+    "page": "create_account",
+    "intent": "",
+    "role": "",
+    "name": "Email",
+    "preferred": {
+      "kind": "text",
+      "value": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Email",
+      "tag": "div",
+      "text": "Email"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Email'][not(*[normalize-space(.)='Email'])]"
+    }
+  },
+  "create_account.email_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "you@example.com"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Email' or @value='Email' or @title='Email' or @alt='Email' or @placeholder='Email' or normalize-space(.)='Email' or @id=//label[normalize-space(.)='Email']/@for or ancestor::label[normalize-space(.)='Email']]"
+    }
+  },
+  "create_account.i_have_read_the_privacy_notice_and_under_checkbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "checkbox",
+    "name": "I have read the privacy notice and understand this is an AI",
+    "preferred": {
+      "kind": "role",
+      "value": "checkbox",
+      "name": "I have read the privacy notice and understand this is an AI",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "I have read the privacy notice and understand this is an AI assistant.",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "checkbox",
+      "name": "I have read the privacy notice and understand this is an AI",
+      "tag": "input",
+      "type": "checkbox",
+      "label": "I have read the privacy notice and understand this is an AI assistant."
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='checkbox'] | //*[@role='checkbox'])[contains(@aria-label, 'I have read the privacy notice and understand this is an AI') or contains(@value, 'I have read the privacy notice and understand this is an AI') or contains(@title, 'I have read the privacy notice and understand this is an AI') or contains(@alt, 'I have read the privacy notice and understand this is an AI') or contains(@placeholder, 'I have read the privacy notice and understand this is an AI') or contains(normalize-space(.), 'I have read the privacy notice and understand this is an AI') or @id=//label[contains(normalize-space(.), 'I have read the privacy notice and understand this is an AI')]/@for or ancestor::label[contains(normalize-space(.), 'I have read the privacy notice and understand this is an AI')]]"
+    }
+  },
+  "create_account.log_in_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Log in",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log in",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Log in\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(2) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[2]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log in",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log in"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Log in' or @value='Log in' or @title='Log in' or @alt='Log in' or @placeholder='Log in' or normalize-space(.)='Log in' or @id=//label[normalize-space(.)='Log in']/@for or ancestor::label[normalize-space(.)='Log in']]"
+    }
+  },
+  "create_account.password_div": {
+    "page": "create_account",
+    "intent": "",
+    "role": "",
+    "name": "Password",
+    "preferred": {
+      "kind": "text",
+      "value": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(3) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Password\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Password",
+      "tag": "div",
+      "text": "Password"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Password'][not(*[normalize-space(.)='Password'])]"
+    }
+  },
+  "create_account.password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Create a strong password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rh:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Create a strong password"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Password' or @value='Password' or @title='Password' or @alt='Password' or @placeholder='Password' or normalize-space(.)='Password' or @id=//label[normalize-space(.)='Password']/@for or ancestor::label[normalize-space(.)='Password']]"
+    }
+  },
+  "create_account.show_password_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(3) > div > div > div > div > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Show password",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Show password",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(3) > div > div > div > div > button"
+    }
+  },
+  "create_account.show_password_button_2": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(4) > div > div > div > div > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Show password",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Show password",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(4) > div > div > div > div > button"
+    }
+  },
+  "forgot_password.back_to_log_in_button": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "button",
+    "name": "Back to log in",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Back to log in",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to log in\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Back to log in",
+      "tag": "button",
+      "type": "submit",
+      "text": "Back to log in"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Back to log in' or @value='Back to log in' or @title='Back to log in' or @alt='Back to log in' or @placeholder='Back to log in' or normalize-space(.)='Back to log in' or @id=//label[normalize-space(.)='Back to log in']/@for or ancestor::label[normalize-space(.)='Back to log in']]"
+    }
+  },
+  "forgot_password.continue_button": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "button",
+    "name": "Continue",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Continue\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(2) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[3]/div[1]/div[1]/div[2]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Continue' or @value='Continue' or @title='Continue' or @alt='Continue' or @placeholder='Continue' or normalize-space(.)='Continue' or @id=//label[normalize-space(.)='Continue']/@for or ancestor::label[normalize-space(.)='Continue']]"
+    }
+  },
+  "forgot_password.email_div": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "",
+    "name": "Email",
+    "preferred": {
+      "kind": "text",
+      "value": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Email",
+      "tag": "div",
+      "text": "Email"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Email'][not(*[normalize-space(.)='Email'])]"
+    }
+  },
+  "forgot_password.email_textbox": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rh:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "you@example.com"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Email' or @value='Email' or @title='Email' or @alt='Email' or @placeholder='Email' or normalize-space(.)='Email' or @id=//label[normalize-space(.)='Email']/@for or ancestor::label[normalize-space(.)='Email']]"
+    }
+  },
+  "forgot_password.enter_the_email_address_on_your_account_div": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "",
+    "name": "Enter the email address on your account.",
+    "preferred": {
+      "kind": "text",
+      "value": "Enter the email address on your account.",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"Enter the email address on your account.\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(4) > div > div:nth-of-type(2)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Enter the email address on your account.",
+      "tag": "div",
+      "text": "Enter the email address on your account."
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Enter the email address on your account.'][not(*[normalize-space(.)='Enter the email address on your account.'])]"
+    }
+  },
+  "forgot_password.signed_up_with_google_or_github_you_can_div": {
+    "page": "forgot_password",
+    "intent": "",
+    "role": "",
+    "name": "Signed up with Google or GitHub? You can keep using those bu",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"Signed up with Google or GitHub? You can keep using those bu\")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(4) > div > div:nth-of-type(4)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Signed up with Google or GitHub? You can keep using those bu",
+      "tag": "div"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"Signed up with Google or GitHub? You can keep using those bu\")"
+    }
+  },
+  "get_started.back_to_welcome_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Back to welcome",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to welcome\")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(4) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[4]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Back to welcome",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Back to welcome",
+      "tag": "button",
+      "type": "submit",
+      "text": "Back to welcome"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to welcome\")"
+    }
+  },
+  "get_started.continue_with_github_link": {
+    "page": "get_started",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "role",
+      "value": "link",
+      "name": "Continue with GitHub",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseLinkButton-secondary\"]:has-text(\"Continue with GitHub\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "link",
+      "name": "Continue with GitHub",
+      "tag": "a",
+      "text": "Continue with GitHub"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//a[@href] | //*[@role='link'])[@aria-label='Continue with GitHub' or @value='Continue with GitHub' or @title='Continue with GitHub' or @alt='Continue with GitHub' or @placeholder='Continue with GitHub' or normalize-space(.)='Continue with GitHub' or @id=//label[normalize-space(.)='Continue with GitHub']/@for or ancestor::label[normalize-space(.)='Continue with GitHub']]"
+    }
+  },
+  "get_started.continue_with_google_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Continue with Google\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue with Google",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue with Google"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Continue with Google' or @value='Continue with Google' or @title='Continue with Google' or @alt='Continue with Google' or @placeholder='Continue with Google' or normalize-space(.)='Continue with Google' or @id=//label[normalize-space(.)='Continue with Google']/@for or ancestor::label[normalize-space(.)='Continue with Google']]"
+    }
+  },
+  "get_started.create_account_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Create account' or @value='Create account' or @title='Create account' or @alt='Create account' or @placeholder='Create account' or normalize-space(.)='Create account' or @id=//label[normalize-space(.)='Create account']/@for or ancestor::label[normalize-space(.)='Create account']]"
+    }
+  },
+  "get_started.email_div": {
+    "page": "get_started",
+    "intent": "",
+    "role": "",
+    "name": "Email",
+    "preferred": {
+      "kind": "text",
+      "value": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Email",
+      "tag": "div",
+      "text": "Email"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Email'][not(*[normalize-space(.)='Email'])]"
+    }
+  },
+  "get_started.email_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "you@example.com"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Email' or @value='Email' or @title='Email' or @alt='Email' or @placeholder='Email' or normalize-space(.)='Email' or @id=//label[normalize-space(.)='Email']/@for or ancestor::label[normalize-space(.)='Email']]"
+    }
+  },
+  "get_started.forgot_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Forgot password?",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Forgot password?",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Forgot password?\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(1) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Forgot password?",
+      "tag": "button",
+      "type": "submit",
+      "text": "Forgot password?"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Forgot password?' or @value='Forgot password?' or @title='Forgot password?' or @alt='Forgot password?' or @placeholder='Forgot password?' or normalize-space(.)='Forgot password?' or @id=//label[normalize-space(.)='Forgot password?']/@for or ancestor::label[normalize-space(.)='Forgot password?']]"
+    }
+  },
+  "get_started.log_in_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Log in",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log in",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Log in\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log in",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log in"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Log in' or @value='Log in' or @title='Log in' or @alt='Log in' or @placeholder='Log in' or normalize-space(.)='Log in' or @id=//label[normalize-space(.)='Log in']/@for or ancestor::label[normalize-space(.)='Log in']]"
+    }
+  },
+  "get_started.password_div": {
+    "page": "get_started",
+    "intent": "",
+    "role": "",
+    "name": "Password",
+    "preferred": {
+      "kind": "text",
+      "value": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Password\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Password",
+      "tag": "div",
+      "text": "Password"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Password'][not(*[normalize-space(.)='Password'])]"
+    }
+  },
+  "get_started.password_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Your password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Your password"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Password' or @value='Password' or @title='Password' or @alt='Password' or @placeholder='Password' or normalize-space(.)='Password' or @id=//label[normalize-space(.)='Password']/@for or ancestor::label[normalize-space(.)='Password']]"
+    }
+  },
+  "get_started.show_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Show password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Show password",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Show password' or @value='Show password' or @title='Show password' or @alt='Show password' or @placeholder='Show password' or normalize-space(.)='Show password' or @id=//label[normalize-space(.)='Show password']/@for or ancestor::label[normalize-space(.)='Show password']]"
+    }
+  },
+  "home.chat_message_from_assistant_group": {
+    "page": "home",
+    "intent": "display assistant response",
+    "role": "group",
+    "name": "Chat message from assistant",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(2)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "group",
+        "name": "Chat message from assistant",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatMessageContent\"]:has-text(\"Chat message from assistant\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "group",
+      "name": "Chat message from assistant",
+      "tag": "div",
+      "text": "Hey kk! What’s on your mind today?"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(2)"
+    }
+  },
+  "home.chat_message_from_user_group": {
+    "page": "home",
+    "intent": "display user message",
+    "role": "group",
+    "name": "Chat message from user",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(7) > div > div:nth-of-type(2)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[7]/div[1]/div[2]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "group",
+        "name": "Chat message from user",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatMessageContent\"]:has-text(\"Chat message from user\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "group",
+      "name": "Chat message from user",
+      "tag": "div",
+      "text": "Hello"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(7) > div > div:nth-of-type(2)"
+    }
+  },
+  "home.chat_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Chat",
+      "tag": "input",
+      "type": "radio",
+      "label": "Chat"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Chat' or @value='Chat' or @title='Chat' or @alt='Chat' or @placeholder='Chat' or normalize-space(.)='Chat' or @id=//label[normalize-space(.)='Chat']/@for or ancestor::label[normalize-space(.)='Chat']]"
+    }
+  },
+  "home.conversation_title_div": {
+    "page": "home",
+    "intent": "display conversation title",
+    "role": "",
+    "name": "Conversation title",
+    "preferred": {
+      "kind": "text",
+      "value": "Conversation title",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Conversation title\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Conversation title",
+      "tag": "div",
+      "text": "Conversation title"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Conversation title'][not(*[normalize-space(.)='Conversation title'])]"
+    }
+  },
+  "home.conversation_title_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Conversation title",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Conversation title",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rn:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Conversation title\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Conversation title",
+      "tag": "input",
+      "type": "text"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Conversation title' or @value='Conversation title' or @title='Conversation title' or @alt='Conversation title' or @placeholder='Conversation title' or normalize-space(.)='Conversation title' or @id=//label[normalize-space(.)='Conversation title']/@for or ancestor::label[normalize-space(.)='Conversation title']]"
+    }
+  },
+  "home.hello_button": {
+    "page": "home",
+    "intent": "trigger greeting action",
+    "role": "button",
+    "name": "Hello",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(1) > div > div:nth-of-type(1) > span > span > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[1]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Hello",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Hello\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Hello",
+      "tag": "button",
+      "type": "submit",
+      "text": "Hello"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(1) > div > div:nth-of-type(1) > span > span > button"
+    }
+  },
+  "home.hello_button_2": {
+    "page": "home",
+    "intent": "trigger greeting action",
+    "role": "button",
+    "name": "Hello",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(2) > div > div:nth-of-type(1) > span > span > button",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[2]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Hello",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Hello\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Hello",
+      "tag": "button",
+      "type": "submit",
+      "text": "Hello"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(2) > div > div:nth-of-type(1) > span > span > button"
+    }
+  },
+  "home.hey_kk_what_s_on_your_mind_today_div": {
+    "page": "home",
+    "intent": "prompt user for input",
+    "role": "",
+    "name": "Hey kk! What’s on your mind today?",
+    "preferred": {
+      "kind": "text",
+      "value": "Hey kk! What’s on your mind today?",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stLayoutWrapper\"]:has-text(\"Hey kk! What’s on your mind today?\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Hey kk! What’s on your mind today?",
+      "tag": "div",
+      "text": "Hey kk! What’s on your mind today?"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Hey kk! What’s on your mind today?'][not(*[normalize-space(.)='Hey kk! What’s on your mind today?'])]"
+    }
+  },
+  "home.log_out_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Log out",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log out",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Log out\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(10) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[10]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log out",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log out"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Log out' or @value='Log out' or @title='Log out' or @alt='Log out' or @placeholder='Log out' or normalize-space(.)='Log out' or @id=//label[normalize-space(.)='Log out']/@for or ancestor::label[normalize-space(.)='Log out']]"
+    }
+  },
+  "home.manage_current_chat_button": {
+    "page": "home",
+    "intent": "manage active conversation",
+    "role": "button",
+    "name": "Manage current chat",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div > div:nth-of-type(7) > div > details > summary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/summary[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Manage current chat",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Manage current chat",
+      "tag": "summary",
+      "text": "Manage current chat"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div > div > div:nth-of-type(7) > div > details > summary"
+    }
+  },
+  "home.my_profile_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='My Profile' or @value='My Profile' or @title='My Profile' or @alt='My Profile' or @placeholder='My Profile' or normalize-space(.)='My Profile' or @id=//label[normalize-space(.)='My Profile']/@for or ancestor::label[normalize-space(.)='My Profile']]"
+    }
+  },
+  "home.new_chat_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New chat",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "New chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primary\"]:has-text(\"New chat\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "New chat",
+      "tag": "button",
+      "type": "submit",
+      "text": "New chat"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='New chat' or @value='New chat' or @title='New chat' or @alt='New chat' or @placeholder='New chat' or normalize-space(.)='New chat' or @id=//label[normalize-space(.)='New chat']/@for or ancestor::label[normalize-space(.)='New chat']]"
+    }
+  },
+  "home.new_conversation_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New conversation",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "New conversation",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(3) > div > div:nth-of-type(1) > span > span > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[3]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"New conversation\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "New conversation",
+      "tag": "button",
+      "type": "submit",
+      "text": "New conversation"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='New conversation' or @value='New conversation' or @title='New conversation' or @alt='New conversation' or @placeholder='New conversation' or normalize-space(.)='New conversation' or @id=//label[normalize-space(.)='New conversation']/@for or ancestor::label[normalize-space(.)='New conversation']]"
+    }
+  },
+  "home.recent_chats_div": {
+    "page": "home",
+    "intent": "open recent chats sidebar",
+    "role": "",
+    "name": "RECENT CHATS",
+    "preferred": {
+      "kind": "text",
+      "value": "RECENT CHATS",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"RECENT CHATS\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(2) > div > div > div:nth-of-type(4)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[4]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "RECENT CHATS",
+      "tag": "div",
+      "text": "RECENT CHATS"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='RECENT CHATS'][not(*[normalize-space(.)='RECENT CHATS'])]"
+    }
+  },
+  "home.save_title_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Save title",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Save title",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(2) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Save title",
+      "tag": "button",
+      "type": "submit",
+      "text": "Save title"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Save title' or @value='Save title' or @title='Save title' or @alt='Save title' or @placeholder='Save title' or normalize-space(.)='Save title' or @id=//label[normalize-space(.)='Save title']/@for or ancestor::label[normalize-space(.)='Save title']]"
+    }
+  },
+  "home.send_message_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Send message",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Send message",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(4) > button:nth-of-type(2)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/button[2]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputSubmitButton\"]:has-text(\"Send message\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Send message",
+      "tag": "button",
+      "type": "submit"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Send message' or @value='Send message' or @title='Send message' or @alt='Send message' or @placeholder='Send message' or normalize-space(.)='Send message' or @id=//label[normalize-space(.)='Send message']/@for or ancestor::label[normalize-space(.)='Send message']]"
+    }
+  },
+  "home.settings_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Settings' or @value='Settings' or @title='Settings' or @alt='Settings' or @placeholder='Settings' or normalize-space(.)='Settings' or @id=//label[normalize-space(.)='Settings']/@for or ancestor::label[normalize-space(.)='Settings']]"
+    }
+  },
+  "home.start_recording_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Start recording",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Start recording",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(4) > button:nth-of-type(1)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputMicButton\"]:has-text(\"Start recording\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Start recording",
+      "tag": "button",
+      "type": "submit"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Start recording' or @value='Start recording' or @title='Start recording' or @alt='Start recording' or @placeholder='Start recording' or normalize-space(.)='Start recording' or @id=//label[normalize-space(.)='Start recording']/@for or ancestor::label[normalize-space(.)='Start recording']]"
+    }
+  },
+  "home.type_a_message_attach_a_file_or_tap_th_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Type a message, attach a file, or tap the mic…",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Type a message, attach a file, or tap the mic…",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Type a message, attach a file, or tap the mic…",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputTextArea\"]:has-text(\"Type a message, attach a file, or tap the mic…\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(1) > textarea",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/textarea[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Type a message, attach a file, or tap the mic…",
+      "tag": "textarea",
+      "type": "textarea",
+      "placeholder": "Type a message, attach a file, or tap the mic…"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[contains(@aria-label, 'Type a message, attach a file, or tap the mic…') or contains(@value, 'Type a message, attach a file, or tap the mic…') or contains(@title, 'Type a message, attach a file, or tap the mic…') or contains(@alt, 'Type a message, attach a file, or tap the mic…') or contains(@placeholder, 'Type a message, attach a file, or tap the mic…') or contains(normalize-space(.), 'Type a message, attach a file, or tap the mic…') or @id=//label[contains(normalize-space(.), 'Type a message, attach a file, or tap the mic…')]/@for or ancestor::label[contains(normalize-space(.), 'Type a message, attach a file, or tap the mic…')]]"
+    }
+  },
+  "home.upload_files_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Upload files",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Upload files",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Upload files",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Upload files' or @value='Upload files' or @title='Upload files' or @alt='Upload files' or @placeholder='Upload files' or normalize-space(.)='Upload files' or @id=//label[normalize-space(.)='Upload files']/@for or ancestor::label[normalize-space(.)='Upload files']]"
+    }
+  },
+  "landing.continue_with_github_link": {
+    "page": "landing",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "role",
+      "value": "link",
+      "name": "Continue with GitHub",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseLinkButton-secondary\"]:has-text(\"Continue with GitHub\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "link",
+      "name": "Continue with GitHub",
+      "tag": "a",
+      "text": "Continue with GitHub"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//a[@href] | //*[@role='link'])[@aria-label='Continue with GitHub' or @value='Continue with GitHub' or @title='Continue with GitHub' or @alt='Continue with GitHub' or @placeholder='Continue with GitHub' or normalize-space(.)='Continue with GitHub' or @id=//label[normalize-space(.)='Continue with GitHub']/@for or ancestor::label[normalize-space(.)='Continue with GitHub']]"
+    }
+  },
+  "landing.continue_with_google_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Continue with Google\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue with Google",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue with Google"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Continue with Google' or @value='Continue with Google' or @title='Continue with Google' or @alt='Continue with Google' or @placeholder='Continue with Google' or normalize-space(.)='Continue with Google' or @id=//label[normalize-space(.)='Continue with Google']/@for or ancestor::label[normalize-space(.)='Continue with Google']]"
+    }
+  },
+  "landing.create_account_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Create account' or @value='Create account' or @title='Create account' or @alt='Create account' or @placeholder='Create account' or normalize-space(.)='Create account' or @id=//label[normalize-space(.)='Create account']/@for or ancestor::label[normalize-space(.)='Create account']]"
+    }
+  },
+  "landing.get_started_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Get started",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Get started",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primary\"]:has-text(\"Get started\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Get started",
+      "tag": "button",
+      "type": "submit",
+      "text": "Get started"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Get started' or @value='Get started' or @title='Get started' or @alt='Get started' or @placeholder='Get started' or normalize-space(.)='Get started' or @id=//label[normalize-space(.)='Get started']/@for or ancestor::label[normalize-space(.)='Get started']]"
+    }
+  },
+  "landing.withyou_div": {
+    "page": "landing",
+    "intent": "",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(1)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "WithYou",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stLayoutWrapper\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(1)"
+    }
+  },
+  "landing.withyou_div_2": {
+    "page": "landing",
+    "intent": "",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(1) > div",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "WithYou",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stVerticalBlock\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(1) > div"
+    }
+  },
+  "landing.withyou_div_3": {
+    "page": "landing",
+    "intent": "",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div:nth-of-type(6) > div > div:nth-of-type(1) > div > div",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[1]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "WithYou",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div > div:nth-of-type(6) > div > div:nth-of-type(1) > div > div"
+    }
+  },
+  "landing.withyou_div_4": {
+    "page": "landing",
+    "intent": "",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "css",
+      "value": "div:nth-of-type(6) > div > div:nth-of-type(1) > div > div > div",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[1]/div[1]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "WithYou",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdown\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "div:nth-of-type(6) > div > div:nth-of-type(1) > div > div > div"
+    }
+  },
+  "my_profile.3_conversation_s_saved_to_this_app_s_lo_div": {
+    "page": "my_profile",
+    "intent": "show local conversation count",
+    "role": "",
+    "name": "3 conversation(s) saved to this app’s local data folder.",
+    "preferred": {
+      "kind": "text",
+      "value": "3 conversation(s) saved to this app’s local data folder.",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"3 conversation(s) saved to this app’s local data folder.\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(9)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "3 conversation(s) saved to this app’s local data folder.",
+      "tag": "div",
+      "text": "3 conversation(s) saved to this app’s local data folder."
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='3 conversation(s) saved to this app’s local data folder.'][not(*[normalize-space(.)='3 conversation(s) saved to this app’s local data folder.'])]"
+    }
+  },
+  "my_profile.chat_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Chat",
+      "tag": "input",
+      "type": "radio",
+      "label": "Chat"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Chat' or @value='Chat' or @title='Chat' or @alt='Chat' or @placeholder='Chat' or normalize-space(.)='Chat' or @id=//label[normalize-space(.)='Chat']/@for or ancestor::label[normalize-space(.)='Chat']]"
+    }
+  },
+  "my_profile.collapse_sidebar_button": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "button",
+    "name": "Collapse sidebar",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Collapse sidebar",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[1]/div[2]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-headerNoPadding\"]:has-text(\"Collapse sidebar\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Collapse sidebar",
+      "tag": "button",
+      "type": "submit"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Collapse sidebar' or @value='Collapse sidebar' or @title='Collapse sidebar' or @alt='Collapse sidebar' or @placeholder='Collapse sidebar' or normalize-space(.)='Collapse sidebar' or @id=//label[normalize-space(.)='Collapse sidebar']/@for or ancestor::label[normalize-space(.)='Collapse sidebar']]"
+    }
+  },
+  "my_profile.display_name_div": {
+    "page": "my_profile",
+    "intent": "show display name",
+    "role": "",
+    "name": "Display name",
+    "preferred": {
+      "kind": "text",
+      "value": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Display name\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(7) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[7]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Display name",
+      "tag": "div",
+      "text": "Display name"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Display name'][not(*[normalize-space(.)='Display name'])]"
+    }
+  },
+  "my_profile.display_name_textbox": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "textbox",
+    "name": "Display name",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r1p:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Display name\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Display name",
+      "tag": "input",
+      "type": "text"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Display name' or @value='Display name' or @title='Display name' or @alt='Display name' or @placeholder='Display name' or normalize-space(.)='Display name' or @id=//label[normalize-space(.)='Display name']/@for or ancestor::label[normalize-space(.)='Display name']]"
+    }
+  },
+  "my_profile.email_div": {
+    "page": "my_profile",
+    "intent": "show email",
+    "role": "",
+    "name": "Email",
+    "preferred": {
+      "kind": "text",
+      "value": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(8) > div > label > span > div",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[8]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Email",
+      "tag": "div",
+      "text": "Email"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Email'][not(*[normalize-space(.)='Email'])]"
+    }
+  },
+  "my_profile.email_textbox": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r1v:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Email' or @value='Email' or @title='Email' or @alt='Email' or @placeholder='Email' or normalize-space(.)='Email' or @id=//label[normalize-space(.)='Email']/@for or ancestor::label[normalize-space(.)='Email']]"
+    }
+  },
+  "my_profile.export_selected_conversation_as_markdown_button": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "button",
+    "name": "Export selected conversation as Markdown",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Export selected conversation as Markdown",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Export selected conversation as Markdown\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(11) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[11]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Export selected conversation as Markdown",
+      "tag": "button",
+      "type": "submit",
+      "text": "Export selected conversation as Markdown"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[contains(@aria-label, 'Export selected conversation as Markdown') or contains(@value, 'Export selected conversation as Markdown') or contains(@title, 'Export selected conversation as Markdown') or contains(@alt, 'Export selected conversation as Markdown') or contains(@placeholder, 'Export selected conversation as Markdown') or contains(normalize-space(.), 'Export selected conversation as Markdown') or @id=//label[contains(normalize-space(.), 'Export selected conversation as Markdown')]/@for or ancestor::label[contains(normalize-space(.), 'Export selected conversation as Markdown')]]"
+    }
+  },
+  "my_profile.log_out_button": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "button",
+    "name": "Log out",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log out",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Log out\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(10) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[10]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log out",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log out"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Log out' or @value='Log out' or @title='Log out' or @alt='Log out' or @placeholder='Log out' or normalize-space(.)='Log out' or @id=//label[normalize-space(.)='Log out']/@for or ancestor::label[normalize-space(.)='Log out']]"
+    }
+  },
+  "my_profile.my_profile_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='My Profile' or @value='My Profile' or @title='My Profile' or @alt='My Profile' or @placeholder='My Profile' or normalize-space(.)='My Profile' or @id=//label[normalize-space(.)='My Profile']/@for or ancestor::label[normalize-space(.)='My Profile']]"
+    }
+  },
+  "my_profile.settings_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Settings' or @value='Settings' or @title='Settings' or @alt='Settings' or @placeholder='Settings' or normalize-space(.)='Settings' or @id=//label[normalize-space(.)='Settings']/@for or ancestor::label[normalize-space(.)='Settings']]"
+    }
+  },
+  "my_profile.the_app_stores_account_and_conversation_div": {
+    "page": "my_profile",
+    "intent": "disclose data storage policy",
+    "role": "",
+    "name": "The app stores account and conversation data locally on the",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"The app stores account and conversation data locally on the \")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(10)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[10]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "The app stores account and conversation data locally on the",
+      "tag": "div"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"The app stores account and conversation data locally on the \")"
+    }
+  },
+  "my_profile.your_account_details_stay_separate_from_div": {
+    "page": "my_profile",
+    "intent": "privacy notice display",
+    "role": "",
+    "name": "Your account details stay separate from your chat content.",
+    "preferred": {
+      "kind": "text",
+      "value": "Your account details stay separate from your chat content.",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"Your account details stay separate from your chat content.\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(5)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Your account details stay separate from your chat content.",
+      "tag": "div",
+      "text": "Your account details stay separate from your chat content."
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "//*[not(self::script) and not(self::style)][normalize-space(.)='Your account details stay separate from your chat content.'][not(*[normalize-space(.)='Your account details stay separate from your chat content.'])]"
+    }
+  },
+  "settings.chat_mode_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Chat mode",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Chat mode",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria1084929013-:r3s:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Chat mode",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//select | //*[@role='combobox'])[@aria-label='Chat mode' or @value='Chat mode' or @title='Chat mode' or @alt='Chat mode' or @placeholder='Chat mode' or normalize-space(.)='Chat mode' or @id=//label[normalize-space(.)='Chat mode']/@for or ancestor::label[normalize-space(.)='Chat mode']]"
+    }
+  },
+  "settings.chat_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Chat",
+      "tag": "input",
+      "type": "radio",
+      "label": "Chat"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Chat' or @value='Chat' or @title='Chat' or @alt='Chat' or @placeholder='Chat' or normalize-space(.)='Chat' or @id=//label[normalize-space(.)='Chat']/@for or ancestor::label[normalize-space(.)='Chat']]"
+    }
+  },
+  "settings.delete_my_account_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Delete my account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Delete my account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Delete my account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Delete my account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Delete my account"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Delete my account' or @value='Delete my account' or @title='Delete my account' or @alt='Delete my account' or @placeholder='Delete my account' or normalize-space(.)='Delete my account' or @id=//label[normalize-space(.)='Delete my account']/@for or ancestor::label[normalize-space(.)='Delete my account']]"
+    }
+  },
+  "settings.deleting_your_account_permanently_remove_div": {
+    "page": "settings",
+    "intent": "account deletion warning",
+    "role": "",
+    "name": "Deleting your account permanently removes its local account",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"Deleting your account permanently removes its local account \")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(8)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[8]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Deleting your account permanently removes its local account",
+      "tag": "div"
+    },
+    "resolved": {
+      "by": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"Deleting your account permanently removes its local account \")"
+    }
+  },
+  "settings.help_for_chat_mode_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Help for Chat mode",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Help for Chat mode",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[4]/div[1]/label[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > label > div > span > span > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Help for Chat mode",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Help for Chat mode' or @value='Help for Chat mode' or @title='Help for Chat mode' or @alt='Help for Chat mode' or @placeholder='Help for Chat mode' or normalize-space(.)='Help for Chat mode' or @id=//label[normalize-space(.)='Help for Chat mode']/@for or ancestor::label[normalize-space(.)='Help for Chat mode']]"
+    }
+  },
+  "settings.help_for_romantic_mode_partner_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Help for Romantic mode partner",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Help for Romantic mode partner",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[5]/div[1]/label[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > label > div > span > span > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Help for Romantic mode partner",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[contains(@aria-label, 'Help for Romantic mode partner') or contains(@value, 'Help for Romantic mode partner') or contains(@title, 'Help for Romantic mode partner') or contains(@alt, 'Help for Romantic mode partner') or contains(@placeholder, 'Help for Romantic mode partner') or contains(normalize-space(.), 'Help for Romantic mode partner') or @id=//label[contains(normalize-space(.), 'Help for Romantic mode partner')]/@for or ancestor::label[contains(normalize-space(.), 'Help for Romantic mode partner')]]"
+    }
+  },
+  "settings.help_for_your_city_optional_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Help for Your city (optional)",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Help for Your city (optional)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[6]/div[1]/label[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > label > div > span > span > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Help for Your city (optional)",
+      "tag": "button",
+      "type": "button"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[contains(@aria-label, 'Help for Your city (optional)') or contains(@value, 'Help for Your city (optional)') or contains(@title, 'Help for Your city (optional)') or contains(@alt, 'Help for Your city (optional)') or contains(@placeholder, 'Help for Your city (optional)') or contains(normalize-space(.), 'Help for Your city (optional)') or @id=//label[contains(normalize-space(.), 'Help for Your city (optional)')]/@for or ancestor::label[contains(normalize-space(.), 'Help for Your city (optional)')]]"
+    }
+  },
+  "settings.i_understand_this_permanently_deletes_my_checkbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "checkbox",
+    "name": "I understand this permanently deletes my account and convers",
+    "preferred": {
+      "kind": "role",
+      "value": "checkbox",
+      "name": "I understand this permanently deletes my account and convers",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "I understand this permanently deletes my account and conversations.",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "checkbox",
+      "name": "I understand this permanently deletes my account and convers",
+      "tag": "input",
+      "type": "checkbox",
+      "label": "I understand this permanently deletes my account and conversations."
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='checkbox'] | //*[@role='checkbox'])[contains(@aria-label, 'I understand this permanently deletes my account and convers') or contains(@value, 'I understand this permanently deletes my account and convers') or contains(@title, 'I understand this permanently deletes my account and convers') or contains(@alt, 'I understand this permanently deletes my account and convers') or contains(@placeholder, 'I understand this permanently deletes my account and convers') or contains(normalize-space(.), 'I understand this permanently deletes my account and convers') or @id=//label[contains(normalize-space(.), 'I understand this permanently deletes my account and convers')]/@for or ancestor::label[contains(normalize-space(.), 'I understand this permanently deletes my account and convers')]]"
+    }
+  },
+  "settings.log_out_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Log out",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log out",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Log out\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(10) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[10]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log out",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log out"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Log out' or @value='Log out' or @title='Log out' or @alt='Log out' or @placeholder='Log out' or normalize-space(.)='Log out' or @id=//label[normalize-space(.)='Log out']/@for or ancestor::label[normalize-space(.)='Log out']]"
+    }
+  },
+  "settings.my_profile_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='My Profile' or @value='My Profile' or @title='My Profile' or @alt='My Profile' or @placeholder='My Profile' or normalize-space(.)='My Profile' or @id=//label[normalize-space(.)='My Profile']/@for or ancestor::label[normalize-space(.)='My Profile']]"
+    }
+  },
+  "settings.reply_length_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply length",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply length",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria1084929013-:r3b:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Reply length",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//select | //*[@role='combobox'])[@aria-label='Reply length' or @value='Reply length' or @title='Reply length' or @alt='Reply length' or @placeholder='Reply length' or normalize-space(.)='Reply length' or @id=//label[normalize-space(.)='Reply length']/@for or ancestor::label[normalize-space(.)='Reply length']]"
+    }
+  },
+  "settings.reply_tone_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply tone",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply tone",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria1084929013-:r2s:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Reply tone",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//select | //*[@role='combobox'])[@aria-label='Reply tone' or @value='Reply tone' or @title='Reply tone' or @alt='Reply tone' or @placeholder='Reply tone' or normalize-space(.)='Reply tone' or @id=//label[normalize-space(.)='Reply tone']/@for or ancestor::label[normalize-space(.)='Reply tone']]"
+    }
+  },
+  "settings.romantic_mode_partner_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Romantic mode partner",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Romantic mode partner",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria1084929013-:r4d:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Romantic mode partner",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//select | //*[@role='combobox'])[@aria-label='Romantic mode partner' or @value='Romantic mode partner' or @title='Romantic mode partner' or @alt='Romantic mode partner' or @placeholder='Romantic mode partner' or normalize-space(.)='Romantic mode partner' or @id=//label[normalize-space(.)='Romantic mode partner']/@for or ancestor::label[normalize-space(.)='Romantic mode partner']]"
+    }
+  },
+  "settings.save_preferences_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Save preferences",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Save preferences",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Save preferences\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(7) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[7]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Save preferences",
+      "tag": "button",
+      "type": "submit",
+      "text": "Save preferences"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//button | //input[@type='button' or @type='submit' or @type='reset' or @type='image'] | //*[@role='button'])[@aria-label='Save preferences' or @value='Save preferences' or @title='Save preferences' or @alt='Save preferences' or @placeholder='Save preferences' or normalize-space(.)='Save preferences' or @id=//label[normalize-space(.)='Save preferences']/@for or ancestor::label[normalize-space(.)='Save preferences']]"
+    }
+  },
+  "settings.settings_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[@type='radio'] | //*[@role='radio'])[@aria-label='Settings' or @value='Settings' or @title='Settings' or @alt='Settings' or @placeholder='Settings' or normalize-space(.)='Settings' or @id=//label[normalize-space(.)='Settings']/@for or ancestor::label[normalize-space(.)='Settings']]"
+    }
+  },
+  "settings.topics_you_often_ask_about_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Topics you often ask about",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Topics you often ask about",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Choose options",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria1084929013-:r4r:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Topics you often ask about",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose options"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//select | //*[@role='combobox'])[contains(@aria-label, 'Topics you often ask about') or contains(@value, 'Topics you often ask about') or contains(@title, 'Topics you often ask about') or contains(@alt, 'Topics you often ask about') or contains(@placeholder, 'Topics you often ask about') or contains(normalize-space(.), 'Topics you often ask about') or @id=//label[contains(normalize-space(.), 'Topics you often ask about')]/@for or ancestor::label[contains(normalize-space(.), 'Topics you often ask about')]]"
+    }
+  },
+  "settings.type_your_email_address_to_confirm_delet_textbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "textbox",
+    "name": "Type your email address to confirm deletion",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Type your email address to confirm deletion",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r2e:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Type your email address to confirm deletion\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Type your email address to confirm deletion",
+      "tag": "input",
+      "type": "text"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[contains(@aria-label, 'Type your email address to confirm deletion') or contains(@value, 'Type your email address to confirm deletion') or contains(@title, 'Type your email address to confirm deletion') or contains(@alt, 'Type your email address to confirm deletion') or contains(@placeholder, 'Type your email address to confirm deletion') or contains(normalize-space(.), 'Type your email address to confirm deletion') or @id=//label[contains(normalize-space(.), 'Type your email address to confirm deletion')]/@for or ancestor::label[contains(normalize-space(.), 'Type your email address to confirm deletion')]]"
+    }
+  },
+  "settings.your_city_optional_textbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "textbox",
+    "name": "Your city (optional)",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Your city (optional)",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r25:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Your city (optional)\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Your city (optional)",
+      "tag": "input",
+      "type": "text"
+    },
+    "resolved": {
+      "by": "xpath",
+      "value": "(//input[not(@type) or @type='text' or @type='email' or @type='password' or @type='tel' or @type='url'] | //textarea | //*[@role='textbox'])[@aria-label='Your city (optional)' or @value='Your city (optional)' or @title='Your city (optional)' or @alt='Your city (optional)' or @placeholder='Your city (optional)' or normalize-space(.)='Your city (optional)' or @id=//label[normalize-space(.)='Your city (optional)']/@for or ancestor::label[normalize-space(.)='Your city (optional)']]"
+    }
+  }
+}
