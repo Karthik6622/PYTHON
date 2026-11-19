@@ -378,16 +378,16 @@
     "role": "button",
     "name": "Continue with Google",
     "preferred": {
-      "kind": "testid",
-      "value": "stBaseButton-secondary",
-      "exact": false
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
     },
     "alternatives": [
       {
-        "kind": "role",
-        "value": "button",
-        "name": "Continue with Google",
-        "exact": true
+        "kind": "testid",
+        "value": "stBaseButton-secondary",
+        "exact": false
       },
       {
         "kind": "css",
@@ -932,10 +932,9 @@
     "role": "button",
     "name": "New conversation",
     "preferred": {
-      "kind": "role",
-      "value": "button",
-      "name": "New conversation",
-      "exact": true
+      "kind": "xpath",
+      "value": "(//button[@data-testid='stBaseButton-secondary' and .//p[text()='New conversation']])[2]",
+      "exact": false
     },
     "alternatives": [
       {
@@ -947,6 +946,12 @@
         "kind": "xpath",
         "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[1]/div[1]/div[2]/button[1]",
         "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "New conversation",
+        "exact": true
       }
     ]
   },

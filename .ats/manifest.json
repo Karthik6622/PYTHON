@@ -2,7 +2,7 @@
   "channels": {
     "web": {
       "files": {
-        "config/locators.json": "bf5599d4ab85e992abc04e45a4475467cf02e128",
+        "config/locators.json": "6eca4b380e768431c32621c0a029b174800f7ef3",
         "package.json": "c640e6d3d9eb1cef87f6a0785b11c71917fee7ef",
         "pages/base.page.ts": "cdee1ef8fe506ddac32dee6690f7969fdba6a973",
         "pages/create_account.page.ts": "4f359714783f0037750d84ba90f535adf897b84d",
