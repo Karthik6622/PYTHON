@@ -1,0 +1,18 @@
+{
+  "channels": {
+    "api": {
+      "files": {
+        "config/api.json": "599f7c90f8b002f0f4be17c4ac55a590962302a7",
+        "tests/api/conftest.py": "fa9ea0de301f5a5305d4338c42c82890cfdaf477",
+        "tests/api/test_pet.py": "0eb1af8f9cc3e5242708f58a8d65504be91709d8",
+        "tests/api/test_store.py": "6d41c40468ab20140583a617d701d51177ab4a4a",
+        "tests/api/test_user.py": "f55cdad1604756109f475e8d7ce9e1f003c64cc6",
+        "utils/api.py": "38989a3779ad6a0e073f79d594c217ba615f37a8",
+        "utils/mail.py": "a0a3857194dd45c19643e84aba9b4c438655fabf"
+      },
+      "framework": "api_python"
+    }
+  },
+  "generator": "ai-testing-studio",
+  "version": 1
+}

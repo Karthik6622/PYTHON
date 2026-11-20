@@ -1,0 +1,281 @@
+{
+  "base_url": "https://petstore3.swagger.io/api/v3",
+  "timeout": 30,
+  "connections": {},
+  "mail": {},
+  "endpoints": [
+    {
+      "key": "POST /pet",
+      "summary": "Add a new pet to the store.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "422",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "PUT /pet",
+      "summary": "Update an existing pet.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "422",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "GET /pet/findByStatus",
+      "summary": "Finds Pets by status.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "GET /pet/findByTags",
+      "summary": "Finds Pets by tags.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "GET /pet/{petId}",
+      "summary": "Find pet by ID.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": [
+        "api_key",
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "POST /pet/{petId}",
+      "summary": "Updates a pet in the store with form data.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "DELETE /pet/{petId}",
+      "summary": "Deletes a pet.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "POST /pet/{petId}/uploadImage",
+      "summary": "Uploads an image.",
+      "tags": [
+        "pet"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    {
+      "key": "GET /store/inventory",
+      "summary": "Returns pet inventories by status.",
+      "tags": [
+        "store"
+      ],
+      "statuses": [
+        "200",
+        "default"
+      ],
+      "security": [
+        "api_key"
+      ]
+    },
+    {
+      "key": "POST /store/order",
+      "summary": "Place an order for a pet.",
+      "tags": [
+        "store"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "422",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "GET /store/order/{orderId}",
+      "summary": "Find purchase order by ID.",
+      "tags": [
+        "store"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "DELETE /store/order/{orderId}",
+      "summary": "Delete purchase order by identifier.",
+      "tags": [
+        "store"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "POST /user",
+      "summary": "Create user.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "POST /user/createWithList",
+      "summary": "Creates list of users with given input array.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "GET /user/login",
+      "summary": "Logs user into the system.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "GET /user/logout",
+      "summary": "Logs out current logged in user session.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "GET /user/{username}",
+      "summary": "Get user by user name.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "PUT /user/{username}",
+      "summary": "Update user resource.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": []
+    },
+    {
+      "key": "DELETE /user/{username}",
+      "summary": "Delete user resource.",
+      "tags": [
+        "user"
+      ],
+      "statuses": [
+        "200",
+        "400",
+        "404",
+        "default"
+      ],
+      "security": []
+    }
+  ]
+}
