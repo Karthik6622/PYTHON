@@ -27,7 +27,7 @@ class ScenarioInput(BaseModel):
     custom_categories: list[str] = Field(default_factory=list)
     application: dict[str, Any]
     user_requirements: str = ""
-    discovery: list[dict[str, Any]] = Field(default_factory=list)
+    discovery: list[dict[str, Any]] | dict[str, Any] = Field(default_factory=list)
     allowed_test_types: list[str] = Field(default_factory=list)
 
 
@@ -59,7 +59,7 @@ class TestCaseInput(BaseModel):
 
     scenarios: list[dict[str, Any]]
     application: dict[str, Any]
-    discovery: list[dict[str, Any]] = Field(default_factory=list)
+    discovery: list[dict[str, Any]] | dict[str, Any] = Field(default_factory=list)
     elements: list[dict[str, Any]] = Field(default_factory=list)
     user_requirements: str = ""
     existing_test_case_ids: list[str] = Field(default_factory=list)
@@ -98,7 +98,7 @@ class ScriptPlanInput(BaseModel):
     base_url: str
     test_cases: list[dict[str, Any]]
     elements: list[dict[str, Any]]
-    page_digest: list[dict[str, Any]] = Field(default_factory=list)
+    page_digest: list[dict[str, Any]] | dict[str, Any] = Field(default_factory=list)
     allowed_actions: list[str] = Field(default_factory=list)
 
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Callable
 from typing import Any
 
 from ats.ai.agents import ApiScenarioAgent, MobileScenarioAgent, ScenarioAgent
 from ats.api import design as api_design
 from ats.api.models import endpoint_digest as api_endpoint_digest
+from ats.discovery.facts import facts_digest
 from ats.discovery.service import build_digest
 from ats.errors import GenerationError
 from ats.generation.common import apply_changeset, next_id, norm_title, valid_id
@@ -17,6 +19,32 @@ from ats.progress import report
 from ats.repository import Project, Repository
 
 EventCallback = Callable[[str, str], None]
+
+
+def resolve_page(page: str, known: set[str], names: dict[str, str] | None = None) -> str:
+    """The page_key a model-written page reference means: exact key, a url, or the name / heading of a view. Unknown stays as written."""
+    if not page or page in known:
+        return page
+    names = names or {}
+    lowered = page.strip().lower()
+    if lowered in names:
+        return names[lowered]
+    tail = page.rstrip("/")
+    matches = [p for p in known if tail and (p.rstrip("/").endswith(tail) or tail.endswith(p.rstrip("/")))]
+    if matches:
+        return matches[0]
+    close = difflib.get_close_matches(lowered, list(names), n=1, cutoff=0.8)
+    return names[close[0]] if close else page
+
+
+def page_names(discovery: Any) -> dict[str, str]:
+    """``{lower-cased view name / heading / page key: page_key}`` for resolving references written by a model."""
+    names: dict[str, str] = {}
+    for p in discovery.pages:
+        for label in (p.page_key, p.view_name, p.title, *[h.split(": ", 1)[-1] for h in p.headings[:2]]):
+            if label and label.strip().lower() not in names:
+                names[label.strip().lower()] = p.page_key
+    return names
 
 
 def _application(project: Project, discovery: Any) -> dict[str, Any]:
@@ -69,13 +97,13 @@ class ScenarioService:
             "coverage": project.coverage, "coverage_guide": COVERAGE_GUIDE.get(project.coverage, ""),
             "custom_categories": project.custom_categories if project.coverage == "CUSTOM" else [],
             "application": _application(project, discovery), "user_requirements": requirements or project.test_data_notes,
-            "discovery": build_digest(discovery, max_items=30), "allowed_test_types": allowed,
+            "discovery": facts_digest(discovery, max_controls=25), "allowed_test_types": allowed,
         }  # fmt: skip
         report(progress, "Designing enterprise-level scenarios for every discovered view", 0.05, 0.9)
         raw = self.agent.generate(payload, project_id=project.id, on_event=on_event)
         report(progress, "Checking and saving the scenarios", 0.95)
         known = {p.page_key for p in discovery.pages} | {p.final_url or p.url for p in discovery.pages}
-        scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None, self._other_ids(project.id, "ui"))
+        scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None, self._other_ids(project.id, "ui"), page_names(discovery))
         if not scenarios:
             raise GenerationError("The model did not return usable scenarios. Add requirements or try again.")
         self.repo.save_scenarios(project.id, scenarios, replace=True, layer="ui")
@@ -123,7 +151,7 @@ class ScenarioService:
         return scenarios
 
     @staticmethod
-    def _clean(items: list[Scenario], known_pages: set[str], allowed_types: list[str] | None, reserved: set[str] | None = None) -> list[Scenario]:
+    def _clean(items: list[Scenario], known_pages: set[str], allowed_types: list[str] | None, reserved: set[str] | None = None, names: dict[str, str] | None = None) -> list[Scenario]:
         taken: set[str] = set(reserved or ())
         seen: set[tuple[str, str]] = set()
         cleaned: list[Scenario] = []
@@ -136,10 +164,7 @@ class ScenarioService:
             seen.add(key)
             sid = item.scenario_id if valid_id(item.scenario_id, "SC", taken) else next_id("SC", item.module, taken)
             taken.add(sid)
-            page = item.page
-            if page and page not in known_pages:
-                matches = [p for p in known_pages if page.rstrip("/") and (p.rstrip("/").endswith(page.rstrip("/")) or page.rstrip("/").endswith(p.rstrip("/")))]
-                page = matches[0] if matches else page
+            page = resolve_page(item.page, known_pages, names)
             cleaned.append(item.model_copy(update={"scenario_id": sid, "status": "draft", "source": "ai", "page": page, "layer": "ui"}))
         return cleaned
 

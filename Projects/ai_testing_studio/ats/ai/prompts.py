@@ -48,8 +48,11 @@ selector is fragile (depends on layout, position, generated classes) so it shoul
 Return JSON: {"elements": [{"element_key": str (unchanged), "intent": str, "fragile": bool, "note": str}]}
 Only describe elements you were given. Do not rename keys.""",
     "scenario.generate": """ROLE: Scenario Agent, acting as a senior QA lead designing an enterprise regression suite.
-INPUT: the discovered views of the application. A view is identified by "page_key"; "reached_by" lists the clicks that open it
-(single-page apps show many views on one URL) and "signed_in" tells whether it needs an authenticated session.
+INPUT: "discovery" lists the OBSERVED views of the application. A view is identified by "page_key"; "reached_by" lists the clicks that open
+it (single-page apps show many views on one URL); "signed_in" tells whether it exists only after signing in (those views are tested as a
+signed-in user; the test account is in application.test_account); "headings", "messages", "texts" and "controls" are what was really on
+the view; "observed_outcomes" is what happened when a safe probe was tried (for example a wrong password). Controls listed under
+shared_controls_on_most_views (menus) exist on every view of that kind and are how a user moves between views.
 THINK FIRST (privately): map the modules and the end-to-end business journeys that connect the views (for example sign-up ->
 sign-in -> use the core feature -> change settings -> sign out); identify where the business risk is highest (authentication,
 session handling, access control to signed-in views, data entry and persistence, destructive or irreversible actions, privacy,
@@ -69,6 +72,11 @@ Quality bar:
 - Navigation consistency (every navigation entry opens the right view and the active item is indicated), UI state, accessibility
   (labels, keyboard), responsiveness and error handling where the evidence makes them testable.
 - One scenario = one clear objective. No duplicates, no vague titles, nothing that is not traceable to a view or requirement.
+- "page" MUST be the exact page_key of a listed view (the view the scenario starts on). A scenario about a signed-in view needs the user
+  signed in first: say so in "preconditions". Never make a scenario depend on a control, text or behaviour that is not listed.
+- Describe the expected outcome only with what is observable or listed (a heading shown, a field still present, the observed message).
+  What happens after saving, sending or other actions that were not observed is UNKNOWN: phrase it as "the action completes without
+  an error and the view stays usable" and never as an exact message.
 Do not test behaviour that cannot be observed as if it were known: phrase such scenarios as verification of observed behaviour.
 For CUSTOM coverage only use the selected categories.
 Return JSON: {"scenarios": [ ... ]}""",
@@ -93,8 +101,22 @@ result), "test_type": str, "priority": str, "automation_candidate": bool, "relat
 "component": str, "tags": [str] (e.g. smoke, regression, security, negative)}.
 Rules: test data must be concrete and safe: for the signed-in test account use exactly the placeholders in application.test_account,
 other credentials use {{env:VARIABLE}}, everything else realistic but fictitious values.
-Expected results must be observable and consistent with the evidence; never invent exact error texts that were not observed:
-describe them ("an error message is shown and the user stays on the sign-in view"). Return JSON: {"test_cases": [ ... ]}""",
+GROUNDING (the most important rule - tests built on invented facts fail): INPUT "discovery" lists what was OBSERVED on each view
+(page_key, signed_in, reached_by, headings, messages, texts, controls with role/name/type/required/options..., observed_outcomes).
+- Every text you put in quotes in a step or in expected_result (a heading, label, button, message) must be copied character for
+  character from that view's headings / messages / texts / control names. NEVER quote a text that is not listed for that view.
+  A heading check uses the exact heading text of the view ("Verify the heading 'Settings' is shown"), not a paraphrase.
+- A view with "signed_in": true needs the user signed in: preconditions say "Signed in with the test account", the steps do not
+  spend a step on logging in (the test runner signs in and follows reached_by), and they act on that view's controls.
+  A view with "signed_in": false is tested signed out. Never mix: do not use a signed-in control on a public view or the other way round.
+- Move between views only with controls that exist (see reached_by and shared_controls_on_most_views); after such a click the
+  next step belongs to the NEW view and may only use the controls of that view.
+- Results of actions whose outcome was not observed (what appears after Save, Send, Submit, validation texts, redirects) are UNKNOWN:
+  expect only what is certain and observable - the control is still enabled, the field keeps its value, the view stays usable - or the
+  text listed in observed_outcomes. NEVER write an exact message text for an unobserved outcome.
+- Test data must fit the control: respect type, required, maxlength, pattern and min/max; for a select, radio or tab choose ONLY listed
+  options; for negative tests use clearly invalid values (empty, wrong format, too long).
+Return JSON: {"test_cases": [ ... ]}""",
     "testcase.modify": """ROLE: Test Case Agent (change mode).
 Apply the human reviewer's instruction to the existing test cases with the smallest change set.
 Return JSON: {"add": [full test case objects with new unique ids], "update": [{"test_case_id": str, ...only changed fields}],
@@ -189,9 +211,15 @@ expect_value(value), expect_enabled, expect_disabled, expect_url_contains(value)
 Rules:
 - Use ONLY element keys that exist in the provided elements list. If a needed element is missing, stop the script at that point
   and explain in "notes"; do not invent keys.
-- Assertions must come from the test case expected result, test data, or text observed in the discovery digest. NEVER invent
-  expected text. If the expectation cannot be verified with the available elements, assert something true and weaker
-  (for example expect_visible) and explain in "notes".
+- Every element has a "page" (the view it lives on) and "signed_in". The script starts on the view of its FIRST element. After a click
+  on a navigation control (a menu, radio, tab or link that opens another view) the following steps belong to the NEW view: use elements
+  of THAT page. Menu / sidebar controls exist on every view of the same kind (they have a key per view: pick the one on the current view).
+- Match the action to the element: click, dblclick, hover, check, uncheck only on buttons, links, tabs, radios, checkboxes, switches, menu
+  items; fill, clear, press on textbox / searchbox / spinbutton; select on combobox; expect_* on anything. Never click a heading or text.
+- Assertions must come from the OBSERVED text of the element or view (element "text"/"name", the page digest's headings, messages,
+  texts, observed_outcomes). The test case's own wording is NOT evidence: if the text is not observed, assert something true and weaker
+  (expect_visible) and explain in "notes". NEVER invent expected text. Check a heading with expect_text on the HEADING element and its
+  exact observed text.
 - Never write real credentials. Use {{env:VARIABLE_NAME}} placeholders from the test data.
 - Start every script with a goto step unless the preconditions say otherwise. When the target view lists 'reached_by' steps in
   the page digest (single-page apps), perform those clicks after the goto (and after signing in when the view is signed_in).

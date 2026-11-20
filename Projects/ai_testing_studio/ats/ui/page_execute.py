@@ -138,7 +138,7 @@ def summary(svc: Services, execution: dict) -> None:
         parts = []
         relocated, repaired = len(fix.get("relocated", [])), len(fix.get("repaired", []))
         if relocated or repaired:
-            parts.append(f"{relocated + repaired} test(s) fixed and verified by a re-run ({relocated} by finding the element again on the live page, {repaired} by a script repair)")
+            parts.append(f"{relocated + repaired} test(s) fixed and verified by a re-run ({relocated} by finding the element again on the live page, {repaired} by correcting the test)")
         if fix.get("healed_locators") or fix.get("promoted"):
             parts.append(f"{len(set(fix.get('healed_locators', [])) | set(fix.get('promoted', [])))} locator(s) updated")
         if fix.get("intermittent"):
@@ -151,6 +151,8 @@ def summary(svc: Services, execution: dict) -> None:
             parts.append(f"{len(fix.get('defects', [])) + len(fix.get('unresolved', []))} failure(s) still failing after 3 attempts, reported for review")
         if parts:
             st.info("Auto-fix: " + "; ".join(parts) + ".")
+        if fix.get("error"):
+            st.error(fix["error"])
         if fix.get("push_error"):
             st.warning(f"The fixes could not be pushed to GitHub: {fix['push_error']}")
     if execution.get("error"):

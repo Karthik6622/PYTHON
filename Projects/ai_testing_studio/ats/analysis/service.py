@@ -140,7 +140,17 @@ class AnalysisService:
 
     def _autofix(self, ctx: ExecutionContext, findings: list[Finding], progress: ProgressFn | None) -> None:
         assert self.fixer is not None
-        summary = self.fixer.run(ctx, findings, get_settings().healing.autofix_rounds, progress)
+        try:
+            summary = self.fixer.run(ctx, findings, get_settings().healing.autofix_rounds, progress)
+        except Exception as exc:  # noqa: BLE001 - the failures must still be reported, and the person must see that auto-fix itself broke
+            LOGGER.exception("Auto-fix crashed for %s", ctx.execution_id)
+            execution = self.repo.get_execution(ctx.execution_id) or {}
+            totals = dict(execution.get("totals") or {})
+            totals["autofix"] = {"error": f"Auto-fix stopped with an error: {type(exc).__name__}: {str(exc)[:240]}", "unresolved": [f.test_case_id for f in findings]}
+            self.repo.update_execution(ctx.execution_id, totals=totals)
+            for finding in findings:
+                finding.notes.append("Auto-fix could not run (see the error on the Execute page).")
+            return
         execution = self.repo.get_execution(ctx.execution_id) or {}
         totals = dict(execution.get("totals") or {})
         totals["autofix"] = {k: v for k, v in summary.items() if k != "pushed"} | {"pushed": bool(summary.get("pushed")), "branch": (summary.get("pushed") or {}).get("branch", "")}

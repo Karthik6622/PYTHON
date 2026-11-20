@@ -28,7 +28,7 @@ from typing import Any
 from urllib.parse import urldefrag, urljoin, urlparse
 
 from ats.discovery.runtime_nav import (  # noqa: E402 - shared with the generated test projects
-    ACTIONS_JS, LOGIN_OPENER, LOGIN_SUBMIT, PASSWORD_FIELD, click_control, host_of as _host, open_page, settle, sign_in,
+    ACTIONS_JS, LOGIN_OPENER, LOGIN_SUBMIT, PASSWORD_FIELD, USER_FIELD, click_control, host_of as _host, open_page, settle, sign_in,
 )
 
 EXTRACTOR_JS = (Path(__file__).with_name("extractor.js")).read_text(encoding="utf-8")
@@ -181,6 +181,35 @@ def extract_page(page: Any) -> dict[str, Any]:
 
 
 VERIFY_LIMIT = 260
+OPTION_PROBE_LIMIT = 8
+
+
+def probe_options(page: Any, elements: list[dict[str, Any]]) -> None:
+    """Open each dropdown (select boxes of single-page apps list their options only when opened) and record the options, then close it.
+    Opening a list changes nothing in the application."""
+    done = 0
+    for element in elements:
+        if done >= OPTION_PROBE_LIMIT:
+            break
+        if element.get("role") not in {"combobox", "listbox"} or not element.get("visible") or element.get("options") or element.get("disabled"):
+            continue
+        spec = next((c for c in element.get("checks", []) if c.get("count") == 1), None)
+        if spec is None:
+            continue
+        done += 1
+        try:
+            locator = resolve(page, {k: v for k, v in spec.items() if k != "count"})
+            locator.click(timeout=3000)
+            page.wait_for_timeout(250)
+            found = [t.strip() for t in page.locator("[role=option]:visible").all_inner_texts() if t.strip()]
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(150)
+            element["options"] = list(dict.fromkeys(found))[:25]
+        except Exception:  # noqa: BLE001
+            try:
+                page.keyboard.press("Escape")
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def verify_elements(page: Any, elements: list[dict[str, Any]]) -> None:
@@ -405,6 +434,10 @@ class Crawl:
             verify_elements(page, data["elements"])
         except Exception:  # noqa: BLE001 - verification only improves the ranking; discovery must not fail because of it
             pass
+        try:
+            probe_options(page, data["elements"])
+        except Exception:  # noqa: BLE001 - option lists are a bonus
+            pass
         final_url = page.url
         base = urldefrag(final_url)[0]
         headings = [h.split(": ", 1)[-1] for h in data["headings"] if h.split(": ", 1)[-1]]
@@ -428,6 +461,7 @@ class Crawl:
             "nav_steps": [{"role": a["role"], "label": a["label"], "nth": a["nth"], "href": a["href"]} for a in path],
             "headings": data["headings"], "elements": data["elements"], "forms": data["forms"], "tables": data["tables"],
             "navigation": data["navigation"], "components": data["components"], "aria_snapshot": data["aria_snapshot"],
+            "texts": data.get("texts", []), "messages": data.get("messages", []), "outcomes": [],
             "console_errors": self.console[:10], "network": self.network[:25], "links": [], "screenshot": "",
             "requires_auth": bool(status in (401, 403))
             or (data["has_password_field"] and len(data["elements"]) < 15 and any(h in final_url.lower() for h in LOGIN_HINTS)
@@ -445,6 +479,47 @@ class Crawl:
         self.result["pages"].append(snapshot)
         return data
 
+    def probe_login(self, page: Any, reset: Any) -> bool:
+        """Try the sign-in form once with an unknown email and a wrong password and record what the application says.
+
+        Tests then assert the REAL error text (or know that none is shown) instead of a guessed one. Nothing is created or changed:
+        the account does not exist. The view is reset afterwards. Returns True when the probe ran."""
+        if not self.job.get("probe_forms", True) or not self.result["pages"] or self.job.get("_login_probed"):
+            return False
+        snapshot = self.result["pages"][-1]
+        try:
+            if not page.locator(PASSWORD_FIELD).count() or not page.locator(PASSWORD_FIELD).first.is_visible():
+                return False
+        except Exception:  # noqa: BLE001
+            return False
+        try:
+            before = extract_page(page)
+            before_texts = set(before.get("texts", [])) | set(before.get("messages", []))
+            page.locator(USER_FIELD).first.fill("no.such.user@example.com")
+            page.locator(PASSWORD_FIELD).first.fill("Wrong#Password1")
+            submit = page.locator("button[type=submit], input[type=submit]")
+            if submit.count():
+                submit.first.click(timeout=4000)
+            elif page.get_by_role("button", name=LOGIN_SUBMIT).count():
+                page.get_by_role("button", name=LOGIN_SUBMIT).first.click(timeout=4000)
+            else:
+                page.keyboard.press("Enter")
+            settle(page, max_ms=8000, quiet_ms=1200)
+            after = extract_page(page)
+            new = [t for t in [*after.get("messages", []), *after.get("texts", [])] if t not in before_texts]
+            snapshot["outcomes"].append({
+                "action": "Submit the sign-in form with an unknown email and a wrong password",
+                "result": (new[0] if new else ""), "shown_messages": new[:3], "stays_on_form": bool(page.locator(PASSWORD_FIELD).count()),
+            })  # fmt: skip
+            self.job["_login_probed"] = True
+        except Exception:  # noqa: BLE001 - a probe never fails the discovery
+            pass
+        try:
+            reset()
+        except Exception:  # noqa: BLE001
+            pass
+        return True
+
     # ------------------------------------------------------------------ exploration
     def explore(self, page: Any, signed_in: bool, reset: Any, deadline: float, page_limit: int, status: int | None = None) -> None:
         """Breadth-first exploration of the views reachable from the current one by clicking."""
@@ -454,6 +529,8 @@ class Crawl:
         self.signatures.add(root_sig)
         root_password = bool(page.locator(PASSWORD_FIELD).count())
         data = self.capture(page, [], signed_in, status)
+        if not signed_in and data and data.get("has_password_field"):
+            self.probe_login(page, reset)
         frontier: deque[tuple[list[dict[str, Any]], str, str]] = deque()
         queued: set[Any] = set()
 
@@ -505,6 +582,9 @@ class Crawl:
                 continue
             self.signatures.add(sig)
             data = self.capture(page, path, signed_in)
+            if not signed_in and data and data.get("has_password_field") and self.probe_login(page, reset):
+                enqueue(path, sig, data)  # the probe reset the application: its links are queued from the view as captured
+                continue
             enqueue(path, sig, data)
 
     def reach(self, page: Any, path: list[dict[str, Any]], parent_sig: str, parent_url: str, reset: Any) -> bool:

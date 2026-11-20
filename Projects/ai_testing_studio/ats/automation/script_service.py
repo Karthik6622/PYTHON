@@ -12,12 +12,15 @@ from urllib.parse import urlparse
 from ats.ai.agents import MobileScriptAgent, ScriptGenerationAgent
 from ats.api import design as api_design
 from ats.automation.bundle_store import BundleStore
+from ats.automation.script_grounding import Walk
 from ats.automation.traceability import build_traceability
 from ats.config import get_settings
+from ats.discovery.facts import Evidence, facts_digest
 from ats.discovery.service import build_digest
 from ats.errors import GenerationError, NotFoundError
 from ats.generation.adapters import FRAMEWORKS, RenderContext, ScriptCase, browsers_for, get_adapter, is_api_framework, layer_of
 from ats.generation.adapters.common import NO_BROWSER, build_auth, build_views
+from ats.generation.scenarios import page_names, resolve_page
 from ats.mobile import design as mobile_design
 from ats.mobile.models import MOBILE_ACTIONS
 from ats.mobile.platforms import platform_for
@@ -35,14 +38,18 @@ ENV_RE = re.compile(r"\{\{env:[A-Za-z_][A-Za-z0-9_]*\}\}")
 # validation (pure functions, unit tested)
 # ----------------------------------------------------------------------------------------
 def build_corpus(test_case: TestCase, discovery: DiscoveryResult | None) -> str:
-    parts = [test_case.title, test_case.description, test_case.expected_result, *test_case.steps, *test_case.preconditions, *test_case.test_data.values()]
+    """Text the application is known to show (discovery) plus the values the test itself types. The wording of the test case is NOT
+    evidence: a model that invented a heading in its expected result would otherwise confirm itself."""
+    parts = [*test_case.test_data.values()]
     if discovery:
         for page in discovery.pages:
-            parts += [page.title, *page.headings]
+            parts += [page.title, page.view_name, *page.headings, *page.messages, *page.texts]
             for element in page.elements:
                 parts += [str(element.get(k) or "") for k in ("name", "label", "text", "placeholder", "value")]
             parts += [str(link.get("text", "")) if isinstance(link, dict) else str(link) for link in page.navigation]
             parts += [str(v) for item in page.forms for v in item.values() if isinstance(v, str)]
+            for outcome in page.outcomes:
+                parts += [str(outcome.get("result", "")), *[str(m) for m in outcome.get("shown_messages", [])]]
     return "\n".join(str(p) for p in parts if p).lower()
 
 
@@ -61,9 +68,15 @@ def validate_script(
     corpus: str,
     base_url: str,
     extra_hosts: list[str] | None = None,
+    evidence: Evidence | None = None,
+    views: dict[str, Any] | None = None,
 ) -> TestScript | None:
-    """Return a safe script or ``None`` if nothing usable remains. Never invents anything; only trims or weakens."""
+    """Return a safe, grounded script or ``None`` if nothing usable remains. Never invents anything; only corrects, weakens or trims.
+
+    With ``evidence`` and ``views`` (from discovery) every step is walked on paper: actions must fit their element, elements must be on
+    the view the script is on, and expected texts must be things the application was observed to show (see ``script_grounding``)."""
     notes: list[str] = [script.notes] if script.notes else []
+    walk = Walk(locators, evidence, views or {})
     steps: list[AutomationStep] = []
     for index, step in enumerate(script.steps, 1):
         problem = ""
@@ -83,11 +96,22 @@ def validate_script(
         step = step.model_copy()
         if step.action not in ELEMENT_ACTIONS:
             step.element = None
-        if step.action in {"expect_text", "expect_value"} and not ENV_RE.search(step.value or ""):
+        if step.action in {"expect_url_contains", "expect_title_contains"}:
+            kept, _ = walk.ground_page_checks(index, step)
+            if kept is None:
+                continue
+            step = kept
+        grounded, why = walk.check(index, step)
+        if grounded is None:
+            notes.append(f"Script stopped at {why}.")
+            break
+        step = grounded
+        if evidence is None and step.action in {"expect_text", "expect_value"} and not ENV_RE.search(step.value or ""):
             if (step.value or "").strip().lower() not in corpus:
-                notes.append(f"Step {index}: expected text {step.value!r} was not found in the test case or discovery evidence; checks visibility only.")
+                notes.append(f"Step {index}: expected text {step.value!r} was not found in the discovery evidence; checks visibility only.")
                 step = step.model_copy(update={"action": "expect_visible", "value": None})
         steps.append(step)
+    notes.extend(walk.notes)
     if not steps:
         return None
     if steps[0].action != "goto":
@@ -171,17 +195,24 @@ class ScriptService:
     # ------------------------------------------------------------------ helpers
     @staticmethod
     def _elements_payload(locators: list[LocatorSpec], batch: list[TestCase], discovery: DiscoveryResult) -> list[dict[str, Any]]:
-        wanted_pages = {
-            p.page_key
-            for p in discovery.pages
-            for case in batch
-            if case.related_page and case.related_page in {p.page_key, p.url, p.final_url, urlparse(p.final_url or p.url).path}
-        }
+        known = {p.page_key for p in discovery.pages}
+        names = page_names(discovery)
+        wanted_pages = {resolve_page(case.related_page, known, names) for case in batch} & known
+        signed = {p.page_key: p.signed_in for p in discovery.pages}
         ordered = sorted(locators, key=lambda s: (s.page_key not in wanted_pages, s.page_key, s.element_key))
-        return [
-            {"key": s.element_key, "page": s.page_key, "page_url": s.page_url, "role": s.role or s.tag, "name": s.name, "intent": s.intent, "component": s.component}
-            for s in ordered[:MAX_ELEMENTS]
-        ]
+        out = []
+        for s in ordered[:MAX_ELEMENTS]:
+            item = {
+                "key": s.element_key, "page": s.page_key, "signed_in": signed.get(s.page_key, False), "role": s.role or s.tag, "name": s.name,
+                "intent": s.intent, "component": s.component,
+            }  # fmt: skip
+            shown = (s.evidence or {}).get("text") or ""
+            if shown and shown != s.name:
+                item["text"] = shown[:80]
+            if (s.evidence or {}).get("options"):
+                item["options"] = s.evidence["options"][:10]
+            out.append(item)
+        return out
 
     # ------------------------------------------------------------------ generation
     def generate(
@@ -219,6 +250,8 @@ class ScriptService:
 
         scripts: dict[str, TestScript] = {}
         skipped: list[dict[str, str]] = []
+        evidence, views = Evidence(discovery, locators), build_views(discovery)
+        known_views, names = {p.page_key for p in discovery.pages}, page_names(discovery)
         batches = -(-len(cases) // BATCH_SIZE)
         for number, start in enumerate(range(0, len(cases), BATCH_SIZE)):
             batch = cases[start : start + BATCH_SIZE]
@@ -226,9 +259,10 @@ class ScriptService:
                 progress, f"Planning automation for test cases {start + 1}-{start + len(batch)} of {len(cases)}",
                 0.02 + 0.85 * number / batches, 0.02 + 0.85 * (number + 1) / batches,
             )
+            batch_views = {resolve_page(c.related_page, known_views, names) for c in batch} & known_views
             payload = {
                 "base_url": base_url, "test_cases": [t.model_dump() for t in batch], "elements": self._elements_payload(specs, batch, discovery),
-                "page_digest": build_digest(discovery, max_items=20), "allowed_actions": STEP_ACTIONS,
+                "page_digest": facts_digest(discovery, only=batch_views or None, max_controls=30), "allowed_actions": STEP_ACTIONS,
             }  # fmt: skip
             plan = self.agent.plan(payload, project_id=project.id, on_event=on_event)
             planned = {s.test_case_id: s for s in plan.scripts}
@@ -237,7 +271,7 @@ class ScriptService:
                 if raw is None:
                     skipped.append({"test_case_id": case.test_case_id, "reason": "The model returned no script for this test case."})
                     continue
-                checked = validate_script(raw, case, locators, build_corpus(case, discovery), base_url, hosts)
+                checked = validate_script(raw, case, locators, build_corpus(case, discovery), base_url, hosts, evidence, views)
                 if checked is None:
                     skipped.append({"test_case_id": case.test_case_id, "reason": raw.notes or "No step could be mapped to a discovered element."})
                 else:

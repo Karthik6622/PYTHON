@@ -151,6 +151,7 @@ LOGIN = ("button", "Log ?in", "Get started", False)
 CHAT_MSG = ("textbox", "Message", "Chat", True)
 SEND = ("button", "Send", "Chat", True)
 CHAT_H = ("heading", "Chat", "Chat", True)
+
 NAME = ("textbox", "Display name", "Profile", True)
 CITY = ("textbox", "City", "Profile", True)
 SAVE_PROFILE = ("button", "Save profile", "Profile", True)
@@ -161,6 +162,24 @@ RADIO_CHAT = ("radio", "Chat", "", True)
 RADIO_PROFILE = ("radio", "Profile", "", True)
 RADIO_SETTINGS = ("radio", "Settings", "", True)
 SIGN_OUT = ("button", "Sign out", "", True)
+
+SETTINGS_H = ("heading", "Settings", "Settings", True)
+PROFILE_H = ("heading", "Profile", "Profile", True)
+
+# Mistakes a model makes when it writes from prose instead of from what was observed. They go through the generation-time grounding
+# (--flawed validated, the default) or around it (--flawed raw), to measure what auto-fix can repair afterwards.
+FLAWED = [
+    ("TC_FLW_001", "Settings", "Settings page heading", "The Settle Page heading is shown",
+     [("click", RADIO_SETTINGS, None, "Open Settings"), ("expect_text", SETTINGS_H, "Settle Page", "Heading says Settle Page")]),
+    ("TC_FLW_002", "Profile", "Save the profile from the settings view", "Profile saved",
+     [("click", RADIO_SETTINGS, None, "Open Settings"), ("click", SAVE_PROFILE, None, "Click Save profile")]),
+    ("TC_FLW_003", "Chat", "Send confirmation text", "Message delivered successfully",
+     [("fill", CHAT_MSG, "Hi", "Type"), ("click", SEND, None, "Click Send"), ("expect_text", SEND, "Message delivered successfully", "Confirmation text")]),
+    ("TC_FLW_004", "Profile", "Profile heading wording", "The page title says Your Profile",
+     [("click", RADIO_PROFILE, None, "Open Profile"), ("expect_text", PROFILE_H, "Your Profile", "Heading says Your Profile")]),
+    ("TC_FLW_005", "Settings", "Click the settings heading", "Settings opens",
+     [("click", SETTINGS_H, None, "Click the Settings heading"), ("expect_visible", SAVE_SETTINGS, None, "Save settings is visible")]),
+]  # fmt: skip
 
 CASES = [
     ("TC_LND_001", "Landing", "Landing page shows the Get started button", "The Get started button is visible",
@@ -207,13 +226,17 @@ CASES = [
 ]  # fmt: skip
 
 
-def build_scripts(picker: Picker, project, discovery):  # noqa: ANN001, ANN201
+def build_scripts(picker: Picker, project, discovery, flawed: str = "validated"):  # noqa: ANN001, ANN201
     from ats.automation.script_service import build_corpus, validate_script
     from ats.models import AutomationStep, TestCase, TestScript
 
     locators = {s.element_key: s for s in picker.specs}
     cases, scripts, unmapped, mapping = [], {}, [], {}
-    for tc_id, module, title, expected, steps in CASES:
+    from ats.discovery.facts import Evidence  # noqa: PLC0415
+    from ats.generation.adapters.common import build_views  # noqa: PLC0415
+
+    evidence, views = Evidence(discovery, locators), build_views(discovery)
+    for tc_id, module, title, expected, steps in [*CASES, *([] if flawed == "none" else FLAWED)]:
         case = TestCase(test_case_id=tc_id, scenario_id=f"SC_{tc_id[3:6]}_001", module=module, title=title, steps=[s[3] for s in steps],
                         expected_result=expected, status="approved", source="bench")  # fmt: skip
         built, problem = [], ""
@@ -231,7 +254,11 @@ def build_scripts(picker: Picker, project, discovery):  # noqa: ANN001, ANN201
             if not built:
                 continue
         raw = TestScript(test_case_id=tc_id, title=title, steps=built, notes=f"Truncated: {problem}" if problem else "")
-        checked = validate_script(raw, case, locators, build_corpus(case, discovery), project.app_base_url, project.limits.allowed_domains)
+        if flawed == "raw" and tc_id.startswith("TC_FLW"):
+            first = next((s.element for s in built if s.element), None)
+            checked = TestScript(test_case_id=tc_id, title=title, steps=[AutomationStep(action="goto", value="/", description="Open"), *built]) if first else None
+        else:
+            checked = validate_script(raw, case, locators, build_corpus(case, discovery), project.app_base_url, project.limits.allowed_domains, evidence, views)
         if checked is None:
             unmapped.append({"test_case_id": tc_id, "reason": "validation removed every step"})
             continue
@@ -279,6 +306,7 @@ def main() -> int:  # noqa: C901, PLR0915
     parser.add_argument("--report", default=str(BENCH_DIR / "baseline_report.json"))
     parser.add_argument("--project-dir", default=str(BENCH_DIR / "baseline_project"))
     parser.add_argument("--discover-only", action="store_true")
+    parser.add_argument("--flawed", choices=["none", "validated", "raw"], default="validated", help="add test cases with typical model mistakes: through the grounding (validated) or around it (raw)")
     parser.add_argument("--no-server", action="store_true", help="reuse a target app already running on port 8611")
     parser.add_argument("--hard", action="store_true", help="run the tests against the CHANGED app (BENCH_HARD=1): slower, extra primary button, renamed button")
     parser.add_argument("--autofix", action="store_true", help="after the run, let the studio repair the failures (3 attempts) and report the outcome")
@@ -341,7 +369,7 @@ def main() -> int:  # noqa: C901, PLR0915
 
         print("\n== Automation (no AI) ==")
         picker = Picker(specs, discovery)
-        cases, scripts, unmapped, mapping = build_scripts(picker, project, discovery)
+        cases, scripts, unmapped, mapping = build_scripts(picker, project, discovery, args.flawed)
         report["element_mapping"] = mapping
         report["unmapped"] = unmapped
         for item in unmapped:

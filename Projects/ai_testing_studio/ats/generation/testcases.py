@@ -9,10 +9,12 @@ from typing import Any
 from ats.ai.agents import ApiTestCaseAgent, MobileTestCaseAgent, TestCaseAgent
 from ats.api import design as api_design
 from ats.api.models import endpoint_digest as api_endpoint_digest
+from ats.discovery.facts import facts_digest
 from ats.discovery.service import build_digest
 from ats.errors import GenerationError, ModelResponseError
 from ats.generation.common import apply_changeset, next_id, norm_title, valid_id
-from ats.generation.scenarios import _application
+from ats.generation.grounding import ground_cases
+from ats.generation.scenarios import _application, page_names, resolve_page
 from ats.logging_setup import get_logger
 from ats.mobile import design as mobile_design
 from ats.models import Scenario, TestCase
@@ -56,10 +58,16 @@ class TestCaseService:
         return {t.test_case_id for t in self.repo.list_test_cases(project_id) if t.layer != layer}
 
     def _elements_for(self, project_id: str, discovery: Any, scenarios: list[Scenario]) -> list[dict[str, Any]]:
-        page_keys = {p.final_url or p.url: p.page_key for p in discovery.pages} | {p.page_key: p.page_key for p in discovery.pages}
-        wanted = {page_keys.get(s.page) for s in scenarios if s.page in page_keys}
+        wanted = self._views_of(scenarios, discovery)
         specs = [s for s in self.repo.list_locators(project_id) if not wanted or s.page_key in wanted]
         return [{"key": s.element_key, "page": s.page_key, "role": s.role or s.tag, "name": s.name, "intent": s.intent} for s in specs][:150]
+
+    @staticmethod
+    def _views_of(scenarios: list[Scenario], discovery: Any) -> set[str]:
+        """The views a batch of scenarios is about (empty = no scenario names a known view: describe all of them)."""
+        names = page_names(discovery)
+        known = {p.page_key for p in discovery.pages}
+        return {v for v in (resolve_page(s.page, known, names) for s in scenarios) if v in known}
 
     # ------------------------------------------------------------------ generation
     def generate(
@@ -86,7 +94,8 @@ class TestCaseService:
             """Ask for a batch; an answer that is cut off or unusable is asked for again in halves, down to one scenario."""
             payload = {
                 "scenarios": [s.model_dump() for s in batch], "application": _application(project, discovery),
-                "discovery": build_digest(discovery, max_items=25), "elements": self._elements_for(project.id, discovery, batch),
+                "discovery": facts_digest(discovery, only=self._views_of(batch, discovery), max_controls=40),
+                "elements": self._elements_for(project.id, discovery, batch),
                 "user_requirements": requirements or project.test_data_notes, "existing_test_case_ids": sorted(taken),
             }  # fmt: skip
             try:
@@ -124,6 +133,8 @@ class TestCaseService:
         collected: list[TestCase] = []
         for index in range(len(batches)):  # ids are assigned in scenario order, whatever order the answers came back in
             collected.extend(self._clean(designed.get(index, []), known_scenarios, taken, collected))
+        collected, grounding = ground_cases(collected, approved, discovery, {s.element_key: s for s in self.repo.list_locators(project.id)})
+        LOGGER.info("Grounded %s test cases: %s text(s) corrected, %s unverified, %s without a view", len(collected), grounding.corrected, grounding.unverified, grounding.unresolved_view)
         self.last_skipped[project.id] = sorted(set(skipped))
         report(progress, "Saving the test cases", 0.97)
         if not collected:

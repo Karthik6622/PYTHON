@@ -21,10 +21,12 @@ from ats.analysis import dom
 from ats.analysis.findings import Finding
 from ats.analysis.healing import HealingEngine
 from ats.analysis.patching import LOCATOR_FILE, PatchError, entry_diff, patch_locators
+from ats.analysis.expectations import repair_expectation
 from ats.analysis.pipeline import FailureAnalyzer, locator_index
 from ats.analysis.relocate import Relocation, Relocator
 from ats.automation.bundle_store import BundleStore
 from ats.automation.script_service import check_syntax
+from ats.discovery.facts import Evidence
 from ats.errors import StudioError
 from ats.execution.executor import ExecutionContext, ExecutionService
 from ats.logging_setup import get_logger
@@ -225,6 +227,8 @@ class AutoFixer:
         files = dict(ctx.files)
         original = dict(files)
         selenium = ctx.framework.startswith("selenium")
+        discovery = self.repo.latest_successful_discovery(ctx.project.id)
+        evidence = Evidence(discovery, {s.element_key: s for s in self.repo.list_locators(ctx.project.id)}) if discovery is not None else None
 
         report(progress, "Promoting selectors that only worked through a fallback", 0.8)
         files = self._promote(ctx, files, summary)
@@ -260,9 +264,30 @@ class AutoFixer:
                     if finding.element_key in patched_keys:
                         changed_for.setdefault(finding.test_case_id, []).append(f"locator {finding.element_key}: {patched_keys[finding.element_key][2]}")
 
-            # 2. AI repair of the scripts the locator search does not cover
-            needs_ai = [f for f in pending if f.test_case_id not in changed_for]
+            # 2. rule repairs of invented expectations (no model needed), then AI repair of what is still unexplained
             edits: dict[str, RepairResult] = {}
+            if evidence is not None:
+                index_now = locator_index(ctx, self.repo)
+                for finding in [f for f in pending if f.test_case_id not in changed_for]:
+                    result, why = repair_expectation(candidate, finding.test_case_id, finding.element_key, finding.action, finding.error, index_now.get(finding.element_key), evidence)
+                    if result is not None:
+                        try:
+                            candidate = apply_repair(candidate, result)
+                        except RepairRejected as exc:
+                            history.setdefault(finding.test_case_id, []).append({"attempt": attempt, "rejected": str(exc)})
+                            continue
+                        edits[finding.test_case_id] = result
+                        changed_for.setdefault(finding.test_case_id, []).append(f"expectation: {result.explanation}")
+                    elif why.startswith("'") and "application changed" in why:
+                        finding.analysis.category = FailureCategory.APPLICATION_DEFECT
+                        finding.analysis.automation_fixable = False
+                        finding.analysis.summary = f"The expected text was observed during discovery but the page now shows something else: {why}"
+                        summary["defects"].append(finding.test_case_id)
+            needs_ai = [
+                f for f in pending
+                if f.test_case_id not in changed_for and f.test_case_id not in summary["defects"]
+                and f.analysis.category not in {FailureCategory.ENVIRONMENT, FailureCategory.TEST_DATA, FailureCategory.APPLICATION_DEFECT}
+            ]  # fmt: skip
             if needs_ai:
                 report(progress, f"Attempt {attempt}/{rounds}: repairing {len(needs_ai)} test script(s)", base + step * 0.25)
                 with ThreadPoolExecutor(max_workers=PARALLEL_CALLS) as pool:  # independent model calls: ask for all repairs at once
@@ -356,6 +381,16 @@ class AutoFixer:
             pending = still
 
         summary["unresolved"] = [f.test_case_id for f in pending if f.test_case_id not in summary["defects"]]
+        for finding in pending:  # say WHY a test stayed failing: attempts, what was tried, what the live page showed
+            tries = history.get(finding.test_case_id, [])
+            if tries:
+                finding.notes.append("Auto-fix tried " + "; ".join(
+                    f"attempt {t.get('attempt')}: " + (", ".join(t.get("changed") or []) or t.get("why") or t.get("rejected") or t.get("verdict", "no change"))
+                    + (f" -> still failing: {t['still_failing']}" if t.get("still_failing") else "")
+                    for t in tries[-3:]
+                ))  # fmt: skip
+            else:
+                finding.notes.append("Auto-fix found nothing it could change for this failure (no locator found on the live page, no unsupported expectation, no script repair proposed).")
         changed = {rel for rel in files if files[rel] != original.get(rel)}
         if changed:
             self._save(ctx, files, changed, summary, progress)

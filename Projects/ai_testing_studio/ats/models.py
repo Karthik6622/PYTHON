@@ -275,6 +275,10 @@ class PageSnapshot(_Model):
     reached_by: list[str] = Field(default_factory=list)
     nav_steps: list[dict[str, Any]] = Field(default_factory=list)  # machine-readable clicks that open this view (see discovery/actions.js)
     signed_in: bool = False
+    # What a person can read on the view: static text blocks, status / alert messages, and what happened when a safe probe was tried.
+    texts: list[str] = Field(default_factory=list)
+    messages: list[str] = Field(default_factory=list)
+    outcomes: list[dict[str, Any]] = Field(default_factory=list)  # e.g. {"action": "Submit the sign-in form with a wrong password", "result": "Invalid email or password"}
 
 
 class DiscoveryResult(_Model):

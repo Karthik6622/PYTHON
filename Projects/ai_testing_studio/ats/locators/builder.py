@@ -16,6 +16,7 @@ _FRAMEWORK_TESTID = re.compile(r"^(st[A-Z][\w-]*|portal|root|app|main|Mui[\w-]*|
 _TEXT_ROLES = {"button", "link", "tab", "menuitem", "heading", "checkbox", "radio", "switch", "option"}
 _INPUT_ROLES = {"textbox", "searchbox", "combobox", "spinbutton"}
 _NAMED_GROUPS = {"radiogroup", "tablist", "listbox", "dialog", "navigation", "group", "region", "tabpanel", "slider"}  # containers a test may target by name
+_READ_ROLES = {"alert", "status", "caption"}  # messages: their accessible name is not their text, so they are found by text
 _INTERACTIVE_TAGS = {"a", "button", "input", "select", "textarea", "summary"}
 # CSS paths that pass through an id generated at run time (React Aria, Radix, Headless UI, React useId, long numbers) change on every load.
 _DYNAMIC_CSS = re.compile(r"#[^\s>]*?(react-|radix-|headlessui-|\\?:r[0-9a-z]+\\?:|\d{6,})", re.I)
@@ -86,7 +87,7 @@ def build_selectors(el: dict[str, Any], shared_testids: set[str] | None = None) 
     if el.get("name_attr") and counts.get("name_attr", 0) == 1:
         out.append(Selector(kind="name", value=el["name_attr"]))
     text = _text_of(el)
-    if text and (role in _TEXT_ROLES and not name or not role and el.get("tag") not in _INTERACTIVE_TAGS):
+    if text and (role in _TEXT_ROLES and not name or role in _READ_ROLES or not role and el.get("tag") not in _INTERACTIVE_TAGS):
         out.append(Selector(kind="text", value=text, exact=True))  # a message, heading or label shown on the page
     if testid and generic and (name or text):  # the framework marker narrowed down by what the element says
         quoted = (name or text).replace('"', '\\"')[:60]
@@ -144,7 +145,7 @@ def _interesting(el: dict[str, Any], inside_controls: list[str], control_names: 
         return False
     if tag == "a" and not (el.get("name") or el.get("text")):
         return False
-    interactive = tag in _INTERACTIVE_TAGS or el.get("role") in _TEXT_ROLES | _INPUT_ROLES | _NAMED_GROUPS
+    interactive = tag in _INTERACTIVE_TAGS or el.get("role") in _TEXT_ROLES | _INPUT_ROLES | _NAMED_GROUPS | _READ_ROLES
     if interactive:
         return True
     text = _text_of(el)
@@ -178,10 +179,20 @@ def build_locators(result: DiscoveryResult) -> list[LocatorSpec]:
 def _page_locators(page: PageSnapshot, used: set[str], shared: set[str] | None = None) -> list[LocatorSpec]:
     specs: list[LocatorSpec] = []
     controls = [el.get("xpath", "") for el in page.elements if el.get("xpath") and (el.get("tag") in _INTERACTIVE_TAGS or el.get("role") in _TEXT_ROLES | _INPUT_ROLES)]
-    control_names = {_clean(el.get("name", "")).lower() for el in page.elements if el.get("role") in {"radio", "checkbox", "switch", "button", "tab", "option"} and el.get("name")}
+    control_names = {
+        _clean(el.get(k, "")).lower()
+        for el in page.elements if el.get("role") in {"radio", "checkbox", "switch", "button", "tab", "option", "textbox", "searchbox", "combobox", "spinbutton"}
+        for k in ("name", "label", "placeholder") if el.get(k)
+    }  # fmt: skip
+    shown_text: set[str] = set()
     for el in page.elements:
         if not _interesting(el, controls, control_names):
             continue
+        if not (el.get("tag") in _INTERACTIVE_TAGS or el.get("role") in _TEXT_ROLES | _INPUT_ROLES | _NAMED_GROUPS):
+            key_text = (el.get("role") or "", _clean(el.get("text", "")).lower())
+            if key_text in shown_text:
+                continue  # the same sentence in nested wrappers is one thing to a person
+            shown_text.add(key_text)
         selectors, score = build_selectors(el, shared)
         if not selectors:
             continue

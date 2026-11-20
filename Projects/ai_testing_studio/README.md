@@ -175,6 +175,27 @@ were running are marked *Interrupted* and can be started again. Jobs started fro
   seconds (default 5) with "Element not found" instead of waiting for the full timeout.
 * Python projects run in parallel browsers (pytest-xdist): one per ~0.6 GB of free memory, 1 to 4, or `EXECUTION_WORKERS`.
 
+## Tests that match the real application (grounding)
+
+Most failing tests used to fail because they claimed something the application never showed, not because the application broke.
+Everything between discovery and execution is therefore checked against what discovery **observed**:
+
+* **Discovery** records, per view, the headings, messages and readable text as real elements (`heading`, `alert`...), the options of
+  dropdowns (it opens each one and closes it again), the form constraints, whether the view exists only after sign-in, and what a safe
+  probe showed: the sign-in form is tried once with an unknown email and a wrong password, so the real error text is known.
+* **Scenarios and test cases** get these facts per view (shared menus listed once, the content of each view never crowded out) with strict
+  rules: quote only observed text, a signed-in view is tested signed in, an unobserved result (what appears after Save) is never given an
+  exact text. After generation each case is resolved to its view, gets the sign-in precondition, and a quoted text nothing observed is
+  corrected to the closest real text or tagged `unverified-text`.
+* **Scripts** are walked on paper before they are written: the walk starts on the view of the first element, a click on a navigation
+  control moves it to the view that control opens, an element of another view is replaced by its twin on the current view (or the script
+  stops there), an action must fit its element, and an expected text must be something that element was observed to show (a different
+  wording is corrected, the check moves to the element that carries the text, or it is limited to "is visible"). The wording of the test
+  case is never evidence.
+* **Auto-fix** reads the expected and actual text out of a failed text check. If discovery never observed the expected text, the test
+  was wrong and is corrected (to what the page shows, or to "is visible"); if discovery did observe it, it is a regression and is
+  reported as a defect. Every test that is still failing after the attempts carries a note saying what was tried and what the page showed.
+
 ## Execution results, auto-fix and failure reports
 
 1. Execute shows the stage timeline (prepare, run, analyze, auto-fix, report), a per-test live table and the runner log.

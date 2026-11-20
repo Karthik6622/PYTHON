@@ -20,7 +20,7 @@
     return clone.textContent || '';
   };
 
-  const IMPLICIT = { a: 'link', button: 'button', select: 'combobox', textarea: 'textbox', summary: 'button', img: 'img', nav: 'navigation', table: 'table', dialog: 'dialog', h1: 'heading', h2: 'heading', h3: 'heading', ul: 'list', ol: 'list' };
+  const IMPLICIT = { a: 'link', button: 'button', select: 'combobox', textarea: 'textbox', summary: 'button', img: 'img', nav: 'navigation', table: 'table', dialog: 'dialog', h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading', h5: 'heading', h6: 'heading', ul: 'list', ol: 'list', caption: 'caption', legend: 'group' };
   const INPUT_ROLE = { button: 'button', submit: 'button', reset: 'button', image: 'button', checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', search: 'searchbox', email: 'textbox', tel: 'textbox', text: 'textbox', url: 'textbox', password: 'textbox' };
   const roleOf = (el) => {
     const explicit = attr(el, 'role');
@@ -95,11 +95,14 @@
     '[role=button]', '[role=link]', '[role=tab]', '[role=menuitem]', '[role=checkbox]', '[role=radio]', '[role=switch]',
     '[role=combobox]', '[role=textbox]', '[role=option]', '[data-testid]', '[data-test]', '[data-qa]', '[data-cy]',
     '[contenteditable=true]', '[tabindex]:not([tabindex="-1"])',
+    // what a person READS: headings and messages are elements too, so tests can assert on them by role and name
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '[role=heading]', '[role=alert]', '[role=status]', 'caption', 'legend',
   ].join(',');
   const INTERACTIVE_TAGS = ['a', 'button', 'input', 'select', 'textarea', 'summary'];
   const isContainer = (el) => {
     // Layout wrappers that only match through data-testid / tabindex (frameworks tag every block) are noise, not controls.
     if (INTERACTIVE_TAGS.includes(el.tagName.toLowerCase()) || attr(el, 'role') || el.isContentEditable) return false;
+    if (/^h[1-6]$/.test(el.tagName.toLowerCase()) || el.tagName === 'CAPTION' || el.tagName === 'LEGEND') return false;
     return !!el.querySelector('a[href],button,input,select,textarea,[role=button],[role=tab],[role=link]') || norm(el.textContent).length > 140;
   };
   const seen = new Set();
@@ -152,10 +155,25 @@
     tabs: q('[role=tab]').length, accordions: q('details,[aria-expanded]').length, iframes: q('iframe').length,
     images: q('img').length, videos: q('video').length, dropdowns: q('select,[role=combobox],[role=listbox]').length,
   };
+  // Visible static text a test may assert on (labels, paragraphs, captions, table cells), without the text of controls and headings.
+  const CONTROL_ROLES = ['button', 'link', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'checkbox', 'radio', 'switch', 'tab', 'menuitem', 'option', 'slider'];
+  const controlText = new Set(elements.filter((e) => e.visible && (INTERACTIVE_TAGS.includes(e.tag) || CONTROL_ROLES.includes(e.role))).flatMap((e) => [e.name, e.text, e.label]).filter(Boolean).map((t) => t.toLowerCase()));
+  const textBlocks = [];
+  const seenText = new Set();
+  for (const el of q('p,li,td,th,label,small,figcaption,blockquote,[data-testid=stMarkdownContainer],[data-testid=stCaptionContainer],[data-testid=stText]')) {
+    if (textBlocks.length >= 60 || !isVisible(el) || el.closest('button,a,[role=button],[role=tab],[role=radio],h1,h2,h3,h4,h5,h6')) continue;
+    if (el.querySelector('p,li,td,th,label')) continue;  // the innermost block carries the text
+    const t = cut(textOf(el), 160);
+    if (t.length < 2 || seenText.has(t.toLowerCase()) || controlText.has(t.toLowerCase())) continue;
+    seenText.add(t.toLowerCase());
+    textBlocks.push(t);
+  }
+  const messages = q('[role=alert],[role=status],[data-testid=stAlert],[data-testid=stNotification],[data-testid=stToast],.alert,.error,.success,.warning,[class*="error-message"],[class*="toast"]')
+    .filter(isVisible).map((m) => cut(textOf(m), 200)).filter((t, i, a) => t && a.indexOf(t) === i).slice(0, 10);
   return {
     title: document.title || '', lang: document.documentElement.lang || '',
-    headings: q('h1,h2,h3').slice(0, 30).map((h) => h.tagName.toLowerCase() + ': ' + cut(h.innerText, 80)),
-    elements, forms: formInfo, tables, navigation, components,
+    headings: q('h1,h2,h3,h4,h5,h6,[role=heading]').filter(isVisible).slice(0, 30).map((h) => (h.tagName.toLowerCase().match(/^h[1-6]$/) ? h.tagName.toLowerCase() : 'h' + (attr(h, 'aria-level') || '2')) + ': ' + cut(textOf(h), 80)),
+    elements, forms: formInfo, tables, navigation, components, texts: textBlocks, messages,
     links: Array.from(new Set(q('a[href]').map((a) => a.href))).slice(0, 300),
     body_text: cut(document.body ? document.body.innerText : '', 800),
     has_password_field: q('input[type=password]').length > 0,
