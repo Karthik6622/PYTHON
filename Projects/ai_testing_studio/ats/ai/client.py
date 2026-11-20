@@ -24,19 +24,32 @@ def estimate_tokens(text: str) -> int:
     return max(len(text) // 4, 1)
 
 
-def extract_json(text: str) -> Any:
-    """Find the first JSON object/array in model output (tolerates thinking blocks and markdown fences)."""
+def json_candidates(text: str) -> list[Any]:
+    """Every top-level JSON object/array in model output, in order (tolerates thinking blocks and markdown fences)."""
     cleaned = _THINK_BLOCK.sub("", text or "").strip()
     cleaned = _FENCE.sub("", cleaned).strip()
     decoder = json.JSONDecoder()
-    for index, char in enumerate(cleaned):
-        if char in "{[":
+    found: list[Any] = []
+    index = 0
+    while index < len(cleaned):
+        if cleaned[index] in "{[":
             try:
-                value, _ = decoder.raw_decode(cleaned[index:])
-                return value
-            except ValueError:
+                value, end = decoder.raw_decode(cleaned[index:])
+                found.append(value)
+                index += end
                 continue
-    raise ValueError("no JSON value found in the model response")
+            except ValueError:
+                pass
+        index += 1
+    return found
+
+
+def extract_json(text: str) -> Any:
+    """Find the first JSON object/array in model output (tolerates thinking blocks and markdown fences)."""
+    found = json_candidates(text)
+    if not found:
+        raise ValueError("no JSON value found in the model response")
+    return found[0]
 
 
 def image_part(data: bytes, mime: str = "image/png") -> dict[str, Any]:

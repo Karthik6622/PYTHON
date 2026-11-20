@@ -11,7 +11,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ats.ai.client import ModelClient, estimate_tokens, extract_json, image_part
+from ats.ai.client import ModelClient, estimate_tokens, extract_json, image_part, json_candidates
 from ats.ai.prompts import get_prompt
 from ats.config import get_settings
 from ats.errors import ModelError, ModelResponseError, ModelTruncatedError
@@ -174,8 +174,21 @@ class Agent:
                 truncated = bool(usage.get("truncated"))
                 parsed: Any = None
                 try:
-                    parsed = reshape(extract_json(raw), output_model)
-                    result = output_model.model_validate(parsed)
+                    # reasoning text can contain small JSON examples before the real answer: the last valid candidate wins
+                    candidates = json_candidates(raw)
+                    if not candidates:
+                        raise ValueError("no JSON value found in the model response")
+                    result = None
+                    for candidate in reversed(candidates):
+                        try:
+                            parsed = reshape(candidate, output_model)
+                            result = output_model.model_validate(parsed)
+                            break
+                        except (ValueError, ValidationError) as exc:
+                            error = mask(str(exc))[:600]
+                    if result is None:
+                        parsed = reshape(candidates[-1], output_model)  # partial salvage below works on the final answer
+                        raise ValueError(error)
                     self._record(project_id, attempts, prompt_tokens, completion_tokens, started, True, "")
                     return result
                 except (ValueError, ValidationError) as exc:
