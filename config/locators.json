@@ -1,0 +1,2545 @@
+{
+  "create_account.confirm_password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Confirm password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Confirm password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Type it once more",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Confirm password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rp:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Confirm password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Type it once more"
+    }
+  },
+  "create_account.create_account_button": {
+    "page": "create_account",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(6) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[6]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    }
+  },
+  "create_account.create_your_account_heading": {
+    "page": "create_account",
+    "intent": "",
+    "role": "heading",
+    "name": "Create your account",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Create your account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "create-your-account",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#create-your-account",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"create-your-account\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Create your account",
+      "tag": "h1",
+      "text": "Create your account"
+    }
+  },
+  "create_account.display_name_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Display name",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "What should we call you?",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Display name\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Display name",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "What should we call you?"
+    }
+  },
+  "create_account.email_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "you@example.com"
+    }
+  },
+  "create_account.i_have_read_the_privacy_notice_and_under_checkbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "checkbox",
+    "name": "I have read the privacy notice and understand this is an AI",
+    "preferred": {
+      "kind": "role",
+      "value": "checkbox",
+      "name": "I have read the privacy notice and understand this is an AI",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "I have read the privacy notice and understand this is an AI assistant.",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "checkbox",
+      "name": "I have read the privacy notice and understand this is an AI",
+      "tag": "input",
+      "type": "checkbox",
+      "label": "I have read the privacy notice and understand this is an AI assistant."
+    }
+  },
+  "create_account.password_textbox": {
+    "page": "create_account",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Create a strong password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rh:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Create a strong password"
+    }
+  },
+  "get_started.back_to_welcome_button": {
+    "page": "get_started",
+    "intent": "navigates back to the welcome screen",
+    "role": "button",
+    "name": "Back to welcome",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Back to welcome\")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(4) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[4]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Back to welcome",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Back to welcome",
+      "tag": "button",
+      "type": "submit",
+      "text": "Back to welcome"
+    }
+  },
+  "get_started.continue_with_github_link": {
+    "page": "get_started",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "role",
+      "value": "link",
+      "name": "Continue with GitHub",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseLinkButton-secondary\"]:has-text(\"Continue with GitHub\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "link",
+      "name": "Continue with GitHub",
+      "tag": "a",
+      "text": "Continue with GitHub"
+    }
+  },
+  "get_started.continue_with_google_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Continue with Google\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue with Google",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue with Google"
+    }
+  },
+  "get_started.create_account_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    }
+  },
+  "get_started.email_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "you@example.com",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r5:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "you@example.com"
+    }
+  },
+  "get_started.forgot_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Forgot password?",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Forgot password?",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-tertiary\"]:has-text(\"Forgot password?\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(5) > div > div:nth-of-type(1) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Forgot password?",
+      "tag": "button",
+      "type": "submit",
+      "text": "Forgot password?"
+    }
+  },
+  "get_started.log_in_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Log in",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Log in",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Log in\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Log in",
+      "tag": "button",
+      "type": "submit",
+      "text": "Log in"
+    }
+  },
+  "get_started.new_here_div": {
+    "page": "get_started",
+    "intent": "prompts new users to start onboarding",
+    "role": "",
+    "name": "New here?",
+    "preferred": {
+      "kind": "text",
+      "value": "New here?",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"New here?\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(4) > div > div:nth-of-type(5) > div > div:nth-of-type(2)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[5]/div[1]/div[2]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "New here?",
+      "tag": "div",
+      "text": "New here?"
+    }
+  },
+  "get_started.or_continue_with_div": {
+    "page": "get_started",
+    "intent": "presents the option to continue with an existing session or provider",
+    "role": "",
+    "name": "or continue with",
+    "preferred": {
+      "kind": "text",
+      "value": "or continue with",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"or continue with\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(4) > div > div:nth-of-type(3)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[3]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "or continue with",
+      "tag": "div",
+      "text": "or continue with"
+    }
+  },
+  "get_started.password_textbox": {
+    "page": "get_started",
+    "intent": "",
+    "role": "textbox",
+    "name": "Password",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Your password",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Password\")",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rb:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Password",
+      "tag": "input",
+      "type": "password",
+      "placeholder": "Your password"
+    }
+  },
+  "get_started.show_password_button": {
+    "page": "get_started",
+    "intent": "",
+    "role": "button",
+    "name": "Show password",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Show password",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[2]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Show password",
+      "tag": "button",
+      "type": "button"
+    }
+  },
+  "get_started.welcome_back_heading": {
+    "page": "get_started",
+    "intent": "",
+    "role": "heading",
+    "name": "Welcome back",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Welcome back",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "welcome-back",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#welcome-back",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"welcome-back\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Welcome back",
+      "tag": "h1",
+      "text": "Welcome back"
+    }
+  },
+  "home.chat_mode_div": {
+    "page": "home",
+    "intent": "identifies the CHAT MODE indicator",
+    "role": "",
+    "name": "CHAT MODE",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stMarkdownContainer\"]:has-text(\"CHAT MODE\")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/label[1]/span[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "CHAT MODE",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div > label > span:nth-of-type(1) > div",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "CHAT MODE",
+      "tag": "div",
+      "text": "CHAT MODE"
+    }
+  },
+  "home.chat_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Chat",
+      "tag": "input",
+      "type": "radio",
+      "label": "Chat"
+    }
+  },
+  "home.conversation_title_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Conversation title",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Conversation title",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":rn:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Conversation title\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Conversation title",
+      "tag": "input",
+      "type": "text"
+    }
+  },
+  "home.delete_this_chat_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Delete this chat",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Delete this chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Delete this chat\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "details > div > div > div:nth-of-type(2) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[2]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Delete this chat",
+      "tag": "button",
+      "type": "submit",
+      "text": "Delete this chat"
+    }
+  },
+  "home.english_teacher_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "English Teacher",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "English Teacher",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "English Teacher",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[4]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "English Teacher",
+      "tag": "input",
+      "type": "radio",
+      "label": "English Teacher"
+    }
+  },
+  "home.friend_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Friend",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Friend",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Friend",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Friend",
+      "tag": "input",
+      "type": "radio",
+      "label": "Friend"
+    }
+  },
+  "home.good_morning_kk_heading": {
+    "page": "home",
+    "intent": "",
+    "role": "heading",
+    "name": "Good morning, kk",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Good morning, kk",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "good-morning-kk",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#good-morning-kk",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"good-morning-kk\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Good morning, kk",
+      "tag": "h2",
+      "text": "Good morning, kk"
+    }
+  },
+  "home.hello_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Hello",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Hello",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div:nth-of-type(1) > span > span > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[2]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Hello\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Hello",
+      "tag": "button",
+      "type": "submit",
+      "text": "Hello"
+    }
+  },
+  "home.manage_current_chat_button": {
+    "page": "home",
+    "intent": "opens the manage current chat dialog",
+    "role": "button",
+    "name": "Manage current chat",
+    "preferred": {
+      "kind": "css",
+      "value": "div > div > div:nth-of-type(7) > div > details > summary",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/summary[1]",
+        "exact": false
+      },
+      {
+        "kind": "role",
+        "value": "button",
+        "name": "Manage current chat",
+        "exact": true
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Manage current chat",
+      "tag": "summary",
+      "text": "Manage current chat"
+    }
+  },
+  "home.my_profile_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    }
+  },
+  "home.new_chat_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New chat",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "New chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primary\"]:has-text(\"New chat\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(2) > div > div > div:nth-of-type(3) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[3]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "New chat",
+      "tag": "button",
+      "type": "submit",
+      "text": "New chat"
+    }
+  },
+  "home.new_conversation_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "New conversation",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "New conversation",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div:nth-of-type(3) > div > div:nth-of-type(1) > span > span > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[5]/div[1]/div[3]/div[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"New conversation\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "New conversation",
+      "tag": "button",
+      "type": "submit",
+      "text": "New conversation"
+    }
+  },
+  "home.normal_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Normal",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Normal",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Normal",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Normal",
+      "tag": "input",
+      "type": "radio",
+      "label": "Normal"
+    }
+  },
+  "home.recent_chats_div": {
+    "page": "home",
+    "intent": "identifies the Recent Chats section in the sidebar",
+    "role": "",
+    "name": "RECENT CHATS",
+    "preferred": {
+      "kind": "text",
+      "value": "RECENT CHATS",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"RECENT CHATS\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(2) > div > div > div:nth-of-type(4)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[4]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "RECENT CHATS",
+      "tag": "div",
+      "text": "RECENT CHATS"
+    }
+  },
+  "home.romantic_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Romantic",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Romantic",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Romantic",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Romantic",
+      "tag": "input",
+      "type": "radio",
+      "label": "Romantic"
+    }
+  },
+  "home.save_title_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Save title",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Save title",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(2) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[7]/div[1]/details[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Save title",
+      "tag": "button",
+      "type": "submit",
+      "text": "Save title"
+    }
+  },
+  "home.send_message_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Send message",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Send message",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(4) > button:nth-of-type(2)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/button[2]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputSubmitButton\"]:has-text(\"Send message\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Send message",
+      "tag": "button",
+      "type": "submit"
+    }
+  },
+  "home.settings_radio": {
+    "page": "home",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    }
+  },
+  "home.start_recording_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Start recording",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Start recording",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(4) > button:nth-of-type(1)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputMicButton\"]:has-text(\"Start recording\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Start recording",
+      "tag": "button",
+      "type": "submit"
+    }
+  },
+  "home.type_a_message_attach_a_file_or_tap_th_textbox": {
+    "page": "home",
+    "intent": "",
+    "role": "textbox",
+    "name": "Type a message, attach a file, or tap the mic…",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Type a message, attach a file, or tap the mic…",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Type a message, attach a file, or tap the mic…",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stChatInputTextArea\"]:has-text(\"Type a message, attach a file, or tap the mic…\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div > div > div:nth-of-type(1) > textarea",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/textarea[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Type a message, attach a file, or tap the mic…",
+      "tag": "textarea",
+      "type": "textarea",
+      "placeholder": "Type a message, attach a file, or tap the mic…"
+    }
+  },
+  "home.upload_files_button": {
+    "page": "home",
+    "intent": "",
+    "role": "button",
+    "name": "Upload files",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Upload files",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Upload files",
+      "tag": "button",
+      "type": "button"
+    }
+  },
+  "home.withyou_div": {
+    "page": "home",
+    "intent": "navigates to or identifies the WithYou section in the sidebar",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "text",
+      "value": "WithYou",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stSidebar > div:nth-of-type(1) > div:nth-of-type(2) > div > div > div:nth-of-type(1)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    }
+  },
+  "landing.always_ready_to_talk_heading": {
+    "page": "landing",
+    "intent": "",
+    "role": "heading",
+    "name": "Always ready to talk",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Always ready to talk",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "always-ready-to-talk",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#always-ready-to-talk",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"always-ready-to-talk\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Always ready to talk",
+      "tag": "h3",
+      "text": "Always ready to talk"
+    }
+  },
+  "landing.continue_with_github_link": {
+    "page": "landing",
+    "intent": "",
+    "role": "link",
+    "name": "Continue with GitHub",
+    "preferred": {
+      "kind": "role",
+      "value": "link",
+      "name": "Continue with GitHub",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseLinkButton-secondary\"]:has-text(\"Continue with GitHub\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > a",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[2]/div[1]/div[1]/div[1]/a[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "link",
+      "name": "Continue with GitHub",
+      "tag": "a",
+      "text": "Continue with GitHub"
+    }
+  },
+  "landing.continue_with_google_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Continue with Google",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Continue with Google",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Continue with Google\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Continue with Google",
+      "tag": "button",
+      "type": "submit",
+      "text": "Continue with Google"
+    }
+  },
+  "landing.create_account_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Create account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Create account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Create account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Create account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Create account"
+    }
+  },
+  "landing.get_started_button": {
+    "page": "landing",
+    "intent": "",
+    "role": "button",
+    "name": "Get started",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Get started",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primary\"]:has-text(\"Get started\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(1) > div > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Get started",
+      "tag": "button",
+      "type": "submit",
+      "text": "Get started"
+    }
+  },
+  "landing.here_for_whatever_is_on_your_mind_heading": {
+    "page": "landing",
+    "intent": "",
+    "role": "heading",
+    "name": "Here for whatever is on your mind.",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Here for whatever is on your mind.",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "here-for-whatever-is-on-your-mind",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#here-for-whatever-is-on-your-mind",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"here-for-whatever-is-on-your-mind\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Here for whatever is on your mind.",
+      "tag": "h1",
+      "text": "Here for whatever is on your mind."
+    }
+  },
+  "landing.made_to_feel_personal_heading": {
+    "page": "landing",
+    "intent": "",
+    "role": "heading",
+    "name": "Made to feel personal",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Made to feel personal",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "made-to-feel-personal",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#made-to-feel-personal",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"made-to-feel-personal\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Made to feel personal",
+      "tag": "h3",
+      "text": "Made to feel personal"
+    }
+  },
+  "landing.withyou_div": {
+    "page": "landing",
+    "intent": "identifies the WithYou section on the landing page",
+    "role": "",
+    "name": "WithYou",
+    "preferred": {
+      "kind": "css",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6) > div > div:nth-of-type(1)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[6]/div[1]/div[1]",
+        "exact": false
+      },
+      {
+        "kind": "text",
+        "value": "WithYou",
+        "exact": true
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stLayoutWrapper\"]:has-text(\"WithYou\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "WithYou",
+      "tag": "div",
+      "text": "WithYou"
+    }
+  },
+  "landing.your_conversations_your_space_heading": {
+    "page": "landing",
+    "intent": "",
+    "role": "heading",
+    "name": "Your conversations, your space",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Your conversations, your space",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "your-conversations-your-space",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#your-conversations-your-space",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"your-conversations-your-space\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Your conversations, your space",
+      "tag": "h3",
+      "text": "Your conversations, your space"
+    }
+  },
+  "my_profile.3_conversation_s_saved_to_this_app_s_lo_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "3 conversation(s) saved to this app’s local data folder.",
+    "preferred": {
+      "kind": "text",
+      "value": "3 conversation(s) saved to this app’s local data folder.",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"3 conversation(s) saved to this app’s local data folder.\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(9)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "3 conversation(s) saved to this app’s local data folder.",
+      "tag": "div",
+      "text": "3 conversation(s) saved to this app’s local data folder."
+    }
+  },
+  "my_profile.chat_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "Chat",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Chat",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Chat",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Chat",
+      "tag": "input",
+      "type": "radio",
+      "label": "Chat"
+    }
+  },
+  "my_profile.display_name_textbox": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "textbox",
+    "name": "Display name",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Display name",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r1o:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Display name\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Display name",
+      "tag": "input",
+      "type": "text"
+    }
+  },
+  "my_profile.email_textbox": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "textbox",
+    "name": "Email",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Email",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r1u:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Email\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Email",
+      "tag": "input",
+      "type": "text"
+    }
+  },
+  "my_profile.export_selected_conversation_as_markdown_button": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "button",
+    "name": "Export selected conversation as Markdown",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Export selected conversation as Markdown",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Export selected conversation as Markdown\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(11) > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[11]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Export selected conversation as Markdown",
+      "tag": "button",
+      "type": "submit",
+      "text": "Export selected conversation as Markdown"
+    }
+  },
+  "my_profile.my_profile_heading": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "heading",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "my-profile",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#my-profile",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"my-profile\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "My Profile",
+      "tag": "h1",
+      "text": "My Profile"
+    }
+  },
+  "my_profile.my_profile_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    }
+  },
+  "my_profile.settings_radio": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    }
+  },
+  "my_profile.the_app_stores_account_and_conversation_div": {
+    "page": "my_profile",
+    "intent": "",
+    "role": "",
+    "name": "The app stores account and conversation data locally on the",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"The app stores account and conversation data locally on the \")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(10)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[10]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "The app stores account and conversation data locally on the",
+      "tag": "div"
+    }
+  },
+  "settings.chat_mode_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Chat mode",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Chat mode",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria8060719937-:r49:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Chat mode",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    }
+  },
+  "settings.delete_my_account_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Delete my account",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Delete my account",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Delete my account\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(3) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Delete my account",
+      "tag": "button",
+      "type": "submit",
+      "text": "Delete my account"
+    }
+  },
+  "settings.deleting_your_account_permanently_remove_div": {
+    "page": "settings",
+    "intent": "explains the permanent deletion consequence",
+    "role": "",
+    "name": "Deleting your account permanently removes its local account",
+    "preferred": {
+      "kind": "css",
+      "value": "[data-testid=\"stElementContainer\"]:has-text(\"Deleting your account permanently removes its local account \")",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(8)",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[8]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "name": "Deleting your account permanently removes its local account",
+      "tag": "div"
+    }
+  },
+  "settings.help_for_romantic_mode_partner_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Help for Romantic mode partner",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Help for Romantic mode partner",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[5]/div[1]/label[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > label > div > span > span > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Help for Romantic mode partner",
+      "tag": "button",
+      "type": "button"
+    }
+  },
+  "settings.help_for_your_city_optional_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Help for Your city (optional)",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Help for Your city (optional)",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[6]/div[1]/label[1]/div[1]/span[1]/span[1]/button[1]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > label > div > span > span > button",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Help for Your city (optional)",
+      "tag": "button",
+      "type": "button"
+    }
+  },
+  "settings.i_understand_this_permanently_deletes_my_checkbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "checkbox",
+    "name": "I understand this permanently deletes my account and convers",
+    "preferred": {
+      "kind": "role",
+      "value": "checkbox",
+      "name": "I understand this permanently deletes my account and convers",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "I understand this permanently deletes my account and conversations.",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div:nth-of-type(2) > div > label > span > input",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/div[1]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "checkbox",
+      "name": "I understand this permanently deletes my account and convers",
+      "tag": "input",
+      "type": "checkbox",
+      "label": "I understand this permanently deletes my account and conversations."
+    }
+  },
+  "settings.my_profile_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "My Profile",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "My Profile",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "label",
+        "value": "My Profile",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[2]/label[1]/span[1]/input[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "My Profile",
+      "tag": "input",
+      "type": "radio",
+      "label": "My Profile"
+    }
+  },
+  "settings.privacy_and_account_data_heading": {
+    "page": "settings",
+    "intent": "",
+    "role": "heading",
+    "name": "Privacy and account data",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Privacy and account data",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "privacy-and-account-data",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#privacy-and-account-data",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"privacy-and-account-data\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Privacy and account data",
+      "tag": "h3",
+      "text": "Privacy and account data"
+    }
+  },
+  "settings.reply_length_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply length",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply length",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria8060719937-:r3a:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Reply length",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    }
+  },
+  "settings.reply_tone_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Reply tone",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Reply tone",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria8060719937-:r2r:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Reply tone",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    }
+  },
+  "settings.romantic_mode_partner_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Romantic mode partner",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Romantic mode partner",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria8060719937-:r4q:\"]",
+        "exact": false
+      },
+      {
+        "kind": "placeholder",
+        "value": "Choose an option",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Romantic mode partner",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose an option"
+    }
+  },
+  "settings.save_preferences_button": {
+    "page": "settings",
+    "intent": "",
+    "role": "button",
+    "name": "Save preferences",
+    "preferred": {
+      "kind": "role",
+      "value": "button",
+      "name": "Save preferences",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stBaseButton-primaryFormSubmit\"]:has-text(\"Save preferences\")",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "div > div > div:nth-of-type(7) > div > div > button",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/main[1]/div[1]/div[1]/div[5]/div[1]/div[1]/div[7]/div[1]/div[1]/button[1]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "button",
+      "name": "Save preferences",
+      "tag": "button",
+      "type": "submit",
+      "text": "Save preferences"
+    }
+  },
+  "settings.settings_heading": {
+    "page": "settings",
+    "intent": "",
+    "role": "heading",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "heading",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "id",
+        "value": "settings",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "#settings",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"settings\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "heading",
+      "name": "Settings",
+      "tag": "h1",
+      "text": "Settings"
+    }
+  },
+  "settings.settings_radio": {
+    "page": "settings",
+    "intent": "",
+    "role": "radio",
+    "name": "Settings",
+    "preferred": {
+      "kind": "role",
+      "value": "radio",
+      "name": "Settings",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/section[1]/div[1]/div[2]/div[1]/div[1]/div[9]/div[1]/div[1]/div[3]/label[1]/span[1]/input[1]",
+        "exact": false
+      },
+      {
+        "kind": "label",
+        "value": "Settings",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "radio",
+      "name": "Settings",
+      "tag": "input",
+      "type": "radio",
+      "label": "Settings"
+    }
+  },
+  "settings.topics_you_often_ask_about_combobox": {
+    "page": "settings",
+    "intent": "",
+    "role": "combobox",
+    "name": "Topics you often ask about",
+    "preferred": {
+      "kind": "role",
+      "value": "combobox",
+      "name": "Topics you often ask about",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "placeholder",
+        "value": "Choose options",
+        "exact": false
+      },
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\"react-aria8060719937-:r3o:\"]",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "combobox",
+      "name": "Topics you often ask about",
+      "tag": "input",
+      "type": "text",
+      "placeholder": "Choose options"
+    }
+  },
+  "settings.type_your_email_address_to_confirm_delet_textbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "textbox",
+    "name": "Type your email address to confirm deletion",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Type your email address to confirm deletion",
+      "exact": false
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r2d:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Type your email address to confirm deletion\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Type your email address to confirm deletion",
+      "tag": "input",
+      "type": "text"
+    }
+  },
+  "settings.your_city_optional_textbox": {
+    "page": "settings",
+    "intent": "",
+    "role": "textbox",
+    "name": "Your city (optional)",
+    "preferred": {
+      "kind": "role",
+      "value": "textbox",
+      "name": "Your city (optional)",
+      "exact": true
+    },
+    "alternatives": [
+      {
+        "kind": "xpath",
+        "value": "//*[@id=\":r24:\"]",
+        "exact": false
+      },
+      {
+        "kind": "css",
+        "value": "[data-testid=\"stTextInputField\"]:has-text(\"Your city (optional)\")",
+        "exact": false
+      }
+    ],
+    "fingerprint": {
+      "role": "textbox",
+      "name": "Your city (optional)",
+      "tag": "input",
+      "type": "text"
+    }
+  }
+}

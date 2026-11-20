@@ -1,0 +1,31 @@
+{
+  "channels": {
+    "web": {
+      "files": {
+        "config/locators.json": "36852f2d95ecf403c3531eb30333301fecbf1fe2",
+        "package.json": "c640e6d3d9eb1cef87f6a0785b11c71917fee7ef",
+        "pages/base.page.ts": "cdee1ef8fe506ddac32dee6690f7969fdba6a973",
+        "pages/create_account.page.ts": "fa69052669063adc368d46414d6dc8862cab9604",
+        "pages/get_started.page.ts": "66153580b46a7a52f993348ba1df4030d0634c86",
+        "pages/home.page.ts": "d23f8dd944377a2f322af2ed010ce0a2349ffe67",
+        "pages/index.ts": "e9933301042d18079bd7e996b74baae862fad316",
+        "pages/landing.page.ts": "85783e20b894fb8d2af29f38f848c5ee52a1f3e9",
+        "pages/my_profile.page.ts": "9bf6dbf37891e680dbfe0495e40de3bd61da1742",
+        "pages/settings.page.ts": "f5c50eb0356f40bd00809c421695ab4e8f133b8a",
+        "playwright.config.ts": "83f105dae15e3cc90ac36bfa3c985cea4eb1ff24",
+        "tests/authentication_and_landing.spec.ts": "20456250218f2617ba528f9a8e27b5e018d31169",
+        "tests/chat.spec.ts": "71d2e2a657f32665fd6c677027f551e4a9493289",
+        "tests/general.spec.ts": "6828d16f02b69d5d254101bb82cf56dfb35231e9",
+        "tests/my_profile.spec.ts": "a3550e78aa75eb2b44f8232caa16c4f51cdf5d86",
+        "tests/settings.spec.ts": "27f1d64e760b0f01a2288561f87858a1cc647104",
+        "tsconfig.json": "c912a302172a26c5e347f787e81a1223e80773fe",
+        "utils/app.ts": "328f3618a88fb091e6d0988922e86dbc448e4f97",
+        "utils/fixtures.ts": "34c7feaa6581f92b8036f06b39432705822dc2c8",
+        "utils/locators.ts": "3f097ab33a385aca4507ad99b972cb5907ead715"
+      },
+      "framework": "playwright_typescript"
+    }
+  },
+  "generator": "ai-testing-studio",
+  "version": 1
+}
