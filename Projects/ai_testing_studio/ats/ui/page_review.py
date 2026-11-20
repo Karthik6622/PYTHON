@@ -186,7 +186,7 @@ def render_test_cases(svc: Services) -> None:
         if st.button("Generate test cases", type="primary"):
             def work(ctx):  # noqa: ANN001, ANN202
                 cases = svc.testcases.generate(project, requirements, on_event=ctx.on_event, progress=ctx.reporter, layer=layer)
-                skipped = getattr(svc.testcases, "last_skipped", {}).get(project.id, []) if layer == "ui" else []
+                skipped = getattr(svc.testcases, "last_skipped", {}).get(project.id, []) if layer in {"ui", "api"} else []
                 note = (
                     f" {len(skipped)} scenario(s) could not be designed ({', '.join(skipped[:6])}{'...' if len(skipped) > 6 else ''}): generate again, or add those test cases manually."
                     if skipped else ""

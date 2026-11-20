@@ -11,6 +11,7 @@ from ats.analysis.expectations import parse_claim, repair_expectation
 from ats.automation.script_service import build_corpus, validate_script
 from ats.discovery.facts import Evidence, facts_digest
 from ats.generation.grounding import ground_cases
+from ats.generation.scenarios import ScenarioService, page_names
 from ats.locators.builder import build_locators
 from ats.models import AutomationStep, DiscoveryResult, PageSnapshot, Scenario, TestCase, TestScript
 from ats.generation.adapters.common import build_views
@@ -162,6 +163,41 @@ def test_test_cases_get_their_view_the_sign_in_precondition_and_real_texts(world
     assert "Verify the 'Settings' heading is shown" in fixed.steps and "text-corrected" in fixed.tags  # 'Setting' -> 'Settings'
     assert "unverified-text" in fixed.tags and "All your changes were stored forever" in fixed.steps[2]  # flagged, not invented away
     assert report.corrected >= 1 and report.unverified == 1
+    assert not fixed.automation_candidate
+
+
+def test_generated_scenarios_need_an_unambiguous_discovered_view(world):
+    discovery, *_ = world
+    pages = {p.page_key for p in discovery.pages}
+    raw = [Scenario(title=label, page=label) for label in ["WithYou", "unseen/settings", "Settings"]]
+    assert [s.page for s in ScenarioService._clean(raw, pages, None, names=page_names(discovery))] == ["settings"]
+
+
+def test_invented_click_target_is_left_for_manual_review(world):
+    discovery, specs, *_ = world
+    bad = case(related_page="profile", steps=["Click 'Publish to marketplace'"])
+    [fixed], _ = ground_cases([bad], [], discovery, specs)
+    assert not fixed.automation_candidate and "unverified-control" in fixed.tags
+    assert fixed.steps == bad.steps
+
+
+def test_discovery_rejects_unique_selector_for_a_different_node(browser_ready):
+    if not browser_ready:
+        pytest.skip("local Chromium unavailable")
+    from playwright.sync_api import sync_playwright
+    from ats.discovery.worker import extract_page, verify_elements
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page()
+        page.set_content('<button id="real">Save</button><button>Delete</button>')
+        target = next(e for e in extract_page(page)["elements"] if e["id"] == "real")
+        target["name"] = "Delete"  # extractor's name heuristic differs from the browser's
+        verify_elements(page, [target])
+        browser.close()
+    [spec] = build_locators(DiscoveryResult(start_url="about:blank", pages=[PageSnapshot(url="about:blank", page_key="home", elements=[target])]))
+    assert spec.preferred.kind == "id"
+    assert all(s.name != "Delete" for s in spec.alternatives)
 
 
 # ------------------------------------------------------------------------------------------ repairs

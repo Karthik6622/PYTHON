@@ -193,7 +193,7 @@ def probe_options(page: Any, elements: list[dict[str, Any]]) -> None:
             break
         if element.get("role") not in {"combobox", "listbox"} or not element.get("visible") or element.get("options") or element.get("disabled"):
             continue
-        spec = next((c for c in element.get("checks", []) if c.get("count") == 1), None)
+        spec = next((c for c in element.get("checks", []) if c.get("matches_target")), None)
         if spec is None:
             continue
         done += 1
@@ -215,7 +215,7 @@ def probe_options(page: Any, elements: list[dict[str, Any]]) -> None:
 def verify_elements(page: Any, elements: list[dict[str, Any]]) -> None:
     """Count, on the live page, how many elements each candidate selector matches (stored in ``element["checks"]``).
 
-    A selector that matches exactly one element is safe to use in generated tests; the locator builder ranks by this.
+    A unique match is useful only when it is the node the extractor described.
     """
     from ats.locators.builder import build_selectors
 
@@ -232,14 +232,18 @@ def verify_elements(page: Any, elements: list[dict[str, Any]]) -> None:
         done += 1
         checks: list[dict[str, Any]] = []
         unique = 0
-        for selector in selectors[:6]:
+        for selector in selectors:
             spec = selector.model_dump(exclude_none=True)
             try:
-                count = resolve(page, spec).count()
+                count, matches = resolve(page, spec).evaluate_all(
+                    """(nodes, path) => [nodes.length, nodes.length === 1 && nodes[0] ===
+                        document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue]""",
+                    element["xpath"],
+                )
             except Exception:  # noqa: BLE001
-                count = -1
-            checks.append({**spec, "count": count})
-            unique += count == 1
+                count, matches = -1, False
+            checks.append({**spec, "count": count, "matches_target": matches})
+            unique += matches
             if unique >= 2:  # the preferred selector and one verified alternative are enough
                 break
         element["checks"] = checks

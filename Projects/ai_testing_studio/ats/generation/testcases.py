@@ -154,7 +154,27 @@ class TestCaseService:
         collected: list[TestCase] = []
         rejected: list[str] = []
         taken = self._other_ids(project.id, "api")
-        known = {s.scenario_id for s in approved}
+        skipped: list[str] = []
+
+        def design(batch: list[Scenario]) -> None:
+            scope = api_design.endpoints_for(batch, endpoints)
+            payload = api_design.testcase_payload(project, batch, scope, names, requirements, taken)
+            try:
+                raw = self.api_agent.generate(payload, project_id=project.id, on_event=on_event)
+            except ModelResponseError as exc:
+                if len(batch) == 1:
+                    rejected.append(f"{batch[0].scenario_id}: {exc.user_message}")
+                raw = []
+            accepted = api_design.clean_testcases(raw, {s.scenario_id for s in batch}, taken, collected, scope, names, rejected)
+            collected.extend(accepted)
+            covered = {c.scenario_id for c in accepted}
+            for scenario in batch:
+                if scenario.scenario_id not in covered:
+                    if len(batch) > 1:
+                        design([scenario])
+                    else:
+                        skipped.append(scenario.scenario_id)
+
         batches = -(-len(approved) // API_BATCH_SIZE)
         for number, start in enumerate(range(0, len(approved), API_BATCH_SIZE)):
             batch = approved[start : start + API_BATCH_SIZE]
@@ -162,14 +182,14 @@ class TestCaseService:
                 progress, f"Designing API test cases for scenarios {start + 1}-{start + len(batch)} of {len(approved)}",
                 0.02 + 0.93 * number / batches, 0.02 + 0.93 * (number + 1) / batches,
             )
-            payload = api_design.testcase_payload(project, batch, api_design.endpoints_for(batch, endpoints), names, requirements, taken)
-            raw = self.api_agent.generate(payload, project_id=project.id, on_event=on_event)
-            collected += api_design.clean_testcases(raw, known, taken, collected, endpoints, names, rejected)
+            design(batch)
+        self.last_skipped[project.id] = skipped
         report(progress, "Saving the API test cases", 0.97)
         if not collected:
-            raise GenerationError("The model did not return usable API test cases" + (f" ({rejected[0]})" if rejected else "") + ". Try again.")
+            reason = rejected[0] if rejected else "no case matched an approved scenario"
+            raise GenerationError(f"No valid API cases for {', '.join(skipped[:6])}: {reason}. Existing cases were not changed.")
         self.repo.save_test_cases(project.id, collected, replace=True, layer="api")
-        self.repo.audit(project.id, "agent:api_test_case", "testcases.generated", "test_case", {"count": len(collected), "scenarios": len(approved), "layer": "api", "rejected": len(rejected)})
+        self.repo.audit(project.id, "agent:api_test_case", "testcases.generated", "test_case", {"count": len(collected), "scenarios": len(approved), "layer": "api", "rejected": len(rejected), "skipped": skipped})
         return collected
 
     def _generate_mobile(self, project: Project, requirements: str, on_event: EventCallback | None, progress: Any) -> list[TestCase]:

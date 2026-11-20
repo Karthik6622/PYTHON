@@ -7,11 +7,37 @@ import json
 import pytest
 
 from ats.ai.agents import TestCaseAgent
+from ats.ai.agents.api_agents import ApiTestCaseAgent
+from ats.api.models import ApiEndpoint
 from ats.ai.base import reshape, salvage_items
 from ats.ai.agents.generation_agents import TestCaseList
 from ats.errors import ModelTruncatedError
 from ats.generation.testcases import TestCaseService
 from ats.models import DiscoveryResult, PageSnapshot, Scenario
+
+
+def test_api_generation_recovers_valid_scenarios_from_malformed_batch(repo):
+    project = repo.create_project("owner", name="API", url="https://example.test", base_url="https://example.test")
+    repo.save_api_endpoints(project.id, [ApiEndpoint(key="GET /items", path="/items")])
+    ids = ["SC_API_001", "SC_API_002", "SC_API_003"]
+    repo.save_scenarios(project.id, [Scenario(scenario_id=s, title=s, layer="api", status="approved", page="GET /items") for s in ids])
+
+    class Client:
+        model_name = "fake-api"
+
+        def complete(self, messages, **kwargs):
+            batch = json.loads(messages[1]["content"])["scenarios"]
+            sid = batch[0]["scenario_id"]
+            if len(batch) > 1 or sid == ids[-1]:
+                return "not JSON", {}
+            item = {**case(sid), "api": {"requests": [{"method": "GET", "path": "/items", "expect": {"status": 200}}]}}
+            return json.dumps(item), {}  # single case without the list envelope
+
+    service = TestCaseService(repo, api_agent=ApiTestCaseAgent(Client()))
+    cases = service.generate(project, layer="api")
+    assert [c.scenario_id for c in cases] == ids[:2]
+    assert all(c.api.requests[0].path == "/items" for c in cases)
+    assert service.last_skipped[project.id] == ids[2:]
 
 
 def case(scenario_id: str, n: int = 1) -> dict:

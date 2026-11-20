@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import difflib
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from ats.ai.agents import ApiScenarioAgent, MobileScenarioAgent, ScenarioAgent
 from ats.api import design as api_design
@@ -29,22 +29,18 @@ def resolve_page(page: str, known: set[str], names: dict[str, str] | None = None
     lowered = page.strip().lower()
     if lowered in names:
         return names[lowered]
-    tail = page.rstrip("/")
-    matches = [p for p in known if tail and (p.rstrip("/").endswith(tail) or tail.endswith(p.rstrip("/")))]
-    if matches:
-        return matches[0]
-    close = difflib.get_close_matches(lowered, list(names), n=1, cutoff=0.8)
-    return names[close[0]] if close else page
+    return page
 
 
 def page_names(discovery: Any) -> dict[str, str]:
     """``{lower-cased view name / heading / page key: page_key}`` for resolving references written by a model."""
-    names: dict[str, str] = {}
+    candidates: dict[str, set[str]] = {}
     for p in discovery.pages:
-        for label in (p.page_key, p.view_name, p.title, *[h.split(": ", 1)[-1] for h in p.headings[:2]]):
-            if label and label.strip().lower() not in names:
-                names[label.strip().lower()] = p.page_key
-    return names
+        url = p.final_url or p.url
+        for label in (p.page_key, url, urlsplit(url).path, p.view_name, p.title, *[h.split(": ", 1)[-1] for h in p.headings[:2]]):
+            if label:
+                candidates.setdefault(label.strip().lower(), set()).add(p.page_key)
+    return {label: next(iter(keys)) for label, keys in candidates.items() if len(keys) == 1}
 
 
 def _application(project: Project, discovery: Any) -> dict[str, Any]:
@@ -102,7 +98,7 @@ class ScenarioService:
         report(progress, "Designing enterprise-level scenarios for every discovered view", 0.05, 0.9)
         raw = self.agent.generate(payload, project_id=project.id, on_event=on_event)
         report(progress, "Checking and saving the scenarios", 0.95)
-        known = {p.page_key for p in discovery.pages} | {p.final_url or p.url for p in discovery.pages}
+        known = {p.page_key for p in discovery.pages}
         scenarios = self._clean(raw, known, allowed if project.coverage == "CUSTOM" else None, self._other_ids(project.id, "ui"), page_names(discovery))
         if not scenarios:
             raise GenerationError("The model did not return usable scenarios. Add requirements or try again.")
@@ -161,10 +157,12 @@ class ScenarioService:
                 continue
             if allowed_types is not None and item.test_type not in allowed_types:
                 continue
+            page = resolve_page(item.page, known_pages, names)
+            if page not in known_pages:
+                continue
             seen.add(key)
             sid = item.scenario_id if valid_id(item.scenario_id, "SC", taken) else next_id("SC", item.module, taken)
             taken.add(sid)
-            page = resolve_page(item.page, known_pages, names)
             cleaned.append(item.model_copy(update={"scenario_id": sid, "status": "draft", "source": "ai", "page": page, "layer": "ui"}))
         return cleaned
 

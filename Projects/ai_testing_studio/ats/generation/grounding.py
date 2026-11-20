@@ -21,6 +21,7 @@ from ats.models import DiscoveryResult, Scenario, TestCase
 
 QUOTED = re.compile(r"\"([^\"\n]{2,80})\"|“([^”\n]{2,80})”|‘([^’\n]{2,80})’|(?<![\w])'([^'\n]{2,80})'(?![\w])")
 CHECK_STEP = re.compile(r"^\s*(?:\d+[.)]\s*)?(verify|check|assert|confirm|ensure|expect|observe|validate|see that|make sure)\b", re.I)
+CONTROL_STEP = re.compile(r"^\s*(?:\d+[.)]\s*)?(?:click|tap|press)\s+(?:on\s+)?(?:the\s+)?[\"'“‘]", re.I)
 SIGN_IN_WORDS = re.compile(r"sign(ed)?[ -]?in|log(ged)?[ -]?in", re.I)
 ENV = re.compile(r"\{\{env:[^}]+\}\}")
 
@@ -49,7 +50,7 @@ def closest(claim: str, candidates: list[str]) -> str:
         score = difflib.SequenceMatcher(None, wanted, norm(text)).ratio()
         if score > best_score:
             best, best_score = text, score
-    return best if best_score >= 0.6 else ""
+    return best if best_score >= 0.85 else ""
 
 
 def _claims(text: str) -> list[tuple[str, str]]:
@@ -66,7 +67,7 @@ def ground_case(case: TestCase, scenario: Scenario | None, discovery: DiscoveryR
     page = pages.get(view)
     if page is None:
         report.unresolved_view += 1
-        return case
+        return case.model_copy(update={"tags": list(dict.fromkeys([*case.tags, "unresolved-view"])), "automation_candidate": False})
     update: dict[str, Any] = {"related_page": view}
     tags = list(case.tags)
     preconditions = list(case.preconditions)
@@ -95,12 +96,22 @@ def ground_case(case: TestCase, scenario: Scenario | None, discovery: DiscoveryR
 
     expected = fix(expected)
     steps = [fix(s) if CHECK_STEP.match(s) else s for s in steps]
+    # Navigation may lead to a different discovered view. Never guess a replacement for an action target.
+    for step in steps:
+        if CONTROL_STEP.match(step):
+            claims = _claims(step)
+            if claims and not evidence.level(claims[0][1], None, view):
+                if "unverified-control" not in tags:
+                    tags.append("unverified-control")
+                update["automation_candidate"] = False
     report.corrected += corrected
     report.unverified += unverified
     if corrected and "text-corrected" not in tags:
         tags.append("text-corrected")
     if unverified and "unverified-text" not in tags:
         tags.append("unverified-text")
+    if unverified or (scenario and scenario.automation_suitability == "Manual only"):
+        update["automation_candidate"] = False
     update.update({"steps": steps, "expected_result": expected, "tags": tags})
     return case.model_copy(update=update)
 

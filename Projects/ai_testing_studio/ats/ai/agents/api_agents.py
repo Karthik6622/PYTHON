@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ats.ai.base import Agent, EventCallback
 from ats.models import ChangeSet, Scenario, TestCase, _Model
@@ -19,6 +19,13 @@ class ApiTestCaseList(_Model):
     __test__ = False
 
     test_cases: list[TestCase] = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _single_case(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "test_cases" not in value and {"scenario_id", "title", "api"} <= value.keys():
+            return {"test_cases": [value]}
+        return value
 
 
 class ApiScenarioInput(BaseModel):

@@ -157,7 +157,8 @@ were running are marked *Interrupted* and can be started again. Jobs started fro
 ## How generated tests find and reach elements
 
 * Discovery records, for every view, the clicks that open it (`config/views.json`) and verifies on the live page how many elements each
-  candidate selector matches; unique selectors are ranked first, ambiguous ones last. Icon-font text (`add`, `keyboard_arrow_left`) is not
+  candidate selector matches. For live-checked controls, only selectors that uniquely match the intended DOM node are retained. Rerun
+  discovery and regenerate automation to replace locators from older snapshots. Icon-font text (`add`, `keyboard_arrow_left`) is not
   part of an element's name, exactly like in Playwright's accessibility tree.
 * Locator order: an application's own test id, then what a person sees (role + accessible name, label, placeholder), then id / name, then
   visible text, and positional CSS / XPath last. Framework widget markers (Streamlit's `stBaseButton-primary`, `stTextInput`..., MUI,
@@ -186,7 +187,12 @@ Everything between discovery and execution is therefore checked against what dis
 * **Scenarios and test cases** get these facts per view (shared menus listed once, the content of each view never crowded out) with strict
   rules: quote only observed text, a signed-in view is tested signed in, an unobserved result (what appears after Save) is never given an
   exact text. After generation each case is resolved to its view, gets the sign-in precondition, and a quoted text nothing observed is
-  corrected to the closest real text or tagged `unverified-text`.
+  corrected for a close spelling match or tagged `unverified-text`. Cases with unverified text, an unresolved view or an unobserved
+  quoted click target stay available for manual review rather than going straight into automation. Generated UI scenarios need an
+  unambiguous discovered view.
+* **API case generation** validates requests against the imported endpoints supplied to the model. If a batch is malformed or
+  leaves scenarios without usable cases, those scenarios are tried individually. The review notice identifies skipped scenarios;
+  if none produced valid cases, the existing case set is not replaced.
 * **Scripts** are walked on paper before they are written: the walk starts on the view of the first element, a click on a navigation
   control moves it to the view that control opens, an element of another view is replaced by its twin on the current view (or the script
   stops there), an action must fit its element, and an expected text must be something that element was observed to show (a different

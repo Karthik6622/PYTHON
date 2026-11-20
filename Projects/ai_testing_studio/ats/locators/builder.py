@@ -99,7 +99,11 @@ def build_selectors(el: dict[str, Any], shared_testids: set[str] | None = None) 
     # drop duplicates, keep order
     seen: set[tuple[str, str, str]] = set()
     unique = [s for s in out if not (s.identity() in seen or seen.add(s.identity()))]
-    checks = {(c.get("kind"), c.get("value"), c.get("name") or ""): c.get("count") for c in el.get("checks", [])}
+    live = el.get("checks", [])
+    checks = {(c.get("kind"), c.get("value"), c.get("name") or ""): c.get("count") for c in live}
+    if any("matches_target" in c for c in live):
+        verified = {(c["kind"], c["value"], c.get("name") or "") for c in live if c.get("matches_target")}
+        unique = [s for s in unique if s.identity() in verified]
     ambiguous = False
     if checks:
         # The discovery worker counted how many elements each selector matches on the live page. Unique selectors win,
