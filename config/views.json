@@ -1,0 +1,86 @@
+{
+  "start_url": "https://personalpartner.streamlit.app/",
+  "views": {
+    "home": {
+      "name": "Good afternoon, karthik",
+      "signed_in": true,
+      "steps": [],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": []
+    },
+    "my_profile": {
+      "name": "My Profile",
+      "signed_in": true,
+      "steps": [
+        {
+          "role": "radio",
+          "label": "My Profile",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": [
+        "My Profile"
+      ]
+    },
+    "settings": {
+      "name": "Settings",
+      "signed_in": true,
+      "steps": [
+        {
+          "role": "radio",
+          "label": "Settings",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": [
+        "Settings",
+        "Privacy and account data"
+      ]
+    },
+    "landing": {
+      "name": "Here for whatever is on your mind. (signed out)",
+      "signed_in": false,
+      "steps": [],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": [
+        "Here for whatever is on your mind.",
+        "Your conversations, your space",
+        "Always ready to talk"
+      ]
+    },
+    "get_started": {
+      "name": "Welcome back",
+      "signed_in": false,
+      "steps": [
+        {
+          "role": "button",
+          "label": "Get started",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": []
+    },
+    "create_account": {
+      "name": "Create your account",
+      "signed_in": false,
+      "steps": [
+        {
+          "role": "button",
+          "label": "Create account",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/",
+      "headings": [
+        "Create your account"
+      ]
+    }
+  }
+}

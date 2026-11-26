@@ -1,0 +1,32 @@
+{
+  "channels": {
+    "web": {
+      "files": {
+        "config/auth.json": "5c89097a82f78c9da09dd9c4133ae829672a227e",
+        "config/locators.json": "2e0fcf8dbc95054d8b278a17ab296d4d43390a07",
+        "config/views.json": "b749135ae4f3e16397f253cd244c6ca1cbf0dc74",
+        "pages/__init__.py": "4a84cef1b594432992fbf33a4080c49186803226",
+        "pages/base_page.py": "d3989c0588121b396f53bec26f6755196b4dde80",
+        "pages/create_account_page.py": "19b5e7b206e1fe3d96b05d2ff2a3edb7f0c089e4",
+        "pages/get_started_page.py": "c2bc3621532a97648050889521469d5a46ded74a",
+        "pages/home_page.py": "0d2a7a337f27391c3568837e461e2532576e6718",
+        "pages/landing_page.py": "8543c0f0f2327118137fd61c7ae811f24894f05b",
+        "pages/my_profile_page.py": "5e1bca60e04dac2fca1d5944a1b291131e874d76",
+        "pages/settings_page.py": "498155f3a4f93d26da464f976de48927e01dbcfa",
+        "tests/web/conftest.py": "775b3f1ca1016ba85357e31189d11bcbe5fbcc2c",
+        "tests/web/test_authentication.py": "7f8648e6fcc33ff8855d00b9342ff5a6995931ba",
+        "tests/web/test_chat.py": "31f1b00d65a73e1a1330bcc8d5596ca935863fd6",
+        "tests/web/test_general.py": "b69cdb93d6ef3fc9ef4eab153df1b1f9565c166d",
+        "tests/web/test_profile.py": "bd9da55c3cd9c3eb2ddd14a92fbd258d96173325",
+        "tests/web/test_settings.py": "329de25be914728fcac534faddb8c586aa994595",
+        "utils/actions.js": "e53eb891f5375e13514a617486cea9ddb86b25c8",
+        "utils/app.py": "cb896cd2f43bc4beb7eaa64b9d2df110483bd7b3",
+        "utils/locators.py": "d93ceada740a0564e890ca6432dcba6cd600e97a",
+        "utils/nav.py": "0aa34502e1097e71f5f2eeddcf7f8fe5ce374c78"
+      },
+      "framework": "playwright_python"
+    }
+  },
+  "generator": "ai-testing-studio",
+  "version": 1
+}
