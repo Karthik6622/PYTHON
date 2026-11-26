@@ -64,7 +64,8 @@ it protects against), "preconditions": [str] (account state, data, which view to
 test types, "priority": Critical|High|Medium|Low (risk based: Critical = blocks the core journey, security or data loss),
 "expected_outcome": str (observable business outcome), "automation_suitability": High|Medium|Low|Manual only}.
 Quality bar:
-- Cover end-to-end journeys across views, not only single controls; include positive AND negative paths for every form/flow.
+- The following coverage examples are conditional, not a checklist. Omit unsupported workflows; a requested but unobserved
+  workflow is Manual only. Prefer fewer distinct objectives to speculative variants.
 - Authentication: valid sign-in, invalid credentials, empty/invalid input validation, sign-out ends the session, signed-in views are
   not reachable without signing in, session behaviour on reload where observable, password reset entry point, sign-up validation.
 - Every signed-in view (profile, settings, dashboards, lists, chats, ...) gets its own functional scenarios, including saving and
@@ -90,8 +91,9 @@ When the instruction asks to regenerate specific scenarios, return them under "u
 THINK FIRST (privately): for each approved scenario decide the distinct conditions that must be proven: the main positive path,
 each negative/invalid input, boundaries (empty, minimum, maximum, over-length, special characters), state and persistence checks
 (reload, navigate away and back), permission/session checks and error handling. Each condition becomes one test case.
-TASK: write detailed test cases for the APPROVED scenarios provided; every scenario gets at least one positive and, where input
-or state is involved, negative/boundary test cases. No duplicates.
+TASK: expand only conditions supported by the approved scenario and the supplied discovery facts. Add a boundary only when a
+constraint or requirement supports it. If a required outcome cannot be established, retain it for manual review with
+automation_candidate=false; do not substitute a weaker assertion. No coverage quotas or duplicates.
 Each test case: {"test_case_id": "TC_<MODULE>_<NNN>", "scenario_id": str (an approved scenario), "module": str, "title": str
 (specific condition under test), "description": str, "preconditions": [str] (include signing in with the test account when the
 view is signed_in, and the navigation in "reached_by"), "test_data": {name: value}, "steps": [str] (user actions using the exact
@@ -115,7 +117,8 @@ GROUNDING (the most important rule - tests built on invented facts fail): INPUT 
   expect only what is certain and observable - the control is still enabled, the field keeps its value, the view stays usable - or the
   text listed in observed_outcomes. NEVER write an exact message text for an unobserved outcome.
 - Test data must fit the control: respect type, required, maxlength, pattern and min/max; for a select, radio or tab choose ONLY listed
-  options; for negative tests use clearly invalid values (empty, wrong format, too long).
+  options; for negative tests use clearly invalid values (empty, wrong format, too long). A control's "validation_message" is the
+  browser's own observed message for its current empty/invalid state; use it exactly when asserting that state.
 Return JSON: {"test_cases": [ ... ]}""",
     "testcase.modify": """ROLE: Test Case Agent (change mode).
 Apply the human reviewer's instruction to the existing test cases with the smallest change set.
@@ -209,20 +212,21 @@ Allowed actions: goto(value=path or absolute URL under the base URL), click, dbl
 check, uncheck, press(value=key), hover, expect_visible, expect_hidden, expect_text(value=expected text),
 expect_value(value), expect_enabled, expect_disabled, expect_url_contains(value), expect_title_contains(value).
 Rules:
-- Use ONLY element keys that exist in the provided elements list. If a needed element is missing, stop the script at that point
-  and explain in "notes"; do not invent keys.
+- Use ONLY element keys that exist in the provided elements list. If an essential action or assertion cannot be implemented,
+  return empty steps with the reason in "notes", not a partial script. A completed script needs an assertion proving its objective.
 - Every element has a "page" (the view it lives on) and "signed_in". The script starts on the view of its FIRST element. After a click
   on a navigation control (a menu, radio, tab or link that opens another view) the following steps belong to the NEW view: use elements
   of THAT page. Menu / sidebar controls exist on every view of the same kind (they have a key per view: pick the one on the current view).
 - Match the action to the element: click, dblclick, hover, check, uncheck only on buttons, links, tabs, radios, checkboxes, switches, menu
   items; fill, clear, press on textbox / searchbox / spinbutton; select on combobox; expect_* on anything. Never click a heading or text.
 - Assertions must come from the OBSERVED text of the element or view (element "text"/"name", the page digest's headings, messages,
-  texts, observed_outcomes). The test case's own wording is NOT evidence: if the text is not observed, assert something true and weaker
-  (expect_visible) and explain in "notes". NEVER invent expected text. Check a heading with expect_text on the HEADING element and its
+  texts, observed_outcomes). The test case's own wording is NOT evidence: do not replace a text or value check with visibility.
+  NEVER invent expected text. Check a heading with expect_text on the HEADING element and its
   exact observed text.
 - Never write real credentials. Use {{env:VARIABLE_NAME}} placeholders from the test data.
-- Start every script with a goto step unless the preconditions say otherwise. When the target view lists 'reached_by' steps in
-  the page digest (single-page apps), perform those clicks after the goto (and after signing in when the view is signed_in).
+- Start with goto. When replay_start_view is true, the runner opens the case's related_page, signs in if needed and replays
+  reached_by before the first action: use a first element from that view and do NOT repeat setup clicks. Otherwise include the
+  required navigation explicitly. Address validation_feedback without changing the objective.
   Keep scripts short and deterministic.
 Return JSON: {"scripts": [{"test_case_id": str, "title": str, "notes": str, "steps": [ ... ]}]}""",
     "script.repair": """ROLE: Test Repair Agent. A generated Playwright + pytest test failed. Decide WHY and, when the cause is in the automation, repair it.

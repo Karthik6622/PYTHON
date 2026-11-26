@@ -41,6 +41,7 @@ def view_strings(page: Any) -> list[str]:
             out += [str(el.get(k)) for k in ("name", "label", "text", "placeholder") if el.get(k)]
     for outcome in page.outcomes:
         out += [outcome.get("result", ""), *outcome.get("shown_messages", [])]
+    out += [str(el["validation"]) for el in page.elements if el.get("validation")]
     return [s for s in dict.fromkeys(s.strip() for s in out) if s]
 
 

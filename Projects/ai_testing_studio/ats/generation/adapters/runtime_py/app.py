@@ -109,12 +109,12 @@ class App:
         try:
             action(timeout=6000)
         except Exception:
-            if not locator.count():
+            if locator.count() != 1:
                 raise
             try:
                 action(timeout=3000, force=True)
             except Exception:
-                locator.first.evaluate("(element) => element.click()")
+                locator.evaluate("(element) => element.click()")
         self.settle()
 
     def check(self, locator, checked: bool = True) -> None:
@@ -122,12 +122,12 @@ class App:
         try:
             action(timeout=6000)
         except Exception:
-            if not locator.count():
+            if locator.count() != 1:
                 raise
             try:
                 action(timeout=3000, force=True)
             except Exception:
-                locator.first.evaluate("(element) => element.click()")
+                locator.evaluate("(element) => element.click()")
         self.settle()
 
     # ------------------------------------------------------------------ elements
@@ -138,14 +138,14 @@ class App:
         role, name = fp.get("role") or spec.get("role"), fp.get("name") or spec.get("name")
         candidates = []
         if role and name:
-            candidates += [{"kind": "role", "value": role, "name": name, "exact": True}, {"kind": "role", "value": role, "name": name}]
+            candidates.append({"kind": "role", "value": role, "name": name, "exact": True})
         if fp.get("label"):
-            candidates.append({"kind": "label", "value": fp["label"]})
+            candidates.append({"kind": "label", "value": fp["label"], "exact": True})
         if fp.get("placeholder"):
-            candidates.append({"kind": "placeholder", "value": fp["placeholder"]})
+            candidates.append({"kind": "placeholder", "value": fp["placeholder"], "exact": True})
         for text in (fp.get("text"), name):
-            if text:
-                candidates += [{"kind": "text", "value": text, "exact": True}, {"kind": "text", "value": text}]
+            if text and not (role and name):
+                candidates.append({"kind": "text", "value": text, "exact": True})
         for selector in candidates:
             try:
                 found = resolve(self.page, selector)
@@ -191,10 +191,7 @@ class App:
                 break  # the page has finished rendering and the element is not on it: waiting longer only wastes time
             self.page.wait_for_timeout(300)
         if ambiguous is not None:
-            index, selector, found = ambiguous
-            if index:
-                self.fallbacks[key] = {"selector": selector, "preferred": candidates[0], "index": index, "ambiguous": True}
-            return found.first
+            raise AssertionError(f"Ambiguous locator for '{key}': {_describe(ambiguous[1])} matched multiple elements; no unique alternative.")
         if not wait:
             return resolve(self.page, spec["preferred"])
         tried = ", ".join(_describe(s) for s in candidates[:4])

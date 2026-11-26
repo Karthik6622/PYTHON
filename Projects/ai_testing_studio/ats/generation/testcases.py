@@ -107,6 +107,8 @@ class TestCaseService:
                     return []
                 half = len(batch) // 2
                 return design(batch[:half]) + design(batch[half:])
+            batch_ids = {s.scenario_id for s in batch}
+            cases = [c for c in cases if c.scenario_id in batch_ids and c.title and c.steps]
             if partial and cases and len(batch) > 1:  # the answer stopped inside its last scenario: that one is asked for again
                 last = cases[-1].scenario_id
                 cases = [c for c in cases if c.scenario_id != last]

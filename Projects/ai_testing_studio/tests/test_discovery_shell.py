@@ -77,6 +77,23 @@ def test_wrong_password_is_reported(repo, site_url, browser_ready, no_ai, monkey
     assert any("sign-in may have failed" in w for w in result.warnings)
 
 
+def test_lazy_content_and_native_validation_messages_are_observed(site_url, browser_ready):
+    if not browser_ready:
+        pytest.skip("local Chromium unavailable")
+    from playwright.sync_api import sync_playwright
+
+    from ats.discovery.worker import extract_page
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page(viewport={"width": 900, "height": 700})
+        page.goto(f"{site_url}/lazy.html")
+        data = extract_page(page)
+        browser.close()
+    assert "Load more offers" in {e["name"] for e in data["elements"]}
+    assert any(e["name"] == "Full name" and e["validation"] for e in data["elements"])
+
+
 def test_missing_browser_is_installed_once_then_retried(monkeypatch):
     calls = {"run": 0, "install": 0}
 

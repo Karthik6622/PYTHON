@@ -38,13 +38,13 @@
     return wrap ? cut(textOf(wrap), 100) : '';
   };
   const accName = (el) => {
-    const aria = attr(el, 'aria-label');
-    if (aria) return cut(aria, 100);
     const by = attr(el, 'aria-labelledby');
     if (by) {
       const t = by.split(/\s+/).map((i) => { const n = document.getElementById(i); return n ? n.textContent : ''; }).join(' ');
       if (norm(t)) return cut(t, 100);
     }
+    const aria = attr(el, 'aria-label');
+    if (aria) return cut(aria, 100);
     const tag = el.tagName.toLowerCase();
     const type = (el.type || '').toLowerCase();
     if (tag === 'input' && ['button', 'submit', 'reset'].includes(type)) return cut(el.value || type, 100);
@@ -123,6 +123,7 @@
       classes: Array.from(el.classList).slice(0, 4), placeholder: attr(el, 'placeholder'),
       href: tag === 'a' ? attr(el, 'href') : '', label: labelOf(el), title: attr(el, 'title'), alt: attr(el, 'alt'), aria,
       visible: isVisible(el), disabled: !!el.disabled || attr(el, 'aria-disabled') === 'true', required: !!el.required,
+      validation: el.willValidate && el.checkValidity && !el.checkValidity() ? cut(el.validationMessage, 160) : '',
       readonly: !!el.readOnly, checked: !!el.checked, maxlength: attr(el, 'maxlength'), min: attr(el, 'min'), max: attr(el, 'max'),
       pattern: attr(el, 'pattern'), autocomplete: attr(el, 'autocomplete'),
       options: tag === 'select' ? Array.from(el.options).slice(0, 25).map((o) => cut(o.text, 60)) : [],

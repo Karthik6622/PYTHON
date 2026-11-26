@@ -65,6 +65,9 @@ def apply_repair(files: dict[str, str], result: RepairResult) -> dict[str, str]:
                 raise RepairRejected("The repair would remove an assertion or the test id marker, which is never allowed.")
         if re.search(r"(?i)(password|passwd|secret|token)\s*=\s*['\"][^'\"]{4,}['\"]", edit.replace):
             raise RepairRejected("The repair contains a hardcoded credential.")
+        for method in ("to_contain_text", "to_have_text", "to_have_value"):
+            if edit.replace.count(method) < edit.find.count(method):
+                raise RepairRejected("The repair would remove a text or value check. Preserve the assertion and repair its target instead.")
         new[edit.path] = text.replace(edit.find, edit.replace, 1)
         touched.add(edit.path)
     if result.locator_updates:

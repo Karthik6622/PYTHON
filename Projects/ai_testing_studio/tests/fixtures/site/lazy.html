@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><title>Lazy form</title></head>
+<body>
+  <h1>Lazy form</h1>
+  <form onsubmit="return false"><label>Full name <input id="full" required></label><button type="submit">Join</button></form>
+  <div style="height:3000px"></div>
+  <div id="slot"></div>
+  <script>
+    let loaded = false;
+    addEventListener('scroll', () => {
+      if (!loaded && scrollY > 500) {
+        loaded = true;
+        document.getElementById('slot').innerHTML = '<h2>Late section</h2><button>Load more offers</button>';
+      }
+    });
+  </script>
+</body></html>

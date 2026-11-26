@@ -96,6 +96,8 @@ class TestCaseAgent(Agent):
 
 class ScriptPlanInput(BaseModel):
     base_url: str
+    replay_start_view: bool = False
+    validation_feedback: str = ""
     test_cases: list[dict[str, Any]]
     elements: list[dict[str, Any]]
     page_digest: list[dict[str, Any]] | dict[str, Any] = Field(default_factory=list)

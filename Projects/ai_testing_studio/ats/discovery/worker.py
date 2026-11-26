@@ -172,6 +172,20 @@ def new_context(browser: Any, job: dict[str, Any]) -> Any:
 
 
 def extract_page(page: Any) -> dict[str, Any]:
+    try:  # content that loads while scrolling (lazy lists, infinite pages) is part of the view
+        page.evaluate(
+            """async () => {
+              const step = Math.max(window.innerHeight * 0.8, 400);
+              for (let y = 0, n = 0; y < document.documentElement.scrollHeight && n < 12; y += step, n++) {
+                window.scrollTo(0, y);
+                await new Promise((r) => setTimeout(r, 150));
+              }
+              window.scrollTo(0, 0);
+            }"""
+        )
+        settle(page, max_ms=2500, quiet_ms=400)
+    except Exception:  # noqa: BLE001 - a page that is navigating is extracted as it is
+        pass
     data = page.evaluate(EXTRACTOR_JS)
     try:
         data["aria_snapshot"] = page.locator("body").aria_snapshot()[:6000]

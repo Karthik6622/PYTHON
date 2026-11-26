@@ -17,7 +17,7 @@ from ats.automation.traceability import build_traceability
 from ats.config import get_settings
 from ats.discovery.facts import Evidence, facts_digest
 from ats.discovery.service import build_digest
-from ats.errors import GenerationError, NotFoundError
+from ats.errors import GenerationError, ModelResponseError, NotFoundError
 from ats.generation.adapters import FRAMEWORKS, RenderContext, ScriptCase, browsers_for, get_adapter, is_api_framework, layer_of
 from ats.generation.adapters.common import NO_BROWSER, build_auth, build_views
 from ats.generation.scenarios import page_names, resolve_page
@@ -71,10 +71,14 @@ def validate_script(
     evidence: Evidence | None = None,
     views: dict[str, Any] | None = None,
 ) -> TestScript | None:
-    """Return a safe, grounded script or ``None`` if nothing usable remains. Never invents anything; only corrects, weakens or trims.
+    """Return a complete grounded script, never a passing prefix of an incomplete test."""
+    return _check_script(script, test_case, locators, corpus, base_url, extra_hosts or [], evidence, views or {})[0]
 
-    With ``evidence`` and ``views`` (from discovery) every step is walked on paper: actions must fit their element, elements must be on
-    the view the script is on, and expected texts must be things the application was observed to show (see ``script_grounding``)."""
+
+def _check_script(
+    script: TestScript, test_case: TestCase, locators: dict[str, LocatorSpec], corpus: str, base_url: str,
+    extra_hosts: list[str], evidence: Evidence | None, views: dict[str, Any],
+) -> tuple[TestScript | None, str]:
     notes: list[str] = [script.notes] if script.notes else []
     walk = Walk(locators, evidence, views or {})
     steps: list[AutomationStep] = []
@@ -91,35 +95,32 @@ def validate_script(
         elif step.action == "goto" and not _allowed_goto(step.value or "", base_url, extra_hosts or []):
             problem = "navigation outside the allowed domains"
         if problem:
-            notes.append(f"Script stopped at step {index}: {problem}.")
-            break
+            return None, f"Step {index}: {problem}."
         step = step.model_copy()
         if step.action not in ELEMENT_ACTIONS:
             step.element = None
         if step.action in {"expect_url_contains", "expect_title_contains"}:
             kept, _ = walk.ground_page_checks(index, step)
             if kept is None:
-                continue
+                return None, walk.notes[-1]
             step = kept
         grounded, why = walk.check(index, step)
         if grounded is None:
-            notes.append(f"Script stopped at {why}.")
-            break
+            return None, why
         step = grounded
         if evidence is None and step.action in {"expect_text", "expect_value"} and not ENV_RE.search(step.value or ""):
             if (step.value or "").strip().lower() not in corpus:
-                notes.append(f"Step {index}: expected text {step.value!r} was not found in the discovery evidence; checks visibility only.")
-                step = step.model_copy(update={"action": "expect_visible", "value": None})
+                return None, f"Step {index}: expected value is not supported by discovery."
         steps.append(step)
     notes.extend(walk.notes)
-    if not steps:
-        return None
+    if not any(s.action.startswith("expect_") for s in steps):
+        return None, script.notes or "The plan contains no observable assertion."
     if steps[0].action != "goto":
         first = next((s.element for s in steps if s.element), None)
         page_url = locators[first].page_url if first else ""
         path = urlparse(page_url).path or "/" if page_url else "/"
         steps.insert(0, AutomationStep(action="goto", value=path, description="Open the page under test"))
-    return TestScript(test_case_id=test_case.test_case_id, title=script.title or test_case.title, notes=" ".join(notes), steps=steps)
+    return TestScript(test_case_id=test_case.test_case_id, title=script.title or test_case.title, notes=" ".join(notes), steps=steps), ""
 
 
 def bracket_balanced(text: str) -> bool:
@@ -264,20 +265,39 @@ class ScriptService:
                 "base_url": base_url, "test_cases": [t.model_dump() for t in batch], "elements": self._elements_payload(specs, batch, discovery),
                 "page_digest": facts_digest(discovery, only=batch_views or None, max_controls=30), "allowed_actions": STEP_ACTIONS,
             }  # fmt: skip
-            plan = self.agent.plan(payload, project_id=project.id, on_event=on_event)
-            planned = {s.test_case_id: s for s in plan.scripts}
+            payload["replay_start_view"] = framework == "playwright_python"
+            try:
+                plan = self.agent.plan(payload, project_id=project.id, on_event=on_event)
+                planned = {s.test_case_id: s for s in plan.scripts}
+            except ModelResponseError:
+                planned = {}
             for case in batch:
                 raw = planned.get(case.test_case_id)
-                if raw is None:
-                    skipped.append({"test_case_id": case.test_case_id, "reason": "The model returned no script for this test case."})
-                    continue
-                checked = validate_script(raw, case, locators, build_corpus(case, discovery), base_url, hosts, evidence, views)
+                def validate(candidate: TestScript | None) -> tuple[TestScript | None, str]:
+                    if candidate is None:
+                        return None, "The model returned no script for this case."
+                    checked, reason = _check_script(candidate, case, locators, build_corpus(case, discovery), base_url, hosts, evidence, views)
+                    if checked and payload["replay_start_view"] and case.related_page in known_views:
+                        first = next((locators[s.element].page_key for s in checked.steps if s.element), None)
+                        if first and first != case.related_page:
+                            return None, f"First control is on {first}, not the case's starting view {case.related_page}."
+                    return checked, reason
+
+                checked, reason = validate(raw)
                 if checked is None:
-                    skipped.append({"test_case_id": case.test_case_id, "reason": raw.notes or "No step could be mapped to a discovered element."})
+                    retry = {**payload, "test_cases": [case.model_dump()], "elements": self._elements_payload(specs, [case], discovery),
+                             "validation_feedback": reason}
+                    try:
+                        replanned = self.agent.plan(retry, project_id=project.id, on_event=on_event)
+                        checked, reason = validate(next((s for s in replanned.scripts if s.test_case_id == case.test_case_id), None))
+                    except ModelResponseError as exc:
+                        reason = f"{reason} Replan failed: {exc.user_message}"
+                if checked is None:
+                    skipped.append({"test_case_id": case.test_case_id, "reason": reason})
                 else:
                     scripts[case.test_case_id] = checked
         if not scripts:
-            raise GenerationError("No test case could be converted into a validated automation script. See the skipped list for the reasons.")
+            raise GenerationError("No complete automation scripts: " + "; ".join(f"{s['test_case_id']}: {s['reason']}" for s in skipped[:3]))
 
         script_cases = [ScriptCase(test_case=c, script=scripts[c.test_case_id], module_key=c.module or "General") for c in cases if c.test_case_id in scripts]
         ctx = RenderContext(

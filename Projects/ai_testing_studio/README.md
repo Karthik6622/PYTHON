@@ -195,11 +195,11 @@ Everything between discovery and execution is therefore checked against what dis
   if none produced valid cases, the existing case set is not replaced.
 * **Scripts** are walked on paper before they are written: the walk starts on the view of the first element, a click on a navigation
   control moves it to the view that control opens, an element of another view is replaced by its twin on the current view (or the script
-  stops there), an action must fit its element, and an expected text must be something that element was observed to show (a different
-  wording is corrected, the check moves to the element that carries the text, or it is limited to "is visible"). The wording of the test
-  case is never evidence.
-* **Auto-fix** reads the expected and actual text out of a failed text check. If discovery never observed the expected text, the test
-  was wrong and is corrected (to what the page shows, or to "is visible"); if discovery did observe it, it is a regression and is
+  is rejected), an action must fit its element, and an expected text must be supported by discovery. A script with an unmappable
+  step or without an assertion is reported as skipped, not run as a partial success. Playwright Python does not choose the first
+  of multiple matches when it cannot find a unique alternative.
+* **Auto-fix** reads the expected and actual text out of a failed text check. A wording correction must have support from discovery;
+  unrelated text is left for review rather than weakened to "is visible". If discovery did observe the expected text, it is a possible regression and is
   reported as a defect. Every test that is still failing after the attempts carries a note saying what was tried and what the page showed.
 
 ## Execution results, auto-fix and failure reports

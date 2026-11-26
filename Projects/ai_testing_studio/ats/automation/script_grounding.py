@@ -1,19 +1,17 @@
 """Grounding of generated scripts: every step is checked against what discovery observed, and fixed or trimmed when it is not true.
 
 A script is a walk through the application. This module walks the same path on paper:
-  * the walk starts on the view of the first element; a click on a navigation control moves it to the view that control opens
-    (from the recorded views), so each following step is checked against the RIGHT view;
+  * the walk starts on the view of the first element; a click on a navigation control moves it to the view that control opens;
   * an element of another view is replaced by its twin on the current view (the same menu item exists once per view) or the script
     stops there instead of waiting for an element that cannot be on screen;
   * an action must fit the element (no clicking a heading, no typing into a button): a fitting twin is used, otherwise the script stops;
   * an expected text must be something that element - or at least that view - was observed to show. Anything else is corrected to what
-    the element really says, moved to the element that really carries it, or weakened to "is visible". The wording of the test case
+    the element really says, moved to the element that really carries it, or rejected. The wording of the test case
     itself is never evidence.
 """
 
 from __future__ import annotations
 
-import difflib
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -54,7 +52,7 @@ class Walk:
     evidence: Evidence | None
     views: dict[str, Any]
     view: str = ""
-    typed: set[str] = field(default_factory=set)  # values the script itself typed (an expect_value on them is true by construction)
+    typed: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -92,6 +90,7 @@ class Walk:
         if not step.element:
             if step.action == "goto":
                 self.view = ""  # a fresh page load: the next element decides the view again
+                self.typed.clear()
             return step, ""
         spec = self.locators[step.element]
         # 1. the action must fit the element
@@ -112,10 +111,14 @@ class Walk:
         # 3. expectations must be true to the observed page
         if step.action.startswith("expect_") and step.action in {"expect_text", "expect_value"} and not ENV_RE.search(step.value or ""):
             step = self.ground_text(index, step, spec)
+            if step is None:
+                return None, f"step {index}: expected text or value was not observed on '{spec.name}'"
         if step.action == "select" and step.value:
-            step = self.ground_option(index, step, spec)
-        if step.action in {"fill", "select"} and step.value:
-            self.typed.add(norm(step.value))
+            options = (spec.evidence or {}).get("options") or []
+            if options and step.value not in options:
+                return None, f"step {index}: option {step.value!r} was not observed in '{spec.name}'"
+        if step.action in {"fill", "clear"}:
+            self.typed[spec.element_key] = step.value or ""
         # 4. a click on a navigation control moves the walk to the view it opens
         if step.action in {"click", "check"}:
             target = self.opens.get((self.signed_in(self.view), role_of(spec), norm(spec.name)))
@@ -123,10 +126,10 @@ class Walk:
                 self.view = target
         return step, ""
 
-    def ground_text(self, index: int, step: AutomationStep, spec: LocatorSpec) -> AutomationStep:
+    def ground_text(self, index: int, step: AutomationStep, spec: LocatorSpec) -> AutomationStep | None:
         value = (step.value or "").strip()
-        if step.action == "expect_value" and norm(value) in self.typed:
-            return step
+        if step.action == "expect_value":
+            return step if self.typed.get(spec.element_key, (spec.evidence or {}).get("value")) == value else None
         if self.evidence is None:
             return step
         level = self.evidence.level(value, spec, spec.page_key)
@@ -136,21 +139,11 @@ class Walk:
             for holder in sorted(self.evidence.holders(value, spec.page_key), key=lambda s: (role_of(s) not in ASSERTION_PREFERENCE, s.element_key)):
                 self.notes.append(f"Step {index}: '{value}' is shown by '{holder.name or holder.element_key}', so the check moved to that element.")
                 return step.model_copy(update={"element": holder.element_key})
-            near = closest_raw(value, spec)
+            near = closest_raw(value, spec, cutoff=0.85)
             if near:
                 self.notes.append(f"Step {index}: expected text {value!r} corrected to what '{spec.name}' shows: {near!r}.")
                 return step.model_copy(update={"value": near})
-        self.notes.append(f"Step {index}: {value!r} was never observed on '{spec.name}'; the check is limited to the element being visible.")
-        return step.model_copy(update={"action": "expect_visible", "value": None})
-
-    def ground_option(self, index: int, step: AutomationStep, spec: LocatorSpec) -> AutomationStep:
-        options = list((spec.evidence or {}).get("options") or [])
-        if not options or norm(step.value) in {norm(o) for o in options}:
-            return step
-        near = difflib.get_close_matches(step.value or "", options, n=1, cutoff=0.5)
-        chosen = near[0] if near else options[0]
-        self.notes.append(f"Step {index}: option {step.value!r} does not exist in '{spec.name}'; {chosen!r} is used.")
-        return step.model_copy(update={"value": chosen})
+        return None
 
     def ground_page_checks(self, index: int, step: AutomationStep) -> tuple[AutomationStep | None, str]:
         """expect_url_contains / expect_title_contains must name something the application's URLs or titles contain."""

@@ -6,8 +6,7 @@ regression and is left alone; if it never was, the test is wrong, and the failur
 ("Actual value: ..."). The repair is then exact and needs no model:
 
   * the expected text is replaced by what the element shows when the two are close (a different wording of the same thing);
-  * otherwise the check is limited to "the element is visible" (the element exists, the claim about its text was invented);
-  * an unobserved URL / title fragment is dropped.
+  * unrelated wording is left for review; a visibility check does not prove a text or value expectation.
 
 Every such repair is recorded with the reason, so a person can review what was corrected.
 """
@@ -69,11 +68,13 @@ def repair_expectation(
     path, segment, old_call = span
     own_best = closest_raw(claim.expected, spec)
     shown = claim.actual
-    if shown and similar(claim.expected, shown) and norm(shown) != norm(claim.expected):
+    if action == "expect_value":
+        return None, "an input value cannot be repaired from its label or visible text"
+    if shown and own_best and norm(shown) == norm(own_best) and similar(claim.expected, shown) and norm(shown) != norm(claim.expected):
         new_call, note = f"{method}({shown!r})", f"expected text {claim.expected!r} was never observed; corrected to what the page shows: {shown!r}"
     elif own_best:
         new_call, note = f"{method}({own_best!r})", f"expected text {claim.expected!r} was never observed; corrected to the observed text {own_best!r}"
     else:
-        new_call, note = "to_be_visible()", f"expected text {claim.expected!r} was never observed on '{spec.name or element_key}'; the check is limited to the element being visible"
+        return None, "no observed text supports this expectation; review the case rather than weakening the assertion"
     new_segment = segment.replace(old_call, new_call, 1)
     return RepairResult(verdict="fixed", explanation=note, edits=[RepairEdit(path=path, find=segment, replace=new_segment)]), note

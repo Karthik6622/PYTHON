@@ -75,10 +75,9 @@ def script(*steps: tuple) -> TestScript:
     return TestScript(test_case_id="TC_X_001", title="t", steps=[AutomationStep(action=a, element=e, value=v, description="d") for a, e, v in steps])
 
 
-def check(world, *steps) -> TestScript:
+def check(world, *steps) -> TestScript | None:
     discovery, specs, evidence, views = world
     out = validate_script(script(*steps), case(), specs, build_corpus(case(), discovery), "https://app.test", [], evidence, views)
-    assert out is not None
     return out
 
 
@@ -95,6 +94,25 @@ def test_facts_list_each_views_content_once_and_the_shared_menu_once(world):
     assert public["observed_outcomes"][0]["result"] == "Invalid email or password" and public["signed_in"] is False
 
 
+def test_majority_control_is_not_promised_on_every_view():
+    discovery = app()
+    for p in discovery.pages:
+        if p.page_key in {"profile", "settings"}:
+            p.elements.append(el("button", "Account details"))
+    digest = facts_digest(discovery)
+    assert "button 'account details'" not in digest["shared_controls_on_most_views"]["after sign-in"]
+    present = {v["page_key"] for v in digest["views"] if any(c["name"] == "Account details" for c in v.get("controls", []))}
+    assert present == {"profile", "settings"}
+
+
+def test_value_entered_in_one_field_does_not_prove_value_of_another(world):
+    _, specs, *_ = world
+    email = key(specs, "get_started", "textbox", "Email")
+    password = key(specs, "get_started", "textbox", "Password")
+    assert check(world, ("fill", email, "example"), ("expect_value", password, "example")) is None
+    assert check(world, ("fill", email, "example"), ("expect_value", email, "example")) is not None
+
+
 # ------------------------------------------------------------------------------------------ scripts
 def test_an_invented_heading_text_is_not_confirmed_by_the_test_case_itself(world):
     discovery, specs, *_ = world
@@ -102,7 +120,7 @@ def test_an_invented_heading_text_is_not_confirmed_by_the_test_case_itself(world
     assert "settle" not in build_corpus(invented, discovery)  # the wording of the test case is no evidence
     heading = key(specs, "settings", "heading", "Settings")
     out = check(world, ("goto", None, "/"), ("expect_text", heading, "Settle"))
-    assert out.steps[-1].action == "expect_visible" and "never observed" in out.notes  # the heading exists; the claim about its text does not
+    assert out is None  # visibility cannot prove the text expectation
     out = check(world, ("goto", None, "/"), ("expect_text", heading, "Settngs"))
     assert out.steps[-1].action == "expect_text" and out.steps[-1].value == "Settings"  # a near miss is corrected to the real text
     out = check(world, ("goto", None, "/"), ("expect_text", heading, "Setting"))
@@ -125,28 +143,28 @@ def test_the_script_follows_navigation_and_never_uses_an_element_of_another_view
     settings_radio = key(specs, "home", "radio", "Settings")
     save_profile = key(specs, "profile", "button", "Save profile")
     profile_radio_on_home = key(specs, "home", "radio", "Profile")
-    out = check(world, ("goto", None, "/"), ("click", settings_radio, None), ("click", profile_radio_on_home, None), ("click", save_profile, None))
+    out = check(world, ("goto", None, "/"), ("click", settings_radio, None), ("click", profile_radio_on_home, None), ("click", save_profile, None), ("expect_visible", save_profile, None))
     # after 'Settings' the walk is on the settings view: the Profile menu item used is the one of that view, and Save profile is only
     # reachable after the Profile click, so the click that follows it is allowed
-    assert [s.element for s in out.steps[1:]] == [settings_radio, key(specs, "settings", "radio", "Profile"), save_profile]
+    assert [s.element for s in out.steps[1:-1]] == [settings_radio, key(specs, "settings", "radio", "Profile"), save_profile]
     out = check(world, ("goto", None, "/"), ("click", settings_radio, None), ("click", save_profile, None))
-    assert out.steps[-1].element == settings_radio and "Script stopped" in out.notes and "'profile' view" in out.notes  # not on screen: stop, don't wait 20 s
+    assert out is None
 
 
 def test_an_action_must_fit_its_element(world):
     _, specs, *_ = world
     heading = key(specs, "settings", "heading", "Settings")
     radio = key(specs, "settings", "radio", "Settings")
-    out = check(world, ("goto", None, "/"), ("click", heading, None))  # clicking the heading: the radio with the same name is meant
-    assert out.steps[-1].element == radio and "moved to the radio" in out.notes
+    out = check(world, ("goto", None, "/"), ("click", heading, None), ("expect_visible", heading, None))
+    assert out.steps[1].element == radio and "moved to the radio" in out.notes
     save = key(specs, "settings", "button", "Save settings")
     out = check(world, ("goto", None, "/"), ("fill", save, "x"), ("expect_visible", save, None))  # typing into a button
-    assert [s.action for s in out.steps] == ["goto"] and "does not fit" in out.notes
+    assert out is None
 
 
 def test_unobserved_urls_and_titles_are_left_out(world):
     out = check(world, ("goto", None, "/"), ("expect_title_contains", None, "WithYou"), ("expect_url_contains", None, "/does-not-exist"))
-    assert [s.action for s in out.steps] == ["goto", "expect_title_contains"] and "left out" in out.notes
+    assert out is None  # even a valid earlier assertion does not make a partial script complete
 
 
 # ------------------------------------------------------------------------------------------ test cases
@@ -230,15 +248,16 @@ def test_an_invented_expectation_is_corrected_from_the_live_value_and_a_real_reg
     _, specs, evidence, _ = world
     files = {"tests/web/test_settings.py": TEST_FILE}
     heading = specs[key(specs, "settings", "heading", "Settings")]
-    repair, why = repair_expectation(files, "TC_SET_002", heading.element_key, "expect_text", ERROR, heading, evidence)
+    files = {p: text.replace("Settle", "Settngs") for p, text in files.items()}
+    repair, why = repair_expectation(files, "TC_SET_002", heading.element_key, "expect_text", ERROR.replace("Settle", "Settngs"), heading, evidence)
     assert repair is not None and "corrected to what the page shows: 'Settings'" in why
     fixed = apply_repair(files, repair)["tests/web/test_settings.py"]
-    assert fixed.count("to_contain_text('Settings')") == 1 and fixed.count("to_contain_text('Settle')") == 1  # only TC_SET_002 changed
+    assert fixed.count("to_contain_text('Settings')") == 1 and fixed.count("to_contain_text('Settngs')") == 1  # only TC_SET_002 changed
     assert fixed.count("expect(") == TEST_FILE.count("expect(")  # no assertion was removed
 
     unrelated = "AssertionError: Locator expected to contain text 'Welcome back'\nActual value: Settings\n"
     repair, why = repair_expectation({"tests/web/test_settings.py": TEST_FILE.replace("Settle", "Welcome back")}, "TC_SET_001", heading.element_key, "expect_text", unrelated, heading, evidence)
-    assert repair is not None and "to_be_visible()" in repair.edits[0].replace  # nothing like it was ever seen: the claim is limited to the element
+    assert repair is None and "review the case" in why
 
     observed = "AssertionError: Locator expected to contain text 'Settings'\nActual value: Profile\n"
     repair, why = repair_expectation({"tests/web/test_settings.py": TEST_FILE.replace("Settle", "Settings")}, "TC_SET_001", heading.element_key, "expect_text", observed, heading, evidence)

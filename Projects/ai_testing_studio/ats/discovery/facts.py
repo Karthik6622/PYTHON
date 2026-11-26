@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import difflib
-import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,7 +18,6 @@ from ats.models import DiscoveryResult, LocatorSpec, PageSnapshot
 
 _INTERACTIVE = {"button", "link", "textbox", "searchbox", "combobox", "spinbutton", "checkbox", "radio", "switch", "tab", "menuitem", "slider", "option"}
 _HEADING_PREFIX = re.compile(r"^h[1-6]:\s*")
-SHARED_SHARE = 0.6  # a control on this share of the views of one kind (signed in / public) is part of the shared chrome
 
 
 def norm(text: Any) -> str:
@@ -47,8 +45,7 @@ def shared_controls(discovery: DiscoveryResult) -> set[tuple[str, str, bool]]:
         for page in pages:
             for key in {_control_key(e) for e in page.elements if e.get("visible")}:
                 counts[key] = counts.get(key, 0) + 1
-        need = max(2, math.ceil(SHARED_SHARE * len(pages)))
-        result |= {(role, name, signed) for (role, name), n in counts.items() if n >= need and name}
+        result |= {(role, name, signed) for (role, name), n in counts.items() if n == len(pages) and name}
     return result
 
 
@@ -58,6 +55,7 @@ def control_facts(el: dict[str, Any]) -> dict[str, Any]:
         "placeholder": el.get("placeholder") or None, "required": el.get("required") or None, "disabled": el.get("disabled") or None,
         "options": (el.get("options") or [])[:12] or None, "maxlength": el.get("maxlength") or None, "pattern": el.get("pattern") or None,
         "min": el.get("min") or None, "max": el.get("max") or None, "checked": el.get("checked") or None,
+        "validation_message": el.get("validation") or None,
     }  # fmt: skip
     return {k: v for k, v in data.items() if v not in (None, "", [], False)}
 
@@ -140,7 +138,7 @@ class Evidence:
         for page in self.discovery.pages:
             texts = {norm(t) for t in [page.title, page.view_name, *heading_texts(page), *page.messages, *page.texts] if t}
             for el in page.elements:
-                texts |= {norm(el.get(k)) for k in ("name", "label", "text", "placeholder", "title", "value") if el.get(k)}
+                texts |= {norm(el.get(k)) for k in ("name", "label", "text", "placeholder", "title", "value", "validation") if el.get(k)}
                 texts |= {norm(o) for o in el.get("options") or []}
             for outcome in page.outcomes:
                 texts |= {norm(outcome.get("result"))} | {norm(m) for m in outcome.get("shown_messages", [])}
