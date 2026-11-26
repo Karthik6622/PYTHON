@@ -118,6 +118,17 @@
     const aria = {};
     for (const a of el.attributes) if (a.name.startsWith('aria-')) aria[a.name] = cut(a.value, 80);
     const item = {
+      reveal: (() => {  // the collapsed sections (details / summary) that must be open for the element to be on screen
+        const labels = [];
+        let d = el.tagName.toLowerCase() === 'summary' ? (el.parentElement && el.parentElement.parentElement) : el.parentElement;
+        d = d && d.closest('details');
+        while (d) {
+          const s = d.querySelector(':scope > summary');
+          if (s) labels.unshift(cut(textOf(s), 60));
+          d = d.parentElement ? d.parentElement.closest('details') : null;
+        }
+        return labels;
+      })(),
       tag, type, role: roleOf(el), name: accName(el), text: cut(textOf(el), 120),
       id: el.id || '', name_attr: attr(el, 'name'), testid, testid_attr: testidAttr,
       classes: Array.from(el.classList).slice(0, 4), placeholder: attr(el, 'placeholder'),

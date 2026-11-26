@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Chat home</title></head>
+<body>
+<aside><button>New chat</button></aside>
+<main>
+  <h1>Chat home</h1>
+  <button>New chat</button>
+  <details>
+    <summary>Manage current chat</summary>
+    <button id="del" onclick="document.getElementById('state').textContent = 'Chat deleted'">Delete this chat</button>
+  </details>
+  <div role="radiogroup" aria-label="Chat mode" data-testid="chat-mode"><label><input type="radio" name="mode" checked>Normal</label><label><input type="radio" name="mode">Romantic</label></div>
+  <div id="tone" role="combobox" tabindex="0" aria-label="Reply tone" aria-expanded="false"
+       onclick="this.setAttribute('aria-expanded', 'true'); document.getElementById('opts').hidden = false">Choose tone</div>
+  <div id="opts" role="listbox" hidden>
+    <div role="option" onclick="document.getElementById('tone').textContent = 'Warm'; document.getElementById('opts').hidden = true">Warm</div>
+    <div role="option" onclick="document.getElementById('tone').textContent = 'Direct'; document.getElementById('opts').hidden = true">Direct</div>
+  </div>
+  <p id="state">Ready</p>
+</main>
+</body></html>

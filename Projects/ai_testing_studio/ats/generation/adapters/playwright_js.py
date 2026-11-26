@@ -102,13 +102,18 @@ export class App {
   locator(key: string): Locator {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
-    return resolve(this.page, this.resolved[key] || spec.preferred);
+    const chosen = this.resolved[key];
+    if (!chosen) return resolve(this.page, spec.preferred);
+    let found = resolve(this.page, chosen.selector);
+    if (chosen.narrow) found = found.locator('visible=true');
+    return chosen.narrow === 'first' ? found.first() : found;
   }
 
   private async resolveKey(key: string, wait: boolean): Promise<void> {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
     this.resolved[key] = await rt.findSelector(this.page, key, spec, this.fallbacks, wait);
+    if (wait) await rt.reveal(this.page, spec, this.locator(key));
   }
 
   private startUrl(): string {
@@ -133,7 +138,7 @@ export class App {
   }
 
   /** Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks. */
-  async openView(key: string): Promise<void> {
+  async openView(key: string, retry = true): Promise<void> {
     const view = (this.views.views || {})[key];
     if (!view) { await this.goto('/'); return; }
     if (view.signed_in) await this.signIn();
@@ -141,11 +146,21 @@ export class App {
     for (const recorded of view.steps || []) {
       if (!(await rt.clickControl(this.page, recorded))) throw new Error(`Could not reach the '${view.name || key}' view: the control '${recorded.label}' was not found`);
     }
+    if (!(await rt.arrived(this.page, view))) {
+      // a replay that landed elsewhere (a click on a page that was still rendering) is repeated once from a fresh page
+      if (retry) { await this.openView(key, false); return; }
+      this.warnings.push(`The '${view.name || key}' view could not be confirmed by its headings ${JSON.stringify(view.headings)}.`);
+    }
     this.view = key;
   }
 
   async settle(maxMs = 4000): Promise<void> {
     await rt.settle(this.page, maxMs, 600);
+  }
+
+  async select(locator: Locator, label: string): Promise<void> {
+    await rt.selectOption(this.page, locator, label);
+    await this.settle();
   }
 
   /** Click like a person: a styled control that is not 'actionable' is clicked by force, then through the DOM. */
@@ -349,13 +364,18 @@ class App {
   locator(key) {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
-    return resolve(this.page, this.resolved[key] || spec.preferred);
+    const chosen = this.resolved[key];
+    if (!chosen) return resolve(this.page, spec.preferred);
+    let found = resolve(this.page, chosen.selector);
+    if (chosen.narrow) found = found.locator('visible=true');
+    return chosen.narrow === 'first' ? found.first() : found;
   }
 
   async resolveKey(key, wait) {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
     this.resolved[key] = await rt.findSelector(this.page, key, spec, this.fallbacks, wait);
+    if (wait) await rt.reveal(this.page, spec, this.locator(key));
   }
 
   startUrl() {
@@ -380,7 +400,7 @@ class App {
   }
 
   /** Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks. */
-  async openView(key) {
+  async openView(key, retry = true) {
     const view = (this.views.views || {})[key];
     if (!view) { await this.goto('/'); return; }
     if (view.signed_in) await this.signIn();
@@ -388,11 +408,21 @@ class App {
     for (const recorded of view.steps || []) {
       if (!(await rt.clickControl(this.page, recorded))) throw new Error(`Could not reach the '${view.name || key}' view: the control '${recorded.label}' was not found`);
     }
+    if (!(await rt.arrived(this.page, view))) {
+      // a replay that landed elsewhere (a click on a page that was still rendering) is repeated once from a fresh page
+      if (retry) { await this.openView(key, false); return; }
+      this.warnings.push(`The '${view.name || key}' view could not be confirmed by its headings ${JSON.stringify(view.headings)}.`);
+    }
     this.view = key;
   }
 
   async settle(maxMs = 4000) {
     await rt.settle(this.page, maxMs, 600);
+  }
+
+  async select(locator, label) {
+    await rt.selectOption(this.page, locator, label);
+    await this.settle();
   }
 
   /** Click like a person: a styled control that is not 'actionable' is clicked by force, then through the DOM. */
@@ -582,7 +612,7 @@ class PlaywrightJsAdapter(FrameworkAdapter):
             "dblclick": f"await app.click({loc}, true);",
             "fill": f"await {loc}.fill({v});",
             "clear": f"await {loc}.clear();",
-            "select": f"await {loc}.selectOption({{ label: {v} }});",
+            "select": f"await app.select({loc}, {v});",
             "check": f"await app.check({loc}, true);",
             "uncheck": f"await app.check({loc}, false);",
             "press": f"await {loc}.press({v});",

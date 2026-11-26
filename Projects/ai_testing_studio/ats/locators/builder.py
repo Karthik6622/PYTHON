@@ -206,7 +206,7 @@ def _page_locators(page: PageSnapshot, used: set[str], shared: set[str] | None =
             "classes": [c for c in el.get("classes", []) if not _HASHED_CLASS.search(c)], "placeholder": el.get("placeholder"),
             "label": el.get("label"), "required": el.get("required"), "disabled": el.get("disabled"),
             "href": el.get("href"), "options": el.get("options"), "landmark": el.get("landmark"), "page_url": page.final_url or page.url,
-            "uniqueness": el.get("counts", {}), "form": el.get("form"),
+            "uniqueness": el.get("counts", {}), "form": el.get("form"), "reveal": el.get("reveal"), "visible": el.get("visible"),
         }  # fmt: skip
         specs.append(
             LocatorSpec(

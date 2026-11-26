@@ -107,6 +107,9 @@ def _check_script(
         grounded, why = walk.check(index, step)
         if grounded is None:
             return None, why
+        if walk.drop:
+            walk.drop = False
+            continue
         step = grounded
         if evidence is None and step.action in {"expect_text", "expect_value"} and not ENV_RE.search(step.value or ""):
             if (step.value or "").strip().lower() not in corpus:

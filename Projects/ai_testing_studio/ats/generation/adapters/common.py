@@ -193,6 +193,7 @@ def locator_entry(spec: LocatorSpec, selenium: bool = False) -> dict[str, Any]:
         "preferred": spec.preferred.model_dump(exclude_none=True),
         "alternatives": [s.model_dump(exclude_none=True) for s in spec.alternatives],
         "fingerprint": spec_fingerprint(spec),  # lets the runtime find the element by what it is when every selector fails
+        "reveal": list((spec.evidence or {}).get("reveal") or []),  # collapsed sections to open first (see the runtime's reveal)
     }  # fmt: skip
     if selenium:
         from ats.locators.selenium_map import to_selenium
@@ -212,10 +213,20 @@ def build_views(discovery: Any) -> dict[str, Any]:
     views = {
         page.page_key: {
             "name": page.view_name or page.title or page.page_key, "signed_in": page.signed_in, "steps": page.nav_steps, "url": page.final_url or page.url,
+            "headings": stable_headings(page),
         }
         for page in discovery.pages
     }
     return {"start_url": discovery.start_url, "views": views}
+
+
+_DYNAMIC_HEADING = re.compile(r"\d|\b(good (morning|afternoon|evening|night)|hello|hi|hey|welcome back,?)\b", re.I)
+
+
+def stable_headings(page: Any, limit: int = 3) -> list[str]:
+    """Headings that identify the view and do not change with the time of day, the user or a counter (used to confirm the view was reached)."""
+    texts = [h.split(": ", 1)[-1].strip() for h in page.headings]
+    return [t for t in texts if t and len(t) <= 60 and not _DYNAMIC_HEADING.search(t)][:limit]
 
 
 def build_auth(project: Project) -> dict[str, Any]:

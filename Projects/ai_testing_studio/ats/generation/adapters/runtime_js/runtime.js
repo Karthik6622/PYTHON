@@ -188,39 +188,59 @@ async function byFingerprint(page, spec) {
   return null;
 }
 
-/** The selector that matches exactly one element now: preferred, then recorded alternatives, then the element's fingerprint. */
+/** The selector that matches exactly one element now: preferred, then recorded alternatives, then the element's fingerprint.
+ *  Returns { selector, narrow }: narrow is '' (the selector itself), 'visible' (the one visible match of several) or 'first'
+ *  (the same control more than once on screen, e.g. in the sidebar and in the page: the first visible one). */
 async function findSelector(page, key, spec, fallbacks, wait = true) {
   const candidates = [spec.preferred, ...(spec.alternatives || [])];
   const started = Date.now();
   let ambiguous = null;
   for (;;) {
     for (let index = 0; index < candidates.length; index++) {
-      let count;
-      try { count = await resolve(page, candidates[index]).count(); } catch (e) { continue; }
+      let count, narrow = '';
+      try {
+        const found = resolve(page, candidates[index]);
+        count = await found.count();
+        if (count > 1 && (await found.locator('visible=true').count()) === 1) { count = 1; narrow = 'visible'; }
+      } catch (e) { continue; }
       if (count === 1) {
         if (index) fallbacks[key] = { selector: candidates[index], preferred: candidates[0], index };
-        return candidates[index];
+        return { selector: candidates[index], narrow };
       }
-      if (count > 1 && !ambiguous) ambiguous = candidates[index];
+      if (count > 1 && !ambiguous) ambiguous = { selector: candidates[index], index };
     }
     const elapsed = Date.now() - started;
     if (elapsed > 1500 || !wait) {
       const hit = await byFingerprint(page, spec);
-      if (hit) { fallbacks[key] = { selector: hit.selector, preferred: candidates[0], index: candidates.length, fingerprint: true }; return hit.selector; }
+      if (hit) { fallbacks[key] = { selector: hit.selector, preferred: candidates[0], index: candidates.length, fingerprint: true }; return { selector: hit.selector, narrow: '' }; }
     }
     if (!wait || (ambiguous && elapsed > 2000) || elapsed > FIND_TIMEOUT) break;
     if (elapsed > IDLE_GIVE_UP && (await isIdle(page))) break;
     await page.waitForTimeout(300);
   }
   const seconds = Math.round((Date.now() - started) / 1000);
-  if (ambiguous) throw new Error(`Ambiguous locator for '${key}': ${describe(ambiguous)} matched several elements and no recorded alternative is unique.`);
+  if (ambiguous) {
+    const s = ambiguous.selector;
+    if (s.kind === 'role' && s.name && (await resolve(page, s).locator('visible=true').count()) > 1) {
+      fallbacks[key] = { selector: s, preferred: candidates[0], index: ambiguous.index, ambiguous: true };
+      return { selector: s, narrow: 'first' };
+    }
+    throw new Error(`Ambiguous locator for '${key}': ${describe(s)} matched several elements and no recorded alternative is unique.`);
+  }
   throw new Error(`Element not found: '${key}' is not on the current view after ${seconds}s. Tried: ${candidates.slice(0, 4).map(describe).join(', ')}`);
+}
+
+/** A click may be forced only on something a person could see or use: a visible element, or the hidden input behind a styled checkbox / radio. */
+async function forceable(locator) {
+  try {
+    return (await locator.isVisible()) || (await locator.evaluate((e) => e.tagName === 'INPUT' && ['checkbox', 'radio'].includes((e.type || '').toLowerCase())));
+  } catch (e) { return false; }
 }
 
 async function forceClick(locator, double = false) {
   const action = (options) => (double ? locator.dblclick(options) : locator.click(options));
   try { await action({ timeout: 6000 }); } catch (e) {
-    if ((await locator.count()) !== 1) throw e;
+    if ((await locator.count()) !== 1 || !(await forceable(locator))) throw e;
     try { await action({ timeout: 3000, force: true }); } catch (e2) { await locator.evaluate((node) => node.click()); }
   }
 }
@@ -228,9 +248,46 @@ async function forceClick(locator, double = false) {
 async function forceCheck(locator, checked = true) {
   const action = (options) => (checked ? locator.check(options) : locator.uncheck(options));
   try { await action({ timeout: 6000 }); } catch (e) {
-    if ((await locator.count()) !== 1) throw e;
+    if ((await locator.count()) !== 1 || !(await forceable(locator))) throw e;
     try { await action({ timeout: 3000, force: true }); } catch (e2) { await locator.evaluate((node) => node.click()); }
   }
 }
 
-module.exports = { resolve, settle, isIdle, openPage, signIn, clickControl, findSelector, forceClick, forceCheck };
+/** Choose an option: a native <select> uses selectOption; a custom dropdown (a combobox widget) is opened and its option clicked. */
+async function selectOption(page, locator, label) {
+  try { await locator.selectOption({ label }, { timeout: 6000 }); } catch (e) {
+    if (!String((e && e.message) || e).includes('not a <select>')) throw e;
+    await forceClick(locator);
+    let option = page.getByRole('option', { name: label, exact: true });
+    if (!(await option.count())) option = page.getByRole('option', { name: label });
+    await option.locator('visible=true').first().click();
+  }
+}
+
+/** Open the collapsed sections (expanders, accordions) that hold the element: discovery saw them open, a fresh page has them closed. */
+async function reveal(page, spec, locator) {
+  const labels = spec.reveal || [];
+  try { if (!labels.length || (await locator.count()) !== 1 || (await locator.isVisible())) return; } catch (e) { return; }
+  for (const label of labels) {
+    const summary = page.locator('summary').filter({ hasText: label }).locator('visible=true');
+    if (await summary.count()) { await summary.first().click(); await page.waitForTimeout(300); }
+  }
+  await settle(page, 2000, 600);
+}
+
+/** True when one of the view's stable headings is on screen (a replay that landed elsewhere is repeated once). */
+async function arrived(page, view, waitMs = 6000) {
+  const headings = view.headings || [];
+  if (!headings.length) return true;
+  for (let waited = 0; waited <= waitMs; waited += 500) {
+    for (const heading of headings) {
+      try {
+        if ((await page.getByRole('heading', { name: heading, exact: true }).count()) || (await page.getByText(heading, { exact: true }).count())) return true;
+      } catch (e) { /* the page is re-rendering */ }
+    }
+    await page.waitForTimeout(500);
+  }
+  return false;
+}
+
+module.exports = { resolve, settle, isIdle, openPage, signIn, clickControl, findSelector, forceClick, forceCheck, selectOption, reveal, arrived };

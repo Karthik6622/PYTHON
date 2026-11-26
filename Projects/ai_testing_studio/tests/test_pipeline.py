@@ -118,6 +118,46 @@ def test_node_projects_replay_views_and_sign_in_like_the_python_runtime(prepared
     assert "findSelector" in files["utils/runtime.js"] and "fallbacks.json" in files["utils/app." + ext]
 
 
+def real_world_plan(_system: str, payload: dict) -> dict:
+    """What a model writes for a page with a collapsed section, a custom dropdown, a radio group and a repeated button."""
+    keys: dict[tuple[str, str], list[str]] = {}
+    for element in payload["elements"]:
+        keys.setdefault((element["role"], (element["name"] or "").lower()), []).append(element["key"])
+    heading = keys[("heading", "chat home")][0]
+    step = lambda action, element, value=None, description="": {"action": action, "element": element, "value": value, "description": description or action}  # noqa: E731
+    cases = {
+        "TC_RW_001": [step("click", keys[("button", "delete this chat")][0]), step("expect_visible", heading)],  # inside a collapsed section
+        "TC_RW_002": [step("click", keys[("button", "new chat")][0]), step("expect_visible", heading)],  # the same button twice
+        "TC_RW_003": [step("select", keys[("combobox", "reply tone")][0], "Warm"), step("expect_visible", heading)],  # not a native <select>
+        "TC_RW_004": [step("expect_text", keys[("radiogroup", "chat mode")][0], "Normal Romantic")],  # the page shows "NormalRomantic"
+    }
+    return {"scripts": [{"test_case_id": c["test_case_id"], "title": c["title"], "notes": "", "steps": cases[c["test_case_id"]]} for c in payload["test_cases"]]}
+
+
+def test_real_world_widgets_pass_without_false_failures(repo, site_url, browser_ready, monkeypatch):
+    if not browser_ready:
+        pytest.skip("Chromium is not installed")
+    monkeypatch.setattr(DiscoveryService, "_ai_understanding", lambda *_a, **_k: None)
+    monkeypatch.setattr(DiscoveryService, "_enrich", lambda _self, _project, specs, _say, _result: specs)
+    project = repo.create_project("owner", name="Widgets", url=f"{site_url}/expander.html", base_url=site_url)
+    DiscoveryService(repo).run(project)
+    repo.save_scenarios(project.id, [Scenario(scenario_id="SC_RW_001", title="Widgets", module="Widgets", status="approved")])
+    repo.save_test_cases(project.id, [
+        TestCase(test_case_id=f"TC_RW_00{n}", scenario_id="SC_RW_001", module="Widgets", title=title, steps=["x"], expected_result="x", status="approved")
+        for n, title in enumerate(["Delete inside a collapsed section", "Duplicate button", "Custom dropdown", "Radio group text"], 1)
+    ])
+    service = ScriptService(repo, BundleStore(), ScriptGenerationAgent(FakeClient({"ROLE: Script Generation Agent.": real_world_plan}), repo))
+    bundle_id = service.generate(project, "playwright_python", "chromium")
+    assert {s["test_case_id"] for s in repo.get_bundle(bundle_id)["plan"]["skipped"]} == set()
+    service.approve(project.id, bundle_id)
+    execution_id = ExecutionService(repo).start(
+        project, service.store.read_all(project.id, bundle_id), secrets={}, framework="playwright_python", browser="chromium", bundle_id=bundle_id, analyze=False,
+    )
+    wait_for(repo, execution_id)
+    results = {r["test_case_id"]: (r["status"], r["message"]) for r in repo.list_results(execution_id)}
+    assert {k: v[0] for k, v in results.items()} == {f"TC_RW_00{n}": "PASS" for n in range(1, 5)}, results
+
+
 def test_bundle_store_rejects_traversal_and_hides_secrets(repo, tmp_path):
     store = BundleStore()
     store.write("p1", 1, {"tests/test_a.py": "x = 1\n", ".env": "SECRET=1", "config/state.json": "{}"})

@@ -177,7 +177,7 @@ class PlaywrightPythonAdapter(FrameworkAdapter):
             "dblclick": f"app.click({loc}, double=True)",
             "fill": f"{loc}.fill({v})",
             "clear": f"{loc}.clear()",
-            "select": f"{loc}.select_option(label={v}){settle}",
+            "select": f"app.select({loc}, {v})",
             "check": f"app.check({loc})",
             "uncheck": f"app.check({loc}, checked=False)",
             "press": f"{loc}.press({v}){settle}",

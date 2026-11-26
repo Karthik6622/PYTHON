@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from ats.discovery.facts import Evidence, closest_raw, element_texts, norm
+from ats.discovery.facts import Evidence, closest_raw, element_raw_texts, element_texts, norm
 from ats.models import AutomationStep, LocatorSpec
 
 CLICKABLE = {"button", "link", "tab", "menuitem", "menuitemradio", "menuitemcheckbox", "radio", "checkbox", "switch", "option", "treeitem"}
@@ -27,6 +27,19 @@ ASSERTION_PREFERENCE = ("heading", "alert", "status", "caption")
 
 def role_of(spec: LocatorSpec) -> str:
     return (spec.role or spec.tag or "").lower()
+
+
+def flexible_match(value: str, spec: LocatorSpec) -> str:
+    """The text the element shows when it is ``value`` apart from white space (a radio group reads "NormalRomantic", not "Normal Romantic")."""
+    compact = re.sub(r"\s+", "", value or "")
+    if len(compact) < 3:
+        return ""
+    pattern = re.compile(r"\s*".join(re.escape(c) for c in compact), re.I)
+    for raw in element_raw_texts(spec):
+        found = pattern.search(raw)
+        if found:
+            return found.group(0).strip()
+    return ""
 
 
 def compatible(action: str, spec: LocatorSpec) -> bool:
@@ -53,6 +66,8 @@ class Walk:
     views: dict[str, Any]
     view: str = ""
     typed: dict[str, str] = field(default_factory=dict)
+    stale: dict[str, str] = field(default_factory=dict)  # typed values that a later click or Enter may have cleared
+    drop: bool = False  # set by a check for a step that must be left out of the script
     notes: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -119,6 +134,10 @@ class Walk:
                 return None, f"step {index}: option {step.value!r} was not observed in '{spec.name}'"
         if step.action in {"fill", "clear"}:
             self.typed[spec.element_key] = step.value or ""
+        # a button, link or Enter may submit or re-render the form: what was typed is no longer known to be there afterwards
+        if (step.action in {"click", "dblclick"} and role_of(spec) in {"button", "link"}) or step.action == "press":
+            self.stale.update(self.typed)
+            self.typed.clear()
         # 4. a click on a navigation control moves the walk to the view it opens
         if step.action in {"click", "check"}:
             target = self.opens.get((self.signed_in(self.view), role_of(spec), norm(spec.name)))
@@ -129,12 +148,21 @@ class Walk:
     def ground_text(self, index: int, step: AutomationStep, spec: LocatorSpec) -> AutomationStep | None:
         value = (step.value or "").strip()
         if step.action == "expect_value":
+            if self.stale.get(spec.element_key) == value and spec.element_key not in self.typed:
+                # "the value is still there after submitting" was never observed (an application may clear or re-render the form)
+                self.notes.append(f"Step {index}: the check that '{spec.name}' still holds {value!r} after the form was submitted was left out: discovery never observed that.")
+                self.drop = True
+                return step
             return step if self.typed.get(spec.element_key, (spec.evidence or {}).get("value")) == value else None
         if self.evidence is None:
             return step
         level = self.evidence.level(value, spec, spec.page_key)
         if level == "element":
             return step
+        spaced = flexible_match(value, spec)
+        if spaced and step.action == "expect_text":
+            self.notes.append(f"Step {index}: expected text {value!r} is written as {spaced!r} on the page (the same words, different spacing).")
+            return step.model_copy(update={"value": spaced})
         if step.action == "expect_text":
             for holder in sorted(self.evidence.holders(value, spec.page_key), key=lambda s: (role_of(s) not in ASSERTION_PREFERENCE, s.element_key)):
                 self.notes.append(f"Step {index}: '{value}' is shown by '{holder.name or holder.element_key}', so the check moved to that element.")

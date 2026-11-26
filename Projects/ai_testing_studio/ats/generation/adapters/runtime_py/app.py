@@ -83,8 +83,11 @@ class App:
         if problem:
             raise AssertionError(problem)
 
-    def open_view(self, key: str) -> None:
-        """Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks."""
+    def open_view(self, key: str, retry: bool = True) -> None:
+        """Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks.
+
+        The arrival is confirmed by the view's headings; a replay that landed elsewhere (a click on a page that was still rendering)
+        is repeated once from a fresh page, so a flaky replay is not reported as a failure of the test or of the application."""
         view = (self.views.get("views") or {}).get(key)
         if view is None:
             self.goto("/")
@@ -96,11 +99,41 @@ class App:
         for step in view.get("steps", []):
             if not nav.click_control(self.page, step):
                 raise AssertionError(f"Could not reach the '{view.get('name', key)}' view: the control '{step.get('label')}' was not found")
+        if not self._arrived(view):
+            if retry:
+                self.open_view(key, retry=False)
+                return
+            self.warnings.append(f"The '{view.get('name', key)}' view could not be confirmed by its headings {view.get('headings')}.")
         self.view = key
+
+    def _arrived(self, view: dict, wait_ms: int = 6000) -> bool:
+        headings = view.get("headings") or []
+        if not headings:
+            return True
+        waited = 0
+        while waited <= wait_ms:
+            for heading in headings:
+                try:
+                    if self.page.get_by_role("heading", name=heading, exact=True).count() or self.page.get_by_text(heading, exact=True).count():
+                        return True
+                except Exception:  # noqa: BLE001 - the page is re-rendering
+                    pass
+            self.page.wait_for_timeout(500)
+            waited += 500
+        return False
 
     def settle(self, max_ms: int = 4000) -> None:
         """Let the application finish re-rendering after an interaction (single-page apps update asynchronously)."""
         nav.settle(self.page, max_ms=max_ms, quiet_ms=600)
+
+    @staticmethod
+    def _forceable(locator) -> bool:
+        """A click may be forced only on something a person could see or use: a visible element, or the hidden input behind a styled
+        checkbox / radio. A hidden control (inside a collapsed section) is never clicked through the DOM."""
+        try:
+            return locator.is_visible() or bool(locator.evaluate("(e) => e.tagName === 'INPUT' && ['checkbox', 'radio'].includes((e.type || '').toLowerCase())"))
+        except Exception:  # noqa: BLE001
+            return False
 
     def click(self, locator, double: bool = False) -> None:
         """Click like a person would. Styled controls (hidden radio buttons, custom checkboxes) are covered by a label that
@@ -109,7 +142,7 @@ class App:
         try:
             action(timeout=6000)
         except Exception:
-            if locator.count() != 1:
+            if locator.count() != 1 or not self._forceable(locator):
                 raise
             try:
                 action(timeout=3000, force=True)
@@ -122,13 +155,42 @@ class App:
         try:
             action(timeout=6000)
         except Exception:
-            if locator.count() != 1:
+            if locator.count() != 1 or not self._forceable(locator):
                 raise
             try:
                 action(timeout=3000, force=True)
             except Exception:
                 locator.evaluate("(element) => element.click()")
         self.settle()
+
+    def select(self, locator, label: str) -> None:
+        """Choose an option. A native <select> uses select_option; a custom dropdown (a combobox widget) is opened and its option clicked."""
+        try:
+            locator.select_option(label=label, timeout=6000)
+        except Exception as exc:
+            if "not a <select>" not in str(exc):
+                raise
+            self.click(locator)
+            option = self.page.get_by_role("option", name=label, exact=True)
+            if not option.count():
+                option = self.page.get_by_role("option", name=label)
+            option.locator("visible=true").first.click()
+        self.settle()
+
+    def _reveal(self, spec: dict, found) -> None:
+        """Open the collapsed sections (expanders, accordions) that hold the element; discovery saw them open, a fresh page has them closed."""
+        labels = spec.get("reveal") or []
+        try:
+            if not labels or found.count() != 1 or found.is_visible():
+                return
+        except Exception:  # noqa: BLE001
+            return
+        for label in labels:
+            summary = self.page.locator("summary").filter(has_text=label).locator("visible=true")
+            if summary.count():
+                summary.first.click()
+                self.page.wait_for_timeout(300)
+        self.settle(2000)
 
     # ------------------------------------------------------------------ elements
     def _by_fingerprint(self, spec: dict) -> tuple[dict, object] | None:
@@ -156,9 +218,19 @@ class App:
         return None
 
     def locator(self, key: str, wait: bool = True):
+        """Resolve an element key to ONE element on screen (see ``_locate``) and open the collapsed section that holds it, if any."""
+        found = self._locate(key, wait)
+        spec = self.locators.get(key) or {}
+        if wait:
+            self._reveal(spec, found)
+        return found
+
+    def _locate(self, key: str, wait: bool = True):
         """Resolve an element key. The preferred selector is used first; if it matches nothing, the recorded alternatives are tried,
         then the element's fingerprint (role and name, label, text). Whatever worked instead of the preferred selector is remembered
-        (reports/evidence/<id>/fallbacks.json) so auto-fix can update the locator file. Waiting stops early once the page is idle."""
+        (reports/evidence/<id>/fallbacks.json) so auto-fix can update the locator file. Waiting stops early once the page is idle.
+        When a selector matches several elements, the ones a person can see decide: one visible match is the element; several
+        visible matches with the same role and name (a sidebar and a page button) resolve to the first of them, and say so."""
         spec = self.locators.get(key)
         if spec is None:
             raise AssertionError(f"Unknown element key: {key}")
@@ -170,6 +242,10 @@ class App:
                 try:
                     found = resolve(self.page, selector)
                     count = found.count()
+                    if count > 1:
+                        shown = found.locator("visible=true")
+                        if shown.count() == 1:
+                            found, count = shown, 1
                 except Exception:  # noqa: BLE001 - a selector that cannot be evaluated is simply not a match
                     continue
                 if count == 1:
@@ -191,7 +267,12 @@ class App:
                 break  # the page has finished rendering and the element is not on it: waiting longer only wastes time
             self.page.wait_for_timeout(300)
         if ambiguous is not None:
-            raise AssertionError(f"Ambiguous locator for '{key}': {_describe(ambiguous[1])} matched multiple elements; no unique alternative.")
+            index, selector, found = ambiguous
+            shown = found.locator("visible=true")
+            if shown.count() > 1 and (selector.get("kind") == "role" and selector.get("name")):
+                self.fallbacks[key] = {"selector": selector, "preferred": candidates[0], "index": index, "ambiguous": True}
+                return shown.first  # the same control twice (for example in the sidebar and in the page): the first one on screen
+            raise AssertionError(f"Ambiguous locator for '{key}': {_describe(selector)} matched multiple elements; no unique alternative.")
         if not wait:
             return resolve(self.page, spec["preferred"])
         tried = ", ".join(_describe(s) for s in candidates[:4])
