@@ -3,7 +3,7 @@
     "web": {
       "files": {
         "config/auth.json": "5c89097a82f78c9da09dd9c4133ae829672a227e",
-        "config/locators.json": "2e0fcf8dbc95054d8b278a17ab296d4d43390a07",
+        "config/locators.json": "20db59613f2e3de7973393221ade4f86ae515168",
         "config/views.json": "b749135ae4f3e16397f253cd244c6ca1cbf0dc74",
         "pages/__init__.py": "4a84cef1b594432992fbf33a4080c49186803226",
         "pages/base_page.py": "d3989c0588121b396f53bec26f6755196b4dde80",

@@ -792,16 +792,16 @@
     "role": "button",
     "name": "Delete this chat",
     "preferred": {
-      "kind": "role",
-      "value": "button",
-      "name": "Delete this chat",
-      "exact": true
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Delete this chat\")",
+      "exact": false
     },
     "alternatives": [
       {
-        "kind": "css",
-        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Delete this chat\")",
-        "exact": false
+        "kind": "role",
+        "value": "button",
+        "name": "Delete this chat",
+        "exact": true
       }
     ],
     "fingerprint": {
@@ -928,13 +928,13 @@
     "name": "Hey karthik! What’s on your mind today?",
     "preferred": {
       "kind": "css",
-      "value": "[data-testid=\"stLayoutWrapper\"]:has-text(\"Hey karthik! What’s on your mind today?\")",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6)",
       "exact": false
     },
     "alternatives": [
       {
         "kind": "css",
-        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(6)",
+        "value": "[data-testid=\"stLayoutWrapper\"]:has-text(\"Hey karthik! What’s on your mind today?\")",
         "exact": false
       }
     ],
@@ -1266,16 +1266,16 @@
     "role": "button",
     "name": "Save title",
     "preferred": {
-      "kind": "role",
-      "value": "button",
-      "name": "Save title",
-      "exact": true
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
+      "exact": false
     },
     "alternatives": [
       {
-        "kind": "css",
-        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
-        "exact": false
+        "kind": "role",
+        "value": "button",
+        "name": "Save title",
+        "exact": true
       }
     ],
     "fingerprint": {
@@ -1738,13 +1738,13 @@
     "name": "5 conversation(s) saved to this app’s local data folder.",
     "preferred": {
       "kind": "css",
-      "value": "[data-testid=\"stElementContainer\"]:has-text(\"5 conversation(s) saved to this app’s local data folder.\")",
+      "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(9)",
       "exact": false
     },
     "alternatives": [
       {
         "kind": "css",
-        "value": "#stMain > div:nth-of-type(1) > div > div:nth-of-type(9)",
+        "value": "[data-testid=\"stElementContainer\"]:has-text(\"5 conversation(s) saved to this app’s local data folder.\")",
         "exact": false
       }
     ],
