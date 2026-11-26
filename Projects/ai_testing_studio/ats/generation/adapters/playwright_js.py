@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from urllib.parse import urlparse
 
 from ats.generation.adapters.common import (
@@ -23,6 +24,10 @@ from ats.generation.adapters.common import (
 )
 from ats.models import AutomationStep
 
+RUNTIME_DIR = Path(__file__).with_name("runtime_js")
+RUNTIME_JS = (RUNTIME_DIR / "runtime.js").read_text(encoding="utf-8")
+ACTIONS_JS = (Path(__file__).resolve().parents[2] / "discovery" / "actions.js").read_text(encoding="utf-8")
+
 # ---------------------------------------------------------------- TypeScript runtime (raw strings: file text as written)
 TS_LOCATORS = r"""import * as fs from 'fs';
 import * as path from 'path';
@@ -38,20 +43,7 @@ export function loadLocators(): Record<string, LocatorSpec> {
 }
 
 // No silent fallback: a stale locator must fail loudly so it can be analysed (and healed with approval).
-export function resolve(page: Page, s: Selector): Locator {
-  const exact = !!s.exact;
-  switch (s.kind) {
-    case 'testid': return page.getByTestId(s.value);
-    case 'role': return s.name ? page.getByRole(s.value as any, { name: s.name, exact }) : page.getByRole(s.value as any);
-    case 'label': return page.getByLabel(s.value, { exact });
-    case 'placeholder': return page.getByPlaceholder(s.value, { exact });
-    case 'text': return page.getByText(s.value, { exact });
-    case 'id': return page.locator(`[id="${s.value.replace(/"/g, '\\"')}"]`);
-    case 'name': return page.locator(`[name="${s.value.replace(/"/g, '\\"')}"]`);
-    case 'xpath': return page.locator(`xpath=${s.value}`);
-    default: return page.locator(s.value);
-  }
-}
+export const resolve: (page: Page, s: Selector) => Locator = require('./runtime').resolve;
 """
 
 TS_APP = r"""import * as fs from 'fs';
@@ -60,7 +52,14 @@ import type { Locator, Page } from '@playwright/test';
 import { loadLocators, resolve } from './locators';
 import { Pages } from '../pages';
 
+const rt: any = require('./runtime');
 const ROOT = path.join(__dirname, '..');
+const FIND_TIMEOUT_MS = Number(process.env.FIND_TIMEOUT || 20) * 1000;
+
+function readJson(name: string): any {
+  const file = path.join(ROOT, 'config', name);
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8')) : {};
+}
 
 export class App {
   readonly page: Page;
@@ -68,15 +67,22 @@ export class App {
   readonly testCaseId: string;
   readonly steps: Record<string, unknown>[] = [];
   readonly consoleLog: string[] = [];
+  readonly warnings: string[] = [];
+  readonly fallbacks: Record<string, unknown> = {};
   failure: Record<string, unknown> = {};
+  view = '';
   readonly pages: Pages;
   private readonly specs = loadLocators();
+  private readonly views = readJson('views.json');
+  private readonly auth = readJson('auth.json');
+  private readonly resolved: Record<string, any> = {};
 
   constructor(page: Page, baseUrl: string, testCaseId: string) {
     this.page = page;
     this.baseUrl = baseUrl.replace(/\/+$/, '') + '/';
     this.testCaseId = testCaseId;
     this.pages = new Pages(this);
+    page.setDefaultTimeout(FIND_TIMEOUT_MS);
     page.on('console', (m) => {
       if (m.type() === 'error' || m.type() === 'warning') this.consoleLog.push(`${m.type()}: ${m.text().slice(0, 300)}`);
     });
@@ -92,21 +98,75 @@ export class App {
     });
   }
 
+  /** The element's selector: the one that was verified to match exactly one element in this step (see step()). */
   locator(key: string): Locator {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
-    return resolve(this.page, spec.preferred);
+    return resolve(this.page, this.resolved[key] || spec.preferred);
+  }
+
+  private async resolveKey(key: string, wait: boolean): Promise<void> {
+    const spec = this.specs[key];
+    if (!spec) throw new Error(`Unknown element key: ${key}`);
+    this.resolved[key] = await rt.findSelector(this.page, key, spec, this.fallbacks, wait);
+  }
+
+  private startUrl(): string {
+    const start = String(this.views.start_url || '');
+    const pathname = start ? new URL(start).pathname : '/';
+    return new URL(pathname.replace(/^\/+/, ''), this.baseUrl).toString();
   }
 
   async goto(target: string): Promise<void> {
     const url = /^https?:\/\//.test(target) ? target : new URL(target.replace(/^\/+/, ''), this.baseUrl).toString();
-    await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+    await rt.openPage(this.page, url, this.warnings);
+  }
+
+  async signIn(): Promise<void> {
+    const user = this.auth.username_env || 'TEST_APP_USERNAME';
+    const pass = this.auth.password_env || 'TEST_APP_PASSWORD';
+    if (!['env_credentials', 'login_workflow'].includes(this.auth.mode) || !process.env[user] || !process.env[pass]) {
+      throw new Error(`This test needs a signed-in session: set the credential variables ${user} and ${pass}`);
+    }
+    const problem = await rt.signIn(this.page, process.env[user], process.env[pass], this.auth, this.startUrl(), this.warnings);
+    if (problem) throw new Error(problem);
+  }
+
+  /** Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks. */
+  async openView(key: string): Promise<void> {
+    const view = (this.views.views || {})[key];
+    if (!view) { await this.goto('/'); return; }
+    if (view.signed_in) await this.signIn();
+    else await rt.openPage(this.page, this.startUrl(), this.warnings);
+    for (const recorded of view.steps || []) {
+      if (!(await rt.clickControl(this.page, recorded))) throw new Error(`Could not reach the '${view.name || key}' view: the control '${recorded.label}' was not found`);
+    }
+    this.view = key;
+  }
+
+  async settle(maxMs = 4000): Promise<void> {
+    await rt.settle(this.page, maxMs, 600);
+  }
+
+  /** Click like a person: a styled control that is not 'actionable' is clicked by force, then through the DOM. */
+  async click(locator: Locator, double = false): Promise<void> {
+    await rt.forceClick(locator, double);
+    await this.settle();
+  }
+
+  async check(locator: Locator, checked = true): Promise<void> {
+    await rt.forceCheck(locator, checked);
+    await this.settle();
   }
 
   async step(description: string, meta: { action?: string; element?: string }, body: () => Promise<void>): Promise<void> {
     const record: Record<string, unknown> = { index: this.steps.length + 1, description, action: meta.action || '', element: meta.element || '', status: 'running' };
     this.steps.push(record);
     try {
+      if (meta.element) {
+        if (meta.action === 'expect_hidden') await this.resolveKey(meta.element, false).catch(() => undefined);
+        else await this.resolveKey(meta.element, true);
+      }
       await body();
       record.status = 'passed';
     } catch (error) {
@@ -121,8 +181,9 @@ export class App {
     const folder = path.join(ROOT, 'reports', 'evidence', this.testCaseId);
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, 'steps.json'), JSON.stringify(this.steps, null, 2));
+    if (Object.keys(this.fallbacks).length) fs.writeFileSync(path.join(folder, 'fallbacks.json'), JSON.stringify(this.fallbacks, null, 2));
     if (!failed) return;
-    const info: Record<string, unknown> = { test_case_id: this.testCaseId, console: this.consoleLog.slice(-20), ...this.failure };
+    const info: Record<string, unknown> = { test_case_id: this.testCaseId, console: this.consoleLog.slice(-20), view: this.view, warnings: this.warnings.slice(-5), ...this.failure };
     try {
       info.url = this.page.url();
       info.title = await this.page.title();
@@ -192,14 +253,15 @@ const selected = browsers[(process.env.BROWSER || __BROWSER__).toLowerCase()] ||
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 45_000,
-  expect: { timeout: 10_000 },
+  timeout: 120_000,
+  expect: { timeout: Number(process.env.EXPECT_TIMEOUT || 15) * 1000 },
   retries: 0,
   workers: Number(process.env.WORKERS || 2),
   outputDir: 'reports/artifacts',
   reporter: [['list'], ['junit', { outputFile: 'reports/junit.xml' }]],
   use: {
     baseURL: process.env.BASE_URL || DEFAULT_BASE_URL,
+    viewport: { width: 1366, height: 900 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     ignoreHTTPSErrors: process.env.IGNORE_HTTPS_ERRORS === '1',
@@ -232,20 +294,7 @@ function loadLocators() {
 }
 
 // No silent fallback: a stale locator must fail loudly so it can be analysed (and healed with approval).
-function resolve(page, s) {
-  const exact = !!s.exact;
-  switch (s.kind) {
-    case 'testid': return page.getByTestId(s.value);
-    case 'role': return s.name ? page.getByRole(s.value, { name: s.name, exact }) : page.getByRole(s.value);
-    case 'label': return page.getByLabel(s.value, { exact });
-    case 'placeholder': return page.getByPlaceholder(s.value, { exact });
-    case 'text': return page.getByText(s.value, { exact });
-    case 'id': return page.locator(`[id="${s.value.replace(/"/g, '\\"')}"]`);
-    case 'name': return page.locator(`[name="${s.value.replace(/"/g, '\\"')}"]`);
-    case 'xpath': return page.locator(`xpath=${s.value}`);
-    default: return page.locator(s.value);
-  }
-}
+const { resolve } = require('./runtime');
 
 module.exports = { loadLocators, resolve };
 """
@@ -254,8 +303,15 @@ JS_APP = r"""const fs = require('fs');
 const path = require('path');
 const { loadLocators, resolve } = require('./locators');
 const { Pages } = require('../pages');
+const rt = require('./runtime');
 
 const ROOT = path.join(__dirname, '..');
+const FIND_TIMEOUT_MS = Number(process.env.FIND_TIMEOUT || 20) * 1000;
+
+function readJson(name) {
+  const file = path.join(ROOT, 'config', name);
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8')) : {};
+}
 
 class App {
   constructor(page, baseUrl, testCaseId) {
@@ -264,9 +320,16 @@ class App {
     this.testCaseId = testCaseId;
     this.steps = [];
     this.consoleLog = [];
+    this.warnings = [];
+    this.fallbacks = {};
     this.failure = {};
+    this.view = '';
     this.specs = loadLocators();
+    this.views = readJson('views.json');
+    this.auth = readJson('auth.json');
+    this.resolved = {};
     this.pages = new Pages(this);
+    page.setDefaultTimeout(FIND_TIMEOUT_MS);
     page.on('console', (m) => {
       if (m.type() === 'error' || m.type() === 'warning') this.consoleLog.push(`${m.type()}: ${m.text().slice(0, 300)}`);
     });
@@ -282,21 +345,75 @@ class App {
     });
   }
 
+  /** The element's selector: the one that was verified to match exactly one element in this step (see step()). */
   locator(key) {
     const spec = this.specs[key];
     if (!spec) throw new Error(`Unknown element key: ${key}`);
-    return resolve(this.page, spec.preferred);
+    return resolve(this.page, this.resolved[key] || spec.preferred);
+  }
+
+  async resolveKey(key, wait) {
+    const spec = this.specs[key];
+    if (!spec) throw new Error(`Unknown element key: ${key}`);
+    this.resolved[key] = await rt.findSelector(this.page, key, spec, this.fallbacks, wait);
+  }
+
+  startUrl() {
+    const start = String(this.views.start_url || '');
+    const pathname = start ? new URL(start).pathname : '/';
+    return new URL(pathname.replace(/^\/+/, ''), this.baseUrl).toString();
   }
 
   async goto(target) {
     const url = /^https?:\/\//.test(target) ? target : new URL(target.replace(/^\/+/, ''), this.baseUrl).toString();
-    await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+    await rt.openPage(this.page, url, this.warnings);
+  }
+
+  async signIn() {
+    const user = this.auth.username_env || 'TEST_APP_USERNAME';
+    const pass = this.auth.password_env || 'TEST_APP_PASSWORD';
+    if (!['env_credentials', 'login_workflow'].includes(this.auth.mode) || !process.env[user] || !process.env[pass]) {
+      throw new Error(`This test needs a signed-in session: set the credential variables ${user} and ${pass}`);
+    }
+    const problem = await rt.signIn(this.page, process.env[user], process.env[pass], this.auth, this.startUrl(), this.warnings);
+    if (problem) throw new Error(problem);
+  }
+
+  /** Put a fresh browser on a discovered view: open (and sign in when needed), then repeat the recorded clicks. */
+  async openView(key) {
+    const view = (this.views.views || {})[key];
+    if (!view) { await this.goto('/'); return; }
+    if (view.signed_in) await this.signIn();
+    else await rt.openPage(this.page, this.startUrl(), this.warnings);
+    for (const recorded of view.steps || []) {
+      if (!(await rt.clickControl(this.page, recorded))) throw new Error(`Could not reach the '${view.name || key}' view: the control '${recorded.label}' was not found`);
+    }
+    this.view = key;
+  }
+
+  async settle(maxMs = 4000) {
+    await rt.settle(this.page, maxMs, 600);
+  }
+
+  /** Click like a person: a styled control that is not 'actionable' is clicked by force, then through the DOM. */
+  async click(locator, double = false) {
+    await rt.forceClick(locator, double);
+    await this.settle();
+  }
+
+  async check(locator, checked = true) {
+    await rt.forceCheck(locator, checked);
+    await this.settle();
   }
 
   async step(description, meta, body) {
     const record = { index: this.steps.length + 1, description, action: meta.action || '', element: meta.element || '', status: 'running' };
     this.steps.push(record);
     try {
+      if (meta.element) {
+        if (meta.action === 'expect_hidden') await this.resolveKey(meta.element, false).catch(() => undefined);
+        else await this.resolveKey(meta.element, true);
+      }
       await body();
       record.status = 'passed';
     } catch (error) {
@@ -311,8 +428,9 @@ class App {
     const folder = path.join(ROOT, 'reports', 'evidence', this.testCaseId);
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, 'steps.json'), JSON.stringify(this.steps, null, 2));
+    if (Object.keys(this.fallbacks).length) fs.writeFileSync(path.join(folder, 'fallbacks.json'), JSON.stringify(this.fallbacks, null, 2));
     if (!failed) return;
-    const info = { test_case_id: this.testCaseId, console: this.consoleLog.slice(-20), ...this.failure };
+    const info = { test_case_id: this.testCaseId, console: this.consoleLog.slice(-20), view: this.view, warnings: this.warnings.slice(-5), ...this.failure };
     try {
       info.url = this.page.url();
       info.title = await this.page.title();
@@ -389,13 +507,17 @@ class PlaywrightJsAdapter(FrameworkAdapter):
         base_url = js_str(ctx.base_url)
         files: dict[str, str] = {}
         for module_key, items in ctx.modules().items():
-            files[f"tests/{module_slug(module_key)}.spec.{ext}"] = self._tests(module_key, items, ref)
+            files[f"tests/{module_slug(module_key)}.spec.{ext}"] = self._tests(module_key, items, ref, ctx.locators, bool(ctx.views))
         for page_key, keys in used.items():
             files[f"pages/{py_ident(page_key, 'page')}.page.{ext}"] = self._page(ctx, page_key, keys)
         files[f"pages/index.{ext}"] = self._pages_index(used)
         files[f"pages/base.page.{ext}"] = TS_BASE_PAGE if self.ts else JS_BASE_PAGE
         files[f"utils/locators.{ext}"] = TS_LOCATORS if self.ts else JS_LOCATORS
         files[f"utils/app.{ext}"] = TS_APP if self.ts else JS_APP
+        files["utils/runtime.js"] = RUNTIME_JS  # shared by both flavours; Playwright loads plain JS from a TypeScript project
+        files["utils/actions.js"] = ACTIONS_JS
+        files["config/views.json"] = json.dumps(ctx.views or {"views": {}}, indent=2, ensure_ascii=False) + "\n"
+        files["config/auth.json"] = json.dumps(ctx.auth or {}, indent=2) + "\n"
         files[f"utils/fixtures.{ext}"] = (TS_FIXTURES if self.ts else JS_FIXTURES).replace("__BASE_URL__", base_url)
         config = TS_CONFIG if self.ts else self._js_config()
         files[f"playwright.config.{ext}"] = config.replace("__BASE_URL__", base_url).replace("__BROWSER__", js_str(ctx.browser))
@@ -420,7 +542,7 @@ class PlaywrightJsAdapter(FrameworkAdapter):
         return text
 
     # ------------------------------------------------------------------
-    def _tests(self, module: str, items: list, ref) -> str:  # type: ignore[no-untyped-def]
+    def _tests(self, module: str, items: list, ref, locators: dict | None = None, views: bool = False) -> str:  # type: ignore[no-untyped-def]
         header = "import { test, expect, escapeRegExp } from '../utils/fixtures';" if self.ts else "const { test, expect, escapeRegExp } = require('../utils/fixtures');"
         lines = [f"// Automated tests for module: {comment_safe(module)} (generated by RK Testing Studio)", header, "", f"test.describe({js_str(module)}, () => {{"]
         for item in items:
@@ -429,7 +551,15 @@ class PlaywrightJsAdapter(FrameworkAdapter):
             if script.notes:
                 lines.append(f"  // Note: {comment_safe(script.notes, 200)}")
             lines.append(f"  test({js_str(tc.test_case_id + ' - ' + tc.title)}, async ({{ app }}) => {{")
-            for step in script.steps:
+            steps = list(script.steps)
+            start = next((locators[s.element].page_key for s in steps if s.element and locators and s.element in locators), None) if views else None
+            if start:
+                while steps and steps[0].action == "goto":  # the runtime opens the start view itself (sign-in and recorded clicks included)
+                    steps.pop(0)
+                lines.append(f"    await app.step({js_str('Open the application on the ' + start + ' view')}, {{ action: 'open_view', element: '' }}, async () => {{")
+                lines.append(f"      await app.openView({js_str(start)});")
+                lines.append("    });")
+            for step in steps:
                 meta = f"{{ action: {js_str(step.action)}, element: {js_str(step.element or '')} }}"
                 lines.append(f"    await app.step({js_str(step_text(step, tc))}, {meta}, async () => {{")
                 lines.append(f"      {self._statement(step, ref)}")
@@ -448,13 +578,13 @@ class PlaywrightJsAdapter(FrameworkAdapter):
         v = f"app.val({js_str(text)})" if ENV_PLACEHOLDER.search(text) else js_str(text)
         mapping = {
             "goto": f"await app.goto({v});",
-            "click": f"await {loc}.click();",
-            "dblclick": f"await {loc}.dblclick();",
+            "click": f"await app.click({loc});",
+            "dblclick": f"await app.click({loc}, true);",
             "fill": f"await {loc}.fill({v});",
             "clear": f"await {loc}.clear();",
             "select": f"await {loc}.selectOption({{ label: {v} }});",
-            "check": f"await {loc}.check();",
-            "uncheck": f"await {loc}.uncheck();",
+            "check": f"await app.check({loc}, true);",
+            "uncheck": f"await app.check({loc}, false);",
             "press": f"await {loc}.press({v});",
             "hover": f"await {loc}.hover();",
             "expect_visible": f"await expect({loc}).toBeVisible();",

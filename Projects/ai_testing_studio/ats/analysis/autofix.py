@@ -18,6 +18,7 @@ from typing import Any
 
 from ats.ai.agents import ScriptGenerationAgent
 from ats.analysis import dom
+from ats.analysis.autofix_text import is_test_path, test_block
 from ats.analysis.findings import Finding
 from ats.analysis.healing import HealingEngine
 from ats.analysis.patching import LOCATOR_FILE, PatchError, entry_diff, patch_locators
@@ -47,7 +48,7 @@ class RepairRejected(ValueError):
 
 
 def allowed_path(path: str) -> bool:
-    return (path.startswith("tests/") and path.endswith(".py")) or path == VIEWS_FILE
+    return is_test_path(path) or path == VIEWS_FILE
 
 
 def apply_repair(files: dict[str, str], result: RepairResult) -> dict[str, str]:
@@ -60,12 +61,12 @@ def apply_repair(files: dict[str, str], result: RepairResult) -> dict[str, str]:
         text = new[edit.path]
         if not edit.find.strip() or text.count(edit.find) != 1:
             raise RepairRejected(f"The text to replace does not appear exactly once in {edit.path}.")
-        for needle in ("expect(", "assert ", "@pytest.mark.tc("):
+        for needle in ("expect(", "assert ", "@pytest.mark.tc(", "test("):
             if edit.replace.count(needle) < edit.find.count(needle):
                 raise RepairRejected("The repair would remove an assertion or the test id marker, which is never allowed.")
         if re.search(r"(?i)(password|passwd|secret|token)\s*=\s*['\"][^'\"]{4,}['\"]", edit.replace):
             raise RepairRejected("The repair contains a hardcoded credential.")
-        for method in ("to_contain_text", "to_have_text", "to_have_value"):
+        for method in ("to_contain_text", "to_have_text", "to_have_value", "toContainText", "toHaveText", "toHaveValue"):
             if edit.replace.count(method) < edit.find.count(method):
                 raise RepairRejected("The repair would remove a text or value check. Preserve the assertion and repair its target instead.")
         new[edit.path] = text.replace(edit.find, edit.replace, 1)
@@ -101,15 +102,13 @@ def diff_text(old: dict[str, str], new: dict[str, str]) -> str:
 
 def test_function(files: dict[str, str], test_case_id: str) -> tuple[str, str]:
     """(path, source) of the generated test for a test case id."""
-    marker = re.compile(r"@pytest\.mark\.tc\(['\"]" + re.escape(test_case_id) + r"['\"]\)", re.I)
     for rel, content in sorted(files.items()):
-        if not (rel.startswith("tests/") and rel.endswith(".py")):
+        if not is_test_path(rel):
             continue
-        found = marker.search(content)
-        if not found:
+        block = test_block(content, test_case_id)
+        if block is None:
             continue
-        end = content.find("\n@pytest.mark.tc(", found.end())
-        return rel, content[found.start() : end if end > 0 else len(content)][:MAX_FUNCTION_CHARS]
+        return rel, content[block[0] : block[1]][:MAX_FUNCTION_CHARS]
     return "", ""
 
 

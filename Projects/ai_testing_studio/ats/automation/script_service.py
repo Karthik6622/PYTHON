@@ -164,7 +164,7 @@ def check_syntax(files: dict[str, str]) -> list[str]:
                 ast.parse(content)
             except SyntaxError as exc:
                 problems.append(f"{rel}: line {exc.lineno}: {exc.msg}")
-        elif rel.endswith((".ts", ".js", ".java")) and rel != "utils/actions.js" and not bracket_balanced(content):  # actions.js uses regex literals
+        elif rel.endswith((".ts", ".js", ".java")) and rel not in {"utils/actions.js", "utils/runtime.js"} and not bracket_balanced(content):  # these use regex literals
             problems.append(f"{rel}: unbalanced brackets or quotes")
         elif rel.endswith(".json"):
             try:

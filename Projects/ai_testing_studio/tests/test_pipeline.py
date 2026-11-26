@@ -107,6 +107,17 @@ def test_generated_project_runs_and_passes(prepared, repo, framework):
     assert next(s for s in state.stages if s.name == "Execute").status == "done"
 
 
+@pytest.mark.parametrize("framework", ["playwright_typescript", "playwright_javascript"])
+def test_node_projects_replay_views_and_sign_in_like_the_python_runtime(prepared, framework):
+    project, service = prepared
+    files = service.store.read_all(project.id, service.generate(project, framework, "chromium"))
+    ext = "ts" if framework.endswith("typescript") else "js"
+    spec = files["tests/login.spec." + ext]
+    assert "app.openView(" in spec and "app.goto(" not in spec  # the runtime opens the view (sign-in and recorded clicks included)
+    assert {"config/views.json", "config/auth.json", "utils/runtime.js", "utils/actions.js"} <= set(files)
+    assert "findSelector" in files["utils/runtime.js"] and "fallbacks.json" in files["utils/app." + ext]
+
+
 def test_bundle_store_rejects_traversal_and_hides_secrets(repo, tmp_path):
     store = BundleStore()
     store.write("p1", 1, {"tests/test_a.py": "x = 1\n", ".env": "SECRET=1", "config/state.json": "{}"})

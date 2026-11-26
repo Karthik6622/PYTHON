@@ -14,10 +14,11 @@ Every such repair is recorded with the reason, so a person can review what was c
 from __future__ import annotations
 
 import difflib
+import json
 import re
 from dataclasses import dataclass
 
-from ats.analysis.autofix_text import statement_span
+from ats.analysis.autofix_text import TS_METHOD, statement_span
 from ats.discovery.facts import Evidence, closest_raw, norm
 from ats.models import LocatorSpec, RepairEdit, RepairResult
 
@@ -66,14 +67,17 @@ def repair_expectation(
     if span is None:
         return None, "the check could not be located in the test file"
     path, segment, old_call = span
+    typescript = path.endswith((".ts", ".js"))
+    method = TS_METHOD[method] if typescript else method
+    literal = (lambda text: json.dumps(text, ensure_ascii=False)) if typescript else repr
     own_best = closest_raw(claim.expected, spec)
     shown = claim.actual
     if action == "expect_value":
         return None, "an input value cannot be repaired from its label or visible text"
     if shown and own_best and norm(shown) == norm(own_best) and similar(claim.expected, shown) and norm(shown) != norm(claim.expected):
-        new_call, note = f"{method}({shown!r})", f"expected text {claim.expected!r} was never observed; corrected to what the page shows: {shown!r}"
+        new_call, note = f"{method}({literal(shown)})", f"expected text {claim.expected!r} was never observed; corrected to what the page shows: {shown!r}"
     elif own_best:
-        new_call, note = f"{method}({own_best!r})", f"expected text {claim.expected!r} was never observed; corrected to the observed text {own_best!r}"
+        new_call, note = f"{method}({literal(own_best)})", f"expected text {claim.expected!r} was never observed; corrected to the observed text {own_best!r}"
     else:
         return None, "no observed text supports this expectation; review the case rather than weakening the assertion"
     new_segment = segment.replace(old_call, new_call, 1)

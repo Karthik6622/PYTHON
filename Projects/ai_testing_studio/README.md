@@ -156,6 +156,10 @@ were running are marked *Interrupted* and can be started again. Jobs started fro
 
 ## How generated tests find and reach elements
 
+* **Playwright TypeScript / JavaScript projects** use the same runtime behavior as the Python ones: `app.openView()` opens the view,
+  signs in with the configured credential variables and replays the recorded clicks (`config/views.json`, `config/auth.json`),
+  every element is resolved to a selector that matches exactly one element (preferred, recorded alternatives, then the element's
+  fingerprint) and fallbacks are written to `fallbacks.json` for auto-fix. Auto-fix reads and repairs `tests/*.spec.ts|js` too.
 * Discovery records, for every view, the clicks that open it (`config/views.json`) and verifies on the live page how many elements each
   candidate selector matches. For live-checked controls, only selectors that uniquely match the intended DOM node are retained. Rerun
   discovery and regenerate automation to replace locators from older snapshots. Icon-font text (`add`, `keyboard_arrow_left`) is not

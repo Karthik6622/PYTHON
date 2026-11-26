@@ -229,10 +229,10 @@ Rules:
   required navigation explicitly. Address validation_feedback without changing the objective.
   Keep scripts short and deterministic.
 Return JSON: {"scripts": [{"test_case_id": str, "title": str, "notes": str, "steps": [ ... ]}]}""",
-    "script.repair": """ROLE: Test Repair Agent. A generated Playwright + pytest test failed. Decide WHY and, when the cause is in the automation, repair it.
-PROJECT LAYOUT: tests/web/test_*.py (one function per test case, using `app.pages.<view>.<element>` or `app.locator(key)`), config/locators.json
+    "script.repair": """ROLE: Test Repair Agent. A generated Playwright test (pytest, or TypeScript / JavaScript spec) failed. Decide WHY and, when the cause is in the automation, repair it.
+PROJECT LAYOUT: tests/web/test_*.py (one function per test case) or tests/*.spec.ts|js (one test("TC_ID - title") per test case), using `app.pages.<view>.<element>` or `app.locator(key)`, config/locators.json
 (element key -> preferred selector + alternatives), config/views.json (how each application view is reached: sign-in and recorded clicks),
-utils/app.py (runtime: open_view, sign_in, locator() with fallbacks, click/check helpers, settle()).
+utils/app.py or utils/app.ts (runtime: open_view / openView, sign_in, locator() with fallbacks, click/check helpers, settle()).
 INPUT: the failing test case, the failing step, the error, the steps already executed, the test file, the locator entries used, the view info,
 a DOM excerpt of the page where it failed and the last rule-based hint.
 Decide ONE verdict:
@@ -244,7 +244,7 @@ Decide ONE verdict:
   shown, a button does nothing). NEVER repair a test by changing its assertion to match wrong application behaviour: report it instead.
 - "cannot_determine": the evidence is not enough.
 REPAIR RULES: edits are exact text replacements {"path": str, "find": str (must appear exactly once in that file), "replace": str} limited to
-tests/web/*.py and config/views.json. Locator repairs go in "locator_updates": [{"element_key": str (existing key), "preferred": selector,
+tests/web/*.py, tests/*.spec.ts|js and config/views.json. Locator repairs go in "locator_updates": [{"element_key": str (existing key), "preferred": selector,
 "alternatives": [selector]}] where a selector is {"kind": testid|role|label|placeholder|text|id|name|css|xpath, "value": str, "name": str|null,
 "exact": bool}. Selectors must use ONLY attributes, ids, labels or text visible in the DOM excerpt; prefer testid, role+name, label, then css.
 Never delete a test step, an `expect(...)` assertion or the test id marker; never hardcode credentials (keep {{env:NAME}} / app.val usage).

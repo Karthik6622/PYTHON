@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from ats.analysis.autofix import apply_repair
+from ats.analysis.autofix import RepairRejected, apply_repair
 from ats.analysis.expectations import parse_claim, repair_expectation
 from ats.automation.script_service import build_corpus, validate_script
 from ats.discovery.facts import Evidence, facts_digest
 from ats.generation.grounding import ground_cases
 from ats.generation.scenarios import ScenarioService, page_names
 from ats.locators.builder import build_locators
-from ats.models import AutomationStep, DiscoveryResult, PageSnapshot, Scenario, TestCase, TestScript
+from ats.models import AutomationStep, DiscoveryResult, PageSnapshot, RepairEdit, RepairResult, Scenario, TestCase, TestScript
 from ats.generation.adapters.common import build_views
 
 
@@ -262,3 +262,43 @@ def test_an_invented_expectation_is_corrected_from_the_live_value_and_a_real_reg
     observed = "AssertionError: Locator expected to contain text 'Settings'\nActual value: Profile\n"
     repair, why = repair_expectation({"tests/web/test_settings.py": TEST_FILE.replace("Settle", "Settings")}, "TC_SET_001", heading.element_key, "expect_text", observed, heading, evidence)
     assert repair is None and "application changed" in why  # it WAS observed: that is a regression, reported as a defect
+
+
+TS_FILE = """import { test, expect } from '../utils/fixtures';
+
+test.describe("Settings", () => {
+  // TC_SET_001 | Scenario SC_SET_001
+  test("TC_SET_001 - heading", async ({ app }) => {
+    await app.step("Heading", { action: "expect_text", element: "settings.settings_heading" }, async () => {
+      await expect(app.pages.settings.settings_heading).toContainText("Settngs");
+    });
+  });
+
+  // TC_SET_002 | Scenario SC_SET_001
+  test("TC_SET_002 - heading", async ({ app }) => {
+    await app.step("Heading", { action: "expect_text", element: "settings.settings_heading" }, async () => {
+      await expect(app.pages.settings.settings_heading).toContainText("Settngs");
+    });
+  });
+});
+"""
+
+
+def test_typescript_tests_are_found_and_repaired_like_python_ones(world):
+    from ats.analysis.autofix import test_function as find_test_function
+
+    _, specs, evidence, _ = world
+    spec_path = "tests/settings.spec.ts"
+    files = {spec_path: TS_FILE}
+    path, source = find_test_function(files, "TC_SET_002")
+    assert path == spec_path and "TC_SET_002" in source and "TC_SET_001" not in source
+    heading = specs[key(specs, "settings", "heading", "Settings")]
+    repair, why = repair_expectation(files, "TC_SET_002", heading.element_key, "expect_text", ERROR.replace("Settle", "Settngs"), heading, evidence)
+    assert repair is not None and "corrected to what the page shows: 'Settings'" in why
+    fixed = apply_repair(files, repair)[spec_path]
+    assert fixed.count('toContainText("Settings")') == 1 and fixed.count('toContainText("Settngs")') == 1  # only TC_SET_002 changed
+    assert fixed.count("expect(") == TS_FILE.count("expect(")
+    single = TS_FILE.split("  // TC_SET_002")[0] + "});\n"
+    weaker = RepairResult(verdict="fixed", explanation="x", edits=[RepairEdit(path=spec_path, find='toContainText("Settngs")', replace="toBeVisible()")])
+    with pytest.raises(RepairRejected):
+        apply_repair({spec_path: single}, weaker)  # a text check is never weakened to a visibility check
