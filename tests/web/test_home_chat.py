@@ -314,8 +314,8 @@ def test_tc_home_010_select_english_teacher_chat_mode_updates(app):
         app.click(app.pages.home.english_teacher_radio)
     with app.step("Verify the radio 'English Teacher' is checked", action='expect_enabled', element='home.english_teacher_radio'):
         expect(app.pages.home.english_teacher_radio).to_be_enabled()
-    with app.step("Verify the radio 'Normal' is not checked", action='expect_disabled', element='home.normal_radio'):
-        expect(app.pages.home.normal_radio).to_be_disabled()
+    with app.step("Verify the radio 'Normal' is not checked", action='expect_not_checked', element='home.normal_radio'):
+        expect(app.pages.home.normal_radio).not_to_be_checked()
 
 @pytest.mark.tc('TC_HOME_011')
 def test_tc_home_011_re_select_normal_chat_mode_after_changin(app):
@@ -336,8 +336,8 @@ def test_tc_home_011_re_select_normal_chat_mode_after_changin(app):
         app.click(app.pages.home.normal_radio)
     with app.step("Verify the radio 'Normal' is checked", action='expect_enabled', element='home.normal_radio'):
         expect(app.pages.home.normal_radio).to_be_enabled()
-    with app.step("Verify the radio 'Romantic' is not checked", action='expect_disabled', element='home.romantic_radio'):
-        expect(app.pages.home.romantic_radio).to_be_disabled()
+    with app.step("Verify the radio 'Romantic' is not checked", action='expect_not_checked', element='home.romantic_radio'):
+        expect(app.pages.home.romantic_radio).not_to_be_checked()
 
 @pytest.mark.tc('TC_HOME_012')
 def test_tc_home_012_turn_on_speak_replies_toggle(app):
@@ -374,8 +374,8 @@ def test_tc_home_013_turn_off_speak_replies_toggle(app):
         expect(app.pages.home.speak_replies_switch).to_be_enabled()
     with app.step("Click the switch '🔊 Speak replies' again", action='click', element='home.speak_replies_switch'):
         app.click(app.pages.home.speak_replies_switch)
-    with app.step("Verify the switch '🔊 Speak replies' is in the off state", action='expect_disabled', element='home.speak_replies_switch'):
-        expect(app.pages.home.speak_replies_switch).to_be_disabled()
+    with app.step("Verify the switch '🔊 Speak replies' is in the off state", action='expect_unchecked', element='home.speak_replies_switch'):
+        expect(app.pages.home.speak_replies_switch).not_to_be_checked()
 
 @pytest.mark.tc('TC_HOME_015')
 def test_tc_home_015_send_message_button_enables_when_text_is(app):

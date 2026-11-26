@@ -610,16 +610,16 @@
     "role": "button",
     "name": "Delete this chat",
     "preferred": {
-      "kind": "role",
-      "value": "button",
-      "name": "Delete this chat",
-      "exact": true
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Delete this chat\")",
+      "exact": false
     },
     "alternatives": [
       {
-        "kind": "css",
-        "value": "[data-testid=\"stBaseButton-secondary\"]:has-text(\"Delete this chat\")",
-        "exact": false
+        "kind": "role",
+        "value": "button",
+        "name": "Delete this chat",
+        "exact": true
       }
     ],
     "fingerprint": {
@@ -893,16 +893,16 @@
     "role": "button",
     "name": "Save title",
     "preferred": {
-      "kind": "role",
-      "value": "button",
-      "name": "Save title",
-      "exact": true
+      "kind": "css",
+      "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
+      "exact": false
     },
     "alternatives": [
       {
-        "kind": "css",
-        "value": "[data-testid=\"stBaseButton-secondaryFormSubmit\"]:has-text(\"Save title\")",
-        "exact": false
+        "kind": "role",
+        "value": "button",
+        "name": "Save title",
+        "exact": true
       }
     ],
     "fingerprint": {

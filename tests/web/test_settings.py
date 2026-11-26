@@ -112,7 +112,10 @@ def test_tc_sett_012_save_preferences_with_only_reply_tone_ch(app):
     with app.step("Verify the heading 'Settings' is shown", action='expect_text', element='settings.settings_heading'):
         expect(app.pages.settings.settings_heading).to_contain_text('Settings')
     with app.step("Click the combobox 'Reply tone' and select 'Encouraging'", action='select', element='settings.reply_tone_combobox'):
-        app.pages.settings.reply_tone_combobox.select_option(label='Encouraging'); app.settle()
+        combobox = app.page.get_by_role("combobox", name="Reply tone")
+        combobox.click()
+        app.page.get_by_role("option", name="Encouraging").click()
+        app.settle()
     with app.step("Click the button 'Save preferences'", action='click', element='settings.save_preferences_button'):
         app.click(app.pages.settings.save_preferences_button)
     with app.step('Verify the view stays on Settings', action='expect_text', element='settings.settings_heading'):
