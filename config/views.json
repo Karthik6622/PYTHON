@@ -1,0 +1,69 @@
+{
+  "start_url": "https://personalpartner.streamlit.app/",
+  "views": {
+    "home": {
+      "name": "Good morning, karthik",
+      "signed_in": true,
+      "steps": [],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    },
+    "my_profile": {
+      "name": "My Profile",
+      "signed_in": true,
+      "steps": [
+        {
+          "role": "radio",
+          "label": "My Profile",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    },
+    "settings": {
+      "name": "Settings",
+      "signed_in": true,
+      "steps": [
+        {
+          "role": "radio",
+          "label": "Settings",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    },
+    "landing": {
+      "name": "Here for whatever is on your mind. (signed out)",
+      "signed_in": false,
+      "steps": [],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    },
+    "get_started": {
+      "name": "Welcome back",
+      "signed_in": false,
+      "steps": [
+        {
+          "role": "button",
+          "label": "Get started",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    },
+    "create_account": {
+      "name": "Create your account",
+      "signed_in": false,
+      "steps": [
+        {
+          "role": "button",
+          "label": "Create account",
+          "nth": 0,
+          "href": ""
+        }
+      ],
+      "url": "https://personalpartner.streamlit.app/~/+/"
+    }
+  }
+}
